@@ -15,6 +15,9 @@ export type LoginState =
   | { status: 'success' }
   | { status: 'error'; message: string };
 
+/** Teto pra fase de conexão (antes do 1º token real chegar) — depois disso o usuário tem tempo ilimitado pra escanear. */
+const CONNECT_TIMEOUT_MS = 30_000;
+
 let state: LoginState = { status: 'idle' };
 let abortController: AbortController | null = null;
 let passwordResolver: ((password: string) => void) | null = null;
@@ -45,6 +48,14 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
   abortController = new AbortController();
   state = { status: 'pending', token: '', expires: 0 };
 
+  let gotFirstToken = false;
+  let timedOut = false;
+  const connectTimeout = setTimeout(() => {
+    if (gotFirstToken) return;
+    timedOut = true;
+    abortController?.abort();
+  }, CONNECT_TIMEOUT_MS);
+
   const client = new TelegramClient(new StringSession(''), apiId, apiHash, { connectionRetries: 3 });
 
   void (async () => {
@@ -54,6 +65,8 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
         { apiId, apiHash },
         {
           qrCode: async ({ token, expires }) => {
+            gotFirstToken = true;
+            clearTimeout(connectTimeout);
             state = { status: 'pending', token: token.toString('base64url'), expires };
           },
           password: async (hint) => {
@@ -75,13 +88,16 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
       state = { status: 'success' };
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        state = { status: 'idle' };
+        state = timedOut
+          ? { status: 'error', message: `não foi possível conectar ao Telegram em ${CONNECT_TIMEOUT_MS / 1000}s — verifique rede/firewall e tente de novo` }
+          : { status: 'idle' };
       } else {
         const message = err instanceof Error ? err.message : 'falha no login por QR code';
         console.error('[telegram qr-login] falhou:', message);
         state = { status: 'error', message };
       }
     } finally {
+      clearTimeout(connectTimeout);
       await client.disconnect().catch(() => {});
       running = false;
       passwordResolver = null;

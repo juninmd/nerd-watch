@@ -90,7 +90,7 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
 
     if (state.status === 'pending' && !state.token) {
       qrHost.innerHTML = `
-        <p class="hint" style="margin:0">🔄 conectando ao Telegram…</p>
+        <p class="hint" style="margin:0">🔄 conectando ao Telegram… (pode levar até 30s)</p>
         <button class="btn btn-ghost btn-sm" id="tg-qr-cancel" style="width:100%;justify-content:center;margin-top:8px">cancelar</button>
       `;
       wireCancelButton();
