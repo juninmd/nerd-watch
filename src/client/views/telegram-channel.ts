@@ -18,6 +18,23 @@ const formatDuration = (seconds: number | null): string => {
   return `${h > 0 ? `${h}:` : ''}${mm}:${String(s).padStart(2, '0')}`;
 };
 
+/** Telegram não tem campo de título — usa a 1ª linha da legenda como título e o resto como descrição. */
+const itemTitle = (item: TelegramItemDto, maxLen = 80): string => {
+  const firstLine = item.caption?.split('\n').find((l) => l.trim().length > 0);
+  return firstLine ? firstLine.slice(0, maxLen) : `Vídeo — mensagem ${item.messageId}`;
+};
+
+const itemDescription = (item: TelegramItemDto): string | null => {
+  if (!item.caption) return null;
+  const rest = item.caption
+    .split('\n')
+    .filter((l) => l.trim().length > 0)
+    .slice(1)
+    .join(' ')
+    .trim();
+  return rest || null;
+};
+
 export const renderTelegramChannel = (host: HTMLElement, titleId: string): void => {
   host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
 
@@ -79,11 +96,19 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
 
   const playItem = (item: TelegramItemDto) => {
     const playUrl = telegramPlayUrl(d.titleId, item.messageId);
+    const meta = [formatDuration(item.durationSeconds), item.postedAt ? new Date(item.postedAt).toLocaleDateString('pt-BR') : null]
+      .filter(Boolean)
+      .join(' · ');
+    const description = itemDescription(item);
     playerHost.innerHTML = `
-      <div class="player-frame">
-        <video src="${playUrl}" controls autoplay ${item.thumbnailUrl ? `poster="${item.thumbnailUrl}"` : ''}></video>
+      <div class="tg-player-heading">
+        <h3>${escapeHtml(itemTitle(item))}</h3>
+        ${meta ? `<div class="tg-player-meta">${escapeHtml(meta)}</div>` : ''}
       </div>
-      ${item.caption ? `<p class="view-subtitle" style="margin-top:-8px">${escapeHtml(item.caption)}</p>` : ''}
+      <div class="tg-player">
+        <video src="${playUrl}" controls autoplay playsinline ${item.thumbnailUrl ? `poster="${item.thumbnailUrl}"` : ''}></video>
+      </div>
+      ${description ? `<p class="view-subtitle">${escapeHtml(description)}</p>` : ''}
     `;
     const video = playerHost.querySelector('video') as HTMLVideoElement;
     video.addEventListener('error', () => {
@@ -111,7 +136,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
           ${item.durationSeconds ? `<span class="badge badge-corner">${formatDuration(item.durationSeconds)}</span>` : ''}
         </div>
         <div class="meta">
-          <div class="title">${item.caption ? escapeHtml(item.caption.slice(0, 60)) : `mensagem ${escapeHtml(item.messageId)}`}</div>
+          <div class="title">${escapeHtml(itemTitle(item, 60))}</div>
           ${item.postedAt ? `<div class="sub">${new Date(item.postedAt).toLocaleDateString('pt-BR')}</div>` : ''}
         </div>
       `;
