@@ -1,3 +1,22 @@
+interface TelegramRuntimeConfig {
+  botToken?: string;
+  apiId?: number;
+  apiHash?: string;
+  session?: string;
+}
+
+/**
+ * Ao contrário do resto do config (fixo no boot), os campos do Telegram podem ser configurados pela
+ * própria UI em runtime (ver `routes/telegram-settings.ts`) — por isso ficam num objeto mutável separado,
+ * em vez de dentro do `as const` abaixo.
+ */
+const telegram: TelegramRuntimeConfig = {
+  botToken: process.env.TELEGRAM_BOT_TOKEN?.trim() || undefined,
+  apiId: process.env.TELEGRAM_API_ID?.trim() ? Number(process.env.TELEGRAM_API_ID.trim()) : undefined,
+  apiHash: process.env.TELEGRAM_API_HASH?.trim() || undefined,
+  session: process.env.TELEGRAM_SESSION?.trim() || undefined,
+};
+
 export const config = {
   port: Number(process.env.PORT ?? 7799),
   dbPath: process.env.DB_PATH ?? 'data/nerd-watch.db',
@@ -10,12 +29,7 @@ export const config = {
     apiKey: process.env.OPENSUBTITLES_API_KEY?.trim() || undefined,
     languages: process.env.OPENSUBTITLES_LANGUAGES?.trim() || 'pt-BR,pt,en',
   },
-  telegram: {
-    botToken: process.env.TELEGRAM_BOT_TOKEN?.trim() || undefined,
-    apiId: process.env.TELEGRAM_API_ID?.trim() ? Number(process.env.TELEGRAM_API_ID.trim()) : undefined,
-    apiHash: process.env.TELEGRAM_API_HASH?.trim() || undefined,
-    session: process.env.TELEGRAM_SESSION?.trim() || undefined,
-  },
+  telegram,
 } as const;
 
 export const tmdbEnabled = (): boolean => Boolean(config.tmdb.apiKey);

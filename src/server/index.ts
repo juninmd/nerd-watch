@@ -11,6 +11,7 @@ import { calendarRoutes } from './routes/calendar.ts';
 import { subtitlesRoutes } from './routes/subtitles.ts';
 import { backupRoutes } from './routes/backup.ts';
 import { telegramRoutes } from './routes/telegram.ts';
+import { telegramSettingsRoutes } from './routes/telegram-settings.ts';
 
 const app = new Hono();
 
@@ -43,6 +44,7 @@ app.route('/api/calendar', calendarRoutes);
 app.route('/api/subtitles', subtitlesRoutes);
 app.route('/api/backup', backupRoutes);
 app.route('/api/telegram', telegramRoutes);
+app.route('/api/telegram/settings', telegramSettingsRoutes);
 
 app.use('/*', serveStatic({ root: './public' }));
 

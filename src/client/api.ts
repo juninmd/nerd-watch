@@ -302,3 +302,40 @@ export const refreshTelegramChannel = (titleId: string): Promise<{ itemCount: nu
 
 export const telegramPlayUrl = (titleId: string, messageId: string): string =>
   `/api/telegram/channels/${titleId}/items/${encodeURIComponent(messageId)}/play`;
+
+export interface TelegramSettingsStatus {
+  botTokenConfigured: boolean;
+  apiCredentialsConfigured: boolean;
+  personalConfigured: boolean;
+}
+
+export const getTelegramSettings = (): Promise<TelegramSettingsStatus> =>
+  fetch('/api/telegram/settings').then((r) => json<TelegramSettingsStatus>(r));
+
+export const saveTelegramSettings = (input: { botToken?: string; apiId?: number; apiHash?: string }): Promise<TelegramSettingsStatus> =>
+  fetch('/api/telegram/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).then(
+    (r) => json<TelegramSettingsStatus>(r),
+  );
+
+export type TelegramLoginState =
+  | { status: 'idle' }
+  | { status: 'pending'; token: string; expires: number }
+  | { status: 'need_password'; hint: string }
+  | { status: 'success' }
+  | { status: 'error'; message: string };
+
+export const startTelegramLogin = (): Promise<{ ok: true }> =>
+  fetch('/api/telegram/settings/login/start', { method: 'POST' }).then((r) => json<{ ok: true }>(r));
+
+export const getTelegramLoginStatus = (): Promise<TelegramLoginState> =>
+  fetch('/api/telegram/settings/login/status').then((r) => json<TelegramLoginState>(r));
+
+export const submitTelegramLoginPassword = (password: string): Promise<{ ok: true }> =>
+  fetch('/api/telegram/settings/login/password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  }).then((r) => json<{ ok: true }>(r));
+
+export const cancelTelegramLogin = (): Promise<{ ok: true }> =>
+  fetch('/api/telegram/settings/login/cancel', { method: 'POST' }).then((r) => json<{ ok: true }>(r));

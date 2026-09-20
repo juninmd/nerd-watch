@@ -1,5 +1,6 @@
 import { addTelegramChannel, listTelegramChannels, type TelegramChannelDto, type TelegramChannelMode } from '../api.ts';
 import { renderCard } from '../components/card.ts';
+import { renderTelegramSettings } from '../components/telegram-settings.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 
@@ -10,9 +11,8 @@ export const renderTelegramChannels = (host: HTMLElement): void => {
     <h1 class="view-title">✈️ Canais do Telegram</h1>
     <p class="view-subtitle">
       Adicione um canal público pelo @usuário pra maratonar os vídeos dentro do app. Modo bot exige um token
-      grátis do @BotFather no .env e só vê vídeos postados a partir de agora (sem histórico); modo conta
-      pessoal exige rodar <code>bun run telegram:login</code> uma vez, mas é o único com histórico completo
-      do canal e sem limite de tamanho de arquivo.
+      grátis do @BotFather; modo conta pessoal exige um login único (QR code, veja "Configurar credenciais"
+      abaixo), mas é o único com histórico completo do canal e sem limite de tamanho de arquivo.
     </p>
     <form id="add-form" class="chip-row" style="margin-bottom:20px;gap:10px">
       <input type="text" id="handle-input" placeholder="@usuario_do_canal" autocomplete="off"
@@ -24,8 +24,14 @@ export const renderTelegramChannels = (host: HTMLElement): void => {
       </select>
       <button class="btn btn-primary btn-sm" type="submit">adicionar</button>
     </form>
+    <details style="margin-bottom:20px">
+      <summary style="cursor:pointer;font-weight:600">⚙️ Configurar credenciais do Telegram</summary>
+      <div id="tg-settings-host" style="margin-top:12px"></div>
+    </details>
     <div id="tg-grid"><div class="grid">${Array.from({ length: 6 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div></div>
   `;
+
+  renderTelegramSettings(host.querySelector('#tg-settings-host') as HTMLElement);
 
   const grid = host.querySelector('#tg-grid') as HTMLElement;
   const form = host.querySelector('#add-form') as HTMLFormElement;
