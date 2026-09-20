@@ -241,3 +241,16 @@ export const downloadSubtitle = (fileId: number): Promise<{ url: string; remaini
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fileId }),
   }).then((r) => json<{ url: string; remaining: number }>(r));
+
+export const exportBackup = (): Promise<unknown> => fetch('/api/backup').then((r) => json<unknown>(r));
+
+export interface ImportBackupResponse {
+  imported: { titles: number; seasons: number; episodes: number; libraryEntries: number };
+}
+
+export const importBackup = (data: unknown): Promise<ImportBackupResponse> =>
+  fetch('/api/backup/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }).then((r) => json<ImportBackupResponse>(r));

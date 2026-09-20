@@ -1,3 +1,4 @@
+import { withCache } from '../cache.ts';
 import { config, openSubtitlesEnabled } from '../config.ts';
 
 /**
@@ -68,28 +69,31 @@ export interface SubtitleResult {
   fileName: string;
 }
 
-export const searchSubtitles = async (opts: { query?: string; tmdbId?: number; languages?: string }): Promise<SubtitleResult[]> => {
-  const params = new URLSearchParams();
-  if (opts.tmdbId) params.set('tmdb_id', String(opts.tmdbId));
-  if (opts.query) params.set('query', opts.query);
-  params.set('languages', opts.languages ?? config.opensubtitles.languages);
+export const searchSubtitles = withCache(
+  30 * 60_000,
+  async (opts: { query?: string; tmdbId?: number; languages?: string }): Promise<SubtitleResult[]> => {
+    const params = new URLSearchParams();
+    if (opts.tmdbId) params.set('tmdb_id', String(opts.tmdbId));
+    if (opts.query) params.set('query', opts.query);
+    params.set('languages', opts.languages ?? config.opensubtitles.languages);
 
-  const data = await call<OsSearchResponse>(`/subtitles?${params}`);
-  return data.data
-    .map((item) => {
-      const file = item.attributes.files[0];
-      if (!file) return null;
-      return {
-        subtitleId: item.attributes.subtitle_id,
-        language: item.attributes.language,
-        release: item.attributes.release,
-        downloadCount: item.attributes.download_count,
-        fileId: file.file_id,
-        fileName: file.file_name,
-      };
-    })
-    .filter((r): r is SubtitleResult => r !== null);
-};
+    const data = await call<OsSearchResponse>(`/subtitles?${params}`);
+    return data.data
+      .map((item) => {
+        const file = item.attributes.files[0];
+        if (!file) return null;
+        return {
+          subtitleId: item.attributes.subtitle_id,
+          language: item.attributes.language,
+          release: item.attributes.release,
+          downloadCount: item.attributes.download_count,
+          fileId: file.file_id,
+          fileName: file.file_name,
+        };
+      })
+      .filter((r): r is SubtitleResult => r !== null);
+  },
+);
 
 interface OsDownloadResponse {
   link: string;

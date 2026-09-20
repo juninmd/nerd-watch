@@ -76,3 +76,8 @@ export const getDb = async (): Promise<Database> => {
   instance = openDb(config.dbPath);
   return instance;
 };
+
+/** Só para testes de rota: injeta a instância que `getDb()` deve devolver (evita tocar `data/nerd-watch.db`). */
+export const resetDbForTests = (db?: Database): void => {
+  instance = db;
+};

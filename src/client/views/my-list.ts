@@ -1,7 +1,8 @@
-import { listLibrary, type LibraryItemDto } from '../api.ts';
+import { exportBackup, importBackup, listLibrary, type LibraryItemDto } from '../api.ts';
 import type { WatchStatus } from '../../server/types.ts';
 import { renderCard } from '../components/card.ts';
 import { navigate } from '../router.ts';
+import { showToast } from '../state.ts';
 import { titlePath } from '../title-link.ts';
 
 const FILTERS: Array<{ value: WatchStatus | 'all'; label: string }> = [
@@ -18,13 +19,63 @@ export const renderMyList = (host: HTMLElement): void => {
   host.innerHTML = `
     <h1 class="view-title">Minha lista</h1>
     <p class="view-subtitle">Tudo o que você marcou, de "quero ver" a "abandonado".</p>
-    <div class="chip-row" id="filters" style="margin-bottom:22px"></div>
+    <div class="chip-row" id="filters" style="margin-bottom:14px"></div>
+    <div style="margin-bottom:22px;display:flex;gap:10px">
+      <button class="btn btn-ghost btn-sm" id="btn-export">⬇️ exportar backup</button>
+      <button class="btn btn-ghost btn-sm" id="btn-import">⬆️ importar backup</button>
+      <input type="file" accept="application/json" id="import-file" style="display:none" />
+    </div>
     <div id="list"><div class="grid">${Array.from({ length: 6 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div></div>
   `;
 
   const filtersEl = host.querySelector('#filters') as HTMLElement;
   const listEl = host.querySelector('#list') as HTMLElement;
   let allItems: LibraryItemDto[] = [];
+
+  const loadList = () => {
+    listLibrary()
+      .then((data) => {
+        allItems = data.items;
+        renderList();
+      })
+      .catch(() => {
+        listEl.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar sua lista</div>`;
+      });
+  };
+
+  (host.querySelector('#btn-export') as HTMLButtonElement).addEventListener('click', async () => {
+    try {
+      const data = await exportBackup();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nerd-watch-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('backup exportado');
+    } catch {
+      showToast('falha ao exportar backup');
+    }
+  });
+
+  const importInput = host.querySelector('#import-file') as HTMLInputElement;
+  (host.querySelector('#btn-import') as HTMLButtonElement).addEventListener('click', () => importInput.click());
+  importInput.addEventListener('change', async () => {
+    const file = importInput.files?.[0];
+    importInput.value = '';
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const res = await importBackup(data);
+      showToast(
+        `backup importado: ${res.imported.titles} títulos, ${res.imported.libraryEntries} na lista`,
+      );
+      loadList();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'falha ao importar backup');
+    }
+  });
 
   const renderFilters = () => {
     filtersEl.innerHTML = FILTERS.map(
@@ -66,13 +117,5 @@ export const renderMyList = (host: HTMLElement): void => {
   };
 
   renderFilters();
-
-  listLibrary()
-    .then((data) => {
-      allItems = data.items;
-      renderList();
-    })
-    .catch(() => {
-      listEl.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar sua lista</div>`;
-    });
+  loadList();
 };

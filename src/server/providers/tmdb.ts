@@ -1,5 +1,8 @@
+import { withCache } from '../cache.ts';
 import { config, tmdbEnabled } from '../config.ts';
 import type { MediaType } from '../types.ts';
+
+const MINUTES = 60_000;
 
 const BASE = 'https://api.themoviedb.org/3';
 const IMG_BASE = 'https://image.tmdb.org/t/p';
@@ -46,10 +49,10 @@ export interface TmdbSearchItem {
   vote_average: number;
 }
 
-export const tmdbSearchMulti = async (query: string): Promise<TmdbSearchItem[]> => {
+export const tmdbSearchMulti = withCache(15 * MINUTES, async (query: string): Promise<TmdbSearchItem[]> => {
   const data = await call<{ results: TmdbSearchItem[] }>('/search/multi', { query, include_adult: 'false' });
   return data.results.filter((r) => r.media_type === 'movie' || r.media_type === 'tv');
-};
+});
 
 export interface TmdbSeasonSummary {
   season_number: number;
@@ -72,7 +75,7 @@ export interface TmdbTitleDetails {
   seasons?: TmdbSeasonSummary[];
 }
 
-export const tmdbTitleDetails = async (mediaType: MediaType, id: number): Promise<TmdbTitleDetails> => {
+export const tmdbTitleDetails = withCache(60 * MINUTES, async (mediaType: MediaType, id: number): Promise<TmdbTitleDetails> => {
   const raw = await call<Record<string, unknown>>(`/${mediaType}/${id}`);
   return {
     id: raw.id as number,
@@ -85,7 +88,7 @@ export const tmdbTitleDetails = async (mediaType: MediaType, id: number): Promis
     status: raw.status as string,
     seasons: raw.seasons as TmdbSeasonSummary[] | undefined,
   };
-};
+});
 
 export interface TmdbEpisode {
   episode_number: number;
@@ -96,10 +99,10 @@ export interface TmdbEpisode {
   still_path: string | null;
 }
 
-export const tmdbSeasonEpisodes = async (tvId: number, seasonNumber: number): Promise<TmdbEpisode[]> => {
+export const tmdbSeasonEpisodes = withCache(60 * MINUTES, async (tvId: number, seasonNumber: number): Promise<TmdbEpisode[]> => {
   const data = await call<{ episodes: TmdbEpisode[] }>(`/tv/${tvId}/season/${seasonNumber}`);
   return data.episodes;
-};
+});
 
 export interface TmdbWatchProvider {
   provider_name: string;
@@ -113,11 +116,11 @@ export interface TmdbWatchProviders {
   buy: TmdbWatchProvider[];
 }
 
-export const tmdbWatchProviders = async (mediaType: MediaType, id: number): Promise<TmdbWatchProviders> => {
+export const tmdbWatchProviders = withCache(30 * MINUTES, async (mediaType: MediaType, id: number): Promise<TmdbWatchProviders> => {
   const data = await call<{ results: Record<string, TmdbWatchProviders> }>(`/${mediaType}/${id}/watch/providers`);
   const region = data.results[config.tmdb.region];
   return region ?? { link: null, flatrate: [], rent: [], buy: [] };
-};
+});
 
 interface TmdbVideo {
   key: string;
@@ -126,11 +129,11 @@ interface TmdbVideo {
   official: boolean;
 }
 
-export const tmdbTrailerKey = async (mediaType: MediaType, id: number): Promise<string | null> => {
+export const tmdbTrailerKey = withCache(60 * MINUTES, async (mediaType: MediaType, id: number): Promise<string | null> => {
   const data = await call<{ results: TmdbVideo[] }>(`/${mediaType}/${id}/videos`);
   const trailers = data.results.filter((v) => v.site === 'YouTube' && v.type === 'Trailer');
   const best = trailers.find((v) => v.official) ?? trailers[0];
   return best?.key ?? null;
-};
+});
 
 export { tmdbEnabled };

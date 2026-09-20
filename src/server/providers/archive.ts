@@ -1,3 +1,7 @@
+import { withCache } from '../cache.ts';
+
+const MINUTES = 60_000;
+
 /**
  * Internet Archive: sem chave, gratuito. Restrito à coleção `feature_films`,
  * curada pela própria Archive.org como domínio público / licença livre — é o
@@ -59,7 +63,7 @@ const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null): ArchiveMov
   subtitleUrl,
 });
 
-export const archiveSearchPublicDomain = async (query: string, limit = 24): Promise<ArchiveMovie[]> => {
+export const archiveSearchPublicDomain = withCache(15 * MINUTES, async (query: string, limit = 24): Promise<ArchiveMovie[]> => {
   const trimmed = query.trim();
   const scoped = `collection:(${PUBLIC_DOMAIN_COLLECTION}) AND mediatype:(movies)`;
   const q = trimmed ? `${scoped} AND (${trimmed})` : scoped;
@@ -74,12 +78,12 @@ export const archiveSearchPublicDomain = async (query: string, limit = 24): Prom
   if (!res.ok) throw new Error(`Internet Archive respondeu ${res.status}`);
   const data = (await res.json()) as { response: { docs: ArchiveDoc[] } };
   return data.response.docs.filter((d) => d.title).map((doc) => toMovie(doc));
-};
+});
 
-export const archiveMovieDetails = async (identifier: string): Promise<ArchiveMovie | null> => {
+export const archiveMovieDetails = withCache(24 * 60 * MINUTES, async (identifier: string): Promise<ArchiveMovie | null> => {
   const res = await fetch(`${METADATA_URL}/${encodeURIComponent(identifier)}`, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`Internet Archive respondeu ${res.status}`);
   const data = (await res.json()) as { metadata?: ArchiveDoc; files?: ArchiveFile[] };
   if (!data.metadata) return null;
   return toMovie({ ...data.metadata, identifier }, pickSubtitleUrl(identifier, data.files));
-};
+});

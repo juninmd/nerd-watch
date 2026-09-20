@@ -8,6 +8,7 @@ import { archiveRoutes } from './routes/archive.ts';
 import { libraryRoutes } from './routes/library.ts';
 import { calendarRoutes } from './routes/calendar.ts';
 import { subtitlesRoutes } from './routes/subtitles.ts';
+import { backupRoutes } from './routes/backup.ts';
 
 const app = new Hono();
 
@@ -36,6 +37,7 @@ app.route('/api/archive', archiveRoutes);
 app.route('/api/library', libraryRoutes);
 app.route('/api/calendar', calendarRoutes);
 app.route('/api/subtitles', subtitlesRoutes);
+app.route('/api/backup', backupRoutes);
 
 app.use('/*', serveStatic({ root: './public' }));
 
