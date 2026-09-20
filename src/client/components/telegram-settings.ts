@@ -167,7 +167,10 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
     e.preventDefault();
     const input = host.querySelector('#tg-bot-token') as HTMLInputElement;
     const botToken = input.value.trim();
-    if (!botToken) return;
+    if (!botToken) {
+      showToast('preencha o token do bot');
+      return;
+    }
     saveTelegramSettings({ botToken })
       .then((status) => {
         showToast('token do bot salvo');
@@ -183,7 +186,10 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
     const apiHashInput = host.querySelector('#tg-api-hash') as HTMLInputElement;
     const apiId = Number(apiIdInput.value.trim());
     const apiHash = apiHashInput.value.trim();
-    if (!apiId || !apiHash) return;
+    if (!apiId || !apiHash) {
+      showToast('preencha api_id e api_hash (os dois são obrigatórios)');
+      return;
+    }
     saveTelegramSettings({ apiId, apiHash })
       .then((status) => {
         showToast('credenciais salvas');
