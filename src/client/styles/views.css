@@ -225,29 +225,32 @@
   border: none;
 }
 
-/* Player do Telegram: vídeo mantém a proporção natural (retrato ou paisagem) em vez de um 16:9 forçado. */
+/*
+ * Player do Telegram (Plyr): a proporção (retrato ou paisagem) vem do próprio vídeo — o Plyr usa
+ * `aspect-ratio` calculado a partir de videoWidth/videoHeight quando nenhum `ratio` fixo é passado.
+ * O cap de altura pra vídeos retrato (senão um 9:16 esticaria pela largura toda do container) é aplicado
+ * via JS em `.plyr` (max-width), calculado a partir do orçamento de altura disponível.
+ */
 .tg-player {
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
   min-height: 220px;
-  max-height: 78vh;
   border-radius: 20px;
-  overflow: hidden;
+  padding: 14px;
   margin-bottom: 14px;
   background: radial-gradient(circle at 50% 40%, #241a3d 0%, #0b0714 75%);
   box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.65), inset 0 0 0 1px var(--border-soft);
 }
 
-.tg-player video {
-  display: block;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 78vh;
+.tg-player .plyr {
+  --plyr-color-main: var(--accent);
+  --plyr-control-radius: 10px;
+  --plyr-video-background: transparent;
   border-radius: 14px;
-  background: black;
+  overflow: hidden;
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.6);
 }
 
 .tg-player-heading {

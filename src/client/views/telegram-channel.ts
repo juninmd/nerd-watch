@@ -1,7 +1,24 @@
+import Plyr from 'plyr';
 import { getTelegramChannel, refreshTelegramChannel, telegramPlayUrl, type TelegramChannelDetailDto, type TelegramItemDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { showToast } from '../state.ts';
+
+const PLYR_CONTROLS = ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'settings', 'fullscreen'];
+
+/** Vídeo retrato (9:16 etc.) esticaria até a largura toda do container — trava a largura pelo orçamento de altura. */
+const capPortraitWidth = (container: HTMLElement, video: HTMLVideoElement): (() => void) => {
+  const apply = () => {
+    const { videoWidth: w, videoHeight: h } = video;
+    if (!w || !h) return;
+    const heightBudget = Math.min(window.innerHeight * 0.72, 720);
+    container.style.maxWidth = h > w ? `${Math.round((heightBudget * w) / h)}px` : '';
+  };
+  if (video.readyState >= 1) apply();
+  else video.addEventListener('loadedmetadata', apply, { once: true });
+  window.addEventListener('resize', apply);
+  return () => window.removeEventListener('resize', apply);
+};
 
 const MODE_LABEL: Record<TelegramChannelDetailDto['mode'], string> = {
   public: 'canal público',
@@ -94,7 +111,12 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   const playerHost = host.querySelector('#tg-player') as HTMLElement;
   const itemsHost = host.querySelector('#tg-items') as HTMLElement;
 
+  let currentPlayer: Plyr | null = null;
+  let cleanupResize: (() => void) | null = null;
+
   const playItem = (item: TelegramItemDto) => {
+    currentPlayer?.destroy();
+    cleanupResize?.();
     const playUrl = telegramPlayUrl(d.titleId, item.messageId);
     const meta = [formatDuration(item.durationSeconds), item.postedAt ? new Date(item.postedAt).toLocaleDateString('pt-BR') : null]
       .filter(Boolean)
@@ -106,7 +128,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
         ${meta ? `<div class="tg-player-meta">${escapeHtml(meta)}</div>` : ''}
       </div>
       <div class="tg-player">
-        <video src="${playUrl}" controls autoplay playsinline ${item.thumbnailUrl ? `poster="${item.thumbnailUrl}"` : ''}></video>
+        <video src="${playUrl}" autoplay playsinline ${item.thumbnailUrl ? `poster="${item.thumbnailUrl}"` : ''}></video>
       </div>
       ${description ? `<p class="view-subtitle">${escapeHtml(description)}</p>` : ''}
     `;
@@ -117,6 +139,8 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
         .then((body) => showToast(body.error ?? 'não foi possível reproduzir esse vídeo'))
         .catch(() => showToast('não foi possível reproduzir esse vídeo'));
     });
+    currentPlayer = new Plyr(video, { controls: PLYR_CONTROLS });
+    cleanupResize = capPortraitWidth(currentPlayer.elements.container, video);
     playerHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 

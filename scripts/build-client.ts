@@ -22,5 +22,6 @@ await copyFile('src/client/styles.css', 'public/styles.css');
 for (const file of await readdir('src/client/styles')) {
   await copyFile(`src/client/styles/${file}`, `public/styles/${file}`);
 }
+await copyFile('node_modules/plyr/dist/plyr.css', 'public/styles/plyr.css');
 
 console.log(`client compilado (${result.outputs.length} artefatos)`);
