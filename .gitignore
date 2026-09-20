@@ -1,0 +1,10 @@
+node_modules/
+public/
+.cache/
+data/
+*.db
+*.db-journal
+.env
+.server.log
+.server.err
+scripts/.smoke-*.png
