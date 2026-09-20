@@ -12,9 +12,14 @@ export const config = {
   },
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN?.trim() || undefined,
+    apiId: process.env.TELEGRAM_API_ID?.trim() ? Number(process.env.TELEGRAM_API_ID.trim()) : undefined,
+    apiHash: process.env.TELEGRAM_API_HASH?.trim() || undefined,
+    session: process.env.TELEGRAM_SESSION?.trim() || undefined,
   },
 } as const;
 
 export const tmdbEnabled = (): boolean => Boolean(config.tmdb.apiKey);
 export const openSubtitlesEnabled = (): boolean => Boolean(config.opensubtitles.apiKey);
 export const telegramBotEnabled = (): boolean => Boolean(config.telegram.botToken);
+export const telegramPersonalEnabled = (): boolean =>
+  Boolean(config.telegram.apiId && config.telegram.apiHash && config.telegram.session);

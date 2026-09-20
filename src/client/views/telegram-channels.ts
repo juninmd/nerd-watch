@@ -11,7 +11,8 @@ export const renderTelegramChannels = (host: HTMLElement): void => {
     <p class="view-subtitle">
       Adicione um canal público pelo @usuário pra maratonar os vídeos dentro do app. Modo bot exige um token
       grátis do @BotFather no .env e só vê vídeos postados a partir de agora (sem histórico); modo conta
-      pessoal ainda está em construção.
+      pessoal exige rodar <code>bun run telegram:login</code> uma vez, mas é o único com histórico completo
+      do canal e sem limite de tamanho de arquivo.
     </p>
     <form id="add-form" class="chip-row" style="margin-bottom:20px;gap:10px">
       <input type="text" id="handle-input" placeholder="@usuario_do_canal" autocomplete="off"
@@ -19,7 +20,7 @@ export const renderTelegramChannels = (host: HTMLElement): void => {
       <select id="mode-input" style="padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text)">
         <option value="public">canal público (sem login)</option>
         <option value="bot">bot (precisa de TELEGRAM_BOT_TOKEN)</option>
-        <option value="personal">conta pessoal (em breve)</option>
+        <option value="personal">conta pessoal (histórico completo)</option>
       </select>
       <button class="btn btn-primary btn-sm" type="submit">adicionar</button>
     </form>

@@ -13,10 +13,12 @@
     "test": "bun test tests",
     "check": "bun run lint && bun run typecheck && bun run test",
     "smoke": "bun run scripts/smoke.ts",
-    "seed": "bun run src/server/seed.ts"
+    "seed": "bun run src/server/seed.ts",
+    "telegram:login": "bun run scripts/telegram-login.ts"
   },
   "dependencies": {
-    "hono": "^4.6.14"
+    "hono": "^4.6.14",
+    "teleproto": "^1.229.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",

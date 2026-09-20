@@ -3,6 +3,12 @@ import { escapeHtml } from '../components/card.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { showToast } from '../state.ts';
 
+const MODE_LABEL: Record<TelegramChannelDetailDto['mode'], string> = {
+  public: 'canal público',
+  bot: 'bot',
+  personal: 'conta pessoal',
+};
+
 const formatDuration = (seconds: number | null): string => {
   if (!seconds) return '';
   const h = Math.floor(seconds / 3600);
@@ -35,7 +41,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
         <div class="hero-info">
           <h1>${escapeHtml(d.title)}</h1>
           <div class="hero-meta">
-            <span class="badge badge-archive">telegram · ${d.mode === 'public' ? 'canal público' : d.mode}</span>
+            <span class="badge badge-archive">telegram · ${MODE_LABEL[d.mode]}</span>
             <span>${d.itemCount} vídeo${d.itemCount === 1 ? '' : 's'}</span>
           </div>
         </div>
@@ -44,7 +50,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     <div class="detail-grid">
       <div>
         <div id="tg-player"></div>
-        <div class="section-head"><h2>🎬 Vídeos</h2>${d.mode === 'public' ? `<button class="btn btn-ghost btn-sm" id="tg-refresh">🔄 atualizar</button>` : ''}</div>
+        <div class="section-head"><h2>🎬 Vídeos</h2>${d.mode === 'public' || d.mode === 'personal' ? `<button class="btn btn-ghost btn-sm" id="tg-refresh">🔄 atualizar</button>` : ''}</div>
         ${d.mode === 'bot' ? `<p class="hint" style="margin-top:-10px;margin-bottom:14px">modo bot só recebe vídeos postados a partir de agora — sem histórico retroativo.</p>` : ''}
         <div id="tg-items" class="grid"></div>
       </div>

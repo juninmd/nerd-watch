@@ -12,6 +12,7 @@ import {
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { TelegramChannelNotFoundError, fetchPublicChannelItems, resolvePublicPlayUrl } from '../providers/telegram/public.ts';
 import { TelegramBotNotConfiguredError, resolveBotFileUrl, telegramBotEnabled } from '../providers/telegram/bot.ts';
+import { TelegramPersonalNotConfiguredError, fetchPersonalChannelItems, streamPersonalItem, telegramPersonalEnabled } from '../providers/telegram/personal.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
 import type { TelegramChannelMode } from '../types.ts';
 
@@ -75,7 +76,24 @@ telegramRoutes.post('/channels', async (c) => {
     return c.json(toChannelResponse(channel, listTelegramItems(db, channel.id).length), 201);
   }
 
-  return c.json({ error: `modo "${body.mode}" ainda não implementado` }, 501);
+  if (!telegramPersonalEnabled()) {
+    return c.json({ error: 'conta pessoal do Telegram não configurada — rode `bun run telegram:login` e configure o .env' }, 501);
+  }
+  try {
+    const items = await fetchPersonalChannelItems(handle);
+    const channel = upsertTelegramChannel(db, { handle, mode: 'personal' });
+    const saved = upsertTelegramItems(
+      db,
+      channel.id,
+      items.map((i) => ({ messageId: i.messageId, caption: i.caption, durationSeconds: i.durationSeconds, postedAt: i.postedAt })),
+    );
+    const oldest = saved[0]?.message_id ?? null;
+    if (oldest) updateChannelCursor(db, channel.id, oldest);
+    return c.json(toChannelResponse(channel, saved.length), 201);
+  } catch (err) {
+    if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    return c.json({ error: 'não foi possível ler esse canal com a conta pessoal agora' }, 502);
+  }
 });
 
 telegramRoutes.get('/channels/:id', async (c) => {
@@ -101,23 +119,37 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
   const db = await getDb();
   const channel = getTelegramChannel(db, c.req.param('id'));
   if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
-  if (channel.mode !== 'public') return c.json({ error: `atualização automática ainda não existe pro modo "${channel.mode}"` }, 501);
+  if (channel.mode !== 'public' && channel.mode !== 'personal') {
+    return c.json({ error: `atualização automática ainda não existe pro modo "${channel.mode}"` }, 501);
+  }
 
   try {
-    const items = await fetchPublicChannelItems(channel.handle);
-    const saved = upsertTelegramItems(
-      db,
-      channel.id,
-      items.map((i) => ({
-        messageId: i.messageId,
-        caption: i.caption,
-        durationSeconds: i.durationSeconds,
-        thumbnailUrl: i.thumbnailUrl,
-        postedAt: i.postedAt,
-      })),
-    );
+    const saved =
+      channel.mode === 'public'
+        ? upsertTelegramItems(
+            db,
+            channel.id,
+            (await fetchPublicChannelItems(channel.handle)).map((i) => ({
+              messageId: i.messageId,
+              caption: i.caption,
+              durationSeconds: i.durationSeconds,
+              thumbnailUrl: i.thumbnailUrl,
+              postedAt: i.postedAt,
+            })),
+          )
+        : upsertTelegramItems(
+            db,
+            channel.id,
+            (await fetchPersonalChannelItems(channel.handle)).map((i) => ({
+              messageId: i.messageId,
+              caption: i.caption,
+              durationSeconds: i.durationSeconds,
+              postedAt: i.postedAt,
+            })),
+          );
     return c.json({ itemCount: saved.length });
-  } catch {
+  } catch (err) {
+    if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
     return c.json({ error: 'não foi possível atualizar esse canal agora' }, 502);
   }
 });
@@ -165,5 +197,25 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
     return new Response(upstream.body, { status: upstream.status, headers });
   }
 
-  return c.json({ error: `reprodução ainda não implementada pro modo "${channel.mode}"` }, 501);
+  // Conta pessoal: baixa via MTProto em stream (sem bufferizar o arquivo inteiro) respeitando o Range pedido.
+  const rangeHeader = c.req.header('Range');
+  const rangeMatch = rangeHeader ? /^bytes=(\d+)-(\d*)$/.exec(rangeHeader.trim()) : null;
+  const range = { start: rangeMatch ? Number(rangeMatch[1]) : 0, end: rangeMatch?.[2] ? Number(rangeMatch[2]) : null };
+
+  let resolved: Awaited<ReturnType<typeof streamPersonalItem>>;
+  try {
+    resolved = await streamPersonalItem(channel.handle, messageId, range);
+  } catch (err) {
+    if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    return c.json({ error: 'não foi possível acessar o Telegram com a conta pessoal agora' }, 502);
+  }
+  if (!resolved) return c.json({ error: 'vídeo não encontrado nesse canal' }, 404);
+
+  const headers = new Headers({
+    'Content-Type': resolved.contentType,
+    'Content-Length': String(resolved.end - resolved.start + 1),
+    'Accept-Ranges': 'bytes',
+  });
+  if (rangeMatch) headers.set('Content-Range', `bytes ${resolved.start}-${resolved.end}/${resolved.totalSize}`);
+  return new Response(resolved.stream, { status: rangeMatch ? 206 : 200, headers });
 });

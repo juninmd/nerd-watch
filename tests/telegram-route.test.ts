@@ -27,7 +27,7 @@ describe('POST /api/telegram/channels', () => {
     expect(res.status).toBe(400);
   });
 
-  test('501 para modo personal/bot (ainda não implementados)', async () => {
+  test('501 para modo personal/bot sem credenciais configuradas no ambiente de teste', async () => {
     for (const mode of ['personal', 'bot']) {
       const res = await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle: 'canalteste', mode }) });
       expect(res.status).toBe(501);
