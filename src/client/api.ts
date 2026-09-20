@@ -210,6 +210,7 @@ export interface HealthResponse {
   ok: boolean;
   tmdbEnabled: boolean;
   openSubtitlesEnabled: boolean;
+  telegramBotEnabled: boolean;
 }
 
 export const health = (): Promise<HealthResponse> => fetch('/api/health').then((r) => json<HealthResponse>(r));
@@ -254,3 +255,50 @@ export const importBackup = (data: unknown): Promise<ImportBackupResponse> =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   }).then((r) => json<ImportBackupResponse>(r));
+
+export type TelegramChannelMode = 'public' | 'personal' | 'bot';
+
+export interface TelegramChannelDto {
+  titleId: string;
+  handle: string;
+  mode: TelegramChannelMode;
+  title: string;
+  posterUrl: string | null;
+  itemCount: number;
+}
+
+export interface TelegramChannelListResponse {
+  channels: TelegramChannelDto[];
+}
+
+export const listTelegramChannels = (): Promise<TelegramChannelListResponse> =>
+  fetch('/api/telegram/channels').then((r) => json<TelegramChannelListResponse>(r));
+
+export const addTelegramChannel = (handle: string, mode: TelegramChannelMode): Promise<TelegramChannelDto> =>
+  fetch('/api/telegram/channels', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ handle, mode }),
+  }).then((r) => json<TelegramChannelDto>(r));
+
+export interface TelegramItemDto {
+  messageId: string;
+  caption: string | null;
+  durationSeconds: number | null;
+  thumbnailUrl: string | null;
+  postedAt: string | null;
+}
+
+export interface TelegramChannelDetailDto extends TelegramChannelDto {
+  library: LibraryEntryDto | null;
+  items: TelegramItemDto[];
+}
+
+export const getTelegramChannel = (titleId: string): Promise<TelegramChannelDetailDto> =>
+  fetch(`/api/telegram/channels/${titleId}`).then((r) => json<TelegramChannelDetailDto>(r));
+
+export const refreshTelegramChannel = (titleId: string): Promise<{ itemCount: number }> =>
+  fetch(`/api/telegram/channels/${titleId}/refresh`, { method: 'POST' }).then((r) => json<{ itemCount: number }>(r));
+
+export const telegramPlayUrl = (titleId: string, messageId: string): string =>
+  `/api/telegram/channels/${titleId}/items/${encodeURIComponent(messageId)}/play`;

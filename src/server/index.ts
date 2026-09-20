@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
-import { config, openSubtitlesEnabled, tmdbEnabled } from './config.ts';
+import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled } from './config.ts';
+import { startTelegramBotPoller } from './telegram-bot-poller.ts';
 import { requestAllowed, originAllowed } from './security.ts';
 import { searchRoutes } from './routes/search.ts';
 import { tmdbRoutes } from './routes/tmdb.ts';
@@ -9,6 +10,7 @@ import { libraryRoutes } from './routes/library.ts';
 import { calendarRoutes } from './routes/calendar.ts';
 import { subtitlesRoutes } from './routes/subtitles.ts';
 import { backupRoutes } from './routes/backup.ts';
+import { telegramRoutes } from './routes/telegram.ts';
 
 const app = new Hono();
 
@@ -30,7 +32,9 @@ app.use('*', async (c, next) => {
   await next();
 });
 
-app.get('/api/health', (c) => c.json({ ok: true, tmdbEnabled: tmdbEnabled(), openSubtitlesEnabled: openSubtitlesEnabled() }));
+app.get('/api/health', (c) =>
+  c.json({ ok: true, tmdbEnabled: tmdbEnabled(), openSubtitlesEnabled: openSubtitlesEnabled(), telegramBotEnabled: telegramBotEnabled() }),
+);
 app.route('/api/search', searchRoutes);
 app.route('/api/tmdb', tmdbRoutes);
 app.route('/api/archive', archiveRoutes);
@@ -38,6 +42,7 @@ app.route('/api/library', libraryRoutes);
 app.route('/api/calendar', calendarRoutes);
 app.route('/api/subtitles', subtitlesRoutes);
 app.route('/api/backup', backupRoutes);
+app.route('/api/telegram', telegramRoutes);
 
 app.use('/*', serveStatic({ root: './public' }));
 
@@ -47,7 +52,10 @@ export default {
   fetch: app.fetch,
 };
 
+startTelegramBotPoller();
+
 console.log(
   `nerd-watch em http://127.0.0.1:${config.port} (TMDB ${tmdbEnabled() ? 'ativo' : 'sem chave — só domínio público'}, ` +
-    `legendas ${openSubtitlesEnabled() ? 'ativas' : 'desligadas — sem OPENSUBTITLES_API_KEY'})`,
+    `legendas ${openSubtitlesEnabled() ? 'ativas' : 'desligadas — sem OPENSUBTITLES_API_KEY'}, ` +
+    `bot do Telegram ${telegramBotEnabled() ? 'ativo' : 'desligado — sem TELEGRAM_BOT_TOKEN'})`,
 );

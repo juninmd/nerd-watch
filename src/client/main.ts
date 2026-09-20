@@ -6,6 +6,8 @@ import { renderMyList } from './views/my-list.ts';
 import { renderCalendar } from './views/calendar.ts';
 import { renderPublicDomain } from './views/public-domain.ts';
 import { renderTitleDetail } from './views/media-detail.ts';
+import { renderTelegramChannels } from './views/telegram-channels.ts';
+import { renderTelegramChannel } from './views/telegram-channel.ts';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Início', icon: '🏠' },
@@ -13,6 +15,7 @@ const NAV_ITEMS = [
   { path: '/my-list', label: 'Minha lista', icon: '🗂️' },
   { path: '/calendar', label: 'Calendário', icon: '🗓️' },
   { path: '/public-domain', label: 'Domínio público', icon: '🎞️' },
+  { path: '/telegram', label: 'Telegram', icon: '✈️' },
 ];
 
 const app = document.getElementById('app');
@@ -73,6 +76,7 @@ searchForm.addEventListener('submit', (e) => {
 });
 
 const TITLE_RE = /^\/title\/(tmdb|archive)\/(movie|tv|_)\/(.+)$/;
+const TELEGRAM_CHANNEL_RE = /^\/telegram\/(.+)$/;
 
 const dispatch = (route: Route) => {
   renderNav(route.path);
@@ -80,6 +84,11 @@ const dispatch = (route: Route) => {
   if (titleMatch) {
     const [, source, mediaType, id] = titleMatch as unknown as [string, 'tmdb' | 'archive', 'movie' | 'tv' | '_', string];
     renderTitleDetail(viewEl, source, mediaType, decodeURIComponent(id));
+    return;
+  }
+  const telegramMatch = route.path.match(TELEGRAM_CHANNEL_RE);
+  if (telegramMatch) {
+    renderTelegramChannel(viewEl, decodeURIComponent(telegramMatch[1] as string));
     return;
   }
   switch (route.path) {
@@ -98,6 +107,9 @@ const dispatch = (route: Route) => {
       return;
     case '/public-domain':
       renderPublicDomain(viewEl);
+      return;
+    case '/telegram':
+      renderTelegramChannels(viewEl);
       return;
     default:
       viewEl.innerHTML = '<div class="empty-state"><div class="big">🧭</div>página não encontrada</div>';

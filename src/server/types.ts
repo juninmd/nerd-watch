@@ -1,6 +1,7 @@
 export type MediaType = 'movie' | 'tv';
-export type TitleSource = 'tmdb' | 'archive';
+export type TitleSource = 'tmdb' | 'archive' | 'telegram';
 export type WatchStatus = 'want' | 'watching' | 'watched' | 'dropped';
+export type TelegramChannelMode = 'public' | 'personal' | 'bot';
 
 export interface TitleRow {
   id: string;
@@ -48,6 +49,25 @@ export interface LibraryEntryRow {
   current_episode: number | null;
   added_at: string;
   updated_at: string;
+}
+
+export interface TelegramChannelRow {
+  id: string;
+  mode: TelegramChannelMode;
+  handle: string;
+  cursor: string | null;
+  created_at: string;
+}
+
+export interface TelegramItemRow {
+  id: string;
+  channel_id: string;
+  message_id: string;
+  caption: string | null;
+  duration_seconds: number | null;
+  thumbnail_url: string | null;
+  posted_at: string | null;
+  file_ref: string | null;
 }
 
 export interface SearchResult {

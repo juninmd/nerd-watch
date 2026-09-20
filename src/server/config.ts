@@ -10,7 +10,11 @@ export const config = {
     apiKey: process.env.OPENSUBTITLES_API_KEY?.trim() || undefined,
     languages: process.env.OPENSUBTITLES_LANGUAGES?.trim() || 'pt-BR,pt,en',
   },
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN?.trim() || undefined,
+  },
 } as const;
 
 export const tmdbEnabled = (): boolean => Boolean(config.tmdb.apiKey);
 export const openSubtitlesEnabled = (): boolean => Boolean(config.opensubtitles.apiKey);
+export const telegramBotEnabled = (): boolean => Boolean(config.telegram.botToken);
