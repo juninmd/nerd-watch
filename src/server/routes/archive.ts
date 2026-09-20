@@ -44,6 +44,7 @@ archiveRoutes.get('/:identifier', async (c) => {
       embedUrl: movie.embedUrl,
       torrentUrl: movie.torrentUrl,
       detailsUrl: movie.detailsUrl,
+      subtitleUrl: movie.subtitleUrl,
       library: libraryEntry,
     });
   } catch {

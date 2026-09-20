@@ -1,5 +1,6 @@
 import { getArchiveTitle } from '../api.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
+import { renderSubtitlesPanel } from '../components/subtitles.ts';
 import { escapeHtml } from '../components/card.ts';
 
 export const renderArchiveDetail = (host: HTMLElement, identifier: string): void => {
@@ -49,6 +50,15 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
                   🔗 página no archive.org
                 </a>
               </div>
+              <div class="side-card">
+                <h3>Legendas</h3>
+                ${
+                  d.subtitleUrl
+                    ? `<a class="btn btn-primary btn-sm" href="${d.subtitleUrl}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-bottom:10px">⬇️ legenda hospedada na Archive.org</a>`
+                    : ''
+                }
+                <div id="subtitles-panel"></div>
+              </div>
             </div>
           </div>
         `;
@@ -63,6 +73,9 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
             onChange: () => load(),
           }),
         );
+
+        const subtitlesHost = host.querySelector('#subtitles-panel') as HTMLElement;
+        subtitlesHost.appendChild(renderSubtitlesPanel({ query: `${d.title} ${d.year ?? ''}`.trim() }));
       })
       .catch(() => {
         host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar este título</div>`;

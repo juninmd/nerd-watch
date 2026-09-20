@@ -1,6 +1,7 @@
 import { getTmdbTitle } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
+import { renderSubtitlesPanel } from '../components/subtitles.ts';
 import { renderArchiveDetail } from './media-detail-archive.ts';
 import { renderSeasons } from './media-detail-seasons.ts';
 
@@ -81,6 +82,10 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
                     : `<p class="hint">sem streamings listados para sua região</p>`
                 }
               </div>
+              <div class="side-card">
+                <h3>Legendas</h3>
+                <div id="subtitles-panel"></div>
+              </div>
             </div>
           </div>
         `;
@@ -99,6 +104,11 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
         if (mediaType === 'tv') {
           renderSeasons(host.querySelector('#seasons-section') as HTMLElement, id, d.seasons, d.titleId, d.library, load);
         }
+
+        const subtitlesHost = host.querySelector('#subtitles-panel') as HTMLElement;
+        subtitlesHost.appendChild(
+          mediaType === 'movie' ? renderSubtitlesPanel({ tmdbId: Number(id) }) : renderSubtitlesPanel({ query: d.title }),
+        );
       })
       .catch((err) => {
         host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>${escapeHtml(err instanceof Error ? err.message : 'falha ao carregar')}</div>`;

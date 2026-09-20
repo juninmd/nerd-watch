@@ -6,6 +6,11 @@ export const config = {
     language: process.env.TMDB_LANGUAGE?.trim() || 'pt-BR',
     region: process.env.TMDB_REGION?.trim() || 'BR',
   },
+  opensubtitles: {
+    apiKey: process.env.OPENSUBTITLES_API_KEY?.trim() || undefined,
+    languages: process.env.OPENSUBTITLES_LANGUAGES?.trim() || 'pt-BR,pt,en',
+  },
 } as const;
 
 export const tmdbEnabled = (): boolean => Boolean(config.tmdb.apiKey);
+export const openSubtitlesEnabled = (): boolean => Boolean(config.opensubtitles.apiKey);

@@ -25,7 +25,21 @@ export interface ArchiveMovie {
   embedUrl: string;
   torrentUrl: string;
   detailsUrl: string;
+  /** Legenda que a própria Archive.org já hospeda para o item (transcrição automática ou enviada por alguém). Nem todo item tem. */
+  subtitleUrl: string | null;
 }
+
+export interface ArchiveFile {
+  name: string;
+  format?: string;
+}
+
+const SUBTITLE_FORMATS = new Set(['subrip', 'webvtt']);
+
+export const pickSubtitleUrl = (identifier: string, files: ArchiveFile[] | undefined): string | null => {
+  const sub = files?.find((f) => SUBTITLE_FORMATS.has((f.format ?? '').toLowerCase()) || /\.(srt|vtt)$/i.test(f.name));
+  return sub ? `https://archive.org/download/${identifier}/${sub.name}` : null;
+};
 
 const toOverview = (description: ArchiveDoc['description']): string => {
   if (!description) return '';
@@ -33,7 +47,7 @@ const toOverview = (description: ArchiveDoc['description']): string => {
   return text.replace(/<[^>]+>/g, '').trim();
 };
 
-const toMovie = (doc: ArchiveDoc): ArchiveMovie => ({
+const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null): ArchiveMovie => ({
   identifier: doc.identifier,
   title: doc.title,
   overview: toOverview(doc.description),
@@ -42,6 +56,7 @@ const toMovie = (doc: ArchiveDoc): ArchiveMovie => ({
   embedUrl: `https://archive.org/embed/${doc.identifier}`,
   torrentUrl: `https://archive.org/download/${doc.identifier}/${doc.identifier}_archive.torrent`,
   detailsUrl: `https://archive.org/details/${doc.identifier}`,
+  subtitleUrl,
 });
 
 export const archiveSearchPublicDomain = async (query: string, limit = 24): Promise<ArchiveMovie[]> => {
@@ -58,13 +73,13 @@ export const archiveSearchPublicDomain = async (query: string, limit = 24): Prom
   const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`Internet Archive respondeu ${res.status}`);
   const data = (await res.json()) as { response: { docs: ArchiveDoc[] } };
-  return data.response.docs.filter((d) => d.title).map(toMovie);
+  return data.response.docs.filter((d) => d.title).map((doc) => toMovie(doc));
 };
 
 export const archiveMovieDetails = async (identifier: string): Promise<ArchiveMovie | null> => {
   const res = await fetch(`${METADATA_URL}/${encodeURIComponent(identifier)}`, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`Internet Archive respondeu ${res.status}`);
-  const data = (await res.json()) as { metadata?: ArchiveDoc };
+  const data = (await res.json()) as { metadata?: ArchiveDoc; files?: ArchiveFile[] };
   if (!data.metadata) return null;
-  return toMovie({ ...data.metadata, identifier });
+  return toMovie({ ...data.metadata, identifier }, pickSubtitleUrl(identifier, data.files));
 };

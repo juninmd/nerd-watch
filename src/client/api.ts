@@ -95,6 +95,7 @@ export interface ArchiveDetailDto {
   embedUrl: string;
   torrentUrl: string;
   detailsUrl: string;
+  subtitleUrl: string | null;
   library: LibraryEntryDto | null;
 }
 
@@ -208,6 +209,35 @@ export const getCalendar = (days = 60): Promise<CalendarResponse> =>
 export interface HealthResponse {
   ok: boolean;
   tmdbEnabled: boolean;
+  openSubtitlesEnabled: boolean;
 }
 
 export const health = (): Promise<HealthResponse> => fetch('/api/health').then((r) => json<HealthResponse>(r));
+
+export interface SubtitleResultDto {
+  subtitleId: string;
+  language: string;
+  release: string;
+  downloadCount: number;
+  fileId: number;
+  fileName: string;
+}
+
+export interface SubtitleSearchResponse {
+  enabled: boolean;
+  results: SubtitleResultDto[];
+}
+
+export const searchSubtitles = (opts: { query?: string; tmdbId?: number }): Promise<SubtitleSearchResponse> => {
+  const params = new URLSearchParams();
+  if (opts.query) params.set('query', opts.query);
+  if (opts.tmdbId) params.set('tmdbId', String(opts.tmdbId));
+  return fetch(`/api/subtitles?${params}`).then((r) => json<SubtitleSearchResponse>(r));
+};
+
+export const downloadSubtitle = (fileId: number): Promise<{ url: string; remaining: number }> =>
+  fetch('/api/subtitles/download', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileId }),
+  }).then((r) => json<{ url: string; remaining: number }>(r));
