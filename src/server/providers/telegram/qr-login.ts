@@ -74,7 +74,13 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
       config.telegram.session = session;
       state = { status: 'success' };
     } catch (err) {
-      state = err instanceof Error && err.name === 'AbortError' ? { status: 'idle' } : { status: 'error', message: 'falha no login por QR code' };
+      if (err instanceof Error && err.name === 'AbortError') {
+        state = { status: 'idle' };
+      } else {
+        const message = err instanceof Error ? err.message : 'falha no login por QR code';
+        console.error('[telegram qr-login] falhou:', message);
+        state = { status: 'error', message };
+      }
     } finally {
       await client.disconnect().catch(() => {});
       running = false;

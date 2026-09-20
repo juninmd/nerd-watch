@@ -53,7 +53,7 @@ export const parsePublicChannelHtml = (html: string, handle: string): TelegramPu
   for (let i = 0; i < startIndexes.length; i++) {
     const block = html.slice(startIndexes[i], startIndexes[i + 1] ?? html.length);
     const post = block.match(/data-post="([^/"]+)\/(\d+)"/);
-    if (!post || post[1] !== handle) continue;
+    if (!post || (post[1] as string).toLowerCase() !== handle.toLowerCase()) continue;
 
     const videoSrc = block.match(/<video src="([^"]+)"/);
     if (!videoSrc) continue; // post sem vídeo (texto/foto/enquete) — fora do catálogo de "maratonar"

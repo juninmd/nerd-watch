@@ -88,6 +88,15 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
     if (!host.isConnected) return;
     const qrHost = host.querySelector('#tg-qr-section') as HTMLElement;
 
+    if (state.status === 'pending' && !state.token) {
+      qrHost.innerHTML = `
+        <p class="hint" style="margin:0">🔄 conectando ao Telegram…</p>
+        <button class="btn btn-ghost btn-sm" id="tg-qr-cancel" style="width:100%;justify-content:center;margin-top:8px">cancelar</button>
+      `;
+      wireCancelButton();
+      return;
+    }
+
     if (state.status === 'pending' && state.token) {
       const dataUrl = await QRCode.toDataURL(`tg://login?token=${state.token}`, { margin: 1, width: 240 });
       if (!host.isConnected) return;

@@ -35,6 +35,11 @@ describe('parsePublicChannelHtml', () => {
     expect(items).toHaveLength(0);
   });
 
+  test('casa o handle sem diferenciar maiúsculas/minúsculas (usernames do Telegram não fazem distinção)', () => {
+    const items = parsePublicChannelHtml(FIXTURE, 'CanalTeste');
+    expect(items).toHaveLength(2);
+  });
+
   test('lança TelegramChannelNotFoundError quando a página não tem marcação de canal válido', () => {
     expect(() => parsePublicChannelHtml('<html><body>não existe</body></html>', 'canalteste')).toThrow(
       TelegramChannelNotFoundError,
