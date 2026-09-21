@@ -61,7 +61,21 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
 
   void (async () => {
     try {
-      await client.connect();
+      // client.connect() não aceita abortSignal (teleproto ignora); sem essa corrida, o abort do timeout
+      // de conexão só afetava o abortSignal passado pra signInUserWithQrCode mais abaixo — a fase de connect()
+      // em si ficava sujeita apenas aos retries/timeouts internos da lib, não ao teto de 30s documentado aqui.
+      const connectAbort = new Promise<never>((_, reject) => {
+        abortController?.signal.addEventListener(
+          'abort',
+          () => {
+            const err = new Error('conexão abortada');
+            err.name = 'AbortError';
+            reject(err);
+          },
+          { once: true },
+        );
+      });
+      await Promise.race([client.connect(), connectAbort]);
       await client.signInUserWithQrCode(
         { apiId, apiHash },
         {

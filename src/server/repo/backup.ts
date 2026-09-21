@@ -38,23 +38,40 @@ export interface ImportCounts {
   libraryEntries: number;
 }
 
-/** Restaura o dump preservando os IDs originais (INSERT OR REPLACE) para manter as relações entre título/temporada/episódio/lista. */
+/** Restaura o dump preservando os IDs originais. `ON CONFLICT DO UPDATE` (não `OR REPLACE`) porque `OR REPLACE`
+ *  apaga a linha em conflito antes de reinserir, cascateando `ON DELETE CASCADE` e destruindo temporadas/episódios/
+ *  entrada de biblioteca criados depois do backup. */
 export const importBackup = (db: Database, backup: BackupData): ImportCounts => {
   const insertTitle = db.query(
-    `INSERT OR REPLACE INTO titles (id, source, source_id, media_type, title, original_title, overview, poster_path, backdrop_path, release_date, vote_average, created_at)
-     VALUES ($id, $source, $source_id, $media_type, $title, $original_title, $overview, $poster_path, $backdrop_path, $release_date, $vote_average, $created_at)`,
+    `INSERT INTO titles (id, source, source_id, media_type, title, original_title, overview, poster_path, backdrop_path, release_date, vote_average, created_at)
+     VALUES ($id, $source, $source_id, $media_type, $title, $original_title, $overview, $poster_path, $backdrop_path, $release_date, $vote_average, $created_at)
+     ON CONFLICT (id) DO UPDATE SET
+       source = excluded.source, source_id = excluded.source_id, media_type = excluded.media_type, title = excluded.title,
+       original_title = excluded.original_title, overview = excluded.overview, poster_path = excluded.poster_path,
+       backdrop_path = excluded.backdrop_path, release_date = excluded.release_date, vote_average = excluded.vote_average,
+       created_at = excluded.created_at`,
   );
   const insertSeason = db.query(
-    `INSERT OR REPLACE INTO seasons (id, title_id, season_number, name, overview, air_date, poster_path)
-     VALUES ($id, $title_id, $season_number, $name, $overview, $air_date, $poster_path)`,
+    `INSERT INTO seasons (id, title_id, season_number, name, overview, air_date, poster_path)
+     VALUES ($id, $title_id, $season_number, $name, $overview, $air_date, $poster_path)
+     ON CONFLICT (id) DO UPDATE SET
+       title_id = excluded.title_id, season_number = excluded.season_number, name = excluded.name,
+       overview = excluded.overview, air_date = excluded.air_date, poster_path = excluded.poster_path`,
   );
   const insertEpisode = db.query(
-    `INSERT OR REPLACE INTO episodes (id, season_id, episode_number, name, overview, air_date, runtime, still_path)
-     VALUES ($id, $season_id, $episode_number, $name, $overview, $air_date, $runtime, $still_path)`,
+    `INSERT INTO episodes (id, season_id, episode_number, name, overview, air_date, runtime, still_path)
+     VALUES ($id, $season_id, $episode_number, $name, $overview, $air_date, $runtime, $still_path)
+     ON CONFLICT (id) DO UPDATE SET
+       season_id = excluded.season_id, episode_number = excluded.episode_number, name = excluded.name,
+       overview = excluded.overview, air_date = excluded.air_date, runtime = excluded.runtime, still_path = excluded.still_path`,
   );
   const insertLibraryEntry = db.query(
-    `INSERT OR REPLACE INTO library_entries (id, title_id, watch_status, rating, notes, current_season, current_episode, added_at, updated_at)
-     VALUES ($id, $title_id, $watch_status, $rating, $notes, $current_season, $current_episode, $added_at, $updated_at)`,
+    `INSERT INTO library_entries (id, title_id, watch_status, rating, notes, current_season, current_episode, added_at, updated_at)
+     VALUES ($id, $title_id, $watch_status, $rating, $notes, $current_season, $current_episode, $added_at, $updated_at)
+     ON CONFLICT (id) DO UPDATE SET
+       title_id = excluded.title_id, watch_status = excluded.watch_status, rating = excluded.rating, notes = excluded.notes,
+       current_season = excluded.current_season, current_episode = excluded.current_episode,
+       added_at = excluded.added_at, updated_at = excluded.updated_at`,
   );
 
   const tx = db.transaction((data: BackupData) => {

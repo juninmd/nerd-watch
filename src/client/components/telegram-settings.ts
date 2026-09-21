@@ -20,7 +20,12 @@ const badge = (label: string, ok: boolean): string => `<span class="badge${ok ? 
 /** Painel de credenciais do Telegram (bot token, api_id/hash) + login por QR code da conta pessoal. */
 export const renderTelegramSettings = (host: HTMLElement): void => {
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
+  // Incrementada a cada stopPolling(): invalida qualquer fetch/timeout de um ciclo de poll anterior já em voo,
+  // pra um "cancelar" clicado durante uma resposta pendente não ressuscitar o polling nem uma renderização
+  // atrasada (ex.: QR code sendo desenhado) sobrescrever um estado mais novo (success/need_password).
+  let generation = 0;
   const stopPolling = () => {
+    generation++;
     if (pollTimer) clearTimeout(pollTimer);
     pollTimer = null;
   };
@@ -77,7 +82,7 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
     startBtn.addEventListener('click', () => {
       startBtn.disabled = true;
       startTelegramLogin()
-        .then(() => poll())
+        .then(() => poll(generation))
         .catch((err) => {
           showToast(err instanceof Error ? err.message : 'não foi possível iniciar o login');
           startBtn.disabled = false;
@@ -85,8 +90,8 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
     });
   };
 
-  const renderLoginState = async (state: TelegramLoginState) => {
-    if (!host.isConnected) return;
+  const renderLoginState = async (state: TelegramLoginState, gen: number) => {
+    if (!host.isConnected || gen !== generation) return;
     const qrHost = host.querySelector('#tg-qr-section') as HTMLElement;
 
     if (state.status === 'pending' && !state.token) {
@@ -100,7 +105,7 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
 
     if (state.status === 'pending' && state.token) {
       const dataUrl = await QRCode.toDataURL(`tg://login?token=${state.token}`, { margin: 1, width: 240 });
-      if (!host.isConnected) return;
+      if (!host.isConnected || gen !== generation) return;
       qrHost.innerHTML = `
         <p class="hint" style="margin-top:0">escaneie no app do Telegram: Ajustes → Dispositivos → Conectar dispositivo</p>
         <img src="${dataUrl}" alt="QR code de login do Telegram" width="240" height="240" style="display:block;margin:0 auto 10px;border-radius:10px" />
@@ -123,7 +128,7 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
         e.preventDefault();
         const pwInput = qrHost.querySelector('#tg-password-input') as HTMLInputElement;
         submitTelegramLoginPassword(pwInput.value)
-          .then(() => poll())
+          .then(() => poll(generation))
           .catch(() => showToast('não foi possível enviar a senha'));
       });
       wireCancelButton();
@@ -143,15 +148,17 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
     }
   };
 
-  const poll = () => {
-    if (!host.isConnected) return;
+  const poll = (gen: number) => {
+    if (!host.isConnected || gen !== generation) return;
     getTelegramLoginStatus()
       .then((state) => {
-        void renderLoginState(state);
-        if (state.status === 'pending' || state.status === 'need_password') pollTimer = setTimeout(poll, 1500);
+        if (gen !== generation) return;
+        void renderLoginState(state, gen);
+        if (state.status === 'pending' || state.status === 'need_password') pollTimer = setTimeout(() => poll(gen), 1500);
       })
       .catch(() => {
-        pollTimer = setTimeout(poll, 3000);
+        if (gen !== generation) return;
+        pollTimer = setTimeout(() => poll(gen), 3000);
       });
   };
 

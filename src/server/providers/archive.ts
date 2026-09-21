@@ -42,7 +42,7 @@ const SUBTITLE_FORMATS = new Set(['subrip', 'webvtt']);
 
 export const pickSubtitleUrl = (identifier: string, files: ArchiveFile[] | undefined): string | null => {
   const sub = files?.find((f) => SUBTITLE_FORMATS.has((f.format ?? '').toLowerCase()) || /\.(srt|vtt)$/i.test(f.name));
-  return sub ? `https://archive.org/download/${identifier}/${sub.name}` : null;
+  return sub ? `https://archive.org/download/${encodeURIComponent(identifier)}/${encodeURIComponent(sub.name)}` : null;
 };
 
 const toOverview = (description: ArchiveDoc['description']): string => {
@@ -51,20 +51,32 @@ const toOverview = (description: ArchiveDoc['description']): string => {
   return text.replace(/<[^>]+>/g, '').trim();
 };
 
-const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null): ArchiveMovie => ({
-  identifier: doc.identifier,
-  title: doc.title,
-  overview: toOverview(doc.description),
-  year: doc.year != null ? String(doc.year) : null,
-  thumbnailUrl: `https://archive.org/services/img/${doc.identifier}`,
-  embedUrl: `https://archive.org/embed/${doc.identifier}`,
-  torrentUrl: `https://archive.org/download/${doc.identifier}/${doc.identifier}_archive.torrent`,
-  detailsUrl: `https://archive.org/details/${doc.identifier}`,
-  subtitleUrl,
-});
+const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null): ArchiveMovie => {
+  const id = encodeURIComponent(doc.identifier);
+  return {
+    identifier: doc.identifier,
+    title: doc.title,
+    overview: toOverview(doc.description),
+    year: doc.year != null ? String(doc.year) : null,
+    thumbnailUrl: `https://archive.org/services/img/${id}`,
+    embedUrl: `https://archive.org/embed/${id}`,
+    torrentUrl: `https://archive.org/download/${id}/${id}_archive.torrent`,
+    detailsUrl: `https://archive.org/details/${id}`,
+    subtitleUrl,
+  };
+};
+
+/** Neutraliza sintaxe de busca do Lucene/Solr (parênteses, `:`, operadores booleanos) para o termo do
+ *  usuário não conseguir escapar do escopo `collection:(feature_films) AND mediatype:(movies)` abaixo. */
+const sanitizeSearchTerm = (raw: string): string =>
+  raw
+    .replace(/[+\-!(){}[\]^"~*?:\\/]/g, ' ')
+    .replace(/\b(AND|OR|NOT)\b/g, (m) => m.toLowerCase())
+    .replace(/\s+/g, ' ')
+    .trim();
 
 export const archiveSearchPublicDomain = withCache(15 * MINUTES, async (query: string, limit = 24): Promise<ArchiveMovie[]> => {
-  const trimmed = query.trim();
+  const trimmed = sanitizeSearchTerm(query);
   const scoped = `collection:(${PUBLIC_DOMAIN_COLLECTION}) AND mediatype:(movies)`;
   const q = trimmed ? `${scoped} AND (${trimmed})` : scoped;
   const url = new URL(SEARCH_URL);

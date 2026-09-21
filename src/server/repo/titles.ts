@@ -106,10 +106,17 @@ export const getSeasonsWithEpisodes = (db: Database, titleId: string): Array<Sea
   const seasons = db
     .query<SeasonRow, [string]>('SELECT * FROM seasons WHERE title_id = ? ORDER BY season_number')
     .all(titleId);
-  return seasons.map((season) => ({
-    ...season,
-    episodes: db
-      .query<EpisodeRow, [string]>('SELECT * FROM episodes WHERE season_id = ? ORDER BY episode_number')
-      .all(season.id),
-  }));
+  if (seasons.length === 0) return [];
+
+  const placeholders = seasons.map(() => '?').join(', ');
+  const episodes = db
+    .query<EpisodeRow, string[]>(`SELECT * FROM episodes WHERE season_id IN (${placeholders}) ORDER BY episode_number`)
+    .all(...seasons.map((s) => s.id));
+  const episodesBySeason = new Map<string, EpisodeRow[]>();
+  for (const ep of episodes) {
+    const list = episodesBySeason.get(ep.season_id);
+    if (list) list.push(ep);
+    else episodesBySeason.set(ep.season_id, [ep]);
+  }
+  return seasons.map((season) => ({ ...season, episodes: episodesBySeason.get(season.id) ?? [] }));
 };

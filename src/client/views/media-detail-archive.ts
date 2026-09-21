@@ -11,10 +11,10 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
       .then((d) => {
         host.innerHTML = `
           <div class="hero">
-            <div class="backdrop" style="background-image:url('${d.posterUrl}');filter:blur(24px) brightness(0.5);transform:scale(1.1)"></div>
+            <div class="backdrop" style="filter:blur(24px) brightness(0.5);transform:scale(1.1)"></div>
             <div class="scrim"></div>
             <div class="hero-content">
-              <div class="hero-poster" style="background-image:url('${d.posterUrl}')"></div>
+              <div class="hero-poster"></div>
               <div class="hero-info">
                 <h1>${escapeHtml(d.title)}</h1>
                 <div class="hero-meta">
@@ -30,7 +30,7 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
             <div>
               <div class="section-head"><h2>▶️ Assistir agora, dentro do app</h2></div>
               <div class="player-frame">
-                <iframe src="${d.embedUrl}" allowfullscreen title="${escapeHtml(d.title)}"></iframe>
+                <iframe src="${escapeHtml(d.embedUrl)}" allowfullscreen title="${escapeHtml(d.title)}"></iframe>
               </div>
               <p class="view-subtitle" style="margin-top:-8px">
                 Reprodução direta do Internet Archive — este título está em domínio público, sem custo e 100% legal.
@@ -43,10 +43,10 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
               </div>
               <div class="side-card">
                 <h3>Baixar</h3>
-                <a class="btn btn-ghost btn-sm" href="${d.torrentUrl}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-bottom:8px">
+                <a class="btn btn-ghost btn-sm" href="${escapeHtml(d.torrentUrl)}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-bottom:8px">
                   🧲 torrent oficial (Internet Archive)
                 </a>
-                <a class="btn btn-ghost btn-sm" href="${d.detailsUrl}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center">
+                <a class="btn btn-ghost btn-sm" href="${escapeHtml(d.detailsUrl)}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center">
                   🔗 página no archive.org
                 </a>
               </div>
@@ -54,7 +54,7 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
                 <h3>Legendas</h3>
                 ${
                   d.subtitleUrl
-                    ? `<a class="btn btn-primary btn-sm" href="${d.subtitleUrl}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-bottom:10px">⬇️ legenda hospedada na Archive.org</a>`
+                    ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(d.subtitleUrl)}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-bottom:10px">⬇️ legenda hospedada na Archive.org</a>`
                     : ''
                 }
                 <div id="subtitles-panel"></div>
@@ -62,6 +62,12 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
             </div>
           </div>
         `;
+
+        // Via propriedade CSSOM, não innerHTML: o navegador parseia isso como um único valor CSS,
+        // então aspas/parênteses no identifier não conseguem fechar o url() e injetar outra declaração
+        // (diferente de interpolar em `style="...url('${...}')"`, onde HTML é parseado antes do CSS).
+        (host.querySelector('.backdrop') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
+        (host.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
 
         const statusHost = host.querySelector('#status-actions') as HTMLElement;
         statusHost.appendChild(

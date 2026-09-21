@@ -12,4 +12,11 @@ export const isWithinWindow = (dateIso: string | null, fromIso: string, days: nu
   return diffDays >= 0 && diffDays <= days;
 };
 
-export const todayIso = (): string => new Date().toISOString().slice(0, 10);
+/** Data local (não UTC): `toISOString()` já vira o dia seguinte à noite em fusos negativos (ex.: Brasil), escondendo lançamentos de hoje.
+ *  Aceita `now` só para testes determinísticos; chamadores reais usam o padrão. */
+export const todayIso = (now: Date = new Date()): string => {
+  const year = String(now.getFullYear()).padStart(4, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};

@@ -48,8 +48,10 @@ export const renderSeasons = (
 
   const loadEpisodes = () => {
     listEl.innerHTML = Array.from({ length: 4 }, () => '<div class="skeleton" style="height:96px;margin-bottom:10px"></div>').join('');
-    getTmdbSeason(tmdbId, activeSeason)
+    const requestedSeason = activeSeason;
+    getTmdbSeason(tmdbId, requestedSeason)
       .then((data) => {
+        if (requestedSeason !== activeSeason) return;
         if (data.episodes.length === 0) {
           listEl.innerHTML = `<div class="empty-state"><div class="big">🎬</div>sem episódios listados para esta temporada</div>`;
           return;
@@ -87,6 +89,7 @@ export const renderSeasons = (
         }
       })
       .catch(() => {
+        if (requestedSeason !== activeSeason) return;
         listEl.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar os episódios</div>`;
       });
   };
