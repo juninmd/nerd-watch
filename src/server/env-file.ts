@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const ENV_PATH = '.env';
 
@@ -15,4 +15,15 @@ export const updateEnvVar = (key: string, value: string, path: string = ENV_PATH
 
   const content = lines.join('\n').replace(/\n*$/, '\n');
   writeFileSync(path, content, { mode: 0o600 });
+  // `mode` no writeFileSync só é aplicado na CRIAÇÃO do arquivo — se o .env já existia (ex.: copiado de
+  // .env.example, herdando o umask, tipicamente 644/mundo-legível), atualizações seguintes mantinham a
+  // permissão antiga mesmo depois de gravar TELEGRAM_SESSION nele. chmod explícito cobre os dois casos.
+  // (No-op efetivo no Windows, que não tem bits POSIX — lá o controle real é a ACL do arquivo/pasta.)
+  try {
+    chmodSync(path, 0o600);
+  } catch (err) {
+    // best-effort — não bloqueia a gravação da credencial por causa disso, mas uma falha aqui (ex.: EPERM
+    // num arquivo de outro dono) deixa a credencial world-readable sem nenhum sinal se ficar em silêncio.
+    console.warn('[env-file] não foi possível restringir permissões de', path, '—', err instanceof Error ? err.message : err);
+  }
 };

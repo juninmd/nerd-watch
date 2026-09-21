@@ -36,7 +36,10 @@ const loop = async (): Promise<void> => {
       const { nextOffset, posts } = await getChannelPostUpdates(offset);
       offset = nextOffset;
       for (const post of posts) storePost(db, post);
-    } catch {
+    } catch (err) {
+      // Token revogado, 409 de outro consumidor do getUpdates, falha de rede: sem log isso é um poller
+      // morto e silencioso — canais em modo bot simplesmente param de ganhar vídeos, sem nenhum sinal em lugar nenhum.
+      console.error('[telegram bot-poller] falhou:', err instanceof Error ? err.message : err);
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }

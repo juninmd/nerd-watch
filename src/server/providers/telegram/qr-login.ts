@@ -50,6 +50,7 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
 
   let gotFirstToken = false;
   let timedOut = false;
+  let onErrorSetMessage = false;
   const connectTimeout = setTimeout(() => {
     if (gotFirstToken) return;
     timedOut = true;
@@ -71,11 +72,25 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
           },
           password: async (hint) => {
             state = { status: 'need_password', hint: hint ?? '' };
-            return new Promise<string>((resolve) => {
+            return new Promise<string>((resolve, reject) => {
               passwordResolver = resolve;
+              // Sem isso, cancelar (ou abandonar) o login na etapa de senha 2FA trava pra sempre: essa promise
+              // só resolve via submitLoginPassword, então o abort nunca desbloqueava o await lá embaixo — `running`
+              // ficava true pra sempre e todo /login/start seguinte devolvia "login já em andamento".
+              abortController?.signal.addEventListener(
+                'abort',
+                () => {
+                  passwordResolver = null;
+                  const err = new Error('login cancelado');
+                  err.name = 'AbortError';
+                  reject(err);
+                },
+                { once: true },
+              );
             });
           },
           onError: async (err) => {
+            onErrorSetMessage = true;
             state = { status: 'error', message: err.message };
             return true;
           },
@@ -91,6 +106,9 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
         state = timedOut
           ? { status: 'error', message: `não foi possível conectar ao Telegram em ${CONNECT_TIMEOUT_MS / 1000}s — verifique rede/firewall e tente de novo` }
           : { status: 'idle' };
+      } else if (err instanceof Error && err.message === 'AUTH_USER_CANCEL' && onErrorSetMessage) {
+        // teleproto sintetiza esse erro depois de onError já ter guardado a mensagem real (ex.: senha errada) —
+        // não sobrescreve com um texto que parece "usuário cancelou" quando na verdade foi outra coisa.
       } else {
         const message = err instanceof Error ? err.message : 'falha no login por QR code';
         console.error('[telegram qr-login] falhou:', message);

@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import { escapeHtml } from './card.ts';
 import {
   cancelTelegramLogin,
   getTelegramLoginStatus,
@@ -111,7 +112,7 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
 
     if (state.status === 'need_password') {
       qrHost.innerHTML = `
-        <p class="hint" style="margin-top:0">conta com verificação em duas etapas${state.hint ? ` (dica: ${state.hint})` : ''}</p>
+        <p class="hint" style="margin-top:0">conta com verificação em duas etapas${state.hint ? ` (dica: ${escapeHtml(state.hint)})` : ''}</p>
         <form id="tg-password-form" style="display:flex;gap:8px;margin-bottom:8px">
           <input type="password" id="tg-password-input" placeholder="senha" autocomplete="off" style="${INPUT_STYLE};margin-bottom:0" />
           <button class="btn btn-primary btn-sm" type="submit">enviar</button>
@@ -138,7 +139,7 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
 
     if (state.status === 'error') {
       stopPolling();
-      qrHost.innerHTML = `<p class="hint" style="margin:0;color:var(--danger)">${state.message}</p>`;
+      qrHost.innerHTML = `<p class="hint" style="margin:0;color:var(--danger)">${escapeHtml(state.message)}</p>`;
     }
   };
 

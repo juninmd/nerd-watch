@@ -1,8 +1,21 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { config } from '../src/server/config.ts';
 import { telegramSettingsRoutes } from '../src/server/routes/telegram-settings.ts';
 
 const post = (path: string, body: unknown) =>
   telegramSettingsRoutes.request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+const originalTelegramConfig = { ...config.telegram };
+
+beforeEach(() => {
+  // Bun carrega .env automaticamente; sem isso, um .env real com credenciais (deixado por uso manual da UI)
+  // muda o resultado desses testes (já aconteceu nesta sessão) e pode até abrir uma conexão MTProto real.
+  Object.assign(config.telegram, { botToken: undefined, apiId: undefined, apiHash: undefined, session: undefined });
+});
+
+afterEach(() => {
+  Object.assign(config.telegram, originalTelegramConfig);
+});
 
 describe('GET /api/telegram/settings', () => {
   test('devolve o status sem expor nenhum segredo', async () => {

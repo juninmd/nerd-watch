@@ -1,17 +1,23 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
+import { config } from '../src/server/config.ts';
 import { openDb, resetDbForTests } from '../src/server/db.ts';
 import { telegramRoutes } from '../src/server/routes/telegram.ts';
 
 const FIXTURE = readFileSync(`${import.meta.dir}/fixtures/telegram-public-channel.html`, 'utf-8');
 const originalFetch = globalThis.fetch;
+const originalTelegramConfig = { ...config.telegram };
 
 beforeEach(() => {
   resetDbForTests(openDb(':memory:'));
+  // Bun carrega .env automaticamente; sem isso, um .env real com credenciais (deixado por uso manual da UI)
+  // muda o resultado desses testes — já aconteceu nesta sessão.
+  Object.assign(config.telegram, { botToken: undefined, apiId: undefined, apiHash: undefined, session: undefined });
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  Object.assign(config.telegram, originalTelegramConfig);
 });
 
 const htmlResponse = (body: string, status = 200): Response => new Response(body, { status });

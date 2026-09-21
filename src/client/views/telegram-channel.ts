@@ -52,12 +52,19 @@ const itemDescription = (item: TelegramItemDto): string | null => {
   return rest || null;
 };
 
+interface PlayerState {
+  player: Plyr | null;
+  cleanupResize: (() => void) | null;
+}
+
 export const renderTelegramChannel = (host: HTMLElement, titleId: string): void => {
   host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
 
+  const playerState: PlayerState = { player: null, cleanupResize: null };
+
   const load = () => {
     getTelegramChannel(titleId)
-      .then((d) => renderDetail(host, d, load))
+      .then((d) => renderDetail(host, d, load, playerState))
       .catch(() => {
         host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar esse canal</div>`;
       });
@@ -66,10 +73,16 @@ export const renderTelegramChannel = (host: HTMLElement, titleId: string): void 
   load();
 };
 
-const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: () => void): void => {
+/** Toda vez que `reload()` reconstrói o DOM (troca de status/nota, "atualizar"), o player anterior precisa ser destruído antes — senão o Plyr e o listener de resize de `capPortraitWidth` vazam a cada re-render. */
+const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: () => void, playerState: PlayerState): void => {
+  playerState.player?.destroy();
+  playerState.cleanupResize?.();
+  playerState.player = null;
+  playerState.cleanupResize = null;
+
   host.innerHTML = `
     <div class="hero">
-      <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? ` style="background-image:url('${d.posterUrl}')"` : ''}></div>
+      <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(d.posterUrl)}')"` : ''}></div>
       <div class="scrim"></div>
       <div class="hero-content">
         <div class="hero-info">
@@ -111,12 +124,9 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   const playerHost = host.querySelector('#tg-player') as HTMLElement;
   const itemsHost = host.querySelector('#tg-items') as HTMLElement;
 
-  let currentPlayer: Plyr | null = null;
-  let cleanupResize: (() => void) | null = null;
-
   const playItem = (item: TelegramItemDto) => {
-    currentPlayer?.destroy();
-    cleanupResize?.();
+    playerState.player?.destroy();
+    playerState.cleanupResize?.();
     const playUrl = telegramPlayUrl(d.titleId, item.messageId);
     const meta = [formatDuration(item.durationSeconds), item.postedAt ? new Date(item.postedAt).toLocaleDateString('pt-BR') : null]
       .filter(Boolean)
@@ -128,19 +138,20 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
         ${meta ? `<div class="tg-player-meta">${escapeHtml(meta)}</div>` : ''}
       </div>
       <div class="tg-player">
-        <video src="${playUrl}" autoplay playsinline ${item.thumbnailUrl ? `poster="${item.thumbnailUrl}"` : ''}></video>
+        <video src="${escapeHtml(playUrl)}" autoplay playsinline ${item.thumbnailUrl ? `poster="${escapeHtml(item.thumbnailUrl)}"` : ''}></video>
       </div>
       ${description ? `<p class="view-subtitle">${escapeHtml(description)}</p>` : ''}
     `;
     const video = playerHost.querySelector('video') as HTMLVideoElement;
     video.addEventListener('error', () => {
-      fetch(playUrl)
+      // Range mínimo: sem isso, no modo conta pessoal um erro de player dispararia um download completo do vídeo só pra ler o corpo de erro.
+      fetch(playUrl, { headers: { Range: 'bytes=0-0' } })
         .then((r) => r.json())
         .then((body) => showToast(body.error ?? 'não foi possível reproduzir esse vídeo'))
         .catch(() => showToast('não foi possível reproduzir esse vídeo'));
     });
-    currentPlayer = new Plyr(video, { controls: PLYR_CONTROLS });
-    cleanupResize = capPortraitWidth(currentPlayer.elements.container, video);
+    playerState.player = new Plyr(video, { controls: PLYR_CONTROLS });
+    playerState.cleanupResize = capPortraitWidth(playerState.player.elements.container, video);
     playerHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -155,7 +166,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       const card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = `
-        <div class="poster${item.thumbnailUrl ? '' : ' placeholder'}"${item.thumbnailUrl ? ` style="background-image:url('${item.thumbnailUrl}')"` : ''}>
+        <div class="poster${item.thumbnailUrl ? '' : ' placeholder'}"${item.thumbnailUrl ? ` style="background-image:url('${escapeHtml(item.thumbnailUrl)}')"` : ''}>
           ${item.thumbnailUrl ? '' : '<span class="initials">🎬</span>'}
           ${item.durationSeconds ? `<span class="badge badge-corner">${formatDuration(item.durationSeconds)}</span>` : ''}
         </div>

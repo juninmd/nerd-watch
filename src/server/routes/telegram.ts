@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { getDb } from '../db.ts';
+import { originAllowed } from '../security.ts';
 import {
+  countTelegramItemsByChannel,
   getTelegramChannel,
   getTelegramItem,
   listTelegramChannels,
@@ -33,8 +35,9 @@ const toChannelResponse = (channel: TelegramChannel, itemCount: number) => ({
 telegramRoutes.get('/channels', async (c) => {
   const db = await getDb();
   const channels = listTelegramChannels(db);
+  const counts = countTelegramItemsByChannel(db);
   return c.json({
-    channels: channels.map((ch) => toChannelResponse(ch, listTelegramItems(db, ch.id).length)),
+    channels: channels.map((ch) => toChannelResponse(ch, counts.get(ch.id) ?? 0)),
   });
 });
 
@@ -155,6 +158,12 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
 });
 
 telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
+  // GET é isento do check de Origin em toda a app por ser normalmente idempotente/barato (ver security.ts),
+  // mas essa rota tem efeito colateral real e caro (proxy de download via MTProto/Bot API) — sem esse check
+  // qualquer aba de terceiro aberta no mesmo navegador podia forçar downloads repetidos contra o Telegram
+  // do usuário só com fetch(), sem precisar ler a resposta (CORS não bloqueia isso, é abuso por efeito colateral).
+  if (!originAllowed(c.req.header('Origin') ?? '')) return c.json({ error: 'origem não permitida' }, 403);
+
   const db = await getDb();
   const channel = getTelegramChannel(db, c.req.param('id'));
   if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
@@ -209,13 +218,19 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
     return c.json({ error: 'não foi possível acessar o Telegram com a conta pessoal agora' }, 502);
   }
-  if (!resolved) return c.json({ error: 'vídeo não encontrado nesse canal' }, 404);
+  if (!resolved.ok) {
+    if (resolved.reason === 'range_not_satisfiable') {
+      return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${resolved.totalSize}` } });
+    }
+    return c.json({ error: 'vídeo não encontrado nesse canal' }, 404);
+  }
 
+  const stream = resolved.data;
   const headers = new Headers({
-    'Content-Type': resolved.contentType,
-    'Content-Length': String(resolved.end - resolved.start + 1),
+    'Content-Type': stream.contentType,
+    'Content-Length': String(stream.end - stream.start + 1),
     'Accept-Ranges': 'bytes',
   });
-  if (rangeMatch) headers.set('Content-Range', `bytes ${resolved.start}-${resolved.end}/${resolved.totalSize}`);
-  return new Response(resolved.stream, { status: rangeMatch ? 206 : 200, headers });
+  if (rangeMatch) headers.set('Content-Range', `bytes ${stream.start}-${stream.end}/${stream.totalSize}`);
+  return new Response(stream.stream, { status: rangeMatch ? 206 : 200, headers });
 });

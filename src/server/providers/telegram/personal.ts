@@ -3,10 +3,15 @@ import { StringSession } from 'teleproto/sessions';
 import { config, telegramPersonalEnabled } from '../../config.ts';
 
 /**
- * Conta pessoal via MTProto (`teleproto`, fork mantido do GramJS): única forma de acessar o histórico
- * completo de um canal (a Bot API não tem `getChatHistory`) e sem o teto de 20MB da Bot API na nuvem.
- * Login é sempre via `bun run telegram:login` (CLI local) — a session string resultante fica só no .env,
- * nunca é aceita por HTTP.
+ * Conta pessoal via MTProto (`teleproto`, fork mantido do GramJS): único modo estruturalmente capaz de
+ * acessar o histórico completo de um canal (a Bot API não tem `getChatHistory`) e sem o teto de 20MB da
+ * Bot API na nuvem. Login é sempre via `bun run telegram:login` (CLI local) — a session string resultante
+ * fica só no .env, nunca é aceita por HTTP.
+ *
+ * LIMITAÇÃO ATUAL: só a 1ª página (30 mensagens mais recentes) é importada — `beforeMessageId` existe
+ * pra paginar pra trás mas nada ainda chama com esse argumento, e `telegram_channels.cursor` é gravado
+ * mas nunca lido de volta. "Histórico completo" hoje é uma capacidade do protocolo, não algo entregue
+ * pela UI/rotas atuais.
  */
 export class TelegramPersonalNotConfiguredError extends Error {
   constructor() {
@@ -128,35 +133,72 @@ export const trimChunkStream = (
   });
 };
 
+export type PersonalStreamResolution =
+  | { ok: true; data: PersonalStream }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'range_not_satisfiable'; totalSize: number };
+
+export type RangePlan = { start: number; end: number; wantedLength: number; alignedOffset: number; leadingTrim: number; downloadLimit: number };
+
+/**
+ * upload.GetFile exige offset múltiplo de 4096: alinha pra baixo e descarta o excedente no início
+ * (`leadingTrim`). `downloadLimit` é quanto pedir ao Telegram (a partir do offset alinhado); `wantedLength`
+ * é quanto efetivamente devolver ao cliente depois de descartar `leadingTrim` — são valores DIFERENTES,
+ * e passar `downloadLimit` onde `trimChunkStream` espera `wantedLength` faz a resposta vazar até
+ * `leadingTrim` bytes a mais do que o `Content-Length` declarado (corrompe o corpo em qualquer seek
+ * não alinhado a 4096, que é basicamente todo scrub do player).
+ */
+export const planRange = (range: { start: number; end: number | null }, totalSize: number): RangePlan | null => {
+  const start = Math.max(0, range.start);
+  if (start > totalSize - 1) return null;
+  const end = Math.min(range.end ?? totalSize - 1, totalSize - 1);
+  // Range invertido (ex.: `bytes=500-100`) passa pela regex da rota mas não é satisfazível — sem essa
+  // guarda, wantedLength dava negativo e a resposta saía 206 com Content-Length negativo/Content-Range inválido.
+  if (end < start) return null;
+  const wantedLength = end - start + 1;
+  const alignedOffset = Math.floor(start / 4096) * 4096;
+  const leadingTrim = start - alignedOffset;
+  return { start, end, wantedLength, alignedOffset, leadingTrim, downloadLimit: leadingTrim + wantedLength };
+};
+
+/**
+ * Monta o `PersonalStream` a partir de um `RangePlan` já resolvido e do generator de download — extraído de
+ * `streamPersonalItem` pra ser testável sem mockar `TelegramClient`/MTProto: um teste que chama só
+ * `trimChunkStream` diretamente não pega regressão nos argumentos passados aqui (já aconteceu uma vez).
+ */
+export const buildPersonalStream = (
+  generator: AsyncGenerator<Buffer, void, unknown>,
+  plan: RangePlan,
+  contentType: string,
+  totalSize: number,
+): PersonalStream => ({
+  stream: trimChunkStream(generator, plan.leadingTrim, plan.wantedLength),
+  contentType,
+  totalSize,
+  start: plan.start,
+  end: plan.end,
+});
+
 /** Baixa em stream (chunk a chunk, sem bufferizar o arquivo inteiro) o trecho `[start, end]` do vídeo. */
 export const streamPersonalItem = async (
   handle: string,
   messageId: string,
   range: { start: number; end: number | null },
-): Promise<PersonalStream | null> => {
+): Promise<PersonalStreamResolution> => {
   const client = await getClient();
   const messages = await client.getMessages(handle, { ids: [Number(messageId)] });
   const msg = messages[0];
-  if (!msg || !(msg.media instanceof Api.MessageMediaDocument) || !(msg.media.document instanceof Api.Document)) return null;
+  if (!msg || !(msg.media instanceof Api.MessageMediaDocument) || !(msg.media.document instanceof Api.Document))
+    return { ok: false, reason: 'not_found' };
   const doc = msg.media.document;
 
   const totalSize = Number(doc.size);
-  const start = Math.max(0, range.start);
-  const end = Math.min(range.end ?? totalSize - 1, totalSize - 1);
-  const wantedLength = end - start + 1;
+  const plan = planRange(range, totalSize);
+  if (!plan) return { ok: false, reason: 'range_not_satisfiable', totalSize };
 
-  // upload.GetFile exige offset múltiplo de 4096: alinha pra baixo e descarta o excedente no início.
-  const alignedOffset = Math.floor(start / 4096) * 4096;
-  const leadingTrim = start - alignedOffset;
-  const generator = client.iterDownload(msg, { offset: alignedOffset, limit: leadingTrim + wantedLength });
+  const generator = client.iterDownload(msg, { offset: plan.alignedOffset, limit: plan.downloadLimit });
 
-  return {
-    stream: trimChunkStream(generator, leadingTrim, leadingTrim + wantedLength),
-    contentType: doc.mimeType || 'video/mp4',
-    totalSize,
-    start,
-    end,
-  };
+  return { ok: true, data: buildPersonalStream(generator, plan, doc.mimeType || 'video/mp4', totalSize) };
 };
 
 export { telegramPersonalEnabled };

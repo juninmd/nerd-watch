@@ -56,8 +56,9 @@ const toChannel = (row: JoinedRow): TelegramChannel => ({
   },
 });
 
+/** Usernames do Telegram não diferenciam maiúsculas/minúsculas — compara sem distinção pra não duplicar canal nem perder posts do bot por causa da casing exata digitada na UI. */
 export const getTelegramChannelByHandle = (db: Database, handle: string): TelegramChannel | null => {
-  const row = db.query<JoinedRow, [string]>(`${JOIN_SELECT} WHERE c.handle = ?`).get(handle);
+  const row = db.query<JoinedRow, [string]>(`${JOIN_SELECT} WHERE LOWER(c.handle) = LOWER(?)`).get(handle);
   return row ? toChannel(row) : null;
 };
 
@@ -68,6 +69,12 @@ export const getTelegramChannel = (db: Database, id: string): TelegramChannel | 
 
 export const listTelegramChannels = (db: Database): TelegramChannel[] =>
   db.query<JoinedRow, []>(`${JOIN_SELECT} ORDER BY c.created_at DESC`).all().map(toChannel);
+
+/** Uma query só pra contar itens de todos os canais, em vez de um SELECT * completo por canal (N+1). */
+export const countTelegramItemsByChannel = (db: Database): Map<string, number> => {
+  const rows = db.query<{ channel_id: string; count: number }, []>('SELECT channel_id, COUNT(*) as count FROM telegram_items GROUP BY channel_id').all();
+  return new Map(rows.map((r) => [r.channel_id, r.count]));
+};
 
 /** Um canal Telegram é um `title` (source='telegram', media_type='tv' — conteúdo episódico contínuo). */
 export const upsertTelegramChannel = (

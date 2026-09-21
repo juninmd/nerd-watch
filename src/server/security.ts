@@ -8,7 +8,7 @@
  *   bloqueia; GET é seguro por ser idempotente e não é alvo de CSRF.
  */
 const LOOPBACK_HOST = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
-const LOOPBACK_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i;
+const LOOPBACK_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export const hostAllowed = (host: string): boolean => !host || LOOPBACK_HOST.test(host);
