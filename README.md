@@ -28,10 +28,23 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 📡 **Onde assistir** | streamings disponíveis na sua região (TMDB watch/providers) |
 | 🎞️ **Domínio público** | catálogo do Internet Archive (`feature_films`) — **assiste dentro do app**, sem chave nenhuma |
 | 🧲 **Torrent legal** | o torrent oficial que a própria Archive.org gera para cada item de domínio público |
-| 🔒 **Local-first** | tudo no seu `data/nerd-watch.db` (SQLite); nada sai daqui além das chamadas ao catálogo |
+| ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais |
+| 🔒 **Local-first** | sua lista e seu progresso ficam no `data/nerd-watch.db` (SQLite); consultas ao catálogo e ao Telegram usam os serviços externos correspondentes |
 
 Filmes e séries **protegidos por direitos autorais não são reproduzidos dentro do app** — o app te leva
 até o streaming legítimo. Só o acervo de domínio público (já livre de direitos) toca localmente.
+
+---
+
+## 📸 Telas
+
+Capturas da app em execução com o banco fictício criado por `bun run seed`. Nenhum dado pessoal foi usado.
+
+![Página inicial com títulos fictícios em andamento e calendário](docs/screenshots/inicio.png)
+
+| Minha lista | Calendário |
+|---|---|
+| ![Lista fictícia com filtros de acompanhamento](docs/screenshots/minha-lista.png) | ![Calendário de lançamentos dos títulos fictícios](docs/screenshots/calendario.png) |
 
 ---
 
@@ -58,7 +71,7 @@ bun run seed     # popula data/nerd-watch.db com um catálogo fictício, só par
 Hono (Bun) — server local, só escuta em 127.0.0.1
   ├─ front  → public/  (bundle Bun: catálogo, calendário, player)
   ├─ SQLite → data/nerd-watch.db (sua lista, progresso, cache de episódios)
-  └─ providers → TMDB (com chave) + Internet Archive (sem chave)
+  └─ providers → TMDB (com chave) + Internet Archive (sem chave) + Telegram (opcional)
 ```
 
 O servidor valida `Host` (bloqueia DNS rebinding) e `Origin` em métodos que mudam estado (bloqueia CSRF),
