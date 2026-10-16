@@ -264,3 +264,29 @@
   gap: 10px;
   align-items: center;
 }
+
+/* Player P2P (torrent) do acervo de domínio público — estado de conexão e escolha do derivado. */
+.torrent-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.torrent-file-select {
+  appearance: none;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.torrent-file-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}

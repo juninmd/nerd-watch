@@ -1,0 +1,169 @@
+import Plyr from 'plyr';
+import { closeTorrent, getTorrentStatus, openTorrent, type TorrentOpenResponse } from '../api.ts';
+import { showToast } from '../state.ts';
+import { escapeHtml } from './card.ts';
+
+const PLYR_CONTROLS = ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'settings', 'fullscreen'];
+const POLL_MS = 2000;
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unit]}`;
+};
+
+/**
+ * Registrar o cleanup aqui (em vez de no router) resolve o vazamento: sem isso, navegar para
+ * outra tela deixaria o torrent aberto semeando e o `setInterval` de status rodando pra sempre.
+ */
+const cleanups = new Set<() => void>();
+
+/** Chamado a cada troca de rota (`main.ts`). Fecha torrents e mata os pollers da tela anterior. */
+export const releaseTorrentPlayers = (): void => {
+  for (const cleanup of [...cleanups]) cleanup();
+  cleanups.clear();
+};
+
+export interface TorrentPanelOptions {
+  identifier: string;
+  title: string;
+  posterUrl?: string | null;
+}
+
+interface PanelState {
+  infoHash: string | null;
+  timer: ReturnType<typeof setInterval> | null;
+  player: Plyr | null;
+  disposed: boolean;
+}
+
+export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
+  const wrap = document.createElement('div');
+  const state: PanelState = { infoHash: null, timer: null, player: null, disposed: false };
+
+  const cleanup = () => {
+    state.disposed = true;
+    if (state.timer) clearInterval(state.timer);
+    state.player?.destroy();
+    state.player = null;
+    // Fecha no servidor: para de baixar/semear e libera o disco do torrent.
+    if (state.infoHash) closeTorrent(state.infoHash).catch(() => {});
+    state.infoHash = null;
+  };
+  cleanups.add(cleanup);
+
+  const idle = () => {
+    wrap.innerHTML = `
+      <button class="btn btn-primary btn-sm" id="torrent-start" type="button" style="width:100%;justify-content:center">
+        🧲 assistir via torrent (P2P)
+      </button>
+      <p class="hint" style="margin:8px 0 0">
+        Conecta direto nos peers que hospedam o torrent oficial da Internet Archive —
+        não passa pela banda do archive.org.
+      </p>
+    `;
+    (wrap.querySelector('#torrent-start') as HTMLButtonElement).addEventListener('click', () => void start());
+  };
+
+  const loading = (message: string) => {
+    wrap.innerHTML = `<p class="hint">${escapeHtml(message)}</p>`;
+  };
+
+  const chooseFile = (result: TorrentOpenResponse) => {
+    if (result.videoFiles.length < 2) return '';
+    const options = result.videoFiles
+      .map(
+        (file) =>
+          `<option value="${file.index}"${file.index === result.selected.index ? ' selected' : ''}>${escapeHtml(
+            `${file.label} — ${formatBytes(file.length)}`,
+          )}</option>`,
+      )
+      .join('');
+    return `<select class="torrent-file-select" id="torrent-file" style="width:100%;margin-bottom:8px">${options}</select>`;
+  };
+
+  const playing = (result: TorrentOpenResponse) => {
+    wrap.innerHTML = `
+      ${chooseFile(result)}
+      <div class="player-frame" style="margin-bottom:8px">
+        <video id="torrent-video" src="${escapeHtml(result.streamUrl)}" controls playsinline autoplay
+          ${opts.posterUrl ? `poster="${escapeHtml(opts.posterUrl)}"` : ''}></video>
+      </div>
+      <div class="torrent-stats" id="torrent-stats" style="margin-bottom:8px">conectando aos peers...</div>
+      <button class="btn btn-ghost btn-sm" id="torrent-stop" type="button" style="width:100%;justify-content:center">
+        ⏹ parar e liberar o torrent
+      </button>
+    `;
+
+    const video = wrap.querySelector('#torrent-video') as HTMLVideoElement;
+    state.player = new Plyr(video, { controls: PLYR_CONTROLS });
+
+    video.addEventListener('error', () => showToast('não foi possível reproduzir esse arquivo do torrent'));
+
+    (wrap.querySelector('#torrent-stop') as HTMLButtonElement).addEventListener('click', () => {
+      cleanup();
+      cleanups.delete(cleanup);
+      idle();
+    });
+
+    const select = wrap.querySelector('#torrent-file') as HTMLSelectElement | null;
+    select?.addEventListener('change', () => {
+      // Reabre só para trocar o derivado: o torrent em si é reaproveitado pelo servidor.
+      void start(Number(select.value));
+    });
+
+    const statsEl = wrap.querySelector('#torrent-stats') as HTMLElement;
+    const poll = () => {
+      getTorrentStatus(result.infoHash)
+        .then((status) => {
+          if (state.disposed) return;
+          statsEl.innerHTML = `
+            <span class="badge">${status.numPeers} peer${status.numPeers === 1 ? '' : 's'}</span>
+            <span class="badge">${formatBytes(status.downloadSpeed)}/s</span>
+            <span class="badge">${(status.progress * 100).toFixed(1)}% baixado</span>
+            <span class="badge">${formatBytes(status.downloaded)} de ${formatBytes(status.totalLength)}</span>
+          `;
+        })
+        .catch(() => {
+          if (state.disposed) return;
+          statsEl.textContent = 'perdemos o torrent — use "parar" e tente de novo';
+        });
+    };
+    poll();
+    if (state.timer) clearInterval(state.timer);
+    state.timer = setInterval(poll, POLL_MS);
+  };
+
+  const start = async (fileIndex?: number) => {
+    if (state.timer) {
+      clearInterval(state.timer);
+      state.timer = null;
+    }
+    state.player?.destroy();
+    state.player = null;
+
+    loading(fileIndex === undefined ? 'buscando a metadata do torrent e os peers...' : 'trocando de arquivo...');
+    try {
+      const result = await openTorrent(opts.identifier, fileIndex);
+      if (state.disposed) {
+        closeTorrent(result.infoHash).catch(() => {});
+        return;
+      }
+      state.infoHash = result.infoHash;
+      playing(result);
+    } catch (err) {
+      if (state.disposed) return;
+      loading(err instanceof Error ? err.message : 'não foi possível abrir o torrent');
+      idle();
+    }
+  };
+
+  idle();
+  return wrap;
+};

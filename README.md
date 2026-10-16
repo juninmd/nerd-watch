@@ -28,11 +28,17 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 📡 **Onde assistir** | streamings disponíveis na sua região (TMDB watch/providers) |
 | 🎞️ **Domínio público** | catálogo do Internet Archive (`feature_films`) — **assiste dentro do app**, sem chave nenhuma |
 | 🧲 **Torrent legal** | o torrent oficial que a própria Archive.org gera para cada item de domínio público |
+| ⚡ **Streaming P2P** | toca o torrent do acervo livre dentro do app, com seek — engine em processo, sem depender da banda do archive.org |
 | ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais |
 | 🔒 **Local-first** | sua lista e seu progresso ficam no `data/nerd-watch.db` (SQLite); consultas ao catálogo e ao Telegram usam os serviços externos correspondentes |
 
 Filmes e séries **protegidos por direitos autorais não são reproduzidos dentro do app** — o app te leva
 até o streaming legítimo. Só o acervo de domínio público (já livre de direitos) toca localmente.
+
+O motor de torrent segue a mesma regra por construção: ele **só abre torrents derivados de um item
+da Internet Archive**. Não existe endpoint que aceite magnet ou `.torrent` arbitrário, então o app não
+tem como virar um player de catálogo comercial — a engine, o streaming com seek e o player são os
+mesmos que qualquer app do tipo usaria, mas a fonte é sempre o acervo livre.
 
 ---
 
@@ -71,6 +77,7 @@ bun run seed     # popula data/nerd-watch.db com um catálogo fictício, só par
 Hono (Bun) — server local, só escuta em 127.0.0.1
   ├─ front  → public/  (bundle Bun: catálogo, calendário, player)
   ├─ SQLite → data/nerd-watch.db (sua lista, progresso, cache de episódios)
+  ├─ torrents → .cache/torrents (engine WebTorrent em processo, só acervo livre)
   └─ providers → TMDB (com chave) + Internet Archive (sem chave) + Telegram (opcional)
 ```
 
@@ -86,6 +93,14 @@ bun run check   # lint (biome) + typecheck (tsc) + testes (bun test)
 bun run smoke   # sobe o server numa porta separada e confere as rotas principais
 ```
 
+Com o servidor rodando em outra aba, a PoC do streaming por torrent confere de ponta a ponta
+(abertura, escolha do arquivo, `206` com `Content-Range`, seek e o recorte de segurança):
+
+```bash
+bun run poc:torrent                        # usa Sita_Sings_the_Blues (domínio público)
+bun run poc:torrent -- house_on_haunted_hill_ipod
+```
+
 ---
 
 ## Limites conhecidos
@@ -96,3 +111,7 @@ bun run smoke   # sobe o server numa porta separada e confere as rotas principai
   cacheado no SQLite conforme você visita, mas não há refresh automático).
 - **Domínio público limitado à coleção `feature_films`** da Internet Archive — é a curadoria oficial
   deles para conteúdo livre; dá para ampliar depois se quiser mais fontes.
+- **O torrent começa pelo derivado mais leve** (`_512kb`/`small`) para o vídeo abrir rápido, não pela
+  melhor qualidade — o seletor na tela deixa você trocar para `large`/`1080p` a qualquer momento.
+- **Só MP4/WebM tocam no navegador.** Itens da Archive que só têm `.ogv`/`.avi`/`.mkv` aparecem sem o
+  player P2P (o download do torrent continua lá).

@@ -58,4 +58,26 @@ describe('GET /api/archive/:identifier', () => {
     const res = await archiveRoutes.request('/inexistente-teste-rota');
     expect(res.status).toBe(404);
   });
+
+  test('marca hasPlayableVideo quando há MP4 no item', async () => {
+    globalThis.fetch = (async () =>
+      jsonResponse({
+        metadata: { identifier: 'route-test-mp4', title: 'Tem MP4', year: 1960 },
+        files: [{ name: 'filme_512kb.mp4', format: '512Kb MPEG4' }],
+      })) as unknown as typeof fetch;
+
+    const body = await (await archiveRoutes.request('/route-test-mp4')).json();
+    expect(body.hasPlayableVideo).toBe(true);
+  });
+
+  test('marca hasPlayableVideo:false quando só há OGV', async () => {
+    globalThis.fetch = (async () =>
+      jsonResponse({
+        metadata: { identifier: 'route-test-ogv', title: 'Só OGV', year: 1961 },
+        files: [{ name: 'filme.ogv', format: 'Ogg Video' }],
+      })) as unknown as typeof fetch;
+
+    const body = await (await archiveRoutes.request('/route-test-ogv')).json();
+    expect(body.hasPlayableVideo).toBe(false);
+  });
 });

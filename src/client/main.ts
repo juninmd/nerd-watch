@@ -1,5 +1,6 @@
 import { navigate, onRouteChange, type Route } from './router.ts';
 import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './state.ts';
+import { releaseTorrentPlayers } from './components/torrent-player.ts';
 import { renderDiscover } from './views/discover.ts';
 import { renderSearch } from './views/search.ts';
 import { renderMyList } from './views/my-list.ts';
@@ -79,6 +80,8 @@ const TITLE_RE = /^\/title\/(tmdb|archive)\/(movie|tv|_)\/(.+)$/;
 const TELEGRAM_CHANNEL_RE = /^\/telegram\/(.+)$/;
 
 const dispatch = (route: Route) => {
+  // Fecha torrents (e mata os pollers) da tela anterior antes de trocar de view.
+  releaseTorrentPlayers();
   renderNav(route.path);
   const titleMatch = route.path.match(TITLE_RE);
   if (titleMatch) {

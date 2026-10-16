@@ -7,4 +7,6 @@ data/
 .env
 .server.log
 .server.err
+.poc-out.log
+.poc-err.log
 scripts/.smoke-*.png
