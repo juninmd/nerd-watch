@@ -101,8 +101,8 @@ try {
   if (Array.isArray(tgChannels.channels)) console.log('✓ GET /api/telegram/channels');
   else fail('/api/telegram/channels formato inesperado');
 
-  const subRes = await fetch(`${BASE}/api/subtitles`).then((r) => r.json());
-  if (typeof subRes.enabled === 'boolean') console.log('✓ GET /api/subtitles status');
+  const subRes = await fetch(`${BASE}/api/subtitles?imdbId=tt0111161&mediaType=movie`).then((r) => r.json());
+  if (typeof subRes.enabled === 'boolean' && Array.isArray(subRes.results)) console.log('✓ GET /api/subtitles status');
   else fail('/api/subtitles formato inesperado');
 
   const home = await fetch(`${BASE}/`);
