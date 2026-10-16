@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { torrentRoutes } from '../src/server/routes/torrent.ts';
+import { parseRange, torrentRoutes } from '../src/server/routes/torrent.ts';
 import { archiveTorrentUrl } from '../src/server/torrent/engine.ts';
 
 /**
@@ -39,10 +39,69 @@ describe('archiveTorrentUrl', () => {
   });
 });
 
+describe('parseRange', () => {
+  const TOTAL = 1000;
+
+  test('sem header, serve o arquivo inteiro (200)', () => {
+    expect(parseRange(undefined, TOTAL)).toBeNull();
+  });
+
+  test('range fechado', () => {
+    expect(parseRange('bytes=0-99', TOTAL)).toEqual({ start: 0, end: 99 });
+    expect(parseRange('bytes=100-199', TOTAL)).toEqual({ start: 100, end: 199 });
+  });
+
+  test('range aberto no fim vai até o último byte', () => {
+    expect(parseRange('bytes=500-', TOTAL)).toEqual({ start: 500, end: TOTAL - 1 });
+    expect(parseRange('bytes=0-', TOTAL)).toEqual({ start: 0, end: TOTAL - 1 });
+  });
+
+  test('range de sufixo devolve os últimos N bytes', () => {
+    expect(parseRange('bytes=-500', TOTAL)).toEqual({ start: 500, end: TOTAL - 1 });
+    expect(parseRange('bytes=-1', TOTAL)).toEqual({ start: TOTAL - 1, end: TOTAL - 1 });
+  });
+
+  test('range de 1 byte no offset 0 é expressável (o caso que o webtorrent trata como EOF)', () => {
+    expect(parseRange('bytes=0-0', TOTAL)).toEqual({ start: 0, end: 0 });
+  });
+
+  test('fim além do EOF é truncado em vez de estourar', () => {
+    expect(parseRange('bytes=900-99999', TOTAL)).toEqual({ start: 900, end: TOTAL - 1 });
+  });
+
+  test('range invertido não é satisfazível (seria 206 com Content-Length negativo)', () => {
+    expect(parseRange('bytes=500-100', TOTAL)).toBe('unsatisfiable');
+    expect(parseRange('bytes=999-0', TOTAL)).toBe('unsatisfiable');
+  });
+
+  test('início além do EOF não é satisfazível', () => {
+    expect(parseRange('bytes=1000-1200', TOTAL)).toBe('unsatisfiable');
+    expect(parseRange('bytes=5000-', TOTAL)).toBe('unsatisfiable');
+  });
+
+  test('sufixo zero não é satisfazível', () => {
+    expect(parseRange('bytes=-0', TOTAL)).toBe('unsatisfiable');
+  });
+
+  test('header inválido cai em "sem range" em vez de dar erro', () => {
+    expect(parseRange('bytes=abc-def', TOTAL)).toBeNull();
+    expect(parseRange('items=0-10', TOTAL)).toBeNull();
+    expect(parseRange('bytes=0-10,20-30', TOTAL)).toBeNull();
+    expect(parseRange('bytes=-', TOTAL)).toBeNull();
+  });
+});
+
 describe('POST /api/torrent/open', () => {
   test('400 sem identifier', async () => {
     const res = await torrentRoutes.request('/open', { method: 'POST', body: JSON.stringify({}) });
     expect(res.status).toBe(400);
+  });
+
+  test('400 quando identifier não é string (evita 500 no handler)', async () => {
+    for (const identifier of [123, ['a'], true, { a: 1 }]) {
+      const res = await torrentRoutes.request('/open', { method: 'POST', body: JSON.stringify({ identifier }) });
+      expect(res.status).toBe(400);
+    }
   });
 
   test('400 com identifier inválido, sem tocar a rede', async () => {

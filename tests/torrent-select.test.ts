@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { MIN_FEATURE_BYTES, pickDefaultVideo, rankVideoFiles, resolveVideoIndex } from '../src/server/torrent/select.ts';
 
 const MB = 1024 * 1024;
+const GB = 1024 * MB;
 
 /**
  * Lista real (recortada) do item `Sita_Sings_the_Blues` da Internet Archive, coletada em execução.
@@ -15,12 +16,14 @@ const SITA_FILES = [
   { name: '52', length: 4.2 * MB },
   { name: 'Sita_Sings_the_Blues_audio_only_spectrogram.png', length: 0.3 * MB },
   { name: 'Sita_Sings_the_Blues_large.gif', length: 0.4 * MB },
-  { name: 'Sita_Sings_the_Blues_large.mp4', length: 872 * MB },
-  { name: 'Sita_Sings_the_Blues_medium.mp4', length: 499.8 * MB },
-  { name: 'Sita_Sings_the_Blues_small.mp4', length: 223.6 * MB },
-  { name: 'Sita_Sings_the_Blues_1080p.mp4', length: 4428.8 * MB },
-  { name: 'Sita_Sings_the_Blues_DVD_NTSC3.mp4', length: 29 * MB },
-  { name: 'Sita_Sings_the_Blues_DVD_NTSC4.mp4', length: 11 * MB },
+  { name: 'Sita_Sings_the_Blues_large.mp4', length: 831.6 * MB },
+  { name: 'Sita_Sings_the_Blues_medium.mp4', length: 476.7 * MB },
+  { name: 'Sita_Sings_the_Blues_small.mp4', length: 213.3 * MB },
+  { name: 'Sita_Sings_the_Blues_480p_2150kbps.mp4', length: 1395.2 * MB },
+  { name: 'Sita_Sings_the_Blues_720p.mp4', length: 2474 * MB },
+  { name: 'Sita_Sings_the_Blues_1080p.mp4', length: 4223.6 * MB },
+  { name: 'Sita_Sings_the_Blues_DVD_NTSC3.mp4', length: 27.6 * MB },
+  { name: 'Sita_Sings_the_Blues_DVD_NTSC4.mp4', length: 10.4 * MB },
   { name: 'Sita_Sings_the_Blues_meta.xml', length: 0.01 * MB },
   { name: '_HOUR_00_SSTB_MASTER_LoRo_01.L.afpk', length: 0.6 * MB },
   { name: '__ia_thumb.jpg', length: 0.02 * MB },
@@ -28,7 +31,7 @@ const SITA_FILES = [
 ];
 
 describe('rankVideoFiles', () => {
-  test('ignora lixo da Archive: numéricos, afpk, spectrogram, gif, xml e conf', () => {
+  test('ignora tudo que o navegador não toca: numéricos, afpk, png, gif, xml e conf', () => {
     const names = rankVideoFiles(SITA_FILES).map((c) => c.name);
     expect(names).not.toContain('17');
     expect(names).not.toContain('_HOUR_00_SSTB_MASTER_LoRo_01.L.afpk');
@@ -47,10 +50,20 @@ describe('rankVideoFiles', () => {
       'Sita_Sings_the_Blues_small.mp4',
       'Sita_Sings_the_Blues_medium.mp4',
       'Sita_Sings_the_Blues_large.mp4',
+      'Sita_Sings_the_Blues_480p_2150kbps.mp4',
+      'Sita_Sings_the_Blues_720p.mp4',
       'Sita_Sings_the_Blues_1080p.mp4',
       'Sita_Sings_the_Blues_DVD_NTSC4.mp4',
       'Sita_Sings_the_Blues_DVD_NTSC3.mp4',
     ]);
+  });
+
+  test('reconhece as convenções de resolução da Archive (_480p_2150kbps, _720p)', () => {
+    const labels = rankVideoFiles([
+      { name: 'filme_480p_2150kbps.mp4', length: 900 * MB },
+      { name: 'filme_720p.mp4', length: 2 * GB },
+    ]);
+    expect(labels.map((c) => c.label)).toEqual(['480p', '720p']);
   });
 
   test('mantém o index original do torrent, não a posição no ranking', () => {

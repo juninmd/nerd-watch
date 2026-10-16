@@ -36,9 +36,12 @@ Filmes e séries **protegidos por direitos autorais não são reproduzidos dentr
 até o streaming legítimo. Só o acervo de domínio público (já livre de direitos) toca localmente.
 
 O motor de torrent segue a mesma regra por construção: ele **só abre torrents derivados de um item
-da Internet Archive**. Não existe endpoint que aceite magnet ou `.torrent` arbitrário, então o app não
-tem como virar um player de catálogo comercial — a engine, o streaming com seek e o player são os
-mesmos que qualquer app do tipo usaria, mas a fonte é sempre o acervo livre.
+da Internet Archive**. Não existe endpoint que aceite magnet ou `.torrent` arbitrário, e os
+trackers/web seeds declarados dentro do próprio `.torrent` são conferidos — se algum apontar para
+fora de `*.archive.org`, o item é recusado. Sem isso, um item publicado por terceiro no acervo
+aberto da Archive faria o servidor local buscar URLs escolhidas por quem publicou. Com isso, o app
+não tem como virar um player de catálogo comercial — a engine, o streaming com seek e o player são
+os mesmos que qualquer app do tipo usaria, mas a fonte é sempre o acervo livre.
 
 ---
 

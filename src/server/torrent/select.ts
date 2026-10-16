@@ -8,30 +8,32 @@
  * 11 MB do DVD quando o filme de verdade tem 400 MB (medido no item `Sita_Sings_the_Blues`).
  *
  * A Archive resolve isso com uma convenção de nomes estável para os derivados do vídeo
- * principal, que é o que este módulo explora. Tudo aqui é função pura, pra ser testável sem
- * rede nem torrent.
+ * principal, que é o que este módulo explora. O filtro por tipo de arquivo é só o
+ * `isPlayableVideo` de `media/playable.ts` — não há lista de "lixo" aqui, porque tudo que não é
+ * MP4/WebM (`.afpk`, `.png`, `.ogg`, arquivos de nome numérico) já cai fora por ele.
+ *
+ * Tudo aqui é função pura, pra ser testável sem rede nem torrent.
  */
 
 import { isPlayableVideo } from '../media/playable.ts';
 
-/** Nunca é o filme — derivados auxiliares da Archive ou arquivos de índice internos. */
-const NOT_A_FEATURE = /(\.afpk$|\.torrent$|\.xml$|\.json$|\.txt$|\.conf$|\.sqlite$|\.gz$|\.png$|\.jpe?g$|\.gif$|\.ogg$|\.ogg\.png$)/i;
-
-/** Nome puramente numérico (`17`, `52`, `86`…): arquivo interno da Archive, não mídia. */
-const OPAQUE_NAME = /^\d+$/;
-
 /**
  * Convenção de derivados de vídeo da Archive.org, do mais leve/rápido ao mais pesado.
- * O número é a *preferência* (1 = melhor pra começar a assistir), não a qualidade: o
+ * O número é a *preferência* (menor = melhor pra começar a assistir), não a qualidade: o
  * `_512kb.mp4` é o que o próprio player do archive.org usa por padrão pra tocar no browser.
+ * Os nomes vêm de itens reais — `_480p_2150kbps.mp4` e `_720p.mp4` aparecem no
+ * `Sita_Sings_the_Blues`, por exemplo.
  */
 const DERIVATIVE_PREFERENCE: Array<{ match: RegExp; rank: number; label: string }> = [
   { match: /_512kb\.mp4$/i, rank: 1, label: '512 kbps (início rápido)' },
   { match: /_small\.mp4$/i, rank: 2, label: 'small' },
-  { match: /_medium\.mp4$/i, rank: 3, label: 'medium' },
-  { match: /_large\.mp4$/i, rank: 4, label: 'large' },
-  { match: /_1080p\.mp4$/i, rank: 5, label: '1080p' },
-  { match: /_hd\.mp4$/i, rank: 5, label: 'HD' },
+  { match: /_(240|360)p(_\d+kbps)?\.mp4$/i, rank: 3, label: '240p/360p' },
+  { match: /_medium\.mp4$/i, rank: 4, label: 'medium' },
+  { match: /_large\.mp4$/i, rank: 5, label: 'large' },
+  { match: /_480p(_\d+kbps)?\.mp4$/i, rank: 6, label: '480p' },
+  { match: /_720p(_\d+kbps)?\.mp4$/i, rank: 7, label: '720p' },
+  { match: /_hd\.mp4$/i, rank: 7, label: 'HD' },
+  { match: /_1080p(_\d+kbps)?\.mp4$/i, rank: 8, label: '1080p' },
 ];
 
 /** Tier de quem não casa com nenhum derivado conhecido (o "original" ou um recorte avulso). */
@@ -49,7 +51,7 @@ export interface VideoCandidate {
   index: number;
   name: string;
   length: number;
-  /** 1..5 = derivado conhecido (mais leve primeiro); 90 = original/desconhecido. */
+  /** Menor = derivado mais leve (preferido); 90 = sem convenção conhecida (o "original"). */
   preference: number;
   /** Rótulo curto pro seletor da interface. */
   label: string;
@@ -72,7 +74,7 @@ const labelFor = (name: string, preference: number): string => {
 export const rankVideoFiles = (files: readonly TorrentFileLike[]): VideoCandidate[] =>
   files
     .map((file, index) => ({ file, index }))
-    .filter(({ file }) => isPlayableVideo(file.name) && !NOT_A_FEATURE.test(file.name) && !OPAQUE_NAME.test(file.name))
+    .filter(({ file }) => isPlayableVideo(file.name))
     .map(({ file, index }) => {
       const matched = DERIVATIVE_PREFERENCE.find((entry) => entry.match.test(file.name));
       const preference = matched?.rank ?? UNKNOWN_DERIVATIVE;

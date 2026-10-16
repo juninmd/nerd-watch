@@ -1,15 +1,18 @@
 /**
  * Declaração mínima do webtorrent — só a superfície que o nerd-watch usa.
  *
- * O `@types/webtorrent` do DefinitelyTyped está desatualizado para a versão instalada
- * (não conhece `path`/`maxConns` nas options nem `torrent.destroyed`), e dependência de
- * tipos errada é pior que nenhuma. Mesma abordagem do `src/client/plyr.d.ts`.
+ * O `@types/webtorrent` do DefinitelyTyped está desatualizado para a versão instalada, e um tipo
+ * errado é pior que nenhum: ele compila um erro de runtime sem reclamar. Duas armadilhas concretas
+ * que esta declaração existe para não repetir (mesma abordagem do `src/client/plyr.d.ts`):
+ *
+ * - `path` NÃO é lido das options do construtor do client, só das options do `add` (por torrent).
+ *   Declarar em `Options` deixava o `tsc` abençoar o engano de configurar o diretório no client.
+ * - `createReadStream`/o iterador assíncrono tratam `end` falsy como "até o fim do arquivo".
  */
 declare module 'webtorrent' {
   import type { Readable } from 'node:stream';
 
   interface Options {
-    path?: string;
     maxConns?: number;
     downloadLimit?: number;
     uploadLimit?: number;
@@ -19,13 +22,22 @@ declare module 'webtorrent' {
     utp?: boolean;
   }
 
+  /**
+   * Options do `add`. `path` e `destroyStoreOnDestroy` moram AQUI, não nas do client: o client não
+   * as repassa ao construir o Torrent (`new Torrent(torrentId, this, opts)`), então declará-las em
+   * `Options` deixaria o `tsc` aprovar uma configuração que não tem efeito nenhum.
+   */
   interface AddOptions {
+    /** Diretório de download deste torrent. */
     path?: string;
+    /** Apaga os pedaços baixados quando o torrent é destruído. */
+    destroyStoreOnDestroy?: boolean;
     /** `sequential` é o que permite tocar antes de baixar o arquivo inteiro. */
     strategy?: 'sequential' | 'rarest';
   }
 
-  interface CreateReadStreamOptions {
+  /** `start`/`end` são inclusivos, em bytes. */
+  interface RangeOptions {
     start?: number;
     end?: number;
   }
@@ -35,7 +47,8 @@ declare module 'webtorrent' {
     length: number;
     /** 0..1 do arquivo. */
     progress: number;
-    createReadStream(opts?: CreateReadStreamOptions): Readable;
+    createReadStream(opts?: RangeOptions): Readable;
+    [Symbol.asyncIterator](opts?: RangeOptions): AsyncIterator<Uint8Array>;
   }
 
   interface Torrent {
@@ -43,7 +56,10 @@ declare module 'webtorrent' {
     name: string;
     length: number;
     files: TorrentFile[];
+    /** Trackers (http/udp/wss). */
     announce: string[];
+    /** Web seeds HTTP declarados pelo próprio .torrent. */
+    urlList: string[];
     numPeers: number;
     downloaded: number;
     uploaded: number;
@@ -59,8 +75,9 @@ declare module 'webtorrent' {
   export default class WebTorrent {
     constructor(opts?: Options);
     add(torrentId: string, opts?: AddOptions): Torrent;
-    get(torrentId: string): Torrent | null;
-    remove(torrentId: string, cb?: () => void): void;
+    /** Assíncrono no runtime (3.0.21) — consumido com `await`. */
+    get(torrentId: string): Promise<Torrent | null>;
+    remove(torrentId: string, opts?: { destroyStore?: boolean }, cb?: () => void): void;
     on(event: 'error', cb: (err: Error) => void): void;
     on(event: string, cb: (...args: never[]) => void): void;
     destroy(cb?: () => void): void;

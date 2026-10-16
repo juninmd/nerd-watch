@@ -1,5 +1,5 @@
 import Plyr from 'plyr';
-import { closeTorrent, getTorrentStatus, openTorrent, type TorrentOpenResponse } from '../api.ts';
+import { closeTorrent, getTorrentStatus, health, openTorrent, type TorrentOpenResponse } from '../api.ts';
 import { showToast } from '../state.ts';
 import { escapeHtml } from './card.ts';
 
@@ -40,6 +40,7 @@ interface PanelState {
   infoHash: string | null;
   timer: ReturnType<typeof setInterval> | null;
   player: Plyr | null;
+  /** Só a troca de rota marca isto. "Parar" NÃO marca: o painel continua utilizável. */
   disposed: boolean;
 }
 
@@ -47,19 +48,30 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   const wrap = document.createElement('div');
   const state: PanelState = { infoHash: null, timer: null, player: null, disposed: false };
 
-  const cleanup = () => {
-    state.disposed = true;
-    if (state.timer) clearInterval(state.timer);
+  /** Idempotente: pode ser chamado pelo "parar", pela troca de rota e antes de reabrir. */
+  const teardown = () => {
+    if (state.timer) {
+      clearInterval(state.timer);
+      state.timer = null;
+    }
     state.player?.destroy();
     state.player = null;
     // Fecha no servidor: para de baixar/semear e libera o disco do torrent.
-    if (state.infoHash) closeTorrent(state.infoHash).catch(() => {});
-    state.infoHash = null;
+    if (state.infoHash) {
+      closeTorrent(state.infoHash).catch(() => {});
+      state.infoHash = null;
+    }
   };
-  cleanups.add(cleanup);
 
-  const idle = () => {
+  const release = () => {
+    state.disposed = true;
+    teardown();
+  };
+  cleanups.add(release);
+
+  const idle = (message = '') => {
     wrap.innerHTML = `
+      ${message ? `<p class="hint" style="margin:0 0 8px">${escapeHtml(message)}</p>` : ''}
       <button class="btn btn-primary btn-sm" id="torrent-start" type="button" style="width:100%;justify-content:center">
         🧲 assistir via torrent (P2P)
       </button>
@@ -69,10 +81,6 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
       </p>
     `;
     (wrap.querySelector('#torrent-start') as HTMLButtonElement).addEventListener('click', () => void start());
-  };
-
-  const loading = (message: string) => {
-    wrap.innerHTML = `<p class="hint">${escapeHtml(message)}</p>`;
   };
 
   const chooseFile = (result: TorrentOpenResponse) => {
@@ -107,8 +115,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
     video.addEventListener('error', () => showToast('não foi possível reproduzir esse arquivo do torrent'));
 
     (wrap.querySelector('#torrent-stop') as HTMLButtonElement).addEventListener('click', () => {
-      cleanup();
-      cleanups.delete(cleanup);
+      teardown();
       idle();
     });
 
@@ -136,19 +143,12 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
         });
     };
     poll();
-    if (state.timer) clearInterval(state.timer);
     state.timer = setInterval(poll, POLL_MS);
   };
 
   const start = async (fileIndex?: number) => {
-    if (state.timer) {
-      clearInterval(state.timer);
-      state.timer = null;
-    }
-    state.player?.destroy();
-    state.player = null;
-
-    loading(fileIndex === undefined ? 'buscando a metadata do torrent e os peers...' : 'trocando de arquivo...');
+    teardown();
+    wrap.innerHTML = `<p class="hint">${escapeHtml(fileIndex === undefined ? 'buscando a metadata do torrent e os peers...' : 'trocando de arquivo...')}</p>`;
     try {
       const result = await openTorrent(opts.identifier, fileIndex);
       if (state.disposed) {
@@ -159,11 +159,27 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
       playing(result);
     } catch (err) {
       if (state.disposed) return;
-      loading(err instanceof Error ? err.message : 'não foi possível abrir o torrent');
-      idle();
+      // A mensagem fica visível: antes o `idle()` seguinte apagava o erro no mesmo tick e a
+      // falha era silenciosa (o botão só reaparecia como se nada tivesse acontecido).
+      idle(err instanceof Error ? err.message : 'não foi possível abrir o torrent');
     }
   };
 
-  idle();
+  // O servidor pode ter o P2P desligado (TORRENT_ENABLED=false): sem esta checagem o botão
+  // apareceria e o clique morreria num 501 que o usuário nunca veria.
+  wrap.innerHTML = '<div class="skeleton" style="height:56px"></div>';
+  health()
+    .then((h) => {
+      if (state.disposed) return;
+      if (!h.torrentEnabled) {
+        wrap.innerHTML = '<p class="hint" style="margin:0">P2P desligado neste servidor (<code>TORRENT_ENABLED=false</code>). Use o torrent oficial ao lado para baixar.</p>';
+        return;
+      }
+      idle();
+    })
+    .catch(() => {
+      if (!state.disposed) idle();
+    });
+
   return wrap;
 };

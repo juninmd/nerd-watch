@@ -17,6 +17,16 @@ const telegram: TelegramRuntimeConfig = {
   session: process.env.TELEGRAM_SESSION?.trim() || undefined,
 };
 
+/**
+ * Sem esta validação um `TORRENT_MAX_ACTIVE=abc` viraria `NaN`, e `handles.size >= NaN` é sempre
+ * falso — ou seja, o teto de torrents abertos silenciosamente deixaria de existir.
+ */
+const numberEnv = (raw: string | undefined, fallback: number): number => {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 export const config = {
   port: Number(process.env.PORT ?? 7799),
   dbPath: process.env.DB_PATH ?? 'data/nerd-watch.db',
@@ -39,19 +49,19 @@ export const config = {
     enabled: process.env.TORRENT_ENABLED !== 'false',
     downloadPath: process.env.TORRENT_PATH ?? '.cache/torrents',
     /** Teto de conexões por torrent — segura o consumo de sockets num app local. */
-    maxConnections: Number(process.env.TORRENT_MAX_CONNECTIONS ?? 55),
+    maxConnections: numberEnv(process.env.TORRENT_MAX_CONNECTIONS, 55),
     /**
      * Teto de upload em KB/s. NÃO use 0: no webtorrent `uploadLimit: 0` significa throttle de
      * zero byte/s (bloqueia upload e faz os peers nos chocarem), enquanto `-1` é que é "sem
      * limite". Um teto modesto evita saturar o upload da sua conexão enquanto você assiste.
      */
-    uploadLimitKbps: Number(process.env.TORRENT_UPLOAD_LIMIT_KB ?? 100),
+    uploadLimitKbps: numberEnv(process.env.TORRENT_UPLOAD_LIMIT_KB, 100),
     /** Quantos torrents podem ficar abertos ao mesmo tempo (LRU eviction acima disso). */
-    maxActive: Number(process.env.TORRENT_MAX_ACTIVE ?? 3),
+    maxActive: numberEnv(process.env.TORRENT_MAX_ACTIVE, 3),
     /** Sem nenhuma leitura por esse tempo, o torrent é destruído e o disco liberado. */
-    idleMs: Number(process.env.TORRENT_IDLE_MINUTES ?? 10) * 60_000,
+    idleMs: numberEnv(process.env.TORRENT_IDLE_MINUTES, 10) * 60_000,
     /** Quanto esperar a metadata do torrent antes de desistir. */
-    metadataTimeoutMs: Number(process.env.TORRENT_METADATA_TIMEOUT_SECONDS ?? 45) * 1000,
+    metadataTimeoutMs: numberEnv(process.env.TORRENT_METADATA_TIMEOUT_SECONDS, 45) * 1000,
   },
   telegram,
 } as const;
