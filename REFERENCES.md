@@ -7,6 +7,7 @@
 - [Teleproto Repository](https://github.com/the-fun-telegram-zone/teleproto) - Fork moderno do GramJS usado no projeto.
 - [TMDB API](https://developer.themoviedb.org/docs) - API de catálogo de filmes e séries.
 - [Internet Archive API](https://archive.org/help/aboutsearch.htm) - Consulta ao acervo de filmes de domínio público.
+- [Stremio Addon Protocol](https://github.com/Stremio/stremio-addon-sdk/blob/master/docs/protocol.md) - Protocolo de addons (manifest + recursos `catalog`/`meta`/`stream`/`subtitles`) usado como interface de agregação.
+- [OpenSubtitles v3 (addon oficial do Stremio)](https://opensubtitles-v3.strem.io/manifest.json) - Fonte de legendas sem chave usada como padrão em `SUBTITLE_ADDONS`.
 - [WebTorrent](https://github.com/webtorrent/webtorrent) - Engine de torrent usada no streaming P2P do acervo livre.
-- [Stremio Addon Protocol](https://github.com/Stremio/stremio-addon-sdk/blob/master/docs/protocol.md) - Referência do sistema de addons (catalog/meta/stream/subtitles) que inspirou a arquitetura de providers.
 - [Hono Framework](https://hono.dev/) - Framework web leve usado no backend.

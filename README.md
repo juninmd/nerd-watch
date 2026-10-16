@@ -29,6 +29,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 🎞️ **Domínio público** | catálogo do Internet Archive (`feature_films`) — **assiste dentro do app**, sem chave nenhuma |
 | 🧲 **Torrent legal** | o torrent oficial que a própria Archive.org gera para cada item de domínio público |
 | ⚡ **Streaming P2P** | toca o torrent do acervo livre dentro do app, com seek — engine em processo, sem depender da banda do archive.org |
+| 💬 **Legendas sem chave** | busca em addons do protocolo do Stremio (padrão: o OpenSubtitles v3 oficial) — **não precisa de cadastro nem de chave** |
 | ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais |
 | 🔒 **Local-first** | sua lista e seu progresso ficam no `data/nerd-watch.db` (SQLite); consultas ao catálogo e ao Telegram usam os serviços externos correspondentes |
 
@@ -89,7 +90,29 @@ Hono (Bun) — server local, só escuta em 127.0.0.1
   ├─ SQLite → data/nerd-watch.db (sua lista, progresso, cache de episódios)
   ├─ torrents → .cache/torrents (engine WebTorrent em processo, só acervo livre)
   └─ providers → TMDB (com chave) + Internet Archive (sem chave) + Telegram (opcional)
+                 + legendas via addons do protocolo Stremio (sem chave)
 ```
+
+### Legendas
+
+A busca usa o **protocolo de addons do Stremio**, que é a parte reaproveitável daquele app: o addon
+publica um `/manifest.json` e responde `GET {base}/subtitles/{movie|series}/{id}.json`. Um único
+adaptador, em `providers/subtitles/stremio-addon.ts`, dá acesso a várias fontes sem scraper próprio.
+
+O padrão é o addon oficial `https://opensubtitles-v3.strem.io` e **não exige chave nem cadastro** —
+a `OPENSUBTITLES_API_KEY` virou opcional e só soma como segunda fonte. Para acrescentar outra fonte,
+basta apontar `SUBTITLE_ADDONS` para ela.
+
+Duas coisas que valem saber:
+
+- O protocolo só responde por **id do IMDb** (`idPrefixes: ["tt"]`), então a busca traduz o id da
+  TMDB para o do IMDb antes de perguntar (`tmdbExternalIds`).
+- O download passa por um **proxy do próprio app** (`/api/subtitles/file`). O cliente manda fonte +
+  id, nunca a URL de destino: o servidor reencontra a legenda numa busca cacheada e só fala com
+  hosts que estão em `SUBTITLE_ADDONS`. Sem isso o endpoint seria um proxy aberto.
+
+Aqui não existe `stream`/`catalog` do protocolo — só `subtitles`. Puxar addon de stream traria os
+indexadores de catálogo comercial, que é justamente o que o app não faz.
 
 O servidor valida `Host` (bloqueia DNS rebinding) e `Origin` em métodos que mudam estado (bloqueia CSRF),
 no mesmo padrão de segurança usado no manga-lens.
@@ -109,6 +132,13 @@ Com o servidor rodando em outra aba, a PoC do streaming por torrent confere de p
 ```bash
 bun run poc:torrent                        # usa Sita_Sings_the_Blues (domínio público)
 bun run poc:torrent -- house_on_haunted_hill_ipod
+```
+
+E a das legendas, que confere o caminho sem chave nenhuma contra o addon real:
+
+```bash
+bun run poc:subtitles                      # usa tt0111161 (filme)
+bun run poc:subtitles -- tt0944947 tv      # série
 ```
 
 ---

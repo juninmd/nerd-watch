@@ -97,8 +97,19 @@ export const tmdbTitleDetails = withCache(60 * MINUTES, async (mediaType: MediaT
   };
 });
 
-export interface TmdbEpisode {
-  episode_number: number;
+/**
+ * ID do IMDb de um título da TMDB.
+ *
+ * É a ponte para o ecossistema de addons do Stremio: o protocolo deles só responde por id do
+ * IMDb (`idPrefixes: ["tt"]`), então sem este passo nenhuma busca de legenda por addon funciona.
+ * Cache longo (o vínculo filme↔IMDb praticamente não muda).
+ */
+export const tmdbExternalIds = withCache(24 * 60 * MINUTES, async (mediaType: MediaType, id: number): Promise<string | null> => {
+  const data = await call<{ imdb_id?: string | null }>(`/${mediaType}/${id}/external_ids`);
+  return data.imdb_id ?? null;
+});
+
+export interface TmdbEpisode {  episode_number: number;
   name: string;
   overview: string;
   air_date: string | null;
