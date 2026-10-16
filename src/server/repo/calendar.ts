@@ -41,25 +41,25 @@ interface MovieCandidateRow {
 /** Só entra no calendário quem está na lista (`library_entries`) — não é um "lançamentos da semana" genérico. */
 export const listUpcoming = (db: Database, days = 60, from = todayIso()): CalendarEntry[] => {
   const episodeRows = db
-    .query<EpisodeCandidateRow, []>(
+    .query<EpisodeCandidateRow, [string]>(
       `SELECT t.id as title_id, t.source as title_source, t.source_id as title_source_id, t.title as title_name, t.media_type, t.poster_path,
               e.air_date, s.season_number, e.episode_number, e.name as episode_name
        FROM episodes e
        JOIN seasons s ON s.id = e.season_id
        JOIN titles t ON t.id = s.title_id
        JOIN library_entries le ON le.title_id = t.id
-       WHERE e.air_date IS NOT NULL`,
+       WHERE e.air_date IS NOT NULL AND e.air_date >= ?`,
     )
-    .all();
+    .all(from);
 
   const movieRows = db
-    .query<MovieCandidateRow, []>(
+    .query<MovieCandidateRow, [string]>(
       `SELECT t.id as title_id, t.source as title_source, t.source_id as title_source_id, t.title as title_name, t.media_type, t.poster_path, t.release_date
        FROM titles t
        JOIN library_entries le ON le.title_id = t.id
-       WHERE t.media_type = 'movie' AND t.release_date IS NOT NULL`,
+       WHERE t.media_type = 'movie' AND t.release_date IS NOT NULL AND t.release_date >= ?`,
     )
-    .all();
+    .all(from);
 
   const entries: CalendarEntry[] = [];
 

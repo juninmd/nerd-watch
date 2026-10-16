@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import type { EpisodeRow, LibraryEntryRow, SeasonRow, TitleRow } from '../types.ts';
+import type { EpisodeRow, LibraryEntryRow, SeasonRow, TelegramChannelRow, TelegramItemRow, TitleRow } from '../types.ts';
 
 export interface BackupData {
   version: 1;
@@ -8,6 +8,8 @@ export interface BackupData {
   seasons: SeasonRow[];
   episodes: EpisodeRow[];
   libraryEntries: LibraryEntryRow[];
+  telegramChannels?: TelegramChannelRow[];
+  telegramItems?: TelegramItemRow[];
 }
 
 export class InvalidBackupError extends Error {}
@@ -19,6 +21,8 @@ export const exportBackup = (db: Database): BackupData => ({
   seasons: db.query<SeasonRow, []>('SELECT * FROM seasons').all(),
   episodes: db.query<EpisodeRow, []>('SELECT * FROM episodes').all(),
   libraryEntries: db.query<LibraryEntryRow, []>('SELECT * FROM library_entries').all(),
+  telegramChannels: db.query<TelegramChannelRow, []>('SELECT * FROM telegram_channels').all(),
+  telegramItems: db.query<TelegramItemRow, []>('SELECT * FROM telegram_items').all(),
 });
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -27,6 +31,12 @@ export const validateBackup = (data: unknown): BackupData => {
   if (!isPlainObject(data) || data.version !== 1) throw new InvalidBackupError('formato de backup inválido ou versão incompatível');
   for (const key of ['titles', 'seasons', 'episodes', 'libraryEntries']) {
     if (!Array.isArray(data[key])) throw new InvalidBackupError(`campo "${key}" ausente ou inválido`);
+  }
+  if (data.telegramChannels !== undefined && !Array.isArray(data.telegramChannels)) {
+    throw new InvalidBackupError('campo "telegramChannels" inválido');
+  }
+  if (data.telegramItems !== undefined && !Array.isArray(data.telegramItems)) {
+    throw new InvalidBackupError('campo "telegramItems" inválido');
   }
   return data as unknown as BackupData;
 };
@@ -72,6 +82,20 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
        title_id = excluded.title_id, watch_status = excluded.watch_status, rating = excluded.rating, notes = excluded.notes,
        current_season = excluded.current_season, current_episode = excluded.current_episode,
        added_at = excluded.added_at, updated_at = excluded.updated_at`,
+  );
+
+  const insertTelegramChannel = db.query(
+    `INSERT INTO telegram_channels (id, mode, handle, cursor, created_at)
+     VALUES ($id, $mode, $handle, $cursor, $created_at)
+     ON CONFLICT (id) DO UPDATE SET
+       mode = excluded.mode, handle = excluded.handle, cursor = excluded.cursor, created_at = excluded.created_at`,
+  );
+  const insertTelegramItem = db.query(
+    `INSERT INTO telegram_items (id, channel_id, message_id, caption, duration_seconds, thumbnail_url, posted_at, file_ref)
+     VALUES ($id, $channel_id, $message_id, $caption, $duration_seconds, $thumbnail_url, $posted_at, $file_ref)
+     ON CONFLICT (channel_id, message_id) DO UPDATE SET
+       caption = excluded.caption, duration_seconds = excluded.duration_seconds,
+       thumbnail_url = excluded.thumbnail_url, posted_at = excluded.posted_at, file_ref = excluded.file_ref`,
   );
 
   const tx = db.transaction((data: BackupData) => {
@@ -126,6 +150,31 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
         $added_at: l.added_at,
         $updated_at: l.updated_at,
       });
+    }
+    if (data.telegramChannels) {
+      for (const c of data.telegramChannels) {
+        insertTelegramChannel.run({
+          $id: c.id,
+          $mode: c.mode,
+          $handle: c.handle,
+          $cursor: c.cursor,
+          $created_at: c.created_at,
+        });
+      }
+    }
+    if (data.telegramItems) {
+      for (const i of data.telegramItems) {
+        insertTelegramItem.run({
+          $id: i.id,
+          $channel_id: i.channel_id,
+          $message_id: i.message_id,
+          $caption: i.caption,
+          $duration_seconds: i.duration_seconds,
+          $thumbnail_url: i.thumbnail_url,
+          $posted_at: i.posted_at,
+          $file_ref: i.file_ref,
+        });
+      }
     }
   });
   tx(backup);

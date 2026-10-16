@@ -32,7 +32,14 @@ const call = async <T>(path: string, params: Record<string, string | number> = {
   const url = new URL(`${BASE}${path}`);
   url.searchParams.set('language', config.tmdb.language);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${config.tmdb.apiKey}`, Accept: 'application/json' } });
+  const isBearer = config.tmdb.apiKey.startsWith('eyJ');
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (isBearer) {
+    headers.Authorization = `Bearer ${config.tmdb.apiKey}`;
+  } else {
+    url.searchParams.set('api_key', config.tmdb.apiKey);
+  }
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new TmdbRequestError(res.status, `TMDB ${path} respondeu ${res.status}`);
   return (await res.json()) as T;
 };

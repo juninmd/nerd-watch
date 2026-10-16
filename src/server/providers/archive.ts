@@ -1,4 +1,5 @@
 import { withCache } from '../cache.ts';
+import { isPlayableVideo } from '../media/playable.ts';
 
 const MINUTES = 60_000;
 
@@ -31,6 +32,12 @@ export interface ArchiveMovie {
   detailsUrl: string;
   /** Legenda que a própria Archive.org já hospeda para o item (transcrição automática ou enviada por alguém). Nem todo item tem. */
   subtitleUrl: string | null;
+  /**
+   * Se o item tem algum arquivo que o navegador toca (MP4/WebM). `undefined` quando ainda não
+   * buscamos a lista de arquivos (a busca por relevância não a devolve) — nesse caso não dá pra
+   * afirmar nada, então a interface não esconde o player P2P.
+   */
+  hasPlayableVideo?: boolean;
 }
 
 export interface ArchiveFile {
@@ -51,7 +58,7 @@ const toOverview = (description: ArchiveDoc['description']): string => {
   return text.replace(/<[^>]+>/g, '').trim();
 };
 
-const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null): ArchiveMovie => {
+const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null, hasPlayableVideo?: boolean): ArchiveMovie => {
   const id = encodeURIComponent(doc.identifier);
   return {
     identifier: doc.identifier,
@@ -63,6 +70,7 @@ const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null): ArchiveMov
     torrentUrl: `https://archive.org/download/${id}/${id}_archive.torrent`,
     detailsUrl: `https://archive.org/details/${id}`,
     subtitleUrl,
+    hasPlayableVideo,
   };
 };
 
@@ -97,5 +105,6 @@ export const archiveMovieDetails = withCache(24 * 60 * MINUTES, async (identifie
   if (!res.ok) throw new Error(`Internet Archive respondeu ${res.status}`);
   const data = (await res.json()) as { metadata?: ArchiveDoc; files?: ArchiveFile[] };
   if (!data.metadata) return null;
-  return toMovie({ ...data.metadata, identifier }, pickSubtitleUrl(identifier, data.files));
+  const hasPlayableVideo = (data.files ?? []).some((file) => isPlayableVideo(file.name));
+  return toMovie({ ...data.metadata, identifier }, pickSubtitleUrl(identifier, data.files), hasPlayableVideo);
 });

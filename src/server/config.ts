@@ -17,6 +17,31 @@ const telegram: TelegramRuntimeConfig = {
   session: process.env.TELEGRAM_SESSION?.trim() || undefined,
 };
 
+/**
+ * Sem esta validação um `TORRENT_MAX_ACTIVE=abc` viraria `NaN`, e `handles.size >= NaN` é sempre
+ * falso — ou seja, o teto de torrents abertos silenciosamente deixaria de existir. O `min` existe
+ * pelo mesmo motivo para `0` e negativos: `TORRENT_MAX_ACTIVE=0` também anula o teto, e
+ * `TORRENT_UPLOAD_LIMIT_KB=0` bloquearia o upload de vez (ver o comentário daquela opção).
+ */
+const numberEnv = (raw: string | undefined, fallback: number, min: number): number => {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= min ? parsed : fallback;
+};
+
+/**
+ * `TORRENT_UPLOAD_LIMIT_KB` é o único que aceita negativo: `-1` é "sem limite" no webtorrent.
+ * `0` NÃO é válido e precisa de guarda própria — ele passa por um `min` de -1, mas no webtorrent
+ * significa throttle de zero byte/s, que bloqueia o upload e faz os peers nos chocarem (é
+ * justamente o bug que a feature já teve uma vez).
+ */
+const uploadLimitEnv = (raw: string | undefined, fallback: number): number => {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed === 0 || parsed < -1) return fallback;
+  return parsed;
+};
+
 export const config = {
   port: Number(process.env.PORT ?? 7799),
   dbPath: process.env.DB_PATH ?? 'data/nerd-watch.db',
@@ -29,11 +54,35 @@ export const config = {
     apiKey: process.env.OPENSUBTITLES_API_KEY?.trim() || undefined,
     languages: process.env.OPENSUBTITLES_LANGUAGES?.trim() || 'pt-BR,pt,en',
   },
+  /**
+   * Engine de torrent P2P. Escopo deliberadamente restrito ao acervo de domínio público da
+   * Internet Archive (ver `torrent/engine.ts`): o app monta a URL do .torrent a partir do
+   * `identifier` do item, nunca aceita magnet/.torrent arbitrário — assim ele não vira um
+   * player de catálogo comercial.
+   */
+  torrent: {
+    enabled: process.env.TORRENT_ENABLED !== 'false',
+    downloadPath: process.env.TORRENT_PATH ?? '.cache/torrents',
+    /** Teto de conexões por torrent — segura o consumo de sockets num app local. */
+    maxConnections: numberEnv(process.env.TORRENT_MAX_CONNECTIONS, 55, 1),
+    /**
+     * Teto de upload em KB/s: `-1` é sem limite, qualquer valor >= 1 é o teto. `0` cai no padrão
+     * (ver `uploadLimitEnv`) — no webtorrent ele bloquearia o upload de vez.
+     */
+    uploadLimitKbps: uploadLimitEnv(process.env.TORRENT_UPLOAD_LIMIT_KB, 100),
+    /** Quantos torrents podem ficar abertos ao mesmo tempo (LRU eviction acima disso). */
+    maxActive: numberEnv(process.env.TORRENT_MAX_ACTIVE, 3, 1),
+    /** Sem nenhuma leitura por esse tempo, o torrent é destruído e o disco liberado. */
+    idleMs: numberEnv(process.env.TORRENT_IDLE_MINUTES, 10, 1) * 60_000,
+    /** Quanto esperar a metadata do torrent antes de desistir. */
+    metadataTimeoutMs: numberEnv(process.env.TORRENT_METADATA_TIMEOUT_SECONDS, 45, 1) * 1000,
+  },
   telegram,
 } as const;
 
 export const tmdbEnabled = (): boolean => Boolean(config.tmdb.apiKey);
 export const openSubtitlesEnabled = (): boolean => Boolean(config.opensubtitles.apiKey);
+export const torrentEnabled = (): boolean => config.torrent.enabled;
 export const telegramBotEnabled = (): boolean => Boolean(config.telegram.botToken);
 export const telegramPersonalEnabled = (): boolean =>
   Boolean(config.telegram.apiId && config.telegram.apiHash && config.telegram.session);

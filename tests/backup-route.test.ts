@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { getDb, openDb, resetDbForTests } from '../src/server/db.ts';
 import { upsertLibraryEntry } from '../src/server/repo/library.ts';
 import { upsertSeason, upsertTitle } from '../src/server/repo/titles.ts';
+import { upsertTelegramChannel, upsertTelegramItems } from '../src/server/repo/telegram.ts';
 import { backupRoutes } from '../src/server/routes/backup.ts';
 
 beforeEach(() => {
@@ -55,6 +56,25 @@ describe('POST /api/backup/import', () => {
 
     const survivingSeason = db.query('SELECT * FROM seasons WHERE id = ?').get(season.id);
     expect(survivingSeason).toBeTruthy();
+  });
+
+  test('restaura canais e itens do Telegram', async () => {
+    const dbA = await getDb();
+    const ch = upsertTelegramChannel(dbA, { handle: 'nerd_test', mode: 'public' });
+    upsertTelegramItems(dbA, ch.id, [{ messageId: '100', caption: 'Vídeo teste', durationSeconds: 60 }]);
+    const dump = await (await backupRoutes.request('/')).json();
+    expect(dump.telegramChannels).toHaveLength(1);
+    expect(dump.telegramItems).toHaveLength(1);
+
+    resetDbForTests(openDb(':memory:'));
+    const res = await backupRoutes.request('/import', { method: 'POST', body: JSON.stringify(dump) });
+    expect(res.status).toBe(200);
+
+    const dbB = await getDb();
+    const restoredCh = dbB.query('SELECT * FROM telegram_channels WHERE id = ?').get(ch.id);
+    expect(restoredCh).toBeTruthy();
+    const restoredItem = dbB.query('SELECT * FROM telegram_items WHERE message_id = ?').get('100');
+    expect(restoredItem).toBeTruthy();
   });
 
   test('400 em JSON sem o formato esperado', async () => {

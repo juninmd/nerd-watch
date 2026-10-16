@@ -1,6 +1,7 @@
 import { getArchiveTitle } from '../api.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderSubtitlesPanel } from '../components/subtitles.ts';
+import { renderTorrentPanel } from '../components/torrent-player.ts';
 import { escapeHtml } from '../components/card.ts';
 
 export const renderArchiveDetail = (host: HTMLElement, identifier: string): void => {
@@ -51,6 +52,14 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
                 </a>
               </div>
               <div class="side-card">
+                <h3>Assistir por P2P</h3>
+                ${
+                  d.hasPlayableVideo === false
+                    ? `<p class="hint">este item da Archive só tem formatos que o navegador não toca (OGV/AVI). Baixe pelo torrent ao lado para ver num player de vídeo.</p>`
+                    : `<div id="torrent-panel"></div>`
+                }
+              </div>
+              <div class="side-card">
                 <h3>Legendas</h3>
                 ${
                   d.subtitleUrl
@@ -82,6 +91,9 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
 
         const subtitlesHost = host.querySelector('#subtitles-panel') as HTMLElement;
         subtitlesHost.appendChild(renderSubtitlesPanel({ query: `${d.title} ${d.year ?? ''}`.trim() }));
+
+        const torrentHost = host.querySelector('#torrent-panel') as HTMLElement | null;
+        torrentHost?.appendChild(renderTorrentPanel({ identifier: d.identifier, title: d.title, posterUrl: d.posterUrl }));
       })
       .catch(() => {
         host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar este título</div>`;

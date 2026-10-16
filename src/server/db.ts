@@ -78,8 +78,10 @@ CREATE TABLE IF NOT EXISTS telegram_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_episodes_season ON episodes(season_id);
+CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_seasons_title ON seasons(title_id);
 CREATE INDEX IF NOT EXISTS idx_telegram_items_channel ON telegram_items(channel_id);
+CREATE INDEX IF NOT EXISTS idx_library_status ON library_entries(watch_status);
 `;
 
 /**

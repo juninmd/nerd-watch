@@ -28,11 +28,20 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 📡 **Onde assistir** | streamings disponíveis na sua região (TMDB watch/providers) |
 | 🎞️ **Domínio público** | catálogo do Internet Archive (`feature_films`) — **assiste dentro do app**, sem chave nenhuma |
 | 🧲 **Torrent legal** | o torrent oficial que a própria Archive.org gera para cada item de domínio público |
+| ⚡ **Streaming P2P** | toca o torrent do acervo livre dentro do app, com seek — engine em processo, sem depender da banda do archive.org |
 | ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais |
 | 🔒 **Local-first** | sua lista e seu progresso ficam no `data/nerd-watch.db` (SQLite); consultas ao catálogo e ao Telegram usam os serviços externos correspondentes |
 
 Filmes e séries **protegidos por direitos autorais não são reproduzidos dentro do app** — o app te leva
 até o streaming legítimo. Só o acervo de domínio público (já livre de direitos) toca localmente.
+
+O motor de torrent segue a mesma regra por construção: ele **só abre torrents derivados de um item
+da Internet Archive**. Não existe endpoint que aceite magnet ou `.torrent` arbitrário, e os
+trackers/web seeds declarados dentro do próprio `.torrent` são conferidos — se algum apontar para
+fora de `*.archive.org`, o item é recusado. Sem isso, um item publicado por terceiro no acervo
+aberto da Archive faria o servidor local buscar URLs escolhidas por quem publicou. Com isso, o app
+não tem como virar um player de catálogo comercial — a engine, o streaming com seek e o player são
+os mesmos que qualquer app do tipo usaria, mas a fonte é sempre o acervo livre.
 
 ---
 
@@ -45,6 +54,13 @@ Capturas da app em execução com o banco fictício criado por `bun run seed`. N
 | Minha lista | Calendário |
 |---|---|
 | ![Lista fictícia com filtros de acompanhamento](docs/screenshots/minha-lista.png) | ![Calendário de lançamentos dos títulos fictícios](docs/screenshots/calendario.png) |
+
+Streaming P2P de um item de domínio público — `House on Haunted Hill` (1959), tocando direto do
+torrent da Archive, com escolha do derivado e estatísticas de peer:
+
+| Painel P2P | Tocando do torrent |
+|---|---|
+| ![Card "assistir por P2P" no detalhe do título](docs/screenshots/p2p-painel.png) | ![Filme tocando via torrent, com 5 peers e 2 MB/s](docs/screenshots/p2p-tocando.png) |
 
 ---
 
@@ -71,6 +87,7 @@ bun run seed     # popula data/nerd-watch.db com um catálogo fictício, só par
 Hono (Bun) — server local, só escuta em 127.0.0.1
   ├─ front  → public/  (bundle Bun: catálogo, calendário, player)
   ├─ SQLite → data/nerd-watch.db (sua lista, progresso, cache de episódios)
+  ├─ torrents → .cache/torrents (engine WebTorrent em processo, só acervo livre)
   └─ providers → TMDB (com chave) + Internet Archive (sem chave) + Telegram (opcional)
 ```
 
@@ -86,6 +103,14 @@ bun run check   # lint (biome) + typecheck (tsc) + testes (bun test)
 bun run smoke   # sobe o server numa porta separada e confere as rotas principais
 ```
 
+Com o servidor rodando em outra aba, a PoC do streaming por torrent confere de ponta a ponta
+(abertura, escolha do arquivo, `206` com `Content-Range`, seek e o recorte de segurança):
+
+```bash
+bun run poc:torrent                        # usa Sita_Sings_the_Blues (domínio público)
+bun run poc:torrent -- house_on_haunted_hill_ipod
+```
+
 ---
 
 ## Limites conhecidos
@@ -96,3 +121,11 @@ bun run smoke   # sobe o server numa porta separada e confere as rotas principai
   cacheado no SQLite conforme você visita, mas não há refresh automático).
 - **Domínio público limitado à coleção `feature_films`** da Internet Archive — é a curadoria oficial
   deles para conteúdo livre; dá para ampliar depois se quiser mais fontes.
+- **O torrent começa pelo derivado mais leve** (`_512kb`/`small`) para o vídeo abrir rápido, não pela
+  melhor qualidade — o seletor na tela deixa você trocar para `large`/`1080p` a qualquer momento.
+- **Só MP4/WebM tocam no navegador.** Itens da Archive que só têm `.ogv`/`.avi`/`.mkv` aparecem sem o
+  player P2P (o download do torrent continua lá).
+- **O torrent baixa adiantado enquanto está aberto.** É o comportamento do engine (medido: ~50 MB em
+  20s mesmo sem nenhuma leitura), e é o mesmo de qualquer cliente P2P com buffer. O consumo é
+  limitado por três coisas: fechar o painel, sair da tela, e o sweeper que derruba o torrent sem
+  leitura por `TORRENT_IDLE_MINUTES` (padrão 10) — aí o disco é liberado.
