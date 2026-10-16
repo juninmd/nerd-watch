@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { torrentRoutes } from '../src/server/routes/torrent.ts';
 import {
   TorrentUnavailableError,
   TorrentUntrustedSourceError,
@@ -42,8 +43,11 @@ const makeTorrent = (announce: string[], urlList: string[] = []): Uint8Array => 
     ['pieces', bstr('a'.repeat(20))],
     ['length', bint(100)],
   ]);
-  const pairs: Array<[string, Uint8Array]> = [['announce', bstr(announce[0] ?? '')]];
-  if (announce.length > 0) pairs.push(['announce-list', blist(...announce.map((a) => blist(bstr(a))))]);
+  const pairs: Array<[string, Uint8Array]> = [];
+  if (announce.length > 0) {
+    pairs.push(['announce', bstr(announce[0] ?? '')]);
+    pairs.push(['announce-list', blist(...announce.map((a) => blist(bstr(a))))]);
+  }
   if (urlList.length > 0) pairs.push(['url-list', urlList.length === 1 ? bstr(urlList[0] ?? '') : blist(...urlList.map(bstr))]);
   pairs.push(['info', info]);
   return cat(bdict(pairs));
@@ -100,6 +104,16 @@ describe('loadTrustedTorrentBuffer', () => {
     await expect(loadTrustedTorrentBuffer(TORRENT_URL)).rejects.toBeInstanceOf(TorrentUnavailableError);
   });
 
+  test('corpo de 20 bytes que o parse-torrent aceita como infohash cru é recusado', async () => {
+    stubFetch(encoder.encode('isso não é bencode'));
+    await expect(loadTrustedTorrentBuffer(TORRENT_URL)).rejects.toThrow(/não descreve nenhum arquivo/);
+  });
+
+  test('torrent sem announce nem url-list é aceito (só o DHT acharia peers)', async () => {
+    stubFetch(makeTorrent([]));
+    await expect(loadTrustedTorrentBuffer(TORRENT_URL)).resolves.toBeInstanceOf(Buffer);
+  });
+
   test('corpo vazio vira TorrentUnavailableError', async () => {
     stubFetch(new Uint8Array(0));
     await expect(loadTrustedTorrentBuffer(TORRENT_URL)).rejects.toBeInstanceOf(TorrentUnavailableError);
@@ -121,6 +135,45 @@ describe('loadTrustedTorrentBuffer', () => {
     // Precisa ser maior que o teto de 16 MB para exercitar a checagem pós-leitura.
     stubFetch(new Uint8Array(17 * 1024 * 1024));
     await expect(loadTrustedTorrentBuffer(TORRENT_URL)).rejects.toThrow(/grande demais$/);
+  });
+});
+
+describe('POST /api/torrent/open — mapeamento de erro', () => {
+  // A rota não tinha teste nenhum do mapeamento erro -> status: só funções puras. Foi assim que
+  // uma falha de rede escapou como 500 em vez de 502.
+  const open = (identifier = 'item-de-teste') =>
+    torrentRoutes.request('/open', { method: 'POST', body: JSON.stringify({ identifier }) });
+
+  test('502 quando o fetch do .torrent falha (Archive fora do ar, DNS, TLS)', async () => {
+    stubFetch(new TypeError('fetch failed'));
+    expect((await open()).status).toBe(502);
+  });
+
+  test('502 quando a conexão cai no meio do corpo', async () => {
+    globalThis.fetch = (async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      arrayBuffer: () => Promise.reject(new TypeError('terminated')),
+    })) as unknown as typeof fetch;
+    expect((await open()).status).toBe(502);
+  });
+
+  test('502 quando a Archive responde erro HTTP', async () => {
+    stubFetch(new Uint8Array(0), { status: 503 });
+    expect((await open()).status).toBe(502);
+  });
+
+  test('502 quando o corpo não descreve arquivo nenhum (20 bytes viram infohash cru sem lançar)', async () => {
+    // `parseTorrent` aceita um corpo de 20 bytes como infohash cru; sem guarda, isso passaria pela
+    // validação com announce vazio e faria o webtorrent buscar o infohash no DHT.
+    stubFetch(encoder.encode('isso não é bencode'));
+    expect((await open()).status).toBe(502);
+  });
+
+  test('502 quando o item aponta para fora do archive.org', async () => {
+    stubFetch(makeTorrent(['http://evil.com/announce']));
+    expect((await open()).status).toBe(502);
   });
 });
 

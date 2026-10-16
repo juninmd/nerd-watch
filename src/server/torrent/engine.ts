@@ -142,15 +142,34 @@ export const loadTrustedTorrentBuffer = async (url: string): Promise<Buffer> => 
     throw new TorrentUnavailableError('o .torrent deste item é grande demais (Content-Length)');
   }
 
-  const buffer = Buffer.from(await res.arrayBuffer());
+  // O `arrayBuffer()` tem que ficar dentro do try: a conexão pode cair no meio do corpo (ou o
+  // timeout disparar depois dos headers), e sem isso a rejeição escaparia como 500 em vez de 502.
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    throw new TorrentUnavailableError(`a leitura do .torrent deste item falhou (${(err as Error).message})`);
+  }
+
   if (buffer.length === 0) throw new TorrentUnavailableError('o .torrent deste item veio vazio');
   if (buffer.length > MAX_TORRENT_BYTES) throw new TorrentUnavailableError('o .torrent deste item é grande demais');
 
-  let parsed: { announce?: string[]; urlList?: string[] };
+  let parsed: { announce?: string[]; urlList?: string[]; files?: unknown };
   try {
-    parsed = (await parseTorrent(buffer)) as { announce?: string[]; urlList?: string[] };
+    parsed = (await parseTorrent(buffer)) as { announce?: string[]; urlList?: string[]; files?: unknown };
   } catch (err) {
     throw new TorrentUnavailableError(`o .torrent deste item está corrompido (${(err as Error).message})`);
+  }
+
+  /**
+   * O `parseTorrent` aceita um corpo de exatamente 20 bytes como *infohash cru*, sem lançar nada
+   * (medido: `'isso não é bencode'` tem 20 bytes e vira `infoHash` com `files: undefined`). Sem
+   * esta guarda esse corpo passaria pela validação com `announce`/`url-list` vazios e o webtorrent
+   * sairia procurando peers no DHT por um infohash arbitrário, até estourar o timeout de metadata.
+   * Um torrent de verdade sempre descreve pelo menos um arquivo.
+   */
+  if (!Array.isArray(parsed.files) || parsed.files.length === 0) {
+    throw new TorrentUnavailableError('o .torrent deste item não descreve nenhum arquivo');
   }
 
   assertArchiveOnlySources(parsed.announce ?? [], parsed.urlList ?? []);
