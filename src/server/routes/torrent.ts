@@ -74,7 +74,7 @@ export const parseRange = (
   if (rawStart === '') {
     // Sufixo: `bytes=-N` são os últimos N bytes.
     const suffix = Number(rawEnd);
-    if (suffix === 0) return 'unsatisfiable';
+    if (suffix === 0 || totalSize === 0) return 'unsatisfiable';
     return { start: Math.max(0, totalSize - suffix), end: totalSize - 1 };
   }
 

@@ -19,12 +19,14 @@ const telegram: TelegramRuntimeConfig = {
 
 /**
  * Sem esta validação um `TORRENT_MAX_ACTIVE=abc` viraria `NaN`, e `handles.size >= NaN` é sempre
- * falso — ou seja, o teto de torrents abertos silenciosamente deixaria de existir.
+ * falso — ou seja, o teto de torrents abertos silenciosamente deixaria de existir. O `min` existe
+ * pelo mesmo motivo para `0` e negativos: `TORRENT_MAX_ACTIVE=0` também anula o teto, e
+ * `TORRENT_UPLOAD_LIMIT_KB=0` bloquearia o upload de vez (ver o comentário daquela opção).
  */
-const numberEnv = (raw: string | undefined, fallback: number): number => {
+const numberEnv = (raw: string | undefined, fallback: number, min: number): number => {
   if (raw === undefined || raw.trim() === '') return fallback;
   const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return Number.isFinite(parsed) && parsed >= min ? parsed : fallback;
 };
 
 export const config = {
@@ -49,19 +51,19 @@ export const config = {
     enabled: process.env.TORRENT_ENABLED !== 'false',
     downloadPath: process.env.TORRENT_PATH ?? '.cache/torrents',
     /** Teto de conexões por torrent — segura o consumo de sockets num app local. */
-    maxConnections: numberEnv(process.env.TORRENT_MAX_CONNECTIONS, 55),
+    maxConnections: numberEnv(process.env.TORRENT_MAX_CONNECTIONS, 55, 1),
     /**
      * Teto de upload em KB/s. NÃO use 0: no webtorrent `uploadLimit: 0` significa throttle de
      * zero byte/s (bloqueia upload e faz os peers nos chocarem), enquanto `-1` é que é "sem
      * limite". Um teto modesto evita saturar o upload da sua conexão enquanto você assiste.
      */
-    uploadLimitKbps: numberEnv(process.env.TORRENT_UPLOAD_LIMIT_KB, 100),
+    uploadLimitKbps: numberEnv(process.env.TORRENT_UPLOAD_LIMIT_KB, 100, -1),
     /** Quantos torrents podem ficar abertos ao mesmo tempo (LRU eviction acima disso). */
-    maxActive: numberEnv(process.env.TORRENT_MAX_ACTIVE, 3),
+    maxActive: numberEnv(process.env.TORRENT_MAX_ACTIVE, 3, 1),
     /** Sem nenhuma leitura por esse tempo, o torrent é destruído e o disco liberado. */
-    idleMs: numberEnv(process.env.TORRENT_IDLE_MINUTES, 10) * 60_000,
+    idleMs: numberEnv(process.env.TORRENT_IDLE_MINUTES, 10, 1) * 60_000,
     /** Quanto esperar a metadata do torrent antes de desistir. */
-    metadataTimeoutMs: numberEnv(process.env.TORRENT_METADATA_TIMEOUT_SECONDS, 45) * 1000,
+    metadataTimeoutMs: numberEnv(process.env.TORRENT_METADATA_TIMEOUT_SECONDS, 45, 1) * 1000,
   },
   telegram,
 } as const;

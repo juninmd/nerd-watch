@@ -48,24 +48,27 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   const wrap = document.createElement('div');
   const state: PanelState = { infoHash: null, timer: null, player: null, disposed: false };
 
-  /** Idempotente: pode ser chamado pelo "parar", pela troca de rota e antes de reabrir. */
-  const teardown = () => {
+  /** Para a reprodução (poller + Plyr). NÃO fecha o torrent: trocar de derivado o reaproveita. */
+  const stopPlayback = () => {
     if (state.timer) {
       clearInterval(state.timer);
       state.timer = null;
     }
     state.player?.destroy();
     state.player = null;
-    // Fecha no servidor: para de baixar/semear e libera o disco do torrent.
-    if (state.infoHash) {
-      closeTorrent(state.infoHash).catch(() => {});
-      state.infoHash = null;
-    }
+  };
+
+  /** Para tudo e fecha o torrent no servidor: para de baixar/semear e libera o disco. */
+  const releaseTorrent = () => {
+    const infoHash = state.infoHash;
+    state.infoHash = null;
+    stopPlayback();
+    if (infoHash) closeTorrent(infoHash).catch(() => {});
   };
 
   const release = () => {
     state.disposed = true;
-    teardown();
+    releaseTorrent();
   };
   cleanups.add(release);
 
@@ -115,13 +118,14 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
     video.addEventListener('error', () => showToast('não foi possível reproduzir esse arquivo do torrent'));
 
     (wrap.querySelector('#torrent-stop') as HTMLButtonElement).addEventListener('click', () => {
-      teardown();
+      releaseTorrent();
       idle();
     });
 
     const select = wrap.querySelector('#torrent-file') as HTMLSelectElement | null;
     select?.addEventListener('change', () => {
-      // Reabre só para trocar o derivado: o torrent em si é reaproveitado pelo servidor.
+      // Não fecha o torrent: o servidor reaproveita o handle e só troca `fileIndex`, então os
+      // pedaços já baixados continuam válidos.
       void start(Number(select.value));
     });
 
@@ -147,7 +151,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   };
 
   const start = async (fileIndex?: number) => {
-    teardown();
+    stopPlayback();
     wrap.innerHTML = `<p class="hint">${escapeHtml(fileIndex === undefined ? 'buscando a metadata do torrent e os peers...' : 'trocando de arquivo...')}</p>`;
     try {
       const result = await openTorrent(opts.identifier, fileIndex);

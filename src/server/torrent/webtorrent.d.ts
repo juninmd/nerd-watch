@@ -74,7 +74,8 @@ declare module 'webtorrent' {
 
   export default class WebTorrent {
     constructor(opts?: Options);
-    add(torrentId: string, opts?: AddOptions): Torrent;
+    /** `torrentId` pode ser URL/magnet ou o próprio `.torrent` já lido (aí nada é baixado). */
+    add(torrentId: string | Uint8Array, opts?: AddOptions): Torrent;
     /** Assíncrono no runtime (3.0.21) — consumido com `await`. */
     get(torrentId: string): Promise<Torrent | null>;
     remove(torrentId: string, opts?: { destroyStore?: boolean }, cb?: () => void): void;

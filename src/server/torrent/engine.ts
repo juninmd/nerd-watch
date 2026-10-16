@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs';
+import parseTorrent from 'parse-torrent';
 import WebTorrent from 'webtorrent';
 import { config, torrentEnabled } from '../config.ts';
 import { isPlayableVideo } from '../media/playable.ts';
@@ -12,11 +13,11 @@ import { rankVideoFiles, resolveVideoIndex, type TorrentFileLike, type VideoCand
  * 1. **A URL do .torrent nunca vem do cliente.** Ela é derivada do `identifier` do item, que passa
  *    por uma allowlist de caracteres. Não existe endpoint que aceite magnet/.torrent arbitrário —
  *    é isso que separa "streaming do acervo livre" de um indexador de catálogo comercial.
- * 2. **Fontes do torrent são conferidas.** Mesmo com a URL derivada, o conteúdo do .torrent é
- *    dado remoto: ele traz trackers e web seeds que o webtorrent contata sozinho. Conferimos que
- *    todos os hosts são `*.archive.org` e recusamos o item caso contrário (ver
- *    `assertArchiveOnlySources`) — sem isso, um item malicioso no acervo aberto da Archive
- *    conseguiria fazer o servidor local buscar URLs de terceiros.
+ * 2. **O .torrent é validado ANTES de entrar no engine.** Ele é dado remoto e traz trackers e web
+ *    seeds que o webtorrent contata sozinho, começando já na construção do Torrent. Por isso nós
+ *    baixamos e parseamos o arquivo e conferimos os hosts antes de chamar `add()` — se só
+ *    conferíssemos depois, a requisição para o host de terceiro já teria saído (ver
+ *    `assertArchiveOnlySources`).
  * 3. **Sem semear após uso.** O torrent é destruído por ociosidade (ver `sweepIdleTorrents`) e o
  *    store é apagado junto, então nada continua em background nem acumula disco.
  */
@@ -24,6 +25,8 @@ import { rankVideoFiles, resolveVideoIndex, type TorrentFileLike, type VideoCand
 const IDENTIFIER_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 const ARCHIVE_HOST = 'https://archive.org';
 const ARCHIVE_HOST_RE = /(^|\.)archive\.org$/i;
+/** `.torrent` da Archive gira em torno de 1 MB; o teto evita baixar algo absurdo de um item estranho. */
+const MAX_TORRENT_BYTES = 16 * 1024 * 1024;
 
 export class TorrentDisabledError extends Error {
   constructor() {
@@ -79,6 +82,41 @@ const CONTENT_TYPES: Record<string, string> = { mp4: 'video/mp4', m4v: 'video/mp
 const contentTypeFor = (name: string): string =>
   CONTENT_TYPES[name.slice(name.lastIndexOf('.') + 1).toLowerCase()] ?? 'application/octet-stream';
 
+const hostOf = (url: string): string | null => {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Confere trackers e web seeds declarados pelo próprio `.torrent` contra `*.archive.org`.
+ *
+ * É a parte que impede o servidor local de virar cliente de URLs escolhidas por quem publicou: o
+ * acervo da Archive é aberto para upload, então um item de terceiro poderia declarar
+ * `announce`/`url-list` apontando para qualquer host (inclusive loopback) e o webtorrent faria a
+ * requisição. `new URL().hostname` resiste a userinfo (`archive.org@evil.com`), prefixo
+ * (`notarchive.org`) e sufixo (`archive.org.evil.com`).
+ *
+ * Todos os itens de domínio público amostrados usam apenas `archive.org` e `bt1/bt2.archive.org`.
+ */
+export const assertArchiveOnlySources = (announce: readonly string[], urlList: readonly string[]): void => {
+  const urls = [...announce, ...urlList];
+  const foreign = [...new Set(urls.map(hostOf).filter((h): h is string => h !== null && !ARCHIVE_HOST_RE.test(h)))];
+  if (foreign.length > 0) throw new TorrentUntrustedSourceError(foreign);
+};
+
+/** Baixa o `.torrent` com timeout e teto de tamanho — nosso fetch, antes de qualquer descoberta. */
+const fetchTorrentBuffer = async (url: string): Promise<Buffer> => {
+  const res = await fetch(url, { signal: AbortSignal.timeout(config.torrent.metadataTimeoutMs) });
+  if (!res.ok) throw new TorrentUnavailableError(`a Archive respondeu ${res.status} para o .torrent deste item`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.length === 0) throw new TorrentUnavailableError('o .torrent deste item veio vazio');
+  if (buffer.length > MAX_TORRENT_BYTES) throw new TorrentUnavailableError('o .torrent deste item é grande demais');
+  return buffer;
+};
+
 type Torrent = ReturnType<InstanceType<typeof WebTorrent>['add']>;
 type TorrentFile = Torrent['files'][number];
 
@@ -93,31 +131,10 @@ interface Handle {
 }
 
 const handles = new Map<string, Handle>();
-/** Aberturas em andamento por identifier: deduplica chamadas concorrentes e conta no teto de LRU. */
+/** Aberturas em andamento por identifier: evita abrir o mesmo item duas vezes e conta no teto. */
 const opening = new Map<string, Promise<Handle>>();
 let client: InstanceType<typeof WebTorrent> | null = null;
 let sweeper: ReturnType<typeof setInterval> | null = null;
-
-const hostOf = (url: string): string | null => {
-  try {
-    return new URL(url).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
-};
-
-/**
- * O .torrent é dado remoto: além do conteúdo, ele carrega `announce` (trackers HTTP/UDP/wss) e
- * `url-list` (web seeds HTTP), que o webtorrent passa a contatar por conta própria. Sem esta
- * conferência, um item publicado por terceiro no acervo aberto da Archive transformaria o servidor
- * local num cliente que busca URLs escolhidas por quem publicou. Todos os itens legítimos amostrados
- * usam apenas `archive.org` e `bt1.archive.org`.
- */
-const assertArchiveOnlySources = (torrent: Torrent): void => {
-  const urls = [...torrent.announce, ...torrent.urlList];
-  const foreign = [...new Set(urls.map(hostOf).filter((h): h is string => h !== null && !ARCHIVE_HOST_RE.test(h)))];
-  if (foreign.length > 0) throw new TorrentUntrustedSourceError(foreign);
-};
 
 const getClient = (): InstanceType<typeof WebTorrent> => {
   if (client) return client;
@@ -140,7 +157,13 @@ const destroyHandle = (handle: Handle): void => {
   handle.torrent.destroy();
 };
 
-/** LRU: mantém no máximo `maxActive` torrents vivos. Nunca derruba um que esteja servindo bytes. */
+/**
+ * LRU: mantém no máximo `maxActive` torrents vivos, nunca derrubando um que esteja servindo bytes.
+ *
+ * Best-effort de propósito: se todos os handles estiverem com leitura ativa, um item novo ainda
+ * abre (preferimos atender a quem clicou a estourar o teto). Como `opening` é contado, uma rajada
+ * de aberturas simultâneas não fura o limite enquanto houver algo ocioso para recolher.
+ */
 const evictIfNeeded = (): void => {
   while (handles.size + opening.size >= config.torrent.maxActive) {
     const oldest = [...handles.values()]
@@ -203,11 +226,17 @@ const applyFileIndex = (handle: Handle, fileIndex: number | undefined): OpenTorr
 };
 
 const openFresh = async (url: string, identifier: string): Promise<Handle> => {
+  // Baixamos e validamos o .torrent antes de entregá-lo ao engine: assim nenhuma descoberta
+  // (tracker/DHT/web seed) começa antes de sabermos para onde o torrent aponta.
+  const buffer = await fetchTorrentBuffer(url);
+  const parsed = (await parseTorrent(buffer)) as { announce?: string[]; urlList?: string[] };
+  assertArchiveOnlySources(parsed.announce ?? [], parsed.urlList ?? []);
+
   evictIfNeeded();
-  // `path` e `destroyStoreOnDestroy` só são lidos das options do `add` (o client não as repassa
-  // ao construir o Torrent — ver `new Torrent(torrentId, this, opts)` no webtorrent). Sem repetir
+  // `path` e `destroyStoreOnDestroy` só são lidos das options do `add` (o client não as repassa ao
+  // construir o Torrent — ver `new Torrent(torrentId, this, opts)` no webtorrent). Sem repetir
   // aqui, os pedaços vão para a pasta temporária do sistema e nunca são apagados.
-  const torrent = getClient().add(url, {
+  const torrent = getClient().add(buffer, {
     strategy: 'sequential',
     path: config.torrent.downloadPath,
     destroyStoreOnDestroy: true,
@@ -215,7 +244,6 @@ const openFresh = async (url: string, identifier: string): Promise<Handle> => {
 
   try {
     await waitForMetadata(torrent, identifier);
-    assertArchiveOnlySources(torrent);
     if (rankVideoFiles(filesOf(torrent)).length === 0) throw new TorrentNoPlayableVideoError();
   } catch (err) {
     torrent.destroy();
@@ -243,8 +271,9 @@ export const openArchiveTorrent = async (identifier: string, fileIndex?: number)
   const reuse = [...handles.values()].find((h) => h.identifier === identifier && !h.torrent.destroyed);
   if (reuse) return applyFileIndex(reuse, fileIndex);
 
-  // Duas chamadas simultâneas para o mesmo item não podem abrir dois torrents, e a abertura em
-  // curso precisa contar no teto de LRU (senão N POSTs concorrentes furam o `maxActive`).
+  // Duas chamadas simultâneas para o mesmo item não abrem dois torrents: a segunda espera a
+  // primeira e só escolhe o arquivo. O `finally` limpa mesmo se a abertura falhar, então uma
+  // tentativa fracassada não deixa estado preso aqui.
   const inflight = opening.get(identifier);
   if (inflight) return applyFileIndex(await inflight, fileIndex);
 
@@ -314,18 +343,82 @@ export const resolveStreamTarget = (infoHash: string, fileIndex: number): Torren
   return { name: file.name, length: file.length, contentType: contentTypeFor(file.name) };
 };
 
-export type TorrentStream = ReadableStream<Uint8Array>;
+/**
+ * Quantos bytes pedir ao iterador do webtorrent para servir exatamente `[start, end]`.
+ *
+ * O iterador trata `end` falsy como "até o fim do arquivo", e `0` é falsy: um range de um byte no
+ * offset 0 viraria o arquivo inteiro. Pedimos sempre pelo menos `start + 1` e cortamos o excedente
+ * na saída, então este valor é deliberadamente folgado — quem garante o tamanho é o corte.
+ */
+export const paddedIterEnd = (start: number, end: number): number => Math.max(end, start + 1);
 
 /**
- * Lê exatamente `[start, end]` (inclusivo) do arquivo.
- *
- * Não dá para delegar o recorte ao `createReadStream` do webtorrent por dois motivos: ele trata
- * `end` falsy como "até o fim do arquivo", então um range de 1 byte no offset 0 (`end === 0`)
- * baixaria o arquivo inteiro; e nada nele garante que o stream pare em `end`. Passamos um `end`
- * deliberadamente folgado (nunca menor que `start + 1`, para nunca cair no caso falsy) e cortamos
- * aqui — o corpo da resposta nunca excede o `Content-Length` declarado.
+ * Consome `wanted` bytes do iterador e encerra. Extraído de `openTorrentStream` para ser testável
+ * com um iterador falso — é onde mora a garantia de que o corpo não excede o `Content-Length`.
+ * `onDone` roda uma única vez, em qualquer desfecho, e sempre antes de o stream terminar.
  */
-export const openTorrentStream = (infoHash: string, fileIndex: number, start: number, end: number): TorrentStream | null => {
+export const streamExactBytes = (
+  iterator: AsyncIterator<Uint8Array>,
+  wanted: number,
+  onDone: () => void,
+): ReadableStream<Uint8Array> => {
+  let sent = 0;
+  let finalized = false;
+  let cancelled = false;
+
+  /** Roda uma única vez, em qualquer desfecho. Devolver o iterador é o que libera os pedaços. */
+  const finalize = async (): Promise<void> => {
+    if (finalized) return;
+    finalized = true;
+    onDone();
+    // Sem o `return()` o webtorrent mantém os pedaços selecionados em prioridade alta até o
+    // torrent morrer: o `_deselect` dele só acontece no `return()` ou no fim natural da iteração.
+    try {
+      await iterator.return?.(undefined);
+    } catch {
+      /* o iterador já pode ter morrido junto com o torrent */
+    }
+  };
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (cancelled) return;
+      if (sent >= wanted) {
+        await finalize();
+        controller.close();
+        return;
+      }
+      try {
+        const { value, done } = await iterator.next();
+        // Um `cancel()` pode ter acontecido enquanto o `next()` estava em voo: mexer no controller
+        // aqui seria operação sobre um stream já fechado.
+        if (cancelled) return;
+        if (done) {
+          await finalize();
+          controller.close();
+          return;
+        }
+        const remaining = wanted - sent;
+        const out = value.length > remaining ? value.subarray(0, remaining) : value;
+        sent += out.length;
+        controller.enqueue(out);
+      } catch (err) {
+        await finalize();
+        if (!cancelled) controller.error(err);
+      }
+    },
+    async cancel() {
+      cancelled = true;
+      await finalize();
+    },
+  });
+};
+
+/**
+ * Abre o stream do trecho `[start, end]` (inclusivo) do arquivo escolhido, contando como leitura
+ * ativa do handle para o sweeper e o LRU não derrubarem o torrent no meio da reprodução.
+ */
+export const openTorrentStream = (infoHash: string, fileIndex: number, start: number, end: number): ReadableStream<Uint8Array> | null => {
   const handle = handles.get(infoHash);
   if (!handle || handle.torrent.destroyed) return null;
   const file = handle.torrent.files[fileIndex] as TorrentFile | undefined;
@@ -334,44 +427,9 @@ export const openTorrentStream = (infoHash: string, fileIndex: number, start: nu
   handle.lastAccess = Date.now();
   handle.activeStreams++;
 
-  const wanted = end - start + 1;
-  const iterator = file[Symbol.asyncIterator]({ start, end: Math.max(end, start + 1) });
-  let sent = 0;
-  let released = false;
-  const release = (): void => {
-    if (released) return;
-    released = true;
+  const iterator = file[Symbol.asyncIterator]({ start, end: paddedIterEnd(start, end) });
+  return streamExactBytes(iterator, end - start + 1, () => {
     handle.activeStreams = Math.max(0, handle.activeStreams - 1);
-  };
-
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      if (sent >= wanted) {
-        release();
-        controller.close();
-        return;
-      }
-      try {
-        const { value, done } = await iterator.next();
-        if (done) {
-          release();
-          controller.close();
-          return;
-        }
-        const chunk = value;
-        const remaining = wanted - sent;
-        const out = chunk.length > remaining ? chunk.subarray(0, remaining) : chunk;
-        sent += out.length;
-        controller.enqueue(out);
-      } catch (err) {
-        release();
-        controller.error(err);
-      }
-    },
-    async cancel() {
-      release();
-      await iterator.return?.(undefined);
-    },
   });
 };
 
