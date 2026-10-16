@@ -27,6 +27,12 @@ const ARCHIVE_HOST = 'https://archive.org';
 const ARCHIVE_HOST_RE = /(^|\.)archive\.org$/i;
 /** `.torrent` da Archive gira em torno de 1 MB; o teto evita baixar algo absurdo de um item estranho. */
 const MAX_TORRENT_BYTES = 16 * 1024 * 1024;
+/**
+ * Orçamento próprio para baixar o `.torrent`, separado de `metadataTimeoutMs`: são duas esperas
+ * distintas (buscar o arquivo, depois achar peers) e somar as duas faria um `POST /open` levar
+ * ~90s no pior caso.
+ */
+const TORRENT_FETCH_TIMEOUT_MS = 20_000;
 
 export class TorrentDisabledError extends Error {
   constructor() {
@@ -84,7 +90,9 @@ const contentTypeFor = (name: string): string =>
 
 const hostOf = (url: string): string | null => {
   try {
-    return new URL(url).hostname.toLowerCase();
+    // O ponto final (`archive.org.`) é o FQDN raiz válido em DNS; normalizamos para não recusar
+    // um host legítimo por causa dele.
+    return new URL(url).hostname.toLowerCase().replace(/\.$/, '');
   } catch {
     return null;
   }
@@ -99,21 +107,53 @@ const hostOf = (url: string): string | null => {
  * requisição. `new URL().hostname` resiste a userinfo (`archive.org@evil.com`), prefixo
  * (`notarchive.org`) e sufixo (`archive.org.evil.com`).
  *
- * Todos os itens de domínio público amostrados usam apenas `archive.org` e `bt1/bt2.archive.org`.
+ * Falha FECHADA: uma URL que não parseia conta como host de terceiro. O webtorrent descartaria
+ * essas entradas de qualquer forma, então recusar o item é conservador de propósito — a garantia
+ * é "só o que conseguimos provar que é archive.org passa".
  */
 export const assertArchiveOnlySources = (announce: readonly string[], urlList: readonly string[]): void => {
   const urls = [...announce, ...urlList];
-  const foreign = [...new Set(urls.map(hostOf).filter((h): h is string => h !== null && !ARCHIVE_HOST_RE.test(h)))];
+  const foreign = [...new Set(urls.map(hostOf).filter((h): h is string => h === null || !ARCHIVE_HOST_RE.test(h)))];
   if (foreign.length > 0) throw new TorrentUntrustedSourceError(foreign);
 };
 
-/** Baixa o `.torrent` com timeout e teto de tamanho — nosso fetch, antes de qualquer descoberta. */
-const fetchTorrentBuffer = async (url: string): Promise<Buffer> => {
-  const res = await fetch(url, { signal: AbortSignal.timeout(config.torrent.metadataTimeoutMs) });
+/**
+ * Baixa o `.torrent`, parseia e só devolve o buffer se as fontes forem do archive.org.
+ *
+ * O `add()` do webtorrent inicia a descoberta (tracker/DHT/web seed) na construção do Torrent, então
+ * validar depois dele não adianta: a primeira requisição já teria saído. Esta função é a fronteira —
+ * nada entra no engine sem passar por aqui, e é por isso que o fetch/parse tem erro tipado próprio
+ * (sem isso, uma Archive fora do ar viraria 500 em vez de 502).
+ */
+export const loadTrustedTorrentBuffer = async (url: string): Promise<Buffer> => {
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(TORRENT_FETCH_TIMEOUT_MS) });
+  } catch (err) {
+    throw new TorrentUnavailableError(`não consegui baixar o .torrent deste item (${(err as Error).message})`);
+  }
   if (!res.ok) throw new TorrentUnavailableError(`a Archive respondeu ${res.status} para o .torrent deste item`);
+
+  // Checar o header antes de ler o corpo: depois do `arrayBuffer()` o teto já não evita o download.
+  // (`Number(null)` é 0, então ausência de header precisa ser tratada explicitamente.)
+  const declaredHeader = res.headers.get('content-length');
+  const declared = declaredHeader === null ? Number.NaN : Number(declaredHeader);
+  if (Number.isFinite(declared) && declared > MAX_TORRENT_BYTES) {
+    throw new TorrentUnavailableError('o .torrent deste item é grande demais (Content-Length)');
+  }
+
   const buffer = Buffer.from(await res.arrayBuffer());
   if (buffer.length === 0) throw new TorrentUnavailableError('o .torrent deste item veio vazio');
   if (buffer.length > MAX_TORRENT_BYTES) throw new TorrentUnavailableError('o .torrent deste item é grande demais');
+
+  let parsed: { announce?: string[]; urlList?: string[] };
+  try {
+    parsed = (await parseTorrent(buffer)) as { announce?: string[]; urlList?: string[] };
+  } catch (err) {
+    throw new TorrentUnavailableError(`o .torrent deste item está corrompido (${(err as Error).message})`);
+  }
+
+  assertArchiveOnlySources(parsed.announce ?? [], parsed.urlList ?? []);
   return buffer;
 };
 
@@ -226,11 +266,9 @@ const applyFileIndex = (handle: Handle, fileIndex: number | undefined): OpenTorr
 };
 
 const openFresh = async (url: string, identifier: string): Promise<Handle> => {
-  // Baixamos e validamos o .torrent antes de entregá-lo ao engine: assim nenhuma descoberta
-  // (tracker/DHT/web seed) começa antes de sabermos para onde o torrent aponta.
-  const buffer = await fetchTorrentBuffer(url);
-  const parsed = (await parseTorrent(buffer)) as { announce?: string[]; urlList?: string[] };
-  assertArchiveOnlySources(parsed.announce ?? [], parsed.urlList ?? []);
+  // A fronteira: baixa, parseia e valida as fontes ANTES de o engine existir para este torrent.
+  // Nenhuma descoberta (tracker/DHT/web seed) começa antes de sabermos para onde o torrent aponta.
+  const buffer = await loadTrustedTorrentBuffer(url);
 
   evictIfNeeded();
   // `path` e `destroyStoreOnDestroy` só são lidos das options do `add` (o client não as repassa ao
@@ -387,7 +425,7 @@ export const streamExactBytes = (
       if (cancelled) return;
       if (sent >= wanted) {
         await finalize();
-        controller.close();
+        if (!cancelled) controller.close();
         return;
       }
       try {
@@ -397,7 +435,7 @@ export const streamExactBytes = (
         if (cancelled) return;
         if (done) {
           await finalize();
-          controller.close();
+          if (!cancelled) controller.close();
           return;
         }
         const remaining = wanted - sent;

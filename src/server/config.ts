@@ -29,6 +29,19 @@ const numberEnv = (raw: string | undefined, fallback: number, min: number): numb
   return Number.isFinite(parsed) && parsed >= min ? parsed : fallback;
 };
 
+/**
+ * `TORRENT_UPLOAD_LIMIT_KB` é o único que aceita negativo: `-1` é "sem limite" no webtorrent.
+ * `0` NÃO é válido e precisa de guarda própria — ele passa por um `min` de -1, mas no webtorrent
+ * significa throttle de zero byte/s, que bloqueia o upload e faz os peers nos chocarem (é
+ * justamente o bug que a feature já teve uma vez).
+ */
+const uploadLimitEnv = (raw: string | undefined, fallback: number): number => {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed === 0 || parsed < -1) return fallback;
+  return parsed;
+};
+
 export const config = {
   port: Number(process.env.PORT ?? 7799),
   dbPath: process.env.DB_PATH ?? 'data/nerd-watch.db',
@@ -53,11 +66,10 @@ export const config = {
     /** Teto de conexões por torrent — segura o consumo de sockets num app local. */
     maxConnections: numberEnv(process.env.TORRENT_MAX_CONNECTIONS, 55, 1),
     /**
-     * Teto de upload em KB/s. NÃO use 0: no webtorrent `uploadLimit: 0` significa throttle de
-     * zero byte/s (bloqueia upload e faz os peers nos chocarem), enquanto `-1` é que é "sem
-     * limite". Um teto modesto evita saturar o upload da sua conexão enquanto você assiste.
+     * Teto de upload em KB/s: `-1` é sem limite, qualquer valor >= 1 é o teto. `0` cai no padrão
+     * (ver `uploadLimitEnv`) — no webtorrent ele bloquearia o upload de vez.
      */
-    uploadLimitKbps: numberEnv(process.env.TORRENT_UPLOAD_LIMIT_KB, 100, -1),
+    uploadLimitKbps: uploadLimitEnv(process.env.TORRENT_UPLOAD_LIMIT_KB, 100),
     /** Quantos torrents podem ficar abertos ao mesmo tempo (LRU eviction acima disso). */
     maxActive: numberEnv(process.env.TORRENT_MAX_ACTIVE, 3, 1),
     /** Sem nenhuma leitura por esse tempo, o torrent é destruído e o disco liberado. */
