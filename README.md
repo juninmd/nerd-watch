@@ -55,6 +55,13 @@ Capturas da app em execução com o banco fictício criado por `bun run seed`. N
 |---|---|
 | ![Lista fictícia com filtros de acompanhamento](docs/screenshots/minha-lista.png) | ![Calendário de lançamentos dos títulos fictícios](docs/screenshots/calendario.png) |
 
+Streaming P2P de um item de domínio público — `House on Haunted Hill` (1959), tocando direto do
+torrent da Archive, com escolha do derivado e estatísticas de peer:
+
+| Painel P2P | Tocando do torrent |
+|---|---|
+| ![Card "assistir por P2P" no detalhe do título](docs/screenshots/p2p-painel.png) | ![Filme tocando via torrent, com 5 peers e 2 MB/s](docs/screenshots/p2p-tocando.png) |
+
 ---
 
 ## 🚀 Rodando
