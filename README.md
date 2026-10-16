@@ -118,3 +118,7 @@ bun run poc:torrent -- house_on_haunted_hill_ipod
   melhor qualidade — o seletor na tela deixa você trocar para `large`/`1080p` a qualquer momento.
 - **Só MP4/WebM tocam no navegador.** Itens da Archive que só têm `.ogv`/`.avi`/`.mkv` aparecem sem o
   player P2P (o download do torrent continua lá).
+- **O torrent baixa adiantado enquanto está aberto.** É o comportamento do engine (medido: ~50 MB em
+  20s mesmo sem nenhuma leitura), e é o mesmo de qualquer cliente P2P com buffer. O consumo é
+  limitado por três coisas: fechar o painel, sair da tela, e o sweeper que derruba o torrent sem
+  leitura por `TORRENT_IDLE_MINUTES` (padrão 10) — aí o disco é liberado.

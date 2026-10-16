@@ -306,9 +306,11 @@ export const torrentStatus = (infoHash: string): TorrentStatus | null => {
   const file = handle.torrent.files[handle.fileIndex];
   if (!file) return null;
 
-  // O cliente faz polling a cada 2s: isso também renova o "em uso" do handle, para um torrent que
-  // está tocando não ser recolhido pelo sweeper entre uma leitura e outra.
-  handle.lastAccess = Date.now();
+  // De propósito NÃO renovamos `lastAccess` aqui. O cliente faz polling a cada 2s enquanto o painel
+  // está montado, então renovar transformaria o poll em "atividade" e o sweeper nunca dispararia:
+  // uma aba esquecida baixaria o arquivo inteiro, porque o webtorrent fica pedindo pedaços sozinho
+  // (medido: ~50 MB em 20s sem nenhuma leitura). Quem segura o handle é a leitura de verdade —
+  // `activeStreams` — e quem encerra é o fechamento explícito ou o sweeper.
 
   return {
     infoHash,
