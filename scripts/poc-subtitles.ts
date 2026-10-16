@@ -31,16 +31,20 @@ interface SubtitleResult {
   fileId?: number;
 }
 
-console.log(`\n1) busca agregada (${IMDB}, ${MEDIA}) — sem nenhuma chave configurada...`);
-const t0 = Date.now();
-const searchRes = await fetch(`${BASE}/api/subtitles?imdbId=${IMDB}&mediaType=${MEDIA}`);
-const search = (await searchRes.json()) as {
+interface SearchResponse {
   enabled: boolean;
+  reason?: string;
+  imdbId: string | null;
   sources: string[];
   unavailable: string[];
   results: SubtitleResult[];
   error?: string;
-};
+}
+
+console.log(`\n1) busca agregada (${IMDB}, ${MEDIA}) — sem nenhuma chave configurada...`);
+const t0 = Date.now();
+const searchRes = await fetch(`${BASE}/api/subtitles?imdbId=${IMDB}&mediaType=${MEDIA}`);
+const search = (await searchRes.json()) as SearchResponse;
 
 check('GET /api/subtitles respondeu 200', searchRes.status === 200, `status ${searchRes.status} ${search.error ?? ''}`);
 check('busca considerada habilitada', search.enabled === true);
@@ -57,16 +61,26 @@ for (const r of search.results.slice(0, 5)) {
 check('só vieram idiomas configurados (pt-BR, pt, en)', languages.every((l) => ['pt-BR', 'pt', 'en'].includes(l)), languages.join(', '));
 check('idioma preferido vem primeiro', search.results[0]?.languageCode === 'pt-BR', search.results[0]?.languageCode ?? '(vazio)');
 check('resultados de addon trazem URL direta', search.results.some((r) => Boolean(r.directUrl)));
+check('a resposta devolve o imdbId (é o que permite baixar depois)', search.imdbId === IMDB, String(search.imdbId));
 
 console.log('\n2) download pelo proxy do app (o cliente não manda URL de destino)...');
 const first = search.results[0];
 if (!first) {
   console.log('  (sem resultados para baixar)');
 } else {
+  // Payload EXATO do painel: `source` + `id` + o `imdbId` que veio da busca. Foi por faltar o
+  // imdbId que a interface levava 404 em todo download de addon antes da revisão.
   const dlRes = await fetch(`${BASE}/api/subtitles/download`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source: first.source, id: first.id, imdbId: IMDB, mediaType: MEDIA }),
+    body: JSON.stringify({
+      source: first.source,
+      id: first.id,
+      imdbId: search.imdbId,
+      mediaType: MEDIA,
+      season: null,
+      episode: null,
+    }),
   });
   const dl = (await dlRes.json()) as { url?: string; error?: string };
   check('POST /download respondeu 200', dlRes.status === 200, dl.error ?? `status ${dlRes.status}`);

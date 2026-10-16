@@ -1,10 +1,13 @@
 import { Hono } from 'hono';
 import { config } from '../config.ts';
 import { OpenSubtitlesNotConfiguredError, OpenSubtitlesRequestError, openSubtitlesEnabled } from '../providers/opensubtitles.ts';
-import { resolveAddonFileUrl, resolveSubtitleDownload, searchAllSubtitles } from '../providers/subtitles/index.ts';
+import { isFetchableSubtitleUrl, resolveAddonFileUrl, resolveSubtitleDownload, searchAllSubtitles } from '../providers/subtitles/index.ts';
 import type { MediaType } from '../types.ts';
 
 export const subtitlesRoutes = new Hono();
+
+/** Id do IMDb é `tt` + dígitos. Validar aqui evita que um valor cru chegue ao nome do arquivo. */
+const IMDB_ID_RE = /^tt\d{7,10}$/;
 
 const parseMediaType = (raw: string | undefined): MediaType | undefined => (raw === 'tv' ? 'tv' : raw === 'movie' ? 'movie' : undefined);
 
@@ -15,14 +18,17 @@ const parseNumber = (raw: string | undefined): number | undefined => {
 };
 
 /**
- * Busca agregada. Sem `SUBTITLE_ADDONS` nem `OPENSUBTITLES_API_KEY` devolve `enabled: false`, e a
- * interface explica como ligar — em vez de parecer que o título não tem legenda.
+ * Busca agregada.
+ *
+ * `enabled: false` vem com `reason` — e a interface diz uma coisa diferente em cada caso, porque
+ * "nenhuma fonte configurada" e "não conseguimos o id do IMDb" pedem ações diferentes do usuário.
  */
 subtitlesRoutes.get('/', async (c) => {
   const query = c.req.query('query')?.trim() || undefined;
   const tmdbId = parseNumber(c.req.query('tmdbId'));
   const mediaType = parseMediaType(c.req.query('mediaType'));
-  const imdbId = c.req.query('imdbId')?.trim() || undefined;
+  const imdbIdRaw = c.req.query('imdbId')?.trim() || undefined;
+  const imdbId = imdbIdRaw && IMDB_ID_RE.test(imdbIdRaw) ? imdbIdRaw : undefined;
   const season = parseNumber(c.req.query('season')) ?? null;
   const episode = parseNumber(c.req.query('episode')) ?? null;
 
@@ -32,6 +38,8 @@ subtitlesRoutes.get('/', async (c) => {
     const outcome = await searchAllSubtitles({ query, tmdbId, mediaType, imdbId, season, episode });
     return c.json({
       enabled: outcome.enabled,
+      reason: outcome.reason,
+      imdbId: outcome.imdbId,
       sources: outcome.sources,
       unavailable: outcome.unavailable,
       results: outcome.results,
@@ -66,11 +74,13 @@ subtitlesRoutes.post('/download', async (c) => {
   const id = typeof body.id === 'string' ? body.id : '';
   if (!source || !id) return c.json({ error: 'informe "fileId" ou "source" + "id"' }, 400);
 
+  const imdbIdRaw = typeof body.imdbId === 'string' ? body.imdbId : '';
   try {
     const resolved = await resolveSubtitleDownload({
       source,
       id,
-      imdbId: typeof body.imdbId === 'string' ? body.imdbId : undefined,
+      imdbId: IMDB_ID_RE.test(imdbIdRaw) ? imdbIdRaw : undefined,
+      tmdbId: Number.isInteger(body.tmdbId) ? (body.tmdbId as number) : undefined,
       mediaType: parseMediaType(typeof body.mediaType === 'string' ? body.mediaType : undefined),
       season: Number.isInteger(body.season) ? (body.season as number) : null,
       episode: Number.isInteger(body.episode) ? (body.episode as number) : null,
@@ -88,7 +98,9 @@ subtitlesRoutes.post('/download', async (c) => {
  * Proxy do arquivo de legenda.
  *
  * O `source` tem que estar na lista configurada (`SUBTITLE_ADDONS`), e a URL final vem de uma nova
- * consulta ao addon — nunca de um parâmetro do cliente. Sem isso isto seria um proxy aberto.
+ * consulta ao addon — nunca de um parâmetro do cliente. A URL que o addon devolve ainda passa por
+ * `isFetchableSubtitleUrl` (só http(s), nunca host privado) e é conferida de novo depois do fetch,
+ * porque o addon é código de terceiro: sem isso ele poderia apontar para `file://` ou loopback.
  */
 subtitlesRoutes.get('/file', async (c) => {
   const source = c.req.query('source') ?? '';
@@ -99,14 +111,26 @@ subtitlesRoutes.get('/file', async (c) => {
   const episode = parseNumber(c.req.query('episode')) ?? null;
 
   if (!config.subtitles.addons.includes(source)) return c.json({ error: 'fonte de legenda não configurada' }, 403);
-  if (!id || !imdbId) return c.json({ error: 'parâmetros incompletos' }, 400);
+  if (!id || !IMDB_ID_RE.test(imdbId)) return c.json({ error: 'parâmetros incompletos ou inválidos' }, 400);
 
-  const url = await resolveAddonFileUrl({ source, id, imdbId, type, season, episode });
-  if (!url) return c.json({ error: 'legenda não encontrada na fonte' }, 404);
+  const resolved = await resolveAddonFileUrl({ source, id, imdbId, type, season, episode });
+  if (!resolved.ok) {
+    if (resolved.reason === 'not_found') return c.json({ error: 'legenda não encontrada na fonte' }, 404);
+    if (resolved.reason === 'untrusted_url') return c.json({ error: 'a fonte devolveu um endereço não permitido' }, 502);
+    return c.json({ error: 'a fonte de legendas não respondeu' }, 502);
+  }
 
-  const upstream = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  let upstream: Response;
+  try {
+    upstream = await fetch(resolved.url, { signal: AbortSignal.timeout(30_000) });
+  } catch {
+    return c.json({ error: 'não foi possível baixar a legenda da fonte' }, 502);
+  }
+  // Redirecionamento poderia levar a um host privado; a URL FINAL é o que vale.
+  if (!isFetchableSubtitleUrl(upstream.url || resolved.url)) return c.json({ error: 'a fonte devolveu um endereço não permitido' }, 502);
   if (!upstream.ok) return c.json({ error: `a fonte respondeu ${upstream.status}` }, 502);
 
+  // `imdbId` já foi validado contra `IMDB_ID_RE`, então isto não é texto livre do cliente.
   const filename = `${imdbId}${season && episode ? `.S${season}E${episode}` : ''}.srt`;
   return new Response(upstream.body, {
     status: 200,

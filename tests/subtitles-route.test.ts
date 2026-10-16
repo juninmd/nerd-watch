@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { subtitlesRoutes } from '../src/server/routes/subtitles.ts';
+import { isFetchableSubtitleUrl, searchAllSubtitles } from '../src/server/providers/subtitles/index.ts';
+import { languageRank } from '../src/server/providers/subtitles/languages.ts';
 
 /**
  * O addon padrão (`https://opensubtitles-v3.strem.io`) está configurado por padrão, então estes
@@ -115,6 +117,30 @@ describe('GET /api/subtitles com addon (sem chave nenhuma)', () => {
 });
 
 describe('POST /api/subtitles/download', () => {
+  test('baixa com o payload EXATO que o painel envia', async () => {
+    // Regressão do defeito que passou por toda a suíte: o painel não mandava `imdbId`, e o servidor
+    // não resolvia por tmdbId — então todo download de addon pela interface dava 404. Os testes
+    // antigos passavam porque montavam o payload à mão, com imdbId.
+    const imdbId = freshImdbId();
+    stubAddon([raw({ id: '777' })]);
+
+    const search = await (await subtitlesRoutes.request(`/?imdbId=${imdbId}&mediaType=movie`)).json();
+    expect(search.imdbId).toBe(imdbId);
+
+    const result = search.results[0];
+    const payload = {
+      source: result.source,
+      id: result.id,
+      imdbId: search.imdbId,
+      mediaType: 'movie',
+      season: null,
+      episode: null,
+    };
+    const res = await subtitlesRoutes.request('/download', { method: 'POST', body: JSON.stringify(payload) });
+    expect(res.status).toBe(200);
+    expect((await res.json()).url).toStartWith('/api/subtitles/file?');
+  });
+
   test('devolve uma URL do próprio app, não do addon', async () => {
     const imdbId = freshImdbId();
     stubAddon([raw()]);
@@ -159,6 +185,15 @@ describe('GET /api/subtitles/file (proxy)', () => {
     expect(res.status).toBe(400);
   });
 
+  test('400 quando o imdbId não tem formato de IMDb (nome de arquivo não recebe texto livre)', async () => {
+    for (const bad of ['../../etc/passwd', 'tt1"; filename*=UTF-8\'\'pwned', 'nao-e-imdb', 'tt123']) {
+      const res = await subtitlesRoutes.request(
+        `/file?source=https%3A%2F%2Fopensubtitles-v3.strem.io&id=1&imdbId=${encodeURIComponent(bad)}`,
+      );
+      expect(res.status).toBe(400);
+    }
+  });
+
   test('serve o arquivo com nome de arquivo, sem repassar URL do cliente', async () => {
     const imdbId = freshImdbId();
     globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -182,5 +217,104 @@ describe('GET /api/subtitles/file (proxy)', () => {
       `/file?source=https%3A%2F%2Fopensubtitles-v3.strem.io&id=1&imdbId=${freshImdbId()}&type=movie`,
     );
     expect(res.status).toBe(404);
+  });
+
+  test('502 quando o addon devolve um endereço que não podemos buscar', async () => {
+    // O addon é código de terceiro: sem esta guarda, ele poderia apontar para file:// ou loopback
+    // e transformar o proxy numa leitura de arquivo local.
+    stubAddon([raw({ url: 'file:///etc/passwd' })]);
+    const res = await subtitlesRoutes.request(
+      `/file?source=https%3A%2F%2Fopensubtitles-v3.strem.io&id=1&imdbId=${freshImdbId()}&type=movie`,
+    );
+    expect(res.status).toBe(502);
+  });
+
+  test('502 quando o addon está fora do ar (não confundir com "legenda não existe")', async () => {
+    globalThis.fetch = (async () => json({}, 500)) as unknown as typeof fetch;
+    const res = await subtitlesRoutes.request(
+      `/file?source=https%3A%2F%2Fopensubtitles-v3.strem.io&id=1&imdbId=${freshImdbId()}&type=movie`,
+    );
+    expect(res.status).toBe(502);
+  });
+});
+
+describe('isFetchableSubtitleUrl', () => {
+  test('aceita http(s) público', () => {
+    expect(isFetchableSubtitleUrl('https://subs5.strem.io/en/download/abc')).toBe(true);
+    expect(isFetchableSubtitleUrl('http://exemplo.com/a.srt')).toBe(true);
+  });
+
+  test('recusa esquema que não é http(s)', () => {
+    for (const url of ['file:///etc/passwd', 'ftp://x/a.srt', 'data:text/plain,oi', 'javascript:alert(1)']) {
+      expect(isFetchableSubtitleUrl(url)).toBe(false);
+    }
+  });
+
+  test('recusa loopback, rede privada e link-local', () => {
+    for (const url of [
+      'http://localhost/a.srt',
+      'http://127.0.0.1:8080/a.srt',
+      'http://10.0.0.5/a.srt',
+      'http://192.168.1.1/a.srt',
+      'http://172.16.0.1/a.srt',
+      'http://169.254.169.254/latest/meta-data',
+      'http://0.0.0.0/a.srt',
+      'http://[::1]/a.srt',
+    ]) {
+      expect(isFetchableSubtitleUrl(url)).toBe(false);
+    }
+  });
+
+  test('não cai em falso positivo com 172.32 (fora da faixa privada)', () => {
+    expect(isFetchableSubtitleUrl('http://172.32.0.1/a.srt')).toBe(true);
+  });
+
+  test('recusa URL inválida', () => {
+    expect(isFetchableSubtitleUrl('não é url')).toBe(false);
+    expect(isFetchableSubtitleUrl('')).toBe(false);
+  });
+});
+
+describe('languageRank', () => {
+  test('ordena pt-BR antes de pt quando a configuração é pt-BR,pt,en', () => {
+    // Com semântica de grupo os dois empatariam e a ordem configurada seria ignorada.
+    const order = ['pt-BR', 'pt', 'en'];
+    expect(languageRank('pob', order)).toBeLessThan(languageRank('por', order));
+    expect(languageRank('pt-BR', order)).toBe(0);
+    expect(languageRank('pt', order)).toBe(1);
+    expect(languageRank('en', order)).toBe(2);
+  });
+
+  test('idioma fora da lista vai para o fim', () => {
+    const order = ['pt-BR', 'pt', 'en'];
+    expect(languageRank('hun', order)).toBeGreaterThan(languageRank('en', order));
+  });
+});
+
+describe('searchAllSubtitles — diagnóstico', () => {
+  test('sem id do IMDb diz o motivo certo, em vez de "desligado"', async () => {
+    // Título da TMDB sem vínculo com o IMDb não é "feature desligada": é outra causa, e a interface
+    // precisa dizer isso para não mandar o usuário configurar o que já está configurado.
+    const outcome = await searchAllSubtitles({ tmdbId: 999999999, mediaType: 'movie' });
+    expect(outcome.enabled).toBe(false);
+    expect(outcome.reason).toBe('no_imdb_id');
+  });
+
+  test('sources lista quem respondeu, mesmo sem resultado', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/manifest.json')) return json(MANIFEST);
+      return json({ subtitles: [] });
+    }) as unknown as typeof fetch;
+
+    const outcome = await searchAllSubtitles({ imdbId: freshImdbId(), mediaType: 'movie' });
+    expect(outcome.enabled).toBe(true);
+    expect(outcome.sources).toEqual(['OpenSubtitles v3']);
+  });
+
+  test('não repete a mesma legenda quando a fonte aparece duas vezes', async () => {
+    stubAddon([raw({ id: 'a' }), raw({ id: 'a' })]);
+    const outcome = await searchAllSubtitles({ imdbId: freshImdbId(), mediaType: 'movie' });
+    expect(outcome.results.filter((r) => r.id === 'a')).toHaveLength(1);
   });
 });

@@ -277,6 +277,10 @@ export interface SubtitleResultDto {
 
 export interface SubtitleSearchResponse {
   enabled: boolean;
+  /** Por que está desabilitado: sem fonte configurada, ou sem id do IMDb para as fontes. */
+  reason?: 'no_sources' | 'no_imdb_id';
+  /** Id do IMDb do título — devolvido pelo servidor para o download não precisar traduzir de novo. */
+  imdbId: string | null;
   sources: string[];
   unavailable: string[];
   results: SubtitleResultDto[];
@@ -308,6 +312,7 @@ export type SubtitleDownloadInput =
       source: string;
       id: string;
       imdbId?: string;
+      tmdbId?: number;
       mediaType?: 'movie' | 'tv';
       season?: number | null;
       episode?: number | null;
