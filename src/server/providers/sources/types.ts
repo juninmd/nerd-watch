@@ -7,7 +7,7 @@ export type SourceMode = Exclude<TelegramChannelMode, 'public' | 'personal' | 'b
 export class SourceError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 404 | 409 | 413 | 501 | 502 = 502,
+    readonly status: 400 | 404 | 409 | 413 | 429 | 501 | 502 = 502,
   ) {
     super(message);
   }

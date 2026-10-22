@@ -2,6 +2,7 @@ import { exportBackup, health, importBackup, type HealthResponse } from '../api.
 import { renderDriveConnect } from '../components/drive-connect.ts';
 import { renderSourceCard } from '../components/source-card.ts';
 import { renderTelegramLogin } from '../components/telegram-login.ts';
+import { mountTraktActions } from '../components/trakt-actions.ts';
 import { listSources } from '../source-api.ts';
 import { icon, type IconName } from '../icons.ts';
 import { showToast } from '../state.ts';
@@ -115,7 +116,15 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
         card.className = 'conn-card';
         card.id = `conn-${s.id}`;
         sourcesEl.appendChild(card);
-        renderSourceCard(card, s);
+        if (s.id !== 'trakt') {
+          renderSourceCard(card, s);
+          continue;
+        }
+        // Trakt tem ações além da conexão (importar/exportar): ficam num bloco abaixo do cartão genérico.
+        const actions = document.createElement('div');
+        sourcesEl.appendChild(actions);
+        renderSourceCard(card, s, () => void mountTraktActions(actions));
+        void mountTraktActions(actions);
       }
     })
     .catch(() => {

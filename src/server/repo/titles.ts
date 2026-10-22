@@ -1,6 +1,9 @@
 import type { Database } from 'bun:sqlite';
 import type { EpisodeRow, MediaType, SeasonRow, TitleRow, TitleSource } from '../types.ts';
 
+/** Teto de parâmetros por consulta (SQLite limita variáveis; 500 fica folgado em qualquer build). */
+export const SQL_BATCH = 500;
+
 export interface NewTitle {
   source: TitleSource;
   sourceId: string;
@@ -40,6 +43,20 @@ export const upsertTitle = (db: Database, input: NewTitle): TitleRow => {
   });
   // biome-ignore lint/style/noNonNullAssertion: acabamos de inserir esta linha
   return db.query<TitleRow, [string]>('SELECT * FROM titles WHERE id = ?').get(id)!;
+};
+
+/** Títulos TMDB pelos ids (em lotes: uma consulta por lote, não uma por id). */
+export const findTmdbTitles = (db: Database, tmdbIds: string[]): TitleRow[] => {
+  const rows: TitleRow[] = [];
+  for (let i = 0; i < tmdbIds.length; i += SQL_BATCH) {
+    const chunk = tmdbIds.slice(i, i + SQL_BATCH);
+    rows.push(
+      ...db
+        .query<TitleRow, string[]>(`SELECT * FROM titles WHERE source = 'tmdb' AND source_id IN (${chunk.map(() => '?').join(',')})`)
+        .all(...chunk),
+    );
+  }
+  return rows;
 };
 
 export const getTitle = (db: Database, id: string): TitleRow | null =>

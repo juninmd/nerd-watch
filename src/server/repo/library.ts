@@ -1,5 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import type { LibraryEntryRow, TitleRow, WatchStatus } from '../types.ts';
+import { SQL_BATCH } from './titles.ts';
 
 export type LibraryItem = LibraryEntryRow & { title: TitleRow };
 
@@ -66,6 +67,24 @@ const toLibraryItem = (row: JoinedRow): LibraryItem => ({
 
 export const getLibraryEntryByTitle = (db: Database, titleId: string): LibraryEntryRow | null =>
   db.query<LibraryEntryRow, [string]>('SELECT * FROM library_entries WHERE title_id = ?').get(titleId);
+
+/** Entradas dos títulos dados, em lotes (uma consulta por lote). */
+export const getLibraryEntriesByTitles = (db: Database, titleIds: string[]): LibraryEntryRow[] => {
+  const rows: LibraryEntryRow[] = [];
+  for (let i = 0; i < titleIds.length; i += SQL_BATCH) {
+    const chunk = titleIds.slice(i, i + SQL_BATCH);
+    rows.push(...db.query<LibraryEntryRow, string[]>(`SELECT * FROM library_entries WHERE title_id IN (${chunk.map(() => '?').join(',')})`).all(...chunk));
+  }
+  return rows;
+};
+
+/** Títulos marcados como assistidos (origem e id, para a exportação decidir o que falta no Trakt). */
+export const listWatchedTitles = (db: Database): Array<Pick<TitleRow, 'source' | 'source_id' | 'media_type'>> =>
+  db
+    .query<Pick<TitleRow, 'source' | 'source_id' | 'media_type'>, []>(
+      `SELECT t.source, t.source_id, t.media_type FROM library_entries le JOIN titles t ON t.id = le.title_id WHERE le.watch_status = 'watched'`,
+    )
+    .all();
 
 export interface LibraryPatch {
   watchStatus?: WatchStatus;

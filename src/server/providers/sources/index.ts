@@ -1,4 +1,5 @@
 import { registerDrive } from '../drive/source.ts';
+import { registerTrakt } from '../trakt/descriptor.ts';
 
 /**
  * Um provider novo = um módulo com `registerX()` (descriptor + FileSource) e uma linha aqui.
@@ -10,4 +11,5 @@ export const registerAllSources = (): void => {
   if (registered) return;
   registered = true;
   registerDrive();
+  registerTrakt();
 };
