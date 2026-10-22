@@ -1,8 +1,9 @@
-import { getCalendar, health, listLibrary, searchArchive, type CalendarEntryDto } from '../api.ts';
+import { type CalendarEntryDto, type CatalogSource, getCalendar, health, listLibrary, searchArchive } from '../api.ts';
 import { escapeHtml, renderCard } from '../components/card.ts';
-import { continueWatchingCards } from '../components/continue-watching.ts';
+import { continueWatchingCards, refreshResumeCards } from '../components/continue-watching.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
 import { icon, type IconName } from '../icons.ts';
+import { PLAYBACK_CHANGED_EVENT } from '../playback-sync.ts';
 import { navigate } from '../router.ts';
 import { addDays, localIsoDate } from '../time-format.ts';
 import { libraryItemPath, titlePath } from '../title-link.ts';
@@ -65,6 +66,15 @@ export const renderDiscover = (host: HTMLElement): void => {
       if (watching.items.length === 0 && resumeCards.length === 0) {
         watchingRail.innerHTML = `<div class="empty-state" style="flex:1">nada em andamento — busque algo (<kbd>Ctrl K</kbd>) e marque como "assistindo"</div>`;
       }
+      // A sincronização pode trazer posições de outro aparelho depois que a tela já renderizou.
+      const onPlaybackChanged = () => {
+        if (!watchingRail.isConnected) {
+          window.removeEventListener(PLAYBACK_CHANGED_EVENT, onPlaybackChanged);
+          return;
+        }
+        refreshResumeCards(watchingRail);
+      };
+      window.addEventListener(PLAYBACK_CHANGED_EVENT, onPlaybackChanged);
       for (const item of watching.items) {
         watchingRail.appendChild(
           renderCard({
@@ -86,7 +96,7 @@ export const renderDiscover = (host: HTMLElement): void => {
         for (const el of upcoming.querySelectorAll<HTMLElement>('.calendar-item')) {
           const { source, sourceId, media } = el.dataset;
           if (!source || !sourceId || !media) continue;
-          const go = () => navigate(titlePath(source as 'tmdb' | 'archive', source === 'archive' ? '_' : (media as 'movie' | 'tv'), sourceId));
+          const go = () => navigate(titlePath(source as CatalogSource, source === 'archive' ? '_' : (media as 'movie' | 'tv'), sourceId));
           el.addEventListener('click', go);
           el.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') go();

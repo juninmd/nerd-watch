@@ -2,13 +2,16 @@ import { Database } from 'bun:sqlite';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { config } from './config.ts';
+import { TELEGRAM_CHANNEL_MODES } from './types.ts';
 
 let instance: Database | undefined;
+
+const MODES_SQL = TELEGRAM_CHANNEL_MODES.map((m) => `'${m}'`).join(', ');
 
 const MIGRATIONS = `
 CREATE TABLE IF NOT EXISTS titles (
   id TEXT PRIMARY KEY,
-  source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram')),
+  source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram', 'tvmaze', 'anilist')),
   source_id TEXT NOT NULL,
   media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
   title TEXT NOT NULL,
@@ -59,7 +62,7 @@ CREATE TABLE IF NOT EXISTS library_entries (
 
 CREATE TABLE IF NOT EXISTS telegram_channels (
   id TEXT PRIMARY KEY REFERENCES titles(id) ON DELETE CASCADE,
-  mode TEXT NOT NULL CHECK (mode IN ('public', 'personal', 'bot', 'drive')),
+  mode TEXT NOT NULL CHECK (mode IN (${MODES_SQL})),
   handle TEXT NOT NULL,
   cursor TEXT,
   created_at TEXT NOT NULL
@@ -75,6 +78,26 @@ CREATE TABLE IF NOT EXISTS telegram_items (
   posted_at TEXT,
   file_ref TEXT,
   UNIQUE (channel_id, message_id)
+);
+
+/* Progresso de reprodução por vídeo (chave = a mesma do cliente). Criada com IF NOT EXISTS: idempotente. */
+CREATE TABLE IF NOT EXISTS playback_positions (
+  key TEXT PRIMARY KEY,
+  seconds REAL NOT NULL,
+  duration REAL,
+  at INTEGER NOT NULL,
+  done INTEGER NOT NULL DEFAULT 0,
+  meta TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_playback_at ON playback_positions(at);
+
+-- Origem (magnet normalizado) de cada torrent do provider genérico: o engine esquece o torrent quando
+-- fica ocioso, então é daqui que ele é re-adicionado depois de um restart. Idempotente por CREATE IF NOT EXISTS.
+CREATE TABLE IF NOT EXISTS torrent_sources (
+  infohash TEXT PRIMARY KEY,
+  magnet TEXT NOT NULL,
+  added_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_episodes_season ON episodes(season_id);
@@ -124,20 +147,58 @@ export const migrateAddTelegramSource = (db: Database): void => {
 };
 
 /**
- * `telegram_channels.mode` ganhou 'drive' (pastas do Google Drive reaproveitam canais, fila e player).
- * Mesmo motivo e mesma técnica da migração do `titles`: o CHECK não se altera, então recria a tabela sob nome
- * temporário e renomeia a nova. Idempotente: só roda se o CHECK antigo ainda estiver lá.
+ * `titles.source` ganhou 'tvmaze' e 'anilist' (catálogos sem chave). Mesma técnica do telegram: recria a tabela
+ * com o CHECK novo e preserva as FKs. Idempotente pelo marcador 'anilist' no SQL.
+ *
+ * Rollback (só se precisar voltar a versão): apague antes as linhas novas
+ * (`DELETE FROM titles WHERE source IN ('tvmaze','anilist')`, o CASCADE limpa temporadas, episódios e lista)
+ * e recrie a tabela com o CHECK anterior, usando a mesma sequência de `migrateAddTelegramSource`.
  */
-export const migrateAddDriveMode = (db: Database): void => {
+export const migrateAddCatalogSources = (db: Database): void => {
+  const row = db.query<{ sql: string }, []>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'titles'").get();
+  if (!row || row.sql.includes("'anilist'")) return;
+
+  db.exec('PRAGMA foreign_keys = OFF;');
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE titles_new (
+        id TEXT PRIMARY KEY,
+        source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram', 'tvmaze', 'anilist')),
+        source_id TEXT NOT NULL,
+        media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
+        title TEXT NOT NULL,
+        original_title TEXT,
+        overview TEXT,
+        poster_path TEXT,
+        backdrop_path TEXT,
+        release_date TEXT,
+        vote_average REAL,
+        created_at TEXT NOT NULL,
+        UNIQUE (source, source_id)
+      );
+    `);
+    db.exec(`INSERT INTO titles_new SELECT * FROM titles`);
+    db.exec(`DROP TABLE titles`);
+    db.exec(`ALTER TABLE titles_new RENAME TO titles`);
+  })();
+  db.exec('PRAGMA foreign_keys = ON;');
+};
+
+/**
+ * `telegram_channels.mode` ganhou as fontes de arquivo (Drive, WebDAV, pasta local…: reaproveitam canais, fila e
+ * player). Mesmo motivo e mesma técnica da migração do `titles`: o CHECK não se altera, então recria a tabela sob
+ * nome temporário e renomeia a nova. Idempotente: só roda se algum modo ainda não estiver no CHECK.
+ */
+export const migrateChannelModes = (db: Database): void => {
   const row = db.query<{ sql: string }, []>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'telegram_channels'").get();
-  if (!row || row.sql.includes("'drive'")) return;
+  if (!row || TELEGRAM_CHANNEL_MODES.every((m) => row.sql.includes(`'${m}'`))) return;
 
   db.exec('PRAGMA foreign_keys = OFF;');
   db.transaction(() => {
     db.exec(`
       CREATE TABLE telegram_channels_new (
         id TEXT PRIMARY KEY REFERENCES titles(id) ON DELETE CASCADE,
-        mode TEXT NOT NULL CHECK (mode IN ('public', 'personal', 'bot', 'drive')),
+        mode TEXT NOT NULL CHECK (mode IN (${MODES_SQL})),
         handle TEXT NOT NULL,
         cursor TEXT,
         created_at TEXT NOT NULL
@@ -164,7 +225,8 @@ export const openDb = (path: string = config.dbPath): Database => {
   db.exec('PRAGMA journal_mode = WAL;');
   migrateAddTelegramSource(db);
   migrateAddTelegramItemFileRef(db);
-  migrateAddDriveMode(db);
+  migrateChannelModes(db);
+  migrateAddCatalogSources(db);
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
   return db;

@@ -33,5 +33,7 @@ const PATHS = {
 
 export type IconName = keyof typeof PATHS;
 
+export const isIconName = (name: string): name is IconName => name in PATHS;
+
 export const icon = (name: IconName, extraClass = ''): string =>
   `<svg class="i${extraClass ? ` ${extraClass}` : ''}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name]}</svg>`;

@@ -1,5 +1,8 @@
 import type { WatchStatus } from '../server/types.ts';
 
+/** Fontes de catálogo com página de detalhe própria. Telegram tem outra rota (canais). */
+export type CatalogSource = 'tmdb' | 'archive' | 'tvmaze' | 'anilist';
+
 export const json = async <T>(res: Response): Promise<T> => {
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
@@ -9,7 +12,7 @@ export const json = async <T>(res: Response): Promise<T> => {
 };
 
 export interface SearchResultDto {
-  source: 'tmdb' | 'archive';
+  source: CatalogSource;
   sourceId: string;
   mediaType: 'movie' | 'tv';
   title: string;
@@ -106,6 +109,63 @@ export interface ArchiveDetailDto {
 export const getArchiveTitle = (identifier: string): Promise<ArchiveDetailDto> =>
   fetch(`/api/archive/${identifier}`).then((r) => json<ArchiveDetailDto>(r));
 
+export interface AttributionDto {
+  name: string;
+  url: string;
+  license?: string;
+}
+
+export interface TvmazeEpisodeDto {
+  episodeNumber: number;
+  name: string;
+  airDate: string | null;
+  runtime: number | null;
+  overview: string | null;
+  stillUrl: string | null;
+}
+
+export interface TvmazeDetailDto {
+  titleId: string;
+  sourceId: string;
+  title: string;
+  overview: string | null;
+  posterUrl: string | null;
+  premiered: string | null;
+  ended: string | null;
+  status: string | null;
+  voteAverage: number | null;
+  pageUrl: string | null;
+  officialUrl: string | null;
+  attribution: AttributionDto;
+  seasons: Array<{ seasonNumber: number; name: string; episodes: TvmazeEpisodeDto[] }>;
+  library: LibraryEntryDto | null;
+}
+
+export const getTvmazeTitle = (id: string): Promise<TvmazeDetailDto> => fetch(`/api/tvmaze/${id}`).then((r) => json<TvmazeDetailDto>(r));
+
+export interface AnilistDetailDto {
+  titleId: string;
+  sourceId: string;
+  mediaType: 'movie' | 'tv';
+  title: string;
+  romaji: string | null;
+  english: string | null;
+  native: string | null;
+  format: string | null;
+  status: string | null;
+  year: string | null;
+  overview: string | null;
+  posterUrl: string | null;
+  voteAverage: number | null;
+  episodes: number | null;
+  pageUrl: string | null;
+  nextEpisode: { episode: number; airDate: string } | null;
+  attribution: AttributionDto;
+  library: LibraryEntryDto | null;
+}
+
+export const getAnilistTitle = (id: string): Promise<AnilistDetailDto> => fetch(`/api/anilist/${id}`).then((r) => json<AnilistDetailDto>(r));
+
 export interface ArchiveMovieDto {
   identifier: string;
   title: string;
@@ -137,7 +197,7 @@ export interface LibraryItemDto {
   title: {
     id: string;
     sourceId: string;
-    source: 'tmdb' | 'archive' | 'telegram';
+    source: CatalogSource | 'telegram';
     mediaType: 'movie' | 'tv';
     title: string;
     posterUrl: string | null;
@@ -154,7 +214,7 @@ export const listLibrary = (status?: WatchStatus): Promise<LibraryListResponse> 
   fetch(`/api/library${status ? `?status=${status}` : ''}`).then((r) => json<LibraryListResponse>(r));
 
 export interface AddToLibraryInput {
-  source: 'tmdb' | 'archive';
+  source: CatalogSource;
   sourceId: string;
   mediaType: 'movie' | 'tv';
   title: string;
@@ -192,7 +252,7 @@ export const removeFromLibrary = (entryId: string): Promise<void> =>
 export interface CalendarEntryDto {
   kind: 'episode' | 'movie';
   titleId: string;
-  titleSource: 'tmdb' | 'archive';
+  titleSource: CatalogSource;
   titleSourceId: string;
   titleName: string;
   mediaType: 'movie' | 'tv';
@@ -340,7 +400,7 @@ export const importBackup = (data: unknown): Promise<ImportBackupResponse> =>
     body: JSON.stringify(data),
   }).then((r) => json<ImportBackupResponse>(r));
 
-export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive';
+export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive' | 'local' | 'webdav' | 'dropbox' | 'onedrive' | 'jellyfin' | 'plex' | 'peertube' | 's3' | 'youtube' | 'torrent';
 
 export interface TelegramChannelDto {
   titleId: string;
@@ -349,7 +409,8 @@ export interface TelegramChannelDto {
   title: string;
   posterUrl: string | null;
   description: string | null;
-  link: string;
+  /** Fontes sem página própria (pasta local, torrent) não têm link. */
+  link: string | null;
   itemCount: number;
 }
 
@@ -373,6 +434,8 @@ export interface TelegramItemDto {
   durationSeconds: number | null;
   thumbnailUrl: string | null;
   postedAt: string | null;
+  /** Iframe de embed quando a fonte só toca assim (YouTube). Ausente: o player do app. */
+  embedUrl?: string;
 }
 
 export interface TelegramChannelDetailDto extends TelegramChannelDto {

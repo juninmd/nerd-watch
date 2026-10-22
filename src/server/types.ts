@@ -1,7 +1,9 @@
 export type MediaType = 'movie' | 'tv';
-export type TitleSource = 'tmdb' | 'archive' | 'telegram';
+export type TitleSource = 'tmdb' | 'archive' | 'telegram' | 'tvmaze' | 'anilist';
 export type WatchStatus = 'want' | 'watching' | 'watched' | 'dropped';
-export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive';
+/** Telegram + as fontes de arquivo (cada uma é um `FileSource`, ver providers/sources). A lista também vira o CHECK do banco. */
+export const TELEGRAM_CHANNEL_MODES = ['public', 'personal', 'bot', 'drive', 'local', 'webdav', 'dropbox', 'onedrive', 'jellyfin', 'plex', 'peertube', 's3', 'youtube', 'torrent'] as const;
+export type TelegramChannelMode = (typeof TELEGRAM_CHANNEL_MODES)[number];
 
 export interface TitleRow {
   id: string;

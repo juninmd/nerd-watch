@@ -15,7 +15,12 @@ declare module 'parse-torrent' {
     /** Web seeds HTTP declarados pelo .torrent (`url-list`). */
     urlList?: string[];
     files: Array<{ name: string; length: number }>;
+    /** Dicionário `info` decodificado: é o que define o infohash e o que `toTorrentFile` reaproveita. */
+    info?: unknown;
   }
 
   export default function parseTorrent(torrentId: Uint8Array | Buffer | string): Promise<ParsedTorrent>;
+
+  /** Recodifica um torrent a partir do objeto parseado (trackers e web seeds vêm de `announce`/`urlList`). */
+  export function toTorrentFile(parsed: ParsedTorrent): Uint8Array;
 }

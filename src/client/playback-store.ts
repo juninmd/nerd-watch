@@ -20,10 +20,11 @@ export interface StoredPosition {
   done?: boolean;
 }
 
-type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+export type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
 const STORAGE_KEY = 'nw.playback';
-const MAX_ENTRIES = 200;
+/** Cache local: só as posições mais recentes (o servidor guarda bem mais). */
+export const MAX_ENTRIES = 200;
 /** Menos que isso não vale retomar; mais que a fração final conta como "terminou". */
 export const RESUME_MIN_SECONDS = 10;
 export const FINISHED_RATIO = 0.95;
@@ -36,7 +37,10 @@ export const resumePoint = (p: StoredPosition | undefined): number | null => {
   return Math.floor(p.seconds);
 };
 
-export const createPlaybackStore = (storage: StorageLike, now: () => number = Date.now) => {
+/** Avisado a cada gravação do usuário (não a reescrita feita pela sincronização). */
+export type PlaybackWriteHook = (key: string, op: 'put' | 'delete') => void;
+
+export const createPlaybackStore = (storage: StorageLike, now: () => number = Date.now, onWrite?: PlaybackWriteHook) => {
   const read = (): Record<string, StoredPosition> => {
     try {
       const parsed: unknown = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}');
@@ -61,6 +65,9 @@ export const createPlaybackStore = (storage: StorageLike, now: () => number = Da
 
   return {
     get: (key: string): StoredPosition | undefined => read()[key],
+    entries: (): Record<string, StoredPosition> => read(),
+    /** Substitui o conteúdo todo (usado pela sincronização). Não dispara `onWrite`. */
+    replaceAll: (map: Record<string, StoredPosition>): void => write({ ...map }),
     save: (key: string, seconds: number, duration: number | null, meta?: ResumeMeta): void => {
       if (!Number.isFinite(seconds) || seconds < 0) return;
       const map = read();
@@ -71,6 +78,7 @@ export const createPlaybackStore = (storage: StorageLike, now: () => number = Da
       if (isFinished(seconds, duration)) entry.done = true;
       map[key] = entry;
       write(map);
+      onWrite?.(key, 'put');
     },
     /** Vídeos começados e não terminados, o último assistido primeiro. */
     inProgress: (limit = 12): Array<{ key: string; position: StoredPosition; meta: ResumeMeta; resumeAt: number }> =>
@@ -85,6 +93,7 @@ export const createPlaybackStore = (storage: StorageLike, now: () => number = Da
       const map = read();
       delete map[key];
       write(map);
+      onWrite?.(key, 'delete');
     },
   };
 };

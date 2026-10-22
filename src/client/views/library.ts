@@ -19,6 +19,8 @@ const SOURCES: Array<{ value: SourceFilter; label: string }> = [
   { value: 'all', label: 'todas as origens' },
   { value: 'tmdb', label: 'filmes e séries' },
   { value: 'archive', label: 'domínio público' },
+  { value: 'tvmaze', label: 'TVmaze' },
+  { value: 'anilist', label: 'AniList' },
   { value: 'telegram', label: 'Telegram' },
 ];
 

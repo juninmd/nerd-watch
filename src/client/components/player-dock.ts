@@ -1,8 +1,11 @@
 import { icon } from '../icons.ts';
-import { createPlaybackStore, type ResumeMeta, resumePoint, type StoredPosition } from '../playback-store.ts';
+import { type ResumeMeta, resumePoint, type StoredPosition } from '../playback-store.ts';
+import { playbackSync, storage } from '../playback-service.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 import { formatDuration } from '../time-format.ts';
+import { onPlayError } from './player-error.ts';
+import { clearVideo, playerKindOf } from './watch-embed.ts';
 
 export interface DockItem {
   /** Identifica o vídeo para guardar a posição (`<canal>:<mensagem>`). */
@@ -16,6 +19,8 @@ export interface DockItem {
   durationSeconds: number | null;
   /** Rota da tela onde esse vídeo toca em tamanho grande (para onde "expandir" volta). */
   route: string;
+  /** Iframe de embed (YouTube, ou PeerTube sem arquivo direto): não passa pelo `<video>`. */
+  embedUrl?: string | null;
 }
 
 /**
@@ -28,23 +33,7 @@ type Mode = 'hidden' | 'page' | 'dock';
 const SAVE_EVERY_MS = 5_000;
 const AUTOPLAY_KEY = 'nw.player.autoplay';
 
-const storage = {
-  getItem: (k: string): string | null => {
-    try {
-      return localStorage.getItem(k);
-    } catch {
-      return null;
-    }
-  },
-  setItem: (k: string, v: string): void => {
-    try {
-      localStorage.setItem(k, v);
-    } catch {
-      // armazenamento bloqueado
-    }
-  },
-};
-const store = createPlaybackStore(storage);
+const store = playbackSync.store;
 
 export const savedPosition = (key: string): StoredPosition | undefined => store.get(key);
 export const continueWatching = (limit?: number) => store.inProgress(limit);
@@ -143,7 +132,7 @@ const load = (i: number): void => {
   index = i;
   const resumeAt = resumePoint(store.get(item.key));
   el.poster = item.poster ?? '';
-  el.src = item.src;
+  if (playerKindOf(item) === 'embed') clearVideo(el); else el.src = item.src;
   el.addEventListener(
     'loadedmetadata',
     () => {
@@ -213,11 +202,10 @@ const step = (delta: number): void => playIndex(index + delta);
 const onVideoError = (): void => {
   const item = current();
   if (!item) return;
-  // Range mínimo: sem isso, no modo conta pessoal um erro dispararia o download completo só pra ler o corpo do erro.
-  fetch(item.src, { headers: { Range: 'bytes=0-0' } })
-    .then((r) => r.json())
-    .then((body) => showToast(body.error ?? 'não foi possível reproduzir esse vídeo'))
-    .catch(() => showToast('não foi possível reproduzir esse vídeo'));
+  onPlayError(item.src, {
+    onEmbed: (url) => { item.embedUrl = url; if (current() === item) load(index); },
+    onMessage: showToast,
+  });
 };
 
 /** Monta o player global uma vez no shell; ele sobrevive à troca de telas. */
@@ -252,10 +240,12 @@ export const mountPlayerDock = (host: HTMLElement): void => {
   el.addEventListener('play', syncControls);
   el.addEventListener('pause', () => {
     persist();
+    void playbackSync.flush();
     syncControls();
   });
   el.addEventListener('ended', () => {
     persist();
+    void playbackSync.flush();
     if (index < queue.length - 1) {
       if (getAutoplay()) step(1);
       else syncControls();
@@ -283,7 +273,15 @@ export const mountPlayerDock = (host: HTMLElement): void => {
     const d = el.duration;
     if (d && Number.isFinite(d)) el.currentTime = (Number((e.target as HTMLInputElement).value) / 1000) * d;
   });
-  window.addEventListener('pagehide', persist);
+  window.addEventListener('pagehide', () => {
+    persist();
+    playbackSync.flushKeepalive();
+  });
+  // Puxa o progresso de outros aparelhos ao abrir e ao voltar para a aba.
+  void playbackSync.pull();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void playbackSync.pull();
+  });
 
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', () => void el.play());

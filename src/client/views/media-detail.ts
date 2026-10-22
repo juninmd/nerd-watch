@@ -1,10 +1,12 @@
-import { getTmdbTitle } from '../api.ts';
+import { type CatalogSource, getTmdbTitle } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderSubtitlesPanel } from '../components/subtitles.ts';
 import { whereToWatchHtml } from '../components/where-to-watch.ts';
 import { renderArchiveDetail } from './media-detail-archive.ts';
+import { renderAnilistDetail } from './media-detail-anilist.ts';
 import { renderSeasons } from './media-detail-seasons.ts';
+import { renderTvmazeDetail } from './media-detail-tvmaze.ts';
 
 const initials = (title: string): string =>
   title
@@ -16,12 +18,20 @@ const initials = (title: string): string =>
 
 export const renderTitleDetail = (
   host: HTMLElement,
-  source: 'tmdb' | 'archive',
+  source: CatalogSource,
   mediaType: 'movie' | 'tv' | '_',
   id: string,
 ): void => {
   if (source === 'archive') {
     renderArchiveDetail(host, id);
+    return;
+  }
+  if (source === 'tvmaze') {
+    renderTvmazeDetail(host, id);
+    return;
+  }
+  if (source === 'anilist') {
+    renderAnilistDetail(host, id);
     return;
   }
   renderTmdbDetail(host, mediaType as 'movie' | 'tv', id);

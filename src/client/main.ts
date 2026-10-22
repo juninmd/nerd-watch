@@ -1,4 +1,4 @@
-import { getTelegramSettings } from './api.ts';
+import { type CatalogSource, getTelegramSettings } from './api.ts';
 import { openCommandPalette } from './components/command-palette.ts';
 import { releaseTorrentPlayers } from './components/torrent-player.ts';
 import { icon, type IconName } from './icons.ts';
@@ -105,7 +105,7 @@ document.getElementById('cmd-open')?.addEventListener('click', openCommandPalett
 installShortcuts();
 mountPlayerDock(document.getElementById('dock') as HTMLElement);
 
-const TITLE_RE = /^\/title\/(tmdb|archive)\/(movie|tv|_)\/(.+)$/;
+const TITLE_RE = /^\/title\/(tmdb|archive|tvmaze|anilist)\/(movie|tv|_)\/(.+)$/;
 const TELEGRAM_CHANNEL_RE = /^\/telegram\/(.+)$/;
 const WATCH_RE = /^\/watch\/([^/]+)\/(\d+|start)$/;
 
@@ -125,7 +125,7 @@ const dispatch = (route: Route) => {
   }
   const titleMatch = path.match(TITLE_RE);
   if (titleMatch) {
-    const [, source, mediaType, id] = titleMatch as unknown as [string, 'tmdb' | 'archive', 'movie' | 'tv' | '_', string];
+    const [, source, mediaType, id] = titleMatch as unknown as [string, CatalogSource, 'movie' | 'tv' | '_', string];
     renderTitleDetail(viewEl, source, mediaType, decodeURIComponent(id));
     return;
   }

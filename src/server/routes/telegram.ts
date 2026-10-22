@@ -24,11 +24,12 @@ import {
   streamPersonalItem,
   telegramPersonalEnabled,
 } from '../providers/telegram/personal.ts';
-import { playDriveItem, refreshDriveChannel } from './drive.ts';
+import { getSource } from '../providers/sources/registry.ts';
+import { playSourceItem, refreshSourceChannel } from '../providers/sources/service.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
 import { applyPublicInfo, syncChannelInfo } from '../telegram-channel-info.ts';
 import { localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
-import { toChannelResponse } from '../telegram-channel-dto.ts';
+import { itemEmbedUrl, toChannelResponse } from '../telegram-channel-dto.ts';
 import { readPhoto, readThumb } from '../telegram-photos.ts';
 import type { TelegramChannelMode } from '../types.ts';
 
@@ -146,6 +147,7 @@ telegramRoutes.get('/channels/:id', async (c) => {
       durationSeconds: i.duration_seconds,
       thumbnailUrl: i.thumbnail_url,
       postedAt: i.posted_at,
+      embedUrl: itemEmbedUrl(channel, i.file_ref),
     })),
   });
 });
@@ -218,8 +220,8 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
   const db = await getDb();
   const channel = getTelegramChannel(db, c.req.param('id'));
   if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
-  if (channel.mode === 'drive') {
-    const result = await refreshDriveChannel(db, channel);
+  if (getSource(channel.mode)) {
+    const result = await refreshSourceChannel(db, channel);
     return 'error' in result ? c.json({ error: result.error }, result.status) : c.json(result);
   }
   if (channel.mode !== 'public' && channel.mode !== 'personal') {
@@ -278,7 +280,7 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
     return c.redirect(url, 302);
   }
 
-  if (channel.mode === 'drive') return playDriveItem(db, channel, messageId, c.req.header('Range'));
+  if (getSource(channel.mode)) return playSourceItem(db, channel, messageId, c.req.header('Range'));
 
   if (channel.mode === 'bot') {
     const item = getTelegramItem(db, channel.id, messageId);

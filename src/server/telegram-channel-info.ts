@@ -1,6 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { telegramPersonalEnabled } from './config.ts';
 import { fetchPersonalChannelInfo } from './providers/telegram/personal-info.ts';
+import { getSource } from './providers/sources/registry.ts';
 import { fetchPublicChannelPage, type TelegramChannelInfo } from './providers/telegram/public.ts';
 import { type TelegramChannel, updateTelegramChannelInfo } from './repo/telegram.ts';
 import { downloadPhoto, savePhoto } from './telegram-photos.ts';
@@ -31,7 +32,7 @@ export const applyPublicInfo = async (db: Database, channel: TelegramChannel, in
  * caso contrário a prévia pública, que existe para qualquer canal público. Nunca lança: é um enriquecimento.
  */
 export const syncChannelInfo = async (db: Database, channel: TelegramChannel): Promise<boolean> => {
-  if (channel.mode === 'drive') return false;
+  if (getSource(channel.mode)) return false;
   try {
     if (channel.mode === 'personal' && telegramPersonalEnabled()) {
       return await applyChannelInfo(db, channel, await fetchPersonalChannelInfo(channel.handle));

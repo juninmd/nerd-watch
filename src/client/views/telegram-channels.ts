@@ -1,6 +1,7 @@
 import { addTelegramChannel, bulkDeleteTelegramChannels, listTelegramChannels, refreshTelegramChannelInfo, type TelegramChannelDto, type TelegramChannelMode } from '../api.ts';
 import { renderCard } from '../components/card.ts';
-import { addDriveFolder } from '../drive-api.ts';
+import { addSourceChannel, listSources, type SourceDto } from '../source-api.ts';
+import { isTelegramMode, originLabel } from '../source-modes.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
 import { openMyChannelsDialog } from '../components/telegram-my-channels.ts';
 import { navigate } from '../router.ts';
@@ -13,8 +14,8 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
     <header class="view-head">
       <h1 class="view-title">📺 Canais e pastas</h1>
       <p class="view-subtitle">
-        Adicione um canal do Telegram pelo @usuário, importe os canais da sua conta pessoal ou aponte uma pasta de vídeos do seu
-        Google Drive (conecte em <a href="#/connections">Conexões</a>) pra maratonar tudo aqui dentro.
+        Adicione um canal do Telegram pelo @usuário, importe os canais da sua conta pessoal ou aponte uma fonte de vídeos
+        (Google Drive, pasta local, WebDAV, Jellyfin, YouTube…; configure em <a href="#/connections">Conexões</a>) pra maratonar tudo aqui dentro.
         Modo bot exige um token grátis do @BotFather; modo conta pessoal exige um login único por QR code
         (faça em <a href="#/connections">Conexões</a>) e não tem limite de tamanho de arquivo. Hoje só os vídeos
         mais recentes de cada canal são importados.
@@ -26,7 +27,6 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
         <option value="public">canal público (sem login)</option>
         <option value="bot">bot (precisa de TELEGRAM_BOT_TOKEN)</option>
         <option value="personal">conta pessoal (sem limite de tamanho)</option>
-        <option value="drive">pasta do Google Drive (link ou ID)</option>
       </select>
       <button class="btn btn-primary btn-sm" type="submit">adicionar</button>
     </form>
@@ -85,7 +85,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
         renderCard({
           title: ch.title,
           posterUrl: ch.posterUrl,
-          meta: `${ch.mode === 'drive' ? 'Google Drive' : `@${ch.handle}`} · ${ch.itemCount} vídeo${ch.itemCount === 1 ? '' : 's'}`,
+          meta: `${originLabel(ch.mode, ch.handle)} · ${ch.itemCount} vídeo${ch.itemCount === 1 ? '' : 's'}`,
           selection: selecting
             ? {
                 selected: picked.has(ch.titleId),
@@ -164,10 +164,32 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
 
   (host.querySelector('#tg-my-channels') as HTMLButtonElement).addEventListener('click', () => openMyChannelsDialog(load));
 
-  modeInput.addEventListener('change', () => {
-    handleInput.placeholder = modeInput.value === 'drive' ? 'link da pasta do Google Drive' : '@usuario_do_canal';
-    handleInput.setAttribute('aria-label', modeInput.value === 'drive' ? 'link ou ID da pasta do Drive' : '@usuário do canal');
-  });
+  /** Fontes de vídeo (Drive, WebDAV…) entram no seletor pelo descritor do servidor; sem configuração ficam desabilitadas. */
+  const sourceByMode = new Map<string, SourceDto>();
+  const syncInputHint = () => {
+    const add = sourceByMode.get(modeInput.value)?.add;
+    handleInput.placeholder = add?.placeholder ?? '@usuario_do_canal';
+    handleInput.setAttribute('aria-label', add?.label ?? '@usuário do canal');
+    handleInput.title = add?.hint ?? '';
+  };
+  modeInput.addEventListener('change', syncInputHint);
+  listSources()
+    .then((sources) => {
+      for (const s of sources) {
+        if (!s.add) continue;
+        sourceByMode.set(s.add.mode, s);
+        const opt = document.createElement('option');
+        opt.value = s.add.mode;
+        // O rótulo da fonte pode não citar o serviço ("biblioteca…", "bucket…"): sem prefixo as opções ficam ambíguas.
+        const label = s.add.label.toLowerCase().includes(s.title.toLowerCase()) ? s.add.label : `${s.title}: ${s.add.label}`;
+        opt.textContent = s.configured ? label : `${label} — configure em Conexões`;
+        opt.disabled = !s.configured;
+        modeInput.appendChild(opt);
+      }
+    })
+    .catch(() => {
+      // sem a lista só os modos do Telegram ficam disponíveis
+    });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -177,9 +199,9 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
     const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
     submitBtn.disabled = true;
     try {
-      const channel = mode === 'drive' ? await addDriveFolder(handle) : await addTelegramChannel(handle, mode);
+      const channel = isTelegramMode(mode) ? await addTelegramChannel(handle, mode) : await addSourceChannel(mode, handle);
       handleInput.value = '';
-      showToast(`${mode === 'drive' ? `pasta ${channel.title}` : `canal @${channel.handle}`} adicionada — ${channel.itemCount} vídeo(s)`);
+      showToast(`${isTelegramMode(mode) ? `canal @${channel.handle}` : channel.title} adicionado — ${channel.itemCount} vídeo(s)`);
       load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'falha ao adicionar canal');

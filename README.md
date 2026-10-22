@@ -33,18 +33,23 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 💬 **Legendas sem chave** | busca em addons do protocolo do Stremio (padrão: o OpenSubtitles v3 oficial) — **não precisa de cadastro nem de chave** |
 | ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais. Login por QR code guiado em **Conexões**, feed de novidades e player fixo com fila e retomada |
 | 📂 **Pastas do Google Drive** | aponte uma pasta de vídeos do **seu** Drive (acesso só leitura, login OAuth em **Conexões**) e assista aqui dentro, com a mesma fila, miniaturas e "continuar assistindo" dos canais. Toca MP4/H.264 e WebM (o navegador não toca MKV/AVI) |
+| 🔌 **Fontes de vídeo** | pasta local, WebDAV, S3, Dropbox, OneDrive, Jellyfin/Emby, Plex, PeerTube, YouTube (embed) e torrent: cada pasta/biblioteca vira um canal, com a mesma fila, miniaturas e "continuar assistindo". Ver [Fontes de vídeo](#-fontes-de-vídeo) |
+| 📚 **Mais catálogos** | **TVmaze** (séries e datas de episódios no calendário) e **AniList** (anime), sem chave; **Trakt** importa o que você já assistiu |
+| ☁️ **Progresso no servidor** | "continuar assistindo" também fica no SQLite: sobrevive a limpar o navegador e vai no backup |
 | 🔒 **Local-first** | sua lista e seu progresso ficam no `data/nerd-watch.db` (SQLite); consultas ao catálogo e ao Telegram usam os serviços externos correspondentes |
 
 Filmes e séries **protegidos por direitos autorais não são reproduzidos dentro do app** — o app te leva
 até o streaming legítimo. Só o acervo de domínio público (já livre de direitos) toca localmente.
 
-O motor de torrent segue a mesma regra por construção: ele **só abre torrents derivados de um item
-da Internet Archive**. Não existe endpoint que aceite magnet ou `.torrent` arbitrário, e os
-trackers/web seeds declarados dentro do próprio `.torrent` são conferidos — se algum apontar para
-fora de `*.archive.org`, o item é recusado. Sem isso, um item publicado por terceiro no acervo
-aberto da Archive faria o servidor local buscar URLs escolhidas por quem publicou. Com isso, o app
-não tem como virar um player de catálogo comercial — a engine, o streaming com seek e o player são
-os mesmos que qualquer app do tipo usaria, mas a fonte é sempre o acervo livre.
+O caminho de torrent **do acervo da Internet Archive** continua restrito por construção: ele só abre
+torrents derivados de um item da Archive, e os trackers/web seeds declarados dentro do `.torrent` são
+conferidos — se algum apontar para fora de `*.archive.org`, o item é recusado. Sem isso, um item
+publicado por terceiro faria o servidor local buscar URLs escolhidas por quem publicou.
+
+Há também a fonte **Torrent** (em [Fontes de vídeo](#-fontes-de-vídeo)), que aceita um magnet ou um
+`.torrent` que **você** cola. Ela existe por decisão explícita do dono do app: não traz busca, indexador
+nem lista de sites, descarta web seeds declarados no arquivo e só mostra o aviso de que você deve
+assistir apenas o que tem direito. Desligue com `TORRENT_ENABLED=false`.
 
 ---
 
@@ -142,6 +147,38 @@ E a das legendas, que confere o caminho sem chave nenhuma contra o addon real:
 bun run poc:subtitles                      # usa tt0111161 (filme)
 bun run poc:subtitles -- tt0944947 tv      # série
 ```
+
+---
+
+## 🔌 Fontes de vídeo
+
+Cada fonte é configurada em **Conexões** (ou no `.env`) e adicionada em **Canais**. Segredos ficam só no
+`.env` (modo 0600) e nunca voltam para o navegador; a reprodução passa por um proxy no servidor.
+
+| Fonte | Precisa de | Detalhes |
+|---|---|---|
+| Google Drive | OAuth (client ID/secret próprios) | [ADR](docs/adr/0001-google-drive-como-fonte.md) |
+| Pasta local | `LOCAL_MEDIA_DIRS` no `.env` (somente leitura pela UI) | [docs](docs/providers/local.md) |
+| WebDAV (Nextcloud, NAS) | URL, usuário e senha | [docs](docs/providers/webdav.md) |
+| S3 compatível (AWS, MinIO, B2, R2) | endpoint, região, chaves | [docs](docs/providers/s3.md) |
+| Dropbox | app key (OAuth PKCE, sem secret) | [docs](docs/providers/dropbox.md) |
+| OneDrive pessoal | Application ID (OAuth PKCE, sem secret) | [docs](docs/providers/onedrive.md) |
+| Jellyfin / Emby | URL e chave de API | [docs](docs/providers/jellyfin.md) |
+| Plex | URL e token | [docs](docs/providers/plex.md) |
+| PeerTube | nada | [docs](docs/providers/peertube.md) |
+| YouTube (só embed) | nada | [docs](docs/providers/youtube.md) |
+| Torrent (magnet / `.torrent` colado) | nada | [docs](docs/providers/torrent.md) |
+
+Catálogos e sincronização: [TVmaze](docs/providers/tvmaze.md), [AniList](docs/providers/anilist.md),
+[Trakt](docs/providers/trakt.md) e [progresso no servidor](docs/providers/progress-sync.md).
+
+> **Honestidade sobre o que foi testado:** pasta local, PeerTube, YouTube, TVmaze e AniList foram
+> exercitados contra o serviço real. Google Drive, WebDAV, S3, Dropbox, OneDrive, Jellyfin, Plex e Trakt
+> só contra serviços simulados e a documentação oficial — exigem conta/servidor, então o primeiro uso
+> real é a validação. Cada doc lista o que não foi confirmado.
+> **Torrent** tem importação por `.torrent` verificada de verdade, mas a reprodução ponta a ponta não foi
+> provada: itens que dependem de *web seeds* (comum na Internet Archive) não tocam por esta fonte porque
+> ela descarta web seeds de propósito — veja [a doc](docs/providers/torrent.md).
 
 ---
 

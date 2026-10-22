@@ -6,6 +6,8 @@ import { requestAllowed, originAllowed } from './security.ts';
 import { searchRoutes } from './routes/search.ts';
 import { tmdbRoutes } from './routes/tmdb.ts';
 import { archiveRoutes } from './routes/archive.ts';
+import { tvmazeRoutes } from './routes/tvmaze.ts';
+import { anilistRoutes } from './routes/anilist.ts';
 import { libraryRoutes } from './routes/library.ts';
 import { calendarRoutes } from './routes/calendar.ts';
 import { subtitlesRoutes } from './routes/subtitles.ts';
@@ -13,7 +15,11 @@ import { torrentRoutes } from './routes/torrent.ts';
 import { backupRoutes } from './routes/backup.ts';
 import { telegramRoutes } from './routes/telegram.ts';
 import { telegramSettingsRoutes } from './routes/telegram-settings.ts';
+import { registerAllSources } from './providers/sources/index.ts';
 import { driveRoutes } from './routes/drive.ts';
+import { sourcesRoutes } from './routes/sources.ts';
+import { playbackRoutes } from './routes/playback.ts';
+import { traktRoutes } from './routes/trakt.ts';
 import { startTorrentSweeper } from './torrent/engine.ts';
 
 const app = new Hono();
@@ -48,6 +54,8 @@ app.get('/api/health', (c) =>
 app.route('/api/search', searchRoutes);
 app.route('/api/tmdb', tmdbRoutes);
 app.route('/api/archive', archiveRoutes);
+app.route('/api/tvmaze', tvmazeRoutes);
+app.route('/api/anilist', anilistRoutes);
 app.route('/api/library', libraryRoutes);
 app.route('/api/calendar', calendarRoutes);
 app.route('/api/subtitles', subtitlesRoutes);
@@ -56,6 +64,9 @@ app.route('/api/backup', backupRoutes);
 app.route('/api/telegram', telegramRoutes);
 app.route('/api/telegram/settings', telegramSettingsRoutes);
 app.route('/api/drive', driveRoutes);
+app.route('/api/sources', sourcesRoutes);
+app.route('/api/playback', playbackRoutes);
+app.route('/api/trakt', traktRoutes);
 
 app.use('/*', serveStatic({ root: './public' }));
 
@@ -63,8 +74,11 @@ export default {
   port: config.port,
   hostname: '127.0.0.1',
   fetch: app.fetch,
+  // O padrão do Bun (10s) derruba o streaming de torrent antes do primeiro pedaço chegar de um peer lento.
+  idleTimeout: 255,
 };
 
+registerAllSources();
 startTelegramBotPoller();
 startTorrentSweeper();
 

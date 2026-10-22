@@ -9,10 +9,11 @@ import {
   TorrentUntrustedSourceError,
   closeTorrent,
   openArchiveTorrent,
-  openTorrentStream,
-  resolveStreamTarget,
   torrentStatus,
 } from '../torrent/engine.ts';
+import { serveTorrentFile } from '../torrent/serve.ts';
+
+export { parseRange } from '../torrent/range.ts';
 
 export const torrentRoutes = new Hono();
 
@@ -52,40 +53,6 @@ torrentRoutes.delete('/:infoHash', (c) => {
 });
 
 /**
- * Interpreta o `Range`. Devolve `null` para "sem range" (200 no arquivo inteiro) e `'unsatisfiable'`
- * quando o range é sintaticamente válido mas não pode ser servido (416).
- *
- * Cobre o que o player realmente manda: `bytes=N-`, `bytes=N-M` e `bytes=-N` (últimos N bytes, que é
- * como vários navegadores leem o fim de um MP4 para achar o átomo `moov`). Range invertido
- * (`bytes=500-100`) passa na sintaxe mas não é satisfazível — sem essa guarda a resposta saía com
- * 206, `Content-Range` inválido e `Content-Length` negativo.
- */
-export const parseRange = (
-  header: string | undefined,
-  totalSize: number,
-): { start: number; end: number } | 'unsatisfiable' | null => {
-  if (!header) return null;
-  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
-  if (!match) return null;
-
-  const [, rawStart, rawEnd] = match;
-  if (rawStart === '' && rawEnd === '') return null;
-
-  if (rawStart === '') {
-    // Sufixo: `bytes=-N` são os últimos N bytes.
-    const suffix = Number(rawEnd);
-    if (suffix === 0 || totalSize === 0) return 'unsatisfiable';
-    return { start: Math.max(0, totalSize - suffix), end: totalSize - 1 };
-  }
-
-  const start = Number(rawStart);
-  if (start >= totalSize) return 'unsatisfiable';
-  const end = rawEnd === '' ? totalSize - 1 : Math.min(Number(rawEnd), totalSize - 1);
-  if (end < start) return 'unsatisfiable';
-  return { start, end };
-};
-
-/**
  * Streaming com `Range`. Mesmo contrato do player do Telegram (`routes/telegram.ts`): 206 com
  * `Content-Range` quando o cliente pede um trecho, 200 no arquivo inteiro, 416 quando o range não
  * é satisfazível. É o que faz o scrub da barra de progresso funcionar via seek.
@@ -93,37 +60,13 @@ export const parseRange = (
  * O índice do arquivo vai no path (não em estado do servidor) para a URL identificar o recurso:
  * trocar de derivado na interface gera uma URL nova, sem corrida com o player pedindo bytes.
  */
-const streamHandler = async (c: Context) => {
+const streamHandler = (c: Context) => {
   const infoHash = c.req.param('infoHash');
   const fileIndex = Number(c.req.param('fileIndex'));
   if (!infoHash || !Number.isInteger(fileIndex)) return Response.json({ error: 'torrent não está aberto' }, { status: 404 });
-
-  const target = resolveStreamTarget(infoHash, fileIndex);
-  if (!target) return Response.json({ error: 'arquivo não tocável ou torrent não está aberto' }, { status: 404 });
-
-  const range = parseRange(c.req.header('Range'), target.length);
-  if (range === 'unsatisfiable') {
-    return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${target.length}` } });
-  }
-
-  const start = range?.start ?? 0;
-  const end = range?.end ?? target.length - 1;
-
-  const headers: Record<string, string> = {
-    'Content-Type': target.contentType,
-    'Content-Length': String(end - start + 1),
-    'Accept-Ranges': 'bytes',
-  };
-  if (range) headers['Content-Range'] = `bytes ${start}-${end}/${target.length}`;
-
-  // HEAD devolve só os cabeçalhos: montar o stream selecionaria pedaços à toa, sem ninguém ler.
-  if (c.req.method === 'HEAD') return new Response(null, { status: range ? 206 : 200, headers });
-
-  const stream = openTorrentStream(infoHash, fileIndex, start, end);
-  if (!stream) return Response.json({ error: 'torrent não está aberto' }, { status: 404 });
-  return new Response(stream, { status: range ? 206 : 200, headers });
+  return serveTorrentFile(infoHash, fileIndex, c.req.header('Range'), c.req.method);
 };
 
 // Só GET: o Hono despacha HEAD para o handler de GET mantendo `c.req.method === 'HEAD'`, que é o
-// que a guarda acima usa. Registrar 'HEAD' separado seria código morto.
+// que `serveTorrentFile` usa. Registrar 'HEAD' separado seria código morto.
 torrentRoutes.on('GET', '/:infoHash/stream/:fileIndex', streamHandler);
