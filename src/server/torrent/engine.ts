@@ -3,6 +3,7 @@ import parseTorrent from 'parse-torrent';
 import WebTorrent from 'webtorrent';
 import { config, torrentEnabled } from '../config.ts';
 import { isPlayableVideo } from '../media/playable.ts';
+import { isSafeTorrentPath } from './magnet.ts';
 import { rankVideoFiles, resolveVideoIndex, type TorrentFileLike, type VideoCandidate } from './select.ts';
 
 /**
@@ -62,6 +63,13 @@ export class TorrentUntrustedSourceError extends Error {
   }
 }
 
+export class TorrentUnsafePathError extends TorrentUnavailableError {
+  constructor() {
+    super('o torrent declara um caminho de arquivo inseguro (para fora da pasta ou absoluto); recusado');
+    this.name = 'TorrentUnsafePathError';
+  }
+}
+
 export class TorrentNoPlayableVideoError extends Error {
   constructor() {
     super('este item não tem vídeo tocável no navegador (MP4/WebM)');
@@ -83,7 +91,14 @@ export const archiveTorrentUrl = (identifier: string): string | null => {
   return `${ARCHIVE_HOST}/download/${id}/${id}_archive.torrent`;
 };
 
-const CONTENT_TYPES: Record<string, string> = { mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm' };
+const CONTENT_TYPES: Record<string, string> = {
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  webm: 'video/webm',
+  // Só o provider genérico serve estes (a Archive filtra por `isPlayableVideo`); o navegador pode não tocá-los.
+  mkv: 'video/x-matroska',
+  mov: 'video/quicktime',
+};
 
 const contentTypeFor = (name: string): string =>
   CONTENT_TYPES[name.slice(name.lastIndexOf('.') + 1).toLowerCase()] ?? 'application/octet-stream';
@@ -195,8 +210,15 @@ const opening = new Map<string, Promise<Handle>>();
 let client: InstanceType<typeof WebTorrent> | null = null;
 let sweeper: ReturnType<typeof setInterval> | null = null;
 
+/** Só para testes: troca o WebTorrent real por um falso (sem rede, sem disco). Ver `setTorrentClientForTests`. */
+let clientFactoryForTests: (() => InstanceType<typeof WebTorrent>) | null = null;
+
 const getClient = (): InstanceType<typeof WebTorrent> => {
   if (client) return client;
+  if (clientFactoryForTests) {
+    client = clientFactoryForTests();
+    return client;
+  }
   mkdirSync(config.torrent.downloadPath, { recursive: true });
   client = new WebTorrent({
     maxConns: config.torrent.maxConnections,
@@ -284,16 +306,16 @@ const applyFileIndex = (handle: Handle, fileIndex: number | undefined): OpenTorr
   };
 };
 
-const openFresh = async (url: string, identifier: string): Promise<Handle> => {
-  // A fronteira: baixa, parseia e valida as fontes ANTES de o engine existir para este torrent.
-  // Nenhuma descoberta (tracker/DHT/web seed) começa antes de sabermos para onde o torrent aponta.
-  const buffer = await loadTrustedTorrentBuffer(url);
-
+/**
+ * Adiciona ao engine um torrent já validado pela fronteira (buffer da Archive ou magnet normalizado) e
+ * espera a metadata. Quem chama garante que `torrentId` passou pela validação de fontes.
+ */
+const openFresh = async (torrentId: string | Buffer, identifier: string, requirePlayable: boolean): Promise<Handle> => {
   evictIfNeeded();
   // `path` e `destroyStoreOnDestroy` só são lidos das options do `add` (o client não as repassa ao
   // construir o Torrent — ver `new Torrent(torrentId, this, opts)` no webtorrent). Sem repetir
   // aqui, os pedaços vão para a pasta temporária do sistema e nunca são apagados.
-  const torrent = getClient().add(buffer, {
+  const torrent = getClient().add(torrentId, {
     strategy: 'sequential',
     path: config.torrent.downloadPath,
     destroyStoreOnDestroy: true,
@@ -301,7 +323,10 @@ const openFresh = async (url: string, identifier: string): Promise<Handle> => {
 
   try {
     await waitForMetadata(torrent, identifier);
-    if (rankVideoFiles(filesOf(torrent)).length === 0) throw new TorrentNoPlayableVideoError();
+    // Antes de qualquer pedaço ser gravado: o webtorrent escreve em `path.join(pasta, file.path)` com
+    // nomes vindos de peers. Um caminho hostil recusa o torrent inteiro (falha fechada).
+    if (torrent.files.some((f) => !isSafeTorrentPath(f.path))) throw new TorrentUnsafePathError();
+    if (requirePlayable && rankVideoFiles(filesOf(torrent)).length === 0) throw new TorrentNoPlayableVideoError();
   } catch (err) {
     torrent.destroy();
     throw err;
@@ -319,28 +344,66 @@ const openFresh = async (url: string, identifier: string): Promise<Handle> => {
   return handle;
 };
 
+/**
+ * Reaproveita o handle aberto com a mesma chave ou abre um novo via `start`. Duas chamadas simultâneas
+ * não abrem dois torrents: a segunda espera a primeira. O `finally` limpa mesmo se a abertura falhar,
+ * então uma tentativa fracassada não deixa estado preso.
+ */
+const openShared = async (key: string, start: () => Promise<Handle>): Promise<Handle> => {
+  const reuse = [...handles.values()].find((h) => h.identifier === key && !h.torrent.destroyed);
+  if (reuse) return reuse;
+
+  const inflight = opening.get(key);
+  if (inflight) return inflight;
+
+  const task = start();
+  opening.set(key, task);
+  try {
+    return await task;
+  } finally {
+    opening.delete(key);
+  }
+};
+
 /** Abre (ou reaproveita) o torrent de um item da Archive e escolhe o vídeo tocável. */
 export const openArchiveTorrent = async (identifier: string, fileIndex?: number): Promise<OpenTorrentResult> => {
   if (!torrentEnabled()) throw new TorrentDisabledError();
   const url = archiveTorrentUrl(identifier);
   if (!url) throw new TorrentInvalidIdentifierError(identifier);
 
-  const reuse = [...handles.values()].find((h) => h.identifier === identifier && !h.torrent.destroyed);
-  if (reuse) return applyFileIndex(reuse, fileIndex);
+  // A fronteira: o `.torrent` é baixado, parseado e validado ANTES de o engine existir para ele.
+  const handle = await openShared(identifier, () => loadTrustedTorrentBuffer(url).then((buffer) => openFresh(buffer, identifier, true)));
+  return applyFileIndex(handle, fileIndex);
+};
 
-  // Duas chamadas simultâneas para o mesmo item não abrem dois torrents: a segunda espera a
-  // primeira e só escolhe o arquivo. O `finally` limpa mesmo se a abertura falhar, então uma
-  // tentativa fracassada não deixa estado preso aqui.
-  const inflight = opening.get(identifier);
-  if (inflight) return applyFileIndex(await inflight, fileIndex);
+export interface TorrentFileInfo {
+  index: number;
+  /** Caminho dentro do torrent, normalizado pelo parser (é o que o webtorrent usa no disco). */
+  path: string;
+  length: number;
+}
 
-  const task = openFresh(url, identifier);
-  opening.set(identifier, task);
-  try {
-    return applyFileIndex(await task, fileIndex);
-  } finally {
-    opening.delete(identifier);
-  }
+export interface GenericTorrentInfo {
+  infoHash: string;
+  name: string;
+  files: TorrentFileInfo[];
+}
+
+/**
+ * Abre (ou reaproveita) um torrent do provider genérico e devolve todos os arquivos, sem escolher
+ * nenhum. `file` (o `.torrent` normalizado) dá a metadata na hora; sem ele o engine usa o magnet e
+ * espera os peers. Serve também depois de o app reiniciar, quando só o magnet está guardado.
+ */
+export const openGenericTorrent = async (infoHash: string, magnet: string, file?: Buffer): Promise<GenericTorrentInfo> => {
+  if (!torrentEnabled()) throw new TorrentDisabledError();
+  const key = `torrent:${infoHash}`;
+  const handle = await openShared(key, () => openFresh(file ?? magnet, key, false));
+  handle.lastAccess = Date.now();
+  return {
+    infoHash,
+    name: handle.torrent.name,
+    files: handle.torrent.files.map((file, index) => ({ index, path: file.path, length: file.length })),
+  };
 };
 
 export interface TorrentStatus {
@@ -393,12 +456,16 @@ export interface TorrentStreamTarget {
  * Valida que `fileIndex` é um vídeo tocável deste torrent. Fica separado de `openTorrentStream`
  * para a rota decidir 404/416 antes de abrir qualquer socket.
  */
-export const resolveStreamTarget = (infoHash: string, fileIndex: number): TorrentStreamTarget | null => {
+export const resolveStreamTarget = (
+  infoHash: string,
+  fileIndex: number,
+  accept: (name: string) => boolean = isPlayableVideo,
+): TorrentStreamTarget | null => {
   const handle = handles.get(infoHash);
   if (!handle || handle.torrent.destroyed) return null;
   const file = handle.torrent.files[fileIndex];
   if (!file || file.length === 0) return null;
-  if (!isPlayableVideo(file.name)) return null;
+  if (!accept(file.name)) return null;
   return { name: file.name, length: file.length, contentType: contentTypeFor(file.name) };
 };
 
@@ -532,3 +599,9 @@ export const stopTorrents = (): void => {
 };
 
 export const activeTorrentCount = (): number => handles.size;
+
+/** Só para testes: `factory` substitui o WebTorrent real; `null` volta a usá-lo. Chame `stopTorrents` antes. */
+export const setTorrentClientForTests = (factory: (() => unknown) | null): void => {
+  clientFactoryForTests = factory as (() => InstanceType<typeof WebTorrent>) | null;
+  client = null;
+};

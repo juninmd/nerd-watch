@@ -43,7 +43,10 @@ declare module 'webtorrent' {
   }
 
   interface TorrentFile {
+    /** Último segmento do caminho. Não normalizado: para o disco use `path`. */
     name: string;
+    /** Caminho dentro do torrent, normalizado pelo parse-torrent (`..` acima da raiz já colapsado). */
+    path: string;
     length: number;
     /** 0..1 do arquivo. */
     progress: number;

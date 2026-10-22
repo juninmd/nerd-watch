@@ -80,6 +80,14 @@ CREATE TABLE IF NOT EXISTS telegram_items (
   UNIQUE (channel_id, message_id)
 );
 
+-- Origem (magnet normalizado) de cada torrent do provider genérico: o engine esquece o torrent quando
+-- fica ocioso, então é daqui que ele é re-adicionado depois de um restart. Idempotente por CREATE IF NOT EXISTS.
+CREATE TABLE IF NOT EXISTS torrent_sources (
+  infohash TEXT PRIMARY KEY,
+  magnet TEXT NOT NULL,
+  added_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_episodes_season ON episodes(season_id);
 CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_seasons_title ON seasons(title_id);
