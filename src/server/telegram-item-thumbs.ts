@@ -1,6 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import { telegramPersonalEnabled } from './config.ts';
-import { downloadDriveThumb } from './providers/drive/api.ts';
+import { getSource } from './providers/sources/registry.ts';
 import { fetchPersonalThumbs } from './providers/telegram/personal-info.ts';
 import { type TelegramChannel, setTelegramItemThumbnail } from './repo/telegram.ts';
 import { downloadPhoto, readThumb, saveThumb, thumbUrl } from './telegram-photos.ts';
@@ -45,8 +45,10 @@ export const localizeThumbs = async (db: Database, channel: TelegramChannel, ite
     if (channel.mode === 'personal' && telegramPersonalEnabled()) {
       const thumbs = await fetchPersonalThumbs(channel.handle, missing.map((i) => i.message_id));
       for (const item of missing) await store(item, thumbs.get(item.message_id));
-    } else if (channel.mode === 'drive') {
-      await inBatches(missing, CONCURRENCY, async (item) => store(item, item.thumbnail_url ? await downloadDriveThumb(item.thumbnail_url).catch(() => null) : null));
+    } else if (getSource(channel.mode)) {
+      // Fontes de arquivo (Drive, WebDAV…): cada uma sabe baixar a própria miniatura (token, host permitido).
+      const thumb = getSource(channel.mode)?.thumb;
+      if (thumb) await inBatches(missing, CONCURRENCY, async (item) => store(item, await thumb({ handle: channel.handle, fileRef: item.file_ref, thumbnailUrl: item.thumbnail_url }).catch(() => null)));
     } else {
       await inBatches(missing, CONCURRENCY, async (item) => store(item, item.thumbnail_url ? await downloadPhoto(item.thumbnail_url).catch(() => null) : null));
     }

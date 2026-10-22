@@ -2,8 +2,11 @@ import { Database } from 'bun:sqlite';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { config } from './config.ts';
+import { TELEGRAM_CHANNEL_MODES } from './types.ts';
 
 let instance: Database | undefined;
+
+const MODES_SQL = TELEGRAM_CHANNEL_MODES.map((m) => `'${m}'`).join(', ');
 
 const MIGRATIONS = `
 CREATE TABLE IF NOT EXISTS titles (
@@ -59,7 +62,7 @@ CREATE TABLE IF NOT EXISTS library_entries (
 
 CREATE TABLE IF NOT EXISTS telegram_channels (
   id TEXT PRIMARY KEY REFERENCES titles(id) ON DELETE CASCADE,
-  mode TEXT NOT NULL CHECK (mode IN ('public', 'personal', 'bot', 'drive')),
+  mode TEXT NOT NULL CHECK (mode IN (${MODES_SQL})),
   handle TEXT NOT NULL,
   cursor TEXT,
   created_at TEXT NOT NULL
@@ -124,20 +127,20 @@ export const migrateAddTelegramSource = (db: Database): void => {
 };
 
 /**
- * `telegram_channels.mode` ganhou 'drive' (pastas do Google Drive reaproveitam canais, fila e player).
- * Mesmo motivo e mesma técnica da migração do `titles`: o CHECK não se altera, então recria a tabela sob nome
- * temporário e renomeia a nova. Idempotente: só roda se o CHECK antigo ainda estiver lá.
+ * `telegram_channels.mode` ganhou as fontes de arquivo (Drive, WebDAV, pasta local…: reaproveitam canais, fila e
+ * player). Mesmo motivo e mesma técnica da migração do `titles`: o CHECK não se altera, então recria a tabela sob
+ * nome temporário e renomeia a nova. Idempotente: só roda se algum modo ainda não estiver no CHECK.
  */
-export const migrateAddDriveMode = (db: Database): void => {
+export const migrateChannelModes = (db: Database): void => {
   const row = db.query<{ sql: string }, []>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'telegram_channels'").get();
-  if (!row || row.sql.includes("'drive'")) return;
+  if (!row || TELEGRAM_CHANNEL_MODES.every((m) => row.sql.includes(`'${m}'`))) return;
 
   db.exec('PRAGMA foreign_keys = OFF;');
   db.transaction(() => {
     db.exec(`
       CREATE TABLE telegram_channels_new (
         id TEXT PRIMARY KEY REFERENCES titles(id) ON DELETE CASCADE,
-        mode TEXT NOT NULL CHECK (mode IN ('public', 'personal', 'bot', 'drive')),
+        mode TEXT NOT NULL CHECK (mode IN (${MODES_SQL})),
         handle TEXT NOT NULL,
         cursor TEXT,
         created_at TEXT NOT NULL
@@ -164,7 +167,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   db.exec('PRAGMA journal_mode = WAL;');
   migrateAddTelegramSource(db);
   migrateAddTelegramItemFileRef(db);
-  migrateAddDriveMode(db);
+  migrateChannelModes(db);
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
   return db;

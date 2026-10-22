@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { unlinkSync } from 'node:fs';
-import { migrateAddDriveMode, migrateAddTelegramSource, openDb } from '../src/server/db.ts';
+import { migrateAddTelegramSource, migrateChannelModes, openDb } from '../src/server/db.ts';
 
 const OLD_SCHEMA = `
 CREATE TABLE titles (
@@ -97,7 +97,7 @@ CREATE TABLE telegram_items (
 );
 `;
 
-describe('migrateAddDriveMode', () => {
+describe('migrateChannelModes', () => {
   const seed = (db: Database) => {
     db.exec('PRAGMA foreign_keys = ON;');
     db.exec(PRE_DRIVE_SCHEMA);
@@ -106,16 +106,20 @@ describe('migrateAddDriveMode', () => {
     db.query(`INSERT INTO telegram_items (id, channel_id, message_id, caption) VALUES ('i1', 'c1', '10', 'Ep 1')`).run();
   };
 
-  test('preserva canais e vídeos, mantém a FK dos itens e passa a aceitar mode=drive', () => {
+  test('preserva canais e vídeos, mantém a FK dos itens e passa a aceitar os modos das fontes (drive, torrent…)', () => {
     const db = new Database(':memory:');
     seed(db);
 
-    migrateAddDriveMode(db);
+    migrateChannelModes(db);
 
     expect(db.query<{ handle: string }, []>("SELECT handle FROM telegram_channels WHERE id = 'c1'").get()?.handle).toBe('canal');
     expect(db.query<{ caption: string }, []>("SELECT caption FROM telegram_items WHERE id = 'i1'").get()?.caption).toBe('Ep 1');
     db.query(`INSERT INTO titles (id, source, source_id, media_type, title, created_at) VALUES ('d1', 'telegram', 'pasta', 'tv', 'Pasta', '2026-01-01')`).run();
     expect(() => db.query(`INSERT INTO telegram_channels (id, mode, handle, created_at) VALUES ('d1', 'drive', 'pasta', '2026-01-01')`).run()).not.toThrow();
+    db.query(`INSERT INTO titles (id, source, source_id, media_type, title, created_at) VALUES ('t1', 'telegram', 'tt', 'tv', 'T', '2026-01-01')`).run();
+    expect(() => db.query(`INSERT INTO telegram_channels (id, mode, handle, created_at) VALUES ('t1', 'torrent', 'tt', '2026-01-01')`).run()).not.toThrow();
+    db.query(`INSERT INTO titles (id, source, source_id, media_type, title, created_at) VALUES ('t2', 'telegram', 'xx', 'tv', 'X', '2026-01-01')`).run();
+    expect(() => db.query(`INSERT INTO telegram_channels (id, mode, handle, created_at) VALUES ('t2', 'inexistente', 'x', '2026-01-01')`).run()).toThrow();
     // o ON DELETE CASCADE dos itens continua apontando para a tabela recriada
     db.query("DELETE FROM titles WHERE id = 'c1'").run();
     expect(db.query<{ n: number }, []>('SELECT COUNT(*) as n FROM telegram_items').get()?.n).toBe(0);
@@ -126,8 +130,8 @@ describe('migrateAddDriveMode', () => {
   test('é idempotente', () => {
     const db = new Database(':memory:');
     seed(db);
-    migrateAddDriveMode(db);
-    migrateAddDriveMode(db);
+    migrateChannelModes(db);
+    migrateChannelModes(db);
     expect(db.query<{ n: number }, []>('SELECT COUNT(*) as n FROM telegram_channels').get()?.n).toBe(1);
   });
 });

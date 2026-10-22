@@ -37,7 +37,6 @@ export const toDockItem = (channel: { titleId: string; title: string }, item: Te
  * pulando canais sem vídeo. Null quando não há nenhum outro com vídeos.
  */
 /** Texto do link externo do canal conforme a origem (o link em si vem pronto do servidor). */
-export const openLinkLabel = (mode: string): string => (mode === 'drive' ? 'Abrir no Drive' : 'Abrir no Telegram');
 
 export const pickNextChannel = <T extends { titleId: string; itemCount: number }>(channels: T[], currentId: string): T | null => {
   const at = channels.findIndex((c) => c.titleId === currentId);

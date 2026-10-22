@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { itemDescription, itemTitle, openLinkLabel, orderItems, pickNextChannel, toDockItem, watchPath } from '../src/client/telegram-items.ts';
+import { canRefreshMode, MODE_INFO, originLabel } from '../src/client/source-modes.ts';
+import { itemDescription, itemTitle, orderItems, pickNextChannel, toDockItem, watchPath } from '../src/client/telegram-items.ts';
 
 describe('itemTitle / itemDescription', () => {
   test('a primeira linha não vazia é o título e o resto vira descrição, mantendo as quebras', () => {
@@ -29,10 +30,18 @@ describe('toDockItem / watchPath', () => {
   });
 });
 
-describe('openLinkLabel', () => {
-  test('o link externo diz de onde o canal vem', () => {
-    expect(openLinkLabel('drive')).toBe('Abrir no Drive');
-    expect(openLinkLabel('public')).toBe('Abrir no Telegram');
+describe('modos de canal', () => {
+  test('o link externo e o selo dizem de onde o canal vem', () => {
+    expect(MODE_INFO.drive.open).toBe('Abrir no Drive');
+    expect(MODE_INFO.public.open).toBe('Abrir no Telegram');
+    expect(MODE_INFO.bot.badge).toBe('telegram · bot');
+  });
+
+  test('só o bot não tem como reler a origem; Telegram mostra @usuário e as demais fontes o nome', () => {
+    expect(canRefreshMode('bot')).toBe(false);
+    expect(canRefreshMode('webdav')).toBe(true);
+    expect(originLabel('public', 'canal')).toBe('@canal');
+    expect(originLabel('drive', '1AbC')).toBe('google drive');
   });
 });
 

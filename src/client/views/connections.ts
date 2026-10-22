@@ -1,6 +1,8 @@
 import { exportBackup, health, importBackup, type HealthResponse } from '../api.ts';
 import { renderDriveConnect } from '../components/drive-connect.ts';
+import { renderSourceCard } from '../components/source-card.ts';
 import { renderTelegramLogin } from '../components/telegram-login.ts';
+import { listSources } from '../source-api.ts';
 import { icon, type IconName } from '../icons.ts';
 import { showToast } from '../state.ts';
 
@@ -86,6 +88,7 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
     <div class="conn-grid">
       <section class="conn-card conn-wide" id="conn-telegram"></section>
       <section class="conn-card conn-wide" id="conn-drive"></section>
+      <div id="conn-sources" class="conn-stack"></div>
       <div id="conn-status" class="conn-stack"></div>
       <section class="conn-card" id="conn-backup" tabindex="-1">
         <div class="conn-head">
@@ -102,6 +105,22 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
   `;
 
   renderTelegramLogin(host.querySelector('#conn-telegram') as HTMLElement);
+
+  // Uma fonte de vídeo = um cartão desenhado a partir do descritor do servidor (campos, passo a passo, OAuth).
+  const sourcesEl = host.querySelector('#conn-sources') as HTMLElement;
+  listSources()
+    .then((sources) => {
+      for (const s of sources.filter((x) => !x.ownCard)) {
+        const card = document.createElement('section');
+        card.className = 'conn-card';
+        card.id = `conn-${s.id}`;
+        sourcesEl.appendChild(card);
+        renderSourceCard(card, s);
+      }
+    })
+    .catch(() => {
+      sourcesEl.innerHTML = '<p class="hint">não foi possível listar as fontes de vídeo</p>';
+    });
   renderDriveConnect(host.querySelector('#conn-drive') as HTMLElement);
   bindBackup(host.querySelector('#conn-backup') as HTMLElement);
 

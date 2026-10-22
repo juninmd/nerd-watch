@@ -2,13 +2,19 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { config } from '../src/server/config.ts';
 import { openDb, resetDbForTests } from '../src/server/db.ts';
 import { resetDriveAuthForTests, setDriveFetchForTests, setTokenStoreForTests } from '../src/server/providers/drive/oauth.ts';
+import { registerAllSources } from '../src/server/providers/sources/index.ts';
 import { driveRoutes } from '../src/server/routes/drive.ts';
+import { sourcesRoutes } from '../src/server/routes/sources.ts';
 import { telegramRoutes } from '../src/server/routes/telegram.ts';
 
 const ID = '1AbCdEfGhIjKlMnOpQrStUvWxYz_-0123';
 const original = { ...config.drive };
 
+registerAllSources();
+
 const post = (path: string, body: unknown) => driveRoutes.request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+/** Adicionar uma pasta passou a ser a rota genérica das fontes de arquivo. */
+const addFolder = (folder: string) => sourcesRoutes.request('/drive/channels', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: folder }) });
 const json = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status });
 
 let videos: Array<{ id: string; name: string; createdTime: string }> = [];
@@ -85,19 +91,19 @@ describe('OAuth', () => {
   });
 });
 
-describe('POST /api/drive/folders', () => {
+describe('POST /api/sources/drive/channels', () => {
   test('rejeita link que não é do Drive', async () => {
-    expect((await post('/folders', { folder: 'https://evil.example/x' })).status).toBe(400);
-    expect((await post('/folders', {})).status).toBe(400);
+    expect((await addFolder('https://evil.example/x')).status).toBe(400);
+    expect((await sourcesRoutes.request('/drive/channels', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status).toBe(400);
   });
 
   test('sem conexão com o Drive responde 501', async () => {
     config.drive.refreshToken = undefined;
-    expect((await post('/folders', { folder: ID })).status).toBe(501);
+    expect((await addFolder(ID)).status).toBe(501);
   });
 
   test('importa a pasta como canal "drive" com os vídeos do mais novo ao mais antigo na API', async () => {
-    const res = await post('/folders', { folder: `https://drive.google.com/drive/folders/${ID}` });
+    const res = await addFolder(`https://drive.google.com/drive/folders/${ID}`);
     expect(res.status).toBe(201);
     const channel = (await res.json()) as { titleId: string; mode: string; title: string; itemCount: number; link: string };
     expect(channel).toMatchObject({ mode: 'drive', title: 'Bleach TYBW', itemCount: 2, link: `https://drive.google.com/drive/folders/${ID}` });
@@ -107,7 +113,7 @@ describe('POST /api/drive/folders', () => {
   });
 
   test('miniatura que não virou arquivo local não deixa o link temporário do Google para o navegador', async () => {
-    const res = await post('/folders', { folder: ID });
+    const res = await addFolder(ID);
     const { titleId } = (await res.json()) as { titleId: string };
     const detail = (await (await telegramRoutes.request(`/channels/${titleId}`)).json()) as { items: Array<{ thumbnailUrl: string | null }> };
     // banco em memória não tem pasta de miniaturas: o download é descartado e o link remoto some
@@ -115,8 +121,8 @@ describe('POST /api/drive/folders', () => {
   });
 
   test('importar de novo não duplica o canal nem os vídeos', async () => {
-    await post('/folders', { folder: ID });
-    const again = await post('/folders', { folder: ID });
+    await addFolder(ID);
+    const again = await addFolder(ID);
     expect(((await again.json()) as { itemCount: number }).itemCount).toBe(2);
     const list = (await (await telegramRoutes.request('/channels')).json()) as { channels: unknown[] };
     expect(list.channels).toHaveLength(1);
@@ -124,18 +130,18 @@ describe('POST /api/drive/folders', () => {
 
   test('Drive fora do ar vira 502 genérico; reconectar vira 409', async () => {
     setDriveFetchForTests(async (url) => (String(url).includes('/token') ? json({ access_token: 'a', expires_in: 3600 }) : new Response('boom', { status: 500 })));
-    const res = await post('/folders', { folder: ID });
+    const res = await addFolder(ID);
     expect(res.status).toBe(502);
     expect(await res.text()).not.toContain('boom');
 
     resetDriveAuthForTests();
     setDriveFetchForTests(async () => json({ error: 'invalid_grant' }, 400));
-    expect((await post('/folders', { folder: ID })).status).toBe(409);
+    expect((await addFolder(ID)).status).toBe(409);
   });
 });
 
 describe('atualizar e tocar um canal do Drive', () => {
-  const importFolder = async () => ((await (await post('/folders', { folder: ID })).json()) as { titleId: string }).titleId;
+  const importFolder = async () => ((await (await addFolder(ID)).json()) as { titleId: string }).titleId;
 
   test('atualizar traz vídeos novos e remove os que saíram da pasta', async () => {
     const id = await importFolder();

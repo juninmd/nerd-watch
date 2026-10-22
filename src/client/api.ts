@@ -340,7 +340,7 @@ export const importBackup = (data: unknown): Promise<ImportBackupResponse> =>
     body: JSON.stringify(data),
   }).then((r) => json<ImportBackupResponse>(r));
 
-export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive';
+export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive' | 'local' | 'webdav' | 'dropbox' | 'onedrive' | 'jellyfin' | 'plex' | 'peertube' | 's3' | 'youtube' | 'torrent';
 
 export interface TelegramChannelDto {
   titleId: string;
@@ -349,7 +349,8 @@ export interface TelegramChannelDto {
   title: string;
   posterUrl: string | null;
   description: string | null;
-  link: string;
+  /** Fontes sem página própria (pasta local, torrent) não têm link. */
+  link: string | null;
   itemCount: number;
 }
 
