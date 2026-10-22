@@ -31,7 +31,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 🧲 **Torrent legal** | o torrent oficial que a própria Archive.org gera para cada item de domínio público |
 | ⚡ **Streaming P2P** | toca o torrent do acervo livre dentro do app, com seek — engine em processo, sem depender da banda do archive.org |
 | 💬 **Legendas sem chave** | busca em addons do protocolo do Stremio (padrão: o OpenSubtitles v3 oficial) — **não precisa de cadastro nem de chave** |
-| ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais. Login por QR code guiado em **Conexões**, feed de novidades e player fixo com fila e retomada |
+| ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais. Login por QR code guiado em **Conexões**, feed de novidades (carrossel com os 50 vídeos mais novos) e player fixo com fila e retomada |
 | 📂 **Pastas do Google Drive** | aponte uma pasta de vídeos do **seu** Drive (acesso só leitura, login OAuth em **Conexões**) e assista aqui dentro, com a mesma fila, miniaturas e "continuar assistindo" dos canais. Toca MP4/H.264 e WebM (o navegador não toca MKV/AVI) |
 | 🔌 **Fontes de vídeo** | pasta local, WebDAV, S3, Dropbox, OneDrive, Jellyfin/Emby, Plex, PeerTube, YouTube (embed) e torrent: cada pasta/biblioteca vira um canal, com a mesma fila, miniaturas e "continuar assistindo". Ver [Fontes de vídeo](#-fontes-de-vídeo) |
 | 📚 **Mais catálogos** | **TVmaze** (séries e datas de episódios no calendário) e **AniList** (anime), sem chave; **Trakt** importa o que você já assistiu |
