@@ -1,7 +1,10 @@
-import { getCalendar, health, listLibrary, searchArchive } from '../api.ts';
+import { getCalendar, health, listLibrary, searchArchive, type CalendarEntryDto } from '../api.ts';
 import { escapeHtml, renderCard } from '../components/card.ts';
+import { renderTelegramFeed } from '../components/telegram-feed.ts';
+import { icon, type IconName } from '../icons.ts';
 import { navigate } from '../router.ts';
-import { titlePath } from '../title-link.ts';
+import { addDays, localIsoDate } from '../time-format.ts';
+import { libraryItemPath, titlePath } from '../title-link.ts';
 
 const SKELETON = `
   <div class="section"><div class="skeleton" style="height:22px;width:220px;margin-bottom:14px"></div>
@@ -9,84 +12,85 @@ const SKELETON = `
   </div>
 `;
 
-const dateLabel = (iso: string): string => {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-};
+const sectionHead = (iconName: IconName, title: string, link?: { href: string; label: string }): string =>
+  `<div class="section-head"><h2>${icon(iconName, 'sm')} ${title}</h2>${link ? `<a href="${link.href}">${link.label}</a>` : ''}</div>`;
+
+const entryLine = (e: CalendarEntryDto): string =>
+  e.kind === 'episode' ? `T${e.seasonNumber} · Ep ${e.episodeNumber}${e.episodeName ? ` — ${escapeHtml(e.episodeName)}` : ''}` : 'estreia do filme';
+
+const upcomingRows = (entries: CalendarEntryDto[], todayIso: string): string =>
+  entries
+    .map(
+      (e) => `
+      <div class="calendar-item" data-source="${e.titleSource}" data-source-id="${escapeHtml(e.titleSourceId)}" data-media="${e.mediaType}" tabindex="0" role="link">
+        <div class="thumb"${e.posterUrl ? ` style="background-image:url('${e.posterUrl}')"` : ''}>${e.posterUrl ? '' : icon('film')}</div>
+        <div class="info"><div class="t">${escapeHtml(e.titleName)}</div><div class="s">${entryLine(e)}</div></div>
+        <div class="s">${e.date === todayIso ? 'hoje' : 'amanhã'}</div>
+      </div>`,
+    )
+    .join('');
 
 export const renderDiscover = (host: HTMLElement): void => {
   host.innerHTML = `
-    <h1 class="view-title">Bem-vindo de volta 👋</h1>
-    <p class="view-subtitle">O que você está assistindo, o que estreia em breve e clássicos de domínio público prontos para assistir agora.</p>
-    <div id="tmdb-banner"></div>
+    <header class="view-head"><h1 class="view-title">Bem-vindo de volta</h1>
+    <p class="view-subtitle">O que você está assistindo, o que sai hoje e amanhã, o que chegou nos seus canais e clássicos de domínio público.</p></header>
     ${SKELETON}${SKELETON}
   `;
 
-  Promise.all([
-    health(),
-    listLibrary('watching'),
-    searchArchive('').catch(() => ({ results: [] })),
-    getCalendar(14),
-  ])
+  const today = new Date();
+  const todayIso = localIsoDate(today);
+  const tomorrowIso = localIsoDate(addDays(today, 1));
+
+  Promise.all([health(), listLibrary('watching'), searchArchive('').catch(() => ({ results: [] })), getCalendar(2).catch(() => ({ entries: [] as CalendarEntryDto[] }))])
     .then(([h, watching, archive, calendar]) => {
       const banner = h.tmdbEnabled
         ? ''
-        : `<div class="tmdb-off-banner">⚠️ Catálogo TMDB desligado — adicione <code>TMDB_API_KEY</code> no <code>.env</code> para buscar filmes e séries protegidos. Domínio público e sua lista funcionam normalmente.</div>`;
+        : `<div class="banner warn">${icon('alert')}<span>Catálogo TMDB desligado — veja como ligar em <a href="#/connections">Conexões</a>. Domínio público, Telegram e sua biblioteca funcionam normalmente.</span></div>`;
 
       host.innerHTML = `
-        <h1 class="view-title">Bem-vindo de volta 👋</h1>
-        <p class="view-subtitle">O que você está assistindo, o que estreia em breve e clássicos de domínio público prontos para assistir agora.</p>
+        <header class="view-head"><h1 class="view-title">Bem-vindo de volta</h1>
+        <p class="view-subtitle">O que você está assistindo, o que sai hoje e amanhã, o que chegou nos seus canais e clássicos de domínio público.</p></header>
         ${banner}
-        <div class="section">
-          <div class="section-head"><h2>▶️ Continuar assistindo</h2><span class="hint"><a href="#/library">ver lista completa</a></span></div>
-          <div class="rail" id="watching-rail"></div>
-        </div>
-        <div class="section">
-          <div class="section-head"><h2>🗓️ Próximos 14 dias</h2><span class="hint"><a href="#/calendar">ver calendário</a></span></div>
-          <div id="calendar-preview"></div>
-        </div>
-        <div class="section">
-          <div class="section-head"><h2>🎞️ Domínio público em destaque</h2><span class="hint"><a href="#/public-domain">ver tudo</a></span></div>
-          <div class="rail" id="archive-rail"></div>
-        </div>
+        <div class="section">${sectionHead('play', 'Continuar assistindo', { href: '#/library', label: 'ver biblioteca' })}<div class="rail" id="watching-rail"></div></div>
+        <div class="section">${sectionHead('calendar', 'Hoje e amanhã', { href: '#/agenda', label: 'ver agenda' })}<div id="upcoming"></div></div>
+        <div class="section">${sectionHead('send', 'Novo nos canais', { href: '#/telegram', label: 'ver canais' })}<div id="feed"></div></div>
+        <div class="section">${sectionHead('film', 'Domínio público', { href: '#/public-domain', label: 'ver tudo' })}<div class="rail" id="archive-rail"></div></div>
       `;
 
       const watchingRail = host.querySelector('#watching-rail') as HTMLElement;
       if (watching.items.length === 0) {
-        watchingRail.innerHTML = `<div class="empty-state" style="flex:1"><div class="big">🍿</div>nada em andamento — busque algo e marque como "assistindo"</div>`;
+        watchingRail.innerHTML = `<div class="empty-state" style="flex:1">nada em andamento — busque algo (<kbd>Ctrl K</kbd>) e marque como "assistindo"</div>`;
+      }
+      for (const item of watching.items) {
+        watchingRail.appendChild(
+          renderCard({
+            title: item.title.title,
+            posterUrl: item.title.posterUrl,
+            meta: item.currentSeason ? `T${item.currentSeason} · Ep ${item.currentEpisode}` : undefined,
+            status: item.watchStatus,
+            onClick: () => navigate(libraryItemPath(item)),
+          }),
+        );
+      }
+
+      const upcoming = host.querySelector('#upcoming') as HTMLElement;
+      const soon = calendar.entries.filter((e) => e.date === todayIso || e.date === tomorrowIso);
+      if (soon.length === 0) {
+        upcoming.innerHTML = `<div class="empty-state">nada previsto para hoje ou amanhã — <a href="#/agenda">veja a agenda completa</a></div>`;
       } else {
-        for (const item of watching.items) {
-          watchingRail.appendChild(
-            renderCard({
-              title: item.title.title,
-              posterUrl: item.title.posterUrl,
-              meta: item.currentSeason ? `T${item.currentSeason} · Ep ${item.currentEpisode}` : undefined,
-              status: item.watchStatus,
-              onClick: () => navigate(titlePath(item.title.source, item.title.mediaType, item.title.sourceId)),
-            }),
-          );
+        upcoming.innerHTML = `<div class="calendar-list">${upcomingRows(soon, todayIso)}</div>`;
+        for (const el of upcoming.querySelectorAll<HTMLElement>('.calendar-item')) {
+          const { source, sourceId, media } = el.dataset;
+          if (!source || !sourceId || !media) continue;
+          const go = () => navigate(titlePath(source as 'tmdb' | 'archive', source === 'archive' ? '_' : (media as 'movie' | 'tv'), sourceId));
+          el.addEventListener('click', go);
+          el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') go();
+          });
         }
       }
 
-      const calPreview = host.querySelector('#calendar-preview') as HTMLElement;
-      if (calendar.entries.length === 0) {
-        calPreview.innerHTML = `<div class="empty-state"><div class="big">📭</div>nada previsto nos próximos 14 dias para os títulos da sua lista</div>`;
-      } else {
-        calPreview.innerHTML = `<div class="calendar-list">${calendar.entries
-          .slice(0, 5)
-          .map(
-            (e) => `
-          <div class="calendar-item">
-            <div class="thumb"${e.posterUrl ? ` style="background-image:url('${e.posterUrl}')"` : ''}>${e.posterUrl ? '' : '🎬'}</div>
-            <div class="info">
-              <div class="t">${escapeHtml(e.titleName)}</div>
-              <div class="s">${e.kind === 'episode' ? `T${e.seasonNumber} · Ep ${e.episodeNumber} — ${escapeHtml(e.episodeName ?? '')}` : 'estreia do filme'}</div>
-            </div>
-            <div class="s">${dateLabel(e.date)}</div>
-          </div>`,
-          )
-          .join('')}</div>`;
-      }
+      renderTelegramFeed(host.querySelector('#feed') as HTMLElement);
 
       const archiveRail = host.querySelector('#archive-rail') as HTMLElement;
       for (const m of archive.results.slice(0, 10)) {

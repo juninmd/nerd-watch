@@ -157,3 +157,21 @@ export const listTelegramItems = (db: Database, channelId: string): TelegramItem
       'SELECT * FROM telegram_items WHERE channel_id = ? ORDER BY CAST(message_id AS INTEGER) ASC',
     )
     .all(channelId);
+
+export interface RecentTelegramItem extends TelegramItemRow {
+  channel_title: string;
+  channel_handle: string;
+}
+
+/** Vídeos mais novos de todos os canais, para o feed do Início e do hub do Telegram. Sem data fica por último. */
+export const listRecentTelegramItems = (db: Database, limit: number): RecentTelegramItem[] =>
+  db
+    .query<RecentTelegramItem, [number]>(
+      `SELECT ti.*, t.title AS channel_title, tc.handle AS channel_handle
+       FROM telegram_items ti
+       JOIN telegram_channels tc ON tc.id = ti.channel_id
+       JOIN titles t ON t.id = tc.id
+       ORDER BY ti.posted_at IS NULL, ti.posted_at DESC, CAST(ti.message_id AS INTEGER) DESC
+       LIMIT ?`,
+    )
+    .all(limit);

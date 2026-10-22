@@ -1,5 +1,6 @@
 import { addTelegramChannel, bulkDeleteTelegramChannels, listTelegramChannels, type TelegramChannelDto, type TelegramChannelMode } from '../api.ts';
 import { renderCard } from '../components/card.ts';
+import { renderTelegramFeed } from '../components/telegram-feed.ts';
 import { openMyChannelsDialog } from '../components/telegram-my-channels.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
@@ -26,6 +27,10 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
       </select>
       <button class="btn btn-primary btn-sm" type="submit">adicionar</button>
     </form>
+    <div class="section">
+      <div class="section-head"><h2>Novo nos canais</h2></div>
+      <div id="tg-feed"></div>
+    </div>
     <div class="toolbar" id="tg-toolbar">
       <button class="btn btn-ghost btn-sm" id="tg-my-channels" type="button">✈️ meus canais</button>
       <button class="btn btn-ghost btn-sm" id="tg-select-toggle" type="button" aria-pressed="false">☑️ selecionar</button>
@@ -37,6 +42,8 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
     </div>
     <div id="tg-grid"><div class="grid">${Array.from({ length: 6 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div></div>
   `;
+
+  renderTelegramFeed(host.querySelector('#tg-feed') as HTMLElement, { hideWhenEmpty: true });
 
   const grid = host.querySelector('#tg-grid') as HTMLElement;
   const form = host.querySelector('#add-form') as HTMLFormElement;

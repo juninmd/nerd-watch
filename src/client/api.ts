@@ -455,3 +455,12 @@ export const bulkLibrary = (input: BulkLibraryInput): Promise<{ affected: number
   fetch('/api/library/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).then((r) =>
     json<{ affected: number }>(r),
   );
+
+export interface TelegramRecentItemDto extends TelegramItemDto {
+  channelId: string;
+  channelTitle: string;
+  handle: string;
+}
+
+export const listRecentTelegramItems = (limit = 12): Promise<{ items: TelegramRecentItemDto[] }> =>
+  fetch(`/api/telegram/recent?limit=${limit}`).then((r) => json<{ items: TelegramRecentItemDto[] }>(r));

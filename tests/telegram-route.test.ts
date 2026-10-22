@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { config } from '../src/server/config.ts';
 import { openDb, resetDbForTests } from '../src/server/db.ts';
+import { upsertTelegramChannel, upsertTelegramItems } from '../src/server/repo/telegram.ts';
 import { telegramRoutes } from '../src/server/routes/telegram.ts';
 
 const FIXTURE = readFileSync(`${import.meta.dir}/fixtures/telegram-public-channel.html`, 'utf-8');
@@ -151,5 +152,23 @@ describe('GET /api/telegram/my-channels', () => {
   test('501 sem conta pessoal logada', async () => {
     const res = await telegramRoutes.request('/my-channels');
     expect(res.status).toBe(501);
+  });
+});
+
+describe('GET /api/telegram/recent', () => {
+  test('devolve o feed e limita o tamanho pedido', async () => {
+    const db = openDb(':memory:');
+    resetDbForTests(db);
+    const ch = upsertTelegramChannel(db, { handle: 'canal_feed', mode: 'public', displayName: 'Canal Feed' });
+    upsertTelegramItems(db, ch.id, Array.from({ length: 3 }, (_, i) => ({ messageId: String(i + 1), postedAt: `2026-02-0${i + 1}T00:00:00Z` })));
+
+    const res = await telegramRoutes.request('/recent?limit=2');
+    const body = await res.json();
+    expect(body.items.map((i: { messageId: string }) => i.messageId)).toEqual(['3', '2']);
+    expect(body.items[0]).toMatchObject({ channelTitle: 'Canal Feed', handle: 'canal_feed' });
+  });
+
+  test('limit inválido volta ao padrão em vez de falhar', async () => {
+    expect((await telegramRoutes.request('/recent?limit=abc')).status).toBe(200);
   });
 });

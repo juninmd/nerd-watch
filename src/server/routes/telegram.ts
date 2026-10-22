@@ -7,6 +7,7 @@ import {
   deleteTelegramChannels,
   getTelegramChannel,
   getTelegramItem,
+  listRecentTelegramItems,
   listTelegramChannels,
   listTelegramItems,
   updateChannelCursor,
@@ -46,6 +47,27 @@ telegramRoutes.get('/channels', async (c) => {
   const counts = countTelegramItemsByChannel(db);
   return c.json({
     channels: channels.map((ch) => toChannelResponse(ch, counts.get(ch.id) ?? 0)),
+  });
+});
+
+const RECENT_DEFAULT = 12;
+const RECENT_MAX = 50;
+
+telegramRoutes.get('/recent', async (c) => {
+  const requested = Number(c.req.query('limit') ?? RECENT_DEFAULT);
+  const limit = Number.isInteger(requested) && requested > 0 ? Math.min(requested, RECENT_MAX) : RECENT_DEFAULT;
+  const db = await getDb();
+  return c.json({
+    items: listRecentTelegramItems(db, limit).map((i) => ({
+      channelId: i.channel_id,
+      channelTitle: i.channel_title,
+      handle: i.channel_handle,
+      messageId: i.message_id,
+      caption: i.caption,
+      durationSeconds: i.duration_seconds,
+      thumbnailUrl: i.thumbnail_url,
+      postedAt: i.posted_at,
+    })),
   });
 });
 
