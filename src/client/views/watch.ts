@@ -16,6 +16,7 @@ import {
   savedPosition,
   subscribePlayer,
 } from '../components/player-dock.ts';
+import { embedFrameHtml, playerKindOf } from '../components/watch-embed.ts';
 import { icon } from '../icons.ts';
 import { resumePoint } from '../playback-store.ts';
 import { navigate } from '../router.ts';
@@ -97,7 +98,8 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
   host.innerHTML = `
     <div class="watch">
       <div class="watch-main">
-        <div class="watch-stage" id="watch-stage"><div class="watch-end" id="watch-end" hidden></div></div>
+        <div class="watch-stage" id="watch-stage"><div class="watch-embed" id="watch-embed" hidden></div><div class="watch-end" id="watch-end" hidden></div></div>
+        <div class="watch-embed-bar" id="watch-embed-bar" hidden><button class="btn btn-primary btn-sm" id="embed-next" type="button">Próximo vídeo</button></div>
         <div id="watch-info"></div>
       </div>
       <aside class="watch-next" aria-label="Próximos vídeos">
@@ -119,7 +121,29 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
   const endEl = host.querySelector('#watch-end') as HTMLElement;
   const infoEl = host.querySelector('#watch-info') as HTMLElement;
   const listEl = host.querySelector('#watch-list') as HTMLElement;
+  const embedEl = host.querySelector('#watch-embed') as HTMLElement;
+  const embedBar = host.querySelector('#watch-embed-bar') as HTMLElement;
   let countdown: ReturnType<typeof setInterval> | null = null;
+
+  /** Item de embed: o iframe ocupa o palco e o `<video>` some. Sem evento de fim, o próximo vem por botão. */
+  const syncEmbed = (item: DockItem, index: number, total: number): void => {
+    const embed = playerKindOf(item) === 'embed';
+    const video = getVideo();
+    if (video) video.hidden = embed;
+    embedEl.hidden = !embed;
+    embedBar.hidden = !embed || index + 1 >= total;
+    if (!embed) {
+      embedEl.innerHTML = '';
+      delete embedEl.dataset.src;
+      return;
+    }
+    stage.classList.remove('portrait');
+    stage.style.aspectRatio = '';
+    if (embedEl.dataset.src !== item.embedUrl) {
+      embedEl.dataset.src = item.embedUrl ?? '';
+      embedEl.innerHTML = embedFrameHtml(item.embedUrl ?? '', item.title);
+    }
+  };
 
   const hideEnd = () => {
     if (countdown) clearInterval(countdown);
@@ -185,7 +209,7 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
         <a class="watch-avatar" href="#/telegram/${escapeHtml(d.titleId)}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(d.posterUrl)}')"` : ''} aria-hidden="true" tabindex="-1"></a>
         <div class="watch-channel-text"><a href="#/telegram/${escapeHtml(d.titleId)}"><b>${escapeHtml(d.title)}</b></a><small>${escapeHtml(meta)}</small></div>
         <div class="watch-actions">
-          <button class="btn btn-ghost btn-sm" id="watch-minimize" type="button">${icon('minimize', 'sm')} Minimizar</button>
+          ${playerKindOf(now.item) === 'embed' ? '' : `<button class="btn btn-ghost btn-sm" id="watch-minimize" type="button">${icon('minimize', 'sm')} Minimizar</button>`}
           ${d.link ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${MODE_INFO[d.mode].open}</a>` : ''}
         </div>
       </div>
@@ -201,8 +225,15 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
       ${nextChannel ? `<h3 class="watch-more">Próximo canal</h3>${channelRow(nextChannel)}` : ''}`;
     // Mantém a barra do navegador no vídeo atual quando a reprodução automática troca de item.
     history.replaceState(null, '', `#${watchPath(d.titleId, now.item.messageId)}`);
+    syncEmbed(now.item, now.index, now.queue.length);
     fitStage();
   };
+
+  embedBar.addEventListener('click', (e) => {
+    if (!(e.target as HTMLElement).closest('#embed-next')) return;
+    const now = getNowPlaying();
+    if (now) playIndex(now.index + 1);
+  });
 
   listEl.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;

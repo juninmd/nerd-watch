@@ -434,6 +434,8 @@ export interface TelegramItemDto {
   durationSeconds: number | null;
   thumbnailUrl: string | null;
   postedAt: string | null;
+  /** Iframe de embed quando a fonte só toca assim (YouTube). Ausente: o player do app. */
+  embedUrl?: string;
 }
 
 export interface TelegramChannelDetailDto extends TelegramChannelDto {

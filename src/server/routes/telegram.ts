@@ -29,7 +29,7 @@ import { playSourceItem, refreshSourceChannel } from '../providers/sources/servi
 import type { TelegramChannel } from '../repo/telegram.ts';
 import { applyPublicInfo, syncChannelInfo } from '../telegram-channel-info.ts';
 import { localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
-import { toChannelResponse } from '../telegram-channel-dto.ts';
+import { itemEmbedUrl, toChannelResponse } from '../telegram-channel-dto.ts';
 import { readPhoto, readThumb } from '../telegram-photos.ts';
 import type { TelegramChannelMode } from '../types.ts';
 
@@ -147,6 +147,7 @@ telegramRoutes.get('/channels/:id', async (c) => {
       durationSeconds: i.duration_seconds,
       thumbnailUrl: i.thumbnail_url,
       postedAt: i.posted_at,
+      embedUrl: itemEmbedUrl(channel, i.file_ref),
     })),
   });
 });

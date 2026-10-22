@@ -4,6 +4,8 @@ import { playbackSync, storage } from '../playback-service.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 import { formatDuration } from '../time-format.ts';
+import { onPlayError } from './player-error.ts';
+import { clearVideo, playerKindOf } from './watch-embed.ts';
 
 export interface DockItem {
   /** Identifica o vídeo para guardar a posição (`<canal>:<mensagem>`). */
@@ -17,6 +19,8 @@ export interface DockItem {
   durationSeconds: number | null;
   /** Rota da tela onde esse vídeo toca em tamanho grande (para onde "expandir" volta). */
   route: string;
+  /** Iframe de embed (YouTube, ou PeerTube sem arquivo direto): não passa pelo `<video>`. */
+  embedUrl?: string | null;
 }
 
 /**
@@ -128,7 +132,7 @@ const load = (i: number): void => {
   index = i;
   const resumeAt = resumePoint(store.get(item.key));
   el.poster = item.poster ?? '';
-  el.src = item.src;
+  if (playerKindOf(item) === 'embed') clearVideo(el); else el.src = item.src;
   el.addEventListener(
     'loadedmetadata',
     () => {
@@ -198,11 +202,10 @@ const step = (delta: number): void => playIndex(index + delta);
 const onVideoError = (): void => {
   const item = current();
   if (!item) return;
-  // Range mínimo: sem isso, no modo conta pessoal um erro dispararia o download completo só pra ler o corpo do erro.
-  fetch(item.src, { headers: { Range: 'bytes=0-0' } })
-    .then((r) => r.json())
-    .then((body) => showToast(body.error ?? 'não foi possível reproduzir esse vídeo'))
-    .catch(() => showToast('não foi possível reproduzir esse vídeo'));
+  onPlayError(item.src, {
+    onEmbed: (url) => { item.embedUrl = url; if (current() === item) load(index); },
+    onMessage: showToast,
+  });
 };
 
 /** Monta o player global uma vez no shell; ele sobrevive à troca de telas. */
