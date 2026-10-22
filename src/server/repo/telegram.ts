@@ -175,3 +175,23 @@ export const listRecentTelegramItems = (db: Database, limit: number): RecentTele
        LIMIT ?`,
     )
     .all(limit);
+
+export interface TelegramChannelInfoPatch {
+  title?: string | null;
+  description?: string | null;
+  posterPath?: string | null;
+}
+
+/** Campos ausentes (null/undefined) preservam o valor atual — uma falha parcial ao buscar não apaga o que já existe. */
+export const updateTelegramChannelInfo = (db: Database, id: string, patch: TelegramChannelInfoPatch): void => {
+  db.query("UPDATE titles SET title = COALESCE($title, title), overview = COALESCE($overview, overview), poster_path = COALESCE($poster, poster_path) WHERE id = $id AND source = 'telegram'").run({
+    $id: id,
+    $title: patch.title ?? null,
+    $overview: patch.description ?? null,
+    $poster: patch.posterPath ?? null,
+  });
+};
+
+export const setTelegramItemThumbnail = (db: Database, channelId: string, messageId: string, url: string): void => {
+  db.query("UPDATE telegram_items SET thumbnail_url = ? WHERE channel_id = ? AND message_id = ?").run(url, channelId, messageId);
+};

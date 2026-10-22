@@ -38,7 +38,7 @@ const dropSession = async (): Promise<void> => {
   await pending?.then((client) => client.disconnect()).catch(() => {});
 };
 
-const withLiveSession = async <T>(fn: (client: TelegramClient) => Promise<T>): Promise<T> => {
+export const withLiveSession = async <T>(fn: (client: TelegramClient) => Promise<T>): Promise<T> => {
   const client = await getClient();
   try {
     return await fn(client);

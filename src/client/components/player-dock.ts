@@ -5,17 +5,26 @@ import { showToast } from '../state.ts';
 import { formatDuration } from '../time-format.ts';
 
 export interface DockItem {
-  /** Identifica o vídeo para guardar a posição (ex.: `<canal>:<mensagem>`). */
+  /** Identifica o vídeo para guardar a posição (`<canal>:<mensagem>`). */
   key: string;
   src: string;
   title: string;
   subtitle: string;
   poster: string | null;
-  /** Rota do app para onde o título do player leva. */
-  href: string;
+  channelId: string;
+  messageId: string;
+  durationSeconds: number | null;
 }
 
+/**
+ * O player é um único `<video>` global com dois modos: "page" (grande, dentro da tela de reprodução) e "dock"
+ * (barra fixa no canto). A barra só aparece quando o usuário pede (`minimizePlayer`); sair da tela de
+ * reprodução por outro caminho encerra o vídeo — mover o mesmo elemento entre os dois lugares não o reinicia.
+ */
+type Mode = 'hidden' | 'page' | 'dock';
+
 const SAVE_EVERY_MS = 5_000;
+const AUTOPLAY_KEY = 'nw.player.autoplay';
 
 const storage = {
   getItem: (k: string): string | null => {
@@ -36,15 +45,49 @@ const storage = {
 const store = createPlaybackStore(storage);
 
 export const savedPosition = (key: string): StoredPosition | undefined => store.get(key);
+/** Ordem em que o canal é listado e enfileirado: do mais recente ao mais antigo (padrão) ou o contrário. */
+export type QueueOrder = 'newest' | 'oldest';
+const ORDER_KEY = 'nw.player.order';
+export const getQueueOrder = (): QueueOrder => (storage.getItem(ORDER_KEY) === 'oldest' ? 'oldest' : 'newest');
+export const setQueueOrder = (order: QueueOrder): void => storage.setItem(ORDER_KEY, order);
+export const getAutoplay = (): boolean => storage.getItem(AUTOPLAY_KEY) !== '0';
+export const setAutoplay = (on: boolean): void => storage.setItem(AUTOPLAY_KEY, on ? '1' : '0');
 
 let dock: HTMLElement | null = null;
 let video: HTMLVideoElement | null = null;
 let queue: DockItem[] = [];
 let index = 0;
+let mode: Mode = 'hidden';
 let lastSave = 0;
+const listeners = new Set<() => void>();
+
+const emit = (): void => {
+  for (const fn of listeners) fn();
+};
+
+/** Avisa quando o vídeo atual ou o modo mudam (a tela de reprodução atualiza título e lista). */
+export const subscribePlayer = (fn: () => void): (() => void) => {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+};
+
+const endedListeners = new Set<() => void>();
+
+/** Avisa quando o último vídeo da fila termina. */
+export const subscribeEnded = (fn: () => void): (() => void) => {
+  endedListeners.add(fn);
+  return () => endedListeners.delete(fn);
+};
 
 const q = <T extends HTMLElement>(sel: string): T => (dock as HTMLElement).querySelector(sel) as T;
 const current = (): DockItem | undefined => queue[index];
+
+export const getNowPlaying = (): { item: DockItem; queue: DockItem[]; index: number; mode: Mode } | null => {
+  const item = current();
+  return item ? { item, queue, index, mode } : null;
+};
+
+export const getVideo = (): HTMLVideoElement | null => video;
 
 const persist = (): void => {
   const item = current();
@@ -53,7 +96,7 @@ const persist = (): void => {
 };
 
 const syncControls = (): void => {
-  if (!video) return;
+  if (!video || !dock) return;
   const playing = !video.paused && !video.ended;
   const toggle = q<HTMLButtonElement>('[data-act="toggle"]');
   toggle.innerHTML = icon(playing ? 'pause' : 'play');
@@ -63,20 +106,28 @@ const syncControls = (): void => {
 };
 
 const syncProgress = (): void => {
-  if (!video) return;
+  if (!video || !dock) return;
   const d = Number.isFinite(video.duration) ? video.duration : 0;
   q<HTMLInputElement>('.dock-seek').value = d ? String(Math.round((video.currentTime / d) * 1000)) : '0';
   q('.dock-time').textContent = `${formatDuration(Math.floor(video.currentTime)) ?? '0:00'}${d ? ` / ${formatDuration(Math.floor(d))}` : ''}`;
 };
 
-const setTheater = (on: boolean, moveFocus = true): void => {
+const setMode = (next: Mode, stage?: HTMLElement): void => {
   if (!dock || !video) return;
-  dock.classList.toggle('theater', on);
-  video.controls = on;
-  const btn = q<HTMLButtonElement>('[data-act="theater"]');
-  btn.setAttribute('aria-pressed', String(on));
-  btn.setAttribute('aria-label', on ? 'Sair do modo teatro' : 'Modo teatro');
-  if (moveFocus) btn.focus();
+  mode = next;
+  if (next === 'page' && stage) {
+    stage.appendChild(video);
+    video.controls = true;
+  } else {
+    q('.dock-video').appendChild(video);
+    video.controls = false;
+  }
+  dock.hidden = next !== 'dock';
+  document.body.classList.toggle('has-dock', next === 'dock');
+  if (next === 'dock') {
+    syncControls();
+    syncProgress();
+  }
 };
 
 const load = (i: number): void => {
@@ -98,37 +149,61 @@ const load = (i: number): void => {
   el.play().catch(() => syncControls());
   q('.dock-title').textContent = item.title;
   q('.dock-sub').textContent = resumeAt !== null ? `${item.subtitle} · retomando de ${formatDuration(resumeAt)}` : item.subtitle;
-  dock.hidden = false;
-  document.body.classList.add('has-dock');
   syncControls();
   syncProgress();
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({ title: item.title, artist: item.subtitle, artwork: item.poster ? [{ src: item.poster }] : [] });
   }
+  emit();
 };
 
-const stop = (): void => {
+/** Encerra o vídeo e guarda a posição. */
+export const stopPlayer = (): void => {
   persist();
   video?.pause();
   video?.removeAttribute('src');
   video?.load();
-  if (dock) dock.hidden = true;
-  setTheater(false, false);
-  document.body.classList.remove('has-dock');
   queue = [];
+  index = 0;
+  setMode('hidden');
+  emit();
 };
 
-const step = (delta: number): void => {
-  const next = index + delta;
-  if (next >= 0 && next < queue.length) load(next);
+/** Antes de trocar a tela: tira o `<video>` da view que vai ser descartada (um nó fora do documento pausaria). */
+export const parkPlayer = (): void => {
+  if (mode === 'page' && dock && video) q('.dock-video').appendChild(video);
 };
 
-/** Toca `items[start]` e deixa o resto como fila (o fim de um vídeo abre o próximo). */
-export const playInDock = (items: DockItem[], start = 0): void => {
-  if (!dock || items.length === 0) return;
+/** Chamado ao sair da tela de reprodução: só encerra se o vídeo ainda estiver "na tela" (não minimizado). */
+export const stopIfOnPage = (): void => {
+  if (mode === 'page') stopPlayer();
+};
+
+/** Mostra `items[start]` grande dentro de `stage`. Se já é o vídeo em reprodução, só o reposiciona (sem reiniciar). */
+export const showInPage = (items: DockItem[], start: number, stage: HTMLElement): void => {
+  const target = items[start];
+  if (!target || !dock) return;
+  const alreadyPlaying = current()?.key === target.key && !!video?.getAttribute('src');
   queue = items;
-  load(start);
+  index = start;
+  setMode('page', stage);
+  if (alreadyPlaying) {
+    syncControls();
+    emit();
+  } else load(start);
 };
+
+/** Botão "minimizar": o vídeo continua tocando, agora na barra fixa. */
+export const minimizePlayer = (): void => {
+  if (mode === 'page' && current()) setMode('dock');
+  emit();
+};
+
+export const playIndex = (i: number): void => {
+  if (i >= 0 && i < queue.length) load(i);
+};
+
+const step = (delta: number): void => playIndex(index + delta);
 
 const onVideoError = (): void => {
   const item = current();
@@ -154,7 +229,7 @@ export const mountPlayerDock = (host: HTMLElement): void => {
       <input class="dock-seek" type="range" min="0" max="1000" value="0" aria-label="Posição do vídeo" />
       <span class="dock-time" aria-hidden="true"></span>
       <div class="dock-end">
-        <button type="button" data-act="theater" aria-pressed="false" aria-label="Modo teatro">${icon('expand')}</button>
+        <button type="button" data-act="expand" aria-label="Abrir em tela cheia">${icon('expand')}</button>
         <button type="button" data-act="close" aria-label="Fechar player">${icon('x')}</button>
       </div>
     </section>`;
@@ -176,32 +251,32 @@ export const mountPlayerDock = (host: HTMLElement): void => {
   });
   el.addEventListener('ended', () => {
     persist();
-    if (index < queue.length - 1) step(1);
-    else syncControls();
+    if (index < queue.length - 1) {
+      if (getAutoplay()) step(1);
+      else syncControls();
+      return;
+    }
+    // Acabou o último vídeo da fila: a tela de reprodução pode sugerir o próximo canal.
+    syncControls();
+    for (const fn of endedListeners) fn();
   });
   el.addEventListener('error', onVideoError);
 
   dock.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
+    const item = current();
     if (act === 'toggle') {
       if (el.paused) void el.play();
       else el.pause();
     } else if (act === 'prev') step(-1);
     else if (act === 'next') step(1);
-    else if (act === 'theater') setTheater(!dock?.classList.contains('theater'));
-    else if (act === 'close') stop();
-    else if (target.closest('.dock-title')) {
-      const href = current()?.href;
-      if (href) navigate(href);
-    }
+    else if (act === 'close') stopPlayer();
+    else if ((act === 'expand' || target.closest('.dock-title')) && item) navigate(`/watch/${item.channelId}/${item.messageId}`);
   });
   q<HTMLInputElement>('.dock-seek').addEventListener('input', (e) => {
     const d = el.duration;
     if (d && Number.isFinite(d)) el.currentTime = (Number((e.target as HTMLInputElement).value) / 1000) * d;
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && dock?.classList.contains('theater')) setTheater(false);
   });
   window.addEventListener('pagehide', persist);
 

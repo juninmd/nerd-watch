@@ -1,4 +1,4 @@
-/* Player global: barra fixa que sobrevive à troca de telas; "modo teatro" expande a mesma barra. */
+/* Player fixo no canto: só aparece depois de "Minimizar" na tela de reprodução. */
 .dock {
   position: fixed;
   z-index: 30;
@@ -102,50 +102,6 @@
   white-space: nowrap;
 }
 
-/* Teatro: a mesma barra vira um painel central com o vídeo grande e os controles nativos. */
-.dock.theater {
-  inset: 4vh 4vw auto auto;
-  left: 50%;
-  top: 50%;
-  right: auto;
-  bottom: auto;
-  transform: translate(-50%, -50%);
-  width: min(1100px, 92vw);
-  max-height: 92vh;
-  grid-template-columns: 1fr auto auto;
-  grid-template-areas: "video video video" "info controls end";
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 0 0 100vmax rgba(5, 6, 10, 0.78), var(--shadow-pop);
-}
-
-.dock.theater .dock-video {
-  grid-area: video;
-}
-
-.dock.theater .dock-video video {
-  width: 100%;
-  aspect-ratio: auto;
-  max-height: 72vh;
-}
-
-.dock.theater .dock-info {
-  grid-area: info;
-}
-
-.dock.theater .dock-controls {
-  grid-area: controls;
-}
-
-.dock.theater .dock-end {
-  grid-area: end;
-}
-
-.dock.theater .dock-seek,
-.dock.theater .dock-time {
-  display: none;
-}
-
 .resume-badge {
   left: 8px;
   bottom: 8px;
@@ -153,7 +109,7 @@
   right: auto;
 }
 
-/* Com o player aberto o conteúdo ganha espaço para não ficar escondido atrás dele. */
+/* Com o player fixo aberto o conteúdo ganha espaço para não ficar escondido atrás dele. */
 body.has-dock .main {
   padding-bottom: 120px;
 }
@@ -163,14 +119,11 @@ body.has-dock .main {
     left: 0;
     bottom: 62px;
     grid-template-columns: auto minmax(0, 1fr) auto auto;
-    row-gap: 6px;
+    gap: 6px 8px;
   }
   .dock-seek,
   .dock-time {
     display: none;
-  }
-  .dock {
-    gap: 8px;
   }
   .dock button:not(.dock-title) {
     width: 34px;
@@ -179,17 +132,7 @@ body.has-dock .main {
   .dock-video video {
     width: 64px;
   }
-  .dock.theater {
-    bottom: auto;
-  }
   body.has-dock .main {
     padding-bottom: 180px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dock,
-  .dock * {
-    transition: none;
   }
 }

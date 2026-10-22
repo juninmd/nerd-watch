@@ -15,7 +15,7 @@ import {
   upsertTelegramItems,
 } from '../repo/telegram.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
-import { TelegramChannelNotFoundError, fetchPublicChannelItems, resolvePublicPlayUrl } from '../providers/telegram/public.ts';
+import { TelegramChannelNotFoundError, fetchPublicChannelItems, fetchPublicChannelPage, resolvePublicPlayUrl } from '../providers/telegram/public.ts';
 import { TelegramBotNotConfiguredError, resolveBotFileUrl, telegramBotEnabled } from '../providers/telegram/bot.ts';
 import {
   TelegramPersonalNotConfiguredError,
@@ -25,6 +25,9 @@ import {
   telegramPersonalEnabled,
 } from '../providers/telegram/personal.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
+import { applyPublicInfo, syncChannelInfo } from '../telegram-channel-info.ts';
+import { localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
+import { readPhoto, readThumb } from '../telegram-photos.ts';
 import type { TelegramChannelMode } from '../types.ts';
 
 export const telegramRoutes = new Hono();
@@ -38,6 +41,8 @@ const toChannelResponse = (channel: TelegramChannel, itemCount: number) => ({
   mode: channel.mode,
   title: channel.title.title,
   posterUrl: channel.title.poster_path,
+  description: channel.title.overview,
+  link: `https://t.me/${channel.handle}`,
   itemCount,
 });
 
@@ -81,8 +86,10 @@ telegramRoutes.post('/channels', async (c) => {
 
   if (body.mode === 'public') {
     try {
-      const items = await fetchPublicChannelItems(handle);
-      const channel = upsertTelegramChannel(db, { handle, mode: 'public' });
+      const page = await fetchPublicChannelPage(handle);
+      const items = page.items;
+      let channel = upsertTelegramChannel(db, { handle, mode: 'public' });
+      if (await applyPublicInfo(db, channel, page.info)) channel = getTelegramChannel(db, channel.id) ?? channel;
       const saved = upsertTelegramItems(
         db,
         channel.id,
@@ -94,7 +101,9 @@ telegramRoutes.post('/channels', async (c) => {
           postedAt: i.postedAt,
         })),
       );
-      const oldest = saved[0]?.message_id ?? null;
+      await localizeThumbs(db, channel, saved);
+      await localizeThumbs(db, channel, saved);
+    const oldest = saved[0]?.message_id ?? null;
       if (oldest) updateChannelCursor(db, channel.id, oldest);
       return c.json(toChannelResponse(channel, saved.length), 201);
     } catch (err) {
@@ -105,7 +114,8 @@ telegramRoutes.post('/channels', async (c) => {
 
   if (body.mode === 'bot') {
     if (!telegramBotEnabled()) return c.json({ error: 'TELEGRAM_BOT_TOKEN não configurado — adicione ao .env (crie o bot no @BotFather)' }, 501);
-    const channel = upsertTelegramChannel(db, { handle, mode: 'bot' });
+    let channel = upsertTelegramChannel(db, { handle, mode: 'bot' });
+    if (await syncChannelInfo(db, channel)) channel = getTelegramChannel(db, channel.id) ?? channel;
     return c.json(toChannelResponse(channel, listTelegramItems(db, channel.id).length), 201);
   }
 
@@ -114,7 +124,8 @@ telegramRoutes.post('/channels', async (c) => {
   }
   try {
     const items = await fetchPersonalChannelItems(handle);
-    const channel = upsertTelegramChannel(db, { handle, mode: 'personal' });
+    let channel = upsertTelegramChannel(db, { handle, mode: 'personal' });
+    if (await syncChannelInfo(db, channel)) channel = getTelegramChannel(db, channel.id) ?? channel;
     const saved = upsertTelegramItems(
       db,
       channel.id,
@@ -134,7 +145,8 @@ telegramRoutes.get('/channels/:id', async (c) => {
   const channel = getTelegramChannel(db, c.req.param('id'));
   if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
 
-  const items = listTelegramItems(db, channel.id);
+  // Mais recente primeiro: é a ordem da lista de vídeos e da fila de reprodução (do último ao mais antigo).
+  const items = listTelegramItems(db, channel.id).reverse();
   return c.json({
     ...toChannelResponse(channel, items.length),
     library: getLibraryEntryByTitle(db, channel.id),
@@ -146,6 +158,39 @@ telegramRoutes.get('/channels/:id', async (c) => {
       postedAt: i.posted_at,
     })),
   });
+});
+
+telegramRoutes.get('/channels/:id/photo', async (c) => {
+  const photo = await readPhoto(c.req.param('id'));
+  if (!photo) return c.json({ error: 'foto não encontrada' }, 404);
+  return new Response(new Uint8Array(photo.bytes), { headers: { 'Content-Type': photo.type, 'Cache-Control': 'public, max-age=86400' } });
+});
+
+telegramRoutes.get('/channels/:id/items/:messageId/thumb', async (c) => {
+  const thumb = await readThumb(c.req.param('id'), c.req.param('messageId'));
+  if (!thumb) return c.json({ error: 'miniatura não encontrada' }, 404);
+  return new Response(new Uint8Array(thumb.bytes), { headers: { 'Content-Type': thumb.type, 'Cache-Control': 'public, max-age=86400' } });
+});
+
+const INFO_CONCURRENCY = 3;
+
+/** Completa canais antigos: nome/foto/descrição (só tinham o @) e miniaturas dos vídeos (ainda no CDN ou ausentes). */
+telegramRoutes.post('/channels/refresh-info', async (c) => {
+  const db = await getDb();
+  const needsInfo = (ch: TelegramChannel) => !ch.title.poster_path || ch.title.title.startsWith('@');
+  const pending = listTelegramChannels(db).filter((ch) => needsInfo(ch) || listTelegramItems(db, ch.id).some(needsThumb));
+  let updated = 0;
+  for (let i = 0; i < pending.length; i += INFO_CONCURRENCY) {
+    const results = await Promise.all(
+      pending.slice(i, i + INFO_CONCURRENCY).map(async (ch) => {
+        const infoDone = needsInfo(ch) ? await syncChannelInfo(db, ch) : false;
+        const thumbs = await localizeThumbs(db, ch, listTelegramItems(db, ch.id));
+        return infoDone || thumbs > 0;
+      }),
+    );
+    updated += results.filter(Boolean).length;
+  }
+  return c.json({ checked: pending.length, updated });
 });
 
 const BULK_DELETE_MAX = 500;
@@ -211,6 +256,8 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
               postedAt: i.postedAt,
             })),
           );
+    await syncChannelInfo(db, channel);
+    await localizeThumbs(db, channel, saved);
     return c.json({ itemCount: saved.length });
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);

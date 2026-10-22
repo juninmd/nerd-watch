@@ -3,13 +3,14 @@ import { openCommandPalette } from './components/command-palette.ts';
 import { releaseTorrentPlayers } from './components/torrent-player.ts';
 import { icon, type IconName } from './icons.ts';
 import { onRouteChange, type Route } from './router.ts';
-import { mountPlayerDock } from './components/player-dock.ts';
+import { mountPlayerDock, parkPlayer, stopIfOnPage } from './components/player-dock.ts';
 import { installShortcuts } from './shortcuts.ts';
 import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './state.ts';
 import { renderCalendar } from './views/calendar.ts';
 import { renderConnections } from './views/connections.ts';
 import { renderDiscover } from './views/discover.ts';
 import { renderLibrary } from './views/library.ts';
+import { renderWatch } from './views/watch.ts';
 import { renderPublicDomain } from './views/public-domain.ts';
 import { renderSearch } from './views/search.ts';
 import { renderTelegramChannel } from './views/telegram-channel.ts';
@@ -56,6 +57,7 @@ const connPill = document.getElementById('conn-pill') as HTMLAnchorElement;
 const isActive = (item: { path: string }, activePath: string): boolean => {
   if (item.path === '/') return activePath === '/';
   if (item.path === '/library') return activePath.startsWith('/library') || activePath.startsWith('/title/');
+  if (item.path === '/telegram') return activePath.startsWith('/telegram') || activePath.startsWith('/watch');
   return activePath.startsWith(item.path);
 };
 
@@ -105,12 +107,22 @@ mountPlayerDock(document.getElementById('dock') as HTMLElement);
 
 const TITLE_RE = /^\/title\/(tmdb|archive)\/(movie|tv|_)\/(.+)$/;
 const TELEGRAM_CHANNEL_RE = /^\/telegram\/(.+)$/;
+const WATCH_RE = /^\/watch\/([^/]+)\/(\d+|start)$/;
 
 const dispatch = (route: Route) => {
   // Fecha torrents (e mata os pollers) da tela anterior antes de trocar de view.
   releaseTorrentPlayers();
   const path = ALIASES[route.path] ?? route.path;
+  // O vídeo só sobrevive fora da tela de reprodução se o usuário minimizou; senão encerra (e guarda a posição).
+  parkPlayer();
+  if (!WATCH_RE.test(path)) stopIfOnPage();
+  document.title = 'nerd-watch';
   renderNav(path);
+  const watchMatch = path.match(WATCH_RE);
+  if (watchMatch) {
+    renderWatch(viewEl, watchMatch[1] as string, watchMatch[2] as string);
+    return;
+  }
   const titleMatch = path.match(TITLE_RE);
   if (titleMatch) {
     const [, source, mediaType, id] = titleMatch as unknown as [string, 'tmdb' | 'archive', 'movie' | 'tv' | '_', string];
