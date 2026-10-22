@@ -1,7 +1,7 @@
 import { addTelegramChannel, bulkDeleteTelegramChannels, listTelegramChannels, refreshTelegramChannelInfo, type TelegramChannelDto, type TelegramChannelMode } from '../api.ts';
 import { renderCard } from '../components/card.ts';
 import { addSourceChannel, listSources, type SourceDto } from '../source-api.ts';
-import { isTelegramMode, originLabel } from '../source-modes.ts';
+import { handleLabel, isTelegramMode, originLabel } from '../source-modes.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
 import { openMyChannelsDialog } from '../components/telegram-my-channels.ts';
 import { navigate } from '../router.ts';
@@ -22,7 +22,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
       </p>
     </header>
     <form id="add-form" class="chip-row form-row">
-      <input type="text" id="handle-input" class="input input-pill grow" placeholder="@usuario_do_canal" autocomplete="off" aria-label="@usuário do canal" />
+      <input type="text" id="handle-input" class="input input-pill grow" placeholder="@usuario ou link do t.me (inclui t.me/c/… de canal privado)" autocomplete="off" aria-label="@usuário ou link do canal" />
       <select id="mode-input" class="select input-pill" aria-label="modo do canal">
         <option value="public">canal público (sem login)</option>
         <option value="bot">bot (precisa de TELEGRAM_BOT_TOKEN)</option>
@@ -75,7 +75,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
   const renderChannels = (focusIndex?: number) => {
     syncSelectionBar();
     if (channels.length === 0) {
-      grid.innerHTML = `<div class="empty-state"><div class="big">✈️</div>nenhum canal adicionado ainda<br /><small>adicione um @usuário acima ou use "meus canais"</small></div>`;
+      grid.innerHTML = `<div class="empty-state"><div class="big">✈️</div>nenhum canal adicionado ainda<br /><small>adicione um @usuário ou link acima, ou use "meus canais"</small></div>`;
       return;
     }
     const g = document.createElement('div');
@@ -168,8 +168,8 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
   const sourceByMode = new Map<string, SourceDto>();
   const syncInputHint = () => {
     const add = sourceByMode.get(modeInput.value)?.add;
-    handleInput.placeholder = add?.placeholder ?? '@usuario_do_canal';
-    handleInput.setAttribute('aria-label', add?.label ?? '@usuário do canal');
+    handleInput.placeholder = add?.placeholder ?? '@usuario ou link do t.me (inclui t.me/c/… de canal privado)';
+    handleInput.setAttribute('aria-label', add?.label ?? '@usuário ou link do canal');
     handleInput.title = add?.hint ?? '';
   };
   modeInput.addEventListener('change', syncInputHint);
@@ -201,7 +201,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
     try {
       const channel = isTelegramMode(mode) ? await addTelegramChannel(handle, mode) : await addSourceChannel(mode, handle);
       handleInput.value = '';
-      showToast(`${isTelegramMode(mode) ? `canal @${channel.handle}` : channel.title} adicionado — ${channel.itemCount} vídeo(s)`);
+      showToast(`${isTelegramMode(mode) ? `canal ${handleLabel(channel.handle, channel.title)}` : channel.title} adicionado — ${channel.itemCount} vídeo(s)`);
       load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'falha ao adicionar canal');

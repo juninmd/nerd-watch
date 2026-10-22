@@ -6,7 +6,7 @@ import { icon } from '../icons.ts';
 import { resumePoint } from '../playback-store.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
-import { canRefreshMode, MODE_INFO } from '../source-modes.ts';
+import { canRefreshMode, handleLabel, MODE_INFO } from '../source-modes.ts';
 import { itemTitle, orderItems, watchPath } from '../telegram-items.ts';
 import { formatDuration } from '../time-format.ts';
 
@@ -126,7 +126,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
 
   const deleteBtn = host.querySelector('#tg-delete') as HTMLButtonElement;
   deleteBtn.addEventListener('click', () => {
-    if (!confirm(`Remover @${d.handle} do app? Os vídeos importados e o seu status somem (o canal no Telegram não é afetado).`)) return;
+    if (!confirm(`Remover ${handleLabel(d.handle, d.title)} do app? Os vídeos importados e o seu status somem (o canal no Telegram não é afetado).`)) return;
     deleteBtn.disabled = true;
     deleteTelegramChannel(d.titleId)
       .then(() => {

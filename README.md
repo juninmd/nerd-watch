@@ -124,6 +124,40 @@ indexadores de catálogo comercial, que é justamente o que o app não faz.
 O servidor valida `Host` (bloqueia DNS rebinding) e `Origin` em métodos que mudam estado (bloqueia CSRF),
 no mesmo padrão de segurança usado no manga-lens.
 
+### Telegram: credenciais e login
+
+Canais em modo **público** funcionam sem nada. Para o modo **conta pessoal** (sem o teto de 20 MB por vídeo
+da Bot API) o Telegram exige um `api_id` e um `api_hash`, que **você** gera uma vez:
+
+1. Abra https://my.telegram.org e entre com o telefone da sua conta (o Telegram manda um código para o app).
+2. Clique em **API development tools** e crie um app. O formulário pede título e nome curto; os demais
+   campos são opcionais. Ao salvar, a página mostra o `api_id` (número) e o `api_hash` (32 caracteres).
+3. No app, abra **Conexões → Telegram**, cole os dois valores e clique em **Salvar e continuar**.
+4. Clique em **Entrar com QR code**. No celular: **Ajustes → Dispositivos → Conectar dispositivo** e aponte
+   para o QR. Se a conta tem verificação em duas etapas, digite a senha quando o app pedir.
+5. Pronto: adicione canais em **Canais** e escolha o modo "conta pessoal". **Encerrar sessão**, em Conexões,
+   desloga também no Telegram.
+
+Sem a interface, dá para preencher `TELEGRAM_API_ID` e `TELEGRAM_API_HASH` no `.env` e rodar
+`bun run telegram:login` (o login por terminal grava `TELEGRAM_SESSION` do mesmo jeito).
+
+- Os três valores ficam só no `.env` da sua máquina e nunca voltam para o navegador. Trate o `api_hash` e a
+  `TELEGRAM_SESSION` como senha: a sessão dá acesso completo à conta.
+- **Gere o seu próprio `api_id`/`api_hash` e não reutilize o de outra pessoa.** O par identifica o *seu* app
+  no Telegram; compartilhá-lo expõe um segredo e junta os limites de uso de todo mundo no mesmo app.
+- O app guarda **uma** conta por instância. Para duas pessoas, cada uma roda a própria cópia, com `.env`,
+  `PORT` e `DB_PATH` próprios; um segundo login na mesma instância substitui a sessão anterior.
+- "O Telegram recusou o api_id/api_hash" na tela de login significa valor errado: confira em
+  https://my.telegram.org/apps e use **Corrigir credenciais**.
+- **Canais e grupos privados** (sem @usuário) só funcionam no modo **conta pessoal**, e a conta precisa
+  participar deles. Em **Canais**, cole o link de qualquer mensagem (ex.: `https://t.me/c/2675951342/7`, vale
+  também com tópico) ou o id, ou abra **meus canais**: a lista traz canais e supergrupos, públicos e privados.
+  O app guarda o canal como `c/<id>` e mostra o nome real. Grupos antigos (os que ainda não viraram
+  supergrupo) não têm esse link e ficam de fora. Links de convite (`t.me/+…`) não servem: entre no canal pelo
+  Telegram primeiro.
+- O **modo bot** é opcional: crie um bot com o @BotFather, cole o token em **Conexões → Telegram → Modo bot**
+  e adicione o bot como admin do canal. Ele só vê posts de depois que foi adicionado.
+
 ---
 
 ## ✅ Verificação

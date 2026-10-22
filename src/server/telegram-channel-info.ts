@@ -3,6 +3,7 @@ import { telegramPersonalEnabled } from './config.ts';
 import { fetchPersonalChannelInfo } from './providers/telegram/personal-info.ts';
 import { getSource } from './providers/sources/registry.ts';
 import { fetchPublicChannelPage, type TelegramChannelInfo } from './providers/telegram/public.ts';
+import { isPrivateHandle } from './providers/telegram/ref.ts';
 import { type TelegramChannel, updateTelegramChannelInfo } from './repo/telegram.ts';
 import { downloadPhoto, savePhoto } from './telegram-photos.ts';
 
@@ -37,6 +38,8 @@ export const syncChannelInfo = async (db: Database, channel: TelegramChannel): P
     if (channel.mode === 'personal' && telegramPersonalEnabled()) {
       return await applyChannelInfo(db, channel, await fetchPersonalChannelInfo(channel.handle));
     }
+    // Canal privado não tem prévia pública: sem a conta pessoal não há de onde tirar nome nem foto.
+    if (isPrivateHandle(channel.handle)) return false;
     return await applyPublicInfo(db, channel, (await fetchPublicChannelPage(channel.handle)).info);
   } catch {
     return false;

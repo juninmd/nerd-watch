@@ -1,4 +1,5 @@
 import { Api } from 'teleproto';
+import { resolvePeer } from './peer.ts';
 import { withLiveSession } from './personal.ts';
 import type { TelegramChannelInfo } from './public.ts';
 
@@ -9,7 +10,7 @@ export interface PersonalChannelInfoResult extends Omit<TelegramChannelInfo, 'ph
 /** Nome, descrição e foto do canal/grupo pela conta pessoal (funciona também para canais sem prévia pública). */
 export const fetchPersonalChannelInfo = (handle: string): Promise<PersonalChannelInfoResult> =>
   withLiveSession(async (client) => {
-    const entity = await client.getEntity(handle);
+    const entity = await client.getEntity(await resolvePeer(client, handle));
     const title = entity instanceof Api.Channel || entity instanceof Api.Chat ? entity.title : null;
     let description: string | null = null;
     if (entity instanceof Api.Channel) {
@@ -28,7 +29,7 @@ export const fetchPersonalThumbs = (handle: string, messageIds: string[]): Promi
   withLiveSession(async (client) => {
     const thumbs = new Map<string, Uint8Array>();
     if (messageIds.length === 0) return thumbs;
-    const messages = await client.getMessages(handle, { ids: messageIds.map(Number) });
+    const messages = await client.getMessages(await resolvePeer(client, handle), { ids: messageIds.map(Number) });
     for (const msg of messages) {
       if (!msg || !(msg.media instanceof Api.MessageMediaDocument) || !(msg.media.document instanceof Api.Document)) continue;
       const sizes = (msg.media.document.thumbs ?? []).filter((t): t is Api.PhotoSize => t instanceof Api.PhotoSize);

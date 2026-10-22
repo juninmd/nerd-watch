@@ -2,6 +2,7 @@ import { Api, TelegramClient } from 'teleproto';
 import { StringSession } from 'teleproto/sessions';
 import { config, telegramPersonalEnabled } from '../../config.ts';
 import { updateEnvVar } from '../../env-file.ts';
+import { resolvePeer } from './peer.ts';
 
 /**
  * Conta pessoal via MTProto (`teleproto`, fork mantido do GramJS): único modo estruturalmente capaz de
@@ -101,36 +102,6 @@ const getClient = async (): Promise<TelegramClient> => {
   return clientPromise;
 };
 
-export interface PersonalChannelInfo {
-  title: string;
-  /** Sem @usuário (canal privado) não há como importar: o app endereça canais pelo handle. */
-  handle: string | null;
-  members: number | null;
-}
-
-interface DialogLike {
-  isChannel: boolean;
-  isGroup: boolean;
-  title?: string;
-  entity?: unknown;
-}
-
-/** Só canais de transmissão: grupos e supergrupos (`isGroup`) e conversas diretas ficam de fora. */
-export const channelInfoFromDialog = (d: DialogLike): PersonalChannelInfo | null => {
-  if (!d.isChannel || d.isGroup || !(d.entity instanceof Api.Channel)) return null;
-  const ch = d.entity;
-  const handle = ch.username ?? ch.usernames?.find((u) => u.active)?.username ?? null;
-  return { title: d.title || ch.title, handle, members: ch.participantsCount ?? null };
-};
-
-const MAX_DIALOGS = 500;
-
-/** Canais em que a conta pessoal participa, na ordem do chat list (mais recentes primeiro). */
-export const listPersonalChannels = async (): Promise<PersonalChannelInfo[]> => {
-  const dialogs = await withLiveSession((client) => client.getDialogs({ limit: MAX_DIALOGS }));
-  return dialogs.flatMap((d) => channelInfoFromDialog(d) ?? []);
-};
-
 export interface TelegramPersonalItem {
   messageId: string;
   caption: string | null;
@@ -154,8 +125,8 @@ const toItem = (msg: Api.Message): TelegramPersonalItem | null => {
 
 /** Lista vídeos do canal, do mais recente pro mais antigo. `beforeMessageId` pagina pra trás no histórico. */
 export const fetchPersonalChannelItems = async (handle: string, beforeMessageId?: string): Promise<TelegramPersonalItem[]> => {
-  const messages = await withLiveSession((client) =>
-    client.getMessages(handle, {
+  const messages = await withLiveSession(async (client) =>
+    client.getMessages(await resolvePeer(client, handle), {
       limit: 30,
       filter: new Api.InputMessagesFilterVideo(),
       offsetId: beforeMessageId ? Number(beforeMessageId) : 0,
@@ -282,7 +253,7 @@ export const streamPersonalItem = async (
   range: { start: number; end: number | null },
 ): Promise<PersonalStreamResolution> => {
   const client = await getClient();
-  const messages = await withLiveSession((c) => c.getMessages(handle, { ids: [Number(messageId)] }));
+  const messages = await withLiveSession(async (c) => c.getMessages(await resolvePeer(c, handle), { ids: [Number(messageId)] }));
   const msg = messages[0];
   if (!msg || !(msg.media instanceof Api.MessageMediaDocument) || !(msg.media.document instanceof Api.Document))
     return { ok: false, reason: 'not_found' };

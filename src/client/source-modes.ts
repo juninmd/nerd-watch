@@ -31,5 +31,11 @@ export const isTelegramMode = (mode: TelegramChannelMode): boolean => mode === '
 /** Só o modo bot não tem como reler a origem (recebe mensagens a partir de agora). */
 export const canRefreshMode = (mode: TelegramChannelMode): boolean => mode !== 'bot';
 
+/** Canal ou grupo privado do Telegram: o servidor o endereça como `c/<id>`, porque não há @usuário. */
+export const isPrivateHandle = (handle: string): boolean => /^c\/\d+$/.test(handle);
+
+/** @usuário para canal público; para privado o nome (o `c/123…` não diz nada a quem lê). */
+export const handleLabel = (handle: string, title?: string): string => (isPrivateHandle(handle) ? title || 'canal privado' : `@${handle}`);
+
 /** Texto curto de "de onde vem" para cartões: @canal no Telegram, o nome da fonte nas demais. */
-export const originLabel = (mode: TelegramChannelMode, handle: string): string => (isTelegramMode(mode) ? `@${handle}` : MODE_INFO[mode].badge);
+export const originLabel = (mode: TelegramChannelMode, handle: string): string => (isTelegramMode(mode) ? handleLabel(handle) : MODE_INFO[mode].badge);

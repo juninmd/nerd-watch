@@ -37,6 +37,35 @@ describe('POST /api/telegram/channels', () => {
     expect(res.status).toBe(400);
   });
 
+  test('canal privado (link de mensagem) só no modo conta pessoal: público e bot recebem 400 com o motivo', async () => {
+    for (const mode of ['public', 'bot']) {
+      const res = await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle: 'https://t.me/c/2675951342/7', mode }) });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toContain('conta pessoal');
+    }
+  });
+
+  test('canal privado no modo personal sem sessão: 501 (e nada é gravado)', async () => {
+    const res = await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle: 'https://t.me/c/2675951342/7', mode: 'personal' }) });
+    expect(res.status).toBe(501);
+    const list = await telegramRoutes.request('/channels');
+    expect(((await list.json()) as { channels: unknown[] }).channels).toHaveLength(0);
+  });
+
+  test('link de convite e texto solto continuam inválidos', async () => {
+    for (const handle of ['https://t.me/+AbCdEf123', 'https://t.me/joinchat/AbCdEf', 'dois nomes', 42]) {
+      const res = await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle, mode: 'personal' }) });
+      expect(res.status).toBe(400);
+    }
+  });
+
+  test('aceita o link do canal público no lugar do @usuário', async () => {
+    globalThis.fetch = (async () => htmlResponse(FIXTURE)) as unknown as typeof fetch;
+    const res = await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle: 'https://t.me/s/canalteste', mode: 'public' }) });
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as { handle: string }).handle).toBe('canalteste');
+  });
+
   test('501 para modo personal/bot sem credenciais configuradas no ambiente de teste', async () => {
     for (const mode of ['personal', 'bot']) {
       const res = await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle: 'canalteste', mode }) });
@@ -300,5 +329,24 @@ describe('ordem dos vídeos do canal', () => {
 
     const body = await (await telegramRoutes.request(`/channels/${ch.id}`)).json();
     expect(body.items.map((i: { messageId: string }) => i.messageId)).toEqual(['100', '20', '9', '3']);
+  });
+});
+
+describe('canal privado já importado', () => {
+  test('não tem link de canal e o refresh-info nunca pergunta à prévia pública', async () => {
+    const db = openDb(':memory:');
+    resetDbForTests(db);
+    upsertTelegramChannel(db, { handle: 'c/2675951342', mode: 'personal', displayName: 'Canal privado 2675951342' });
+    const calls: string[] = [];
+    globalThis.fetch = (async (url: URL | string) => {
+      calls.push(String(url));
+      return htmlResponse(FIXTURE);
+    }) as unknown as typeof fetch;
+
+    const list = (await (await telegramRoutes.request('/channels')).json()) as { channels: Array<{ handle: string; link: string | null; title: string }> };
+    expect(list.channels[0]).toMatchObject({ handle: 'c/2675951342', link: null, title: 'Canal privado 2675951342' });
+
+    await telegramRoutes.request('/channels/refresh-info', { method: 'POST' });
+    expect(calls.filter((u) => u.includes('t.me'))).toEqual([]);
   });
 });

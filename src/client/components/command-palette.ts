@@ -2,6 +2,7 @@ import { listLibrary, listTelegramChannels } from '../api.ts';
 import { icon } from '../icons.ts';
 import { filterEntries, type PaletteEntry } from '../palette-search.ts';
 import { navigate } from '../router.ts';
+import { handleLabel } from '../source-modes.ts';
 import { libraryItemPath } from '../title-link.ts';
 import { escapeHtml } from './card.ts';
 
@@ -44,7 +45,7 @@ const loadDataEntries = (): Promise<PaletteEntry[]> => {
         ? ch.value.channels.map((c) => ({
             id: `channel:${c.titleId}`,
             group: 'Canais',
-            title: `@${c.handle}`,
+            title: handleLabel(c.handle, c.title),
             sub: `${c.itemCount} vídeo${c.itemCount === 1 ? '' : 's'}`,
             run: () => navigate(`/telegram/${c.titleId}`),
           }))
