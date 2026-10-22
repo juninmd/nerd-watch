@@ -113,6 +113,20 @@ docker compose down              # para; os dados ficam no volume
 - **Usuário:** o processo roda como usuário `app` (não-root); só `/app/data` é gravável.
 - Requer Docker Engine com Compose v2.24+ (para `env_file` com `required: false`).
 
+### Instalar como app (PWA)
+
+No Chrome/Edge, abra `http://localhost:7799` e use **Instalar nerd-watch** na barra de endereço. O app
+abre em janela própria, sem a barra do navegador.
+
+- O service worker (`/sw.js`) guarda **só a casca** (HTML, JS, CSS e ícones). Ele é registrado apenas em
+  contexto seguro (`localhost`, ou https), que é onde o browser o aceita.
+- Estratégia rede primeiro: com internet, a casca vem sempre atualizada; sem internet, a última versão
+  baixada abre. O cache é `nerd-watch-shell-<versão>`, e versões antigas são apagadas no `activate`.
+- **Nunca** entram no cache: `/api/*`, vídeo/áudio/legenda e qualquer requisição com `Range`. Lista, progresso,
+  catálogo e reprodução continuam exigindo o servidor no ar; o offline vale só para a interface.
+- Ícone: `src/client/pwa/icon.svg` (SVG, sem PNG). Alguns sistemas (iOS, por exemplo) pedem um
+  `apple-touch-icon` em PNG, que ainda não existe aqui.
+
 ### Como roda
 
 ```

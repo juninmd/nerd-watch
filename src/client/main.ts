@@ -16,6 +16,7 @@ import { renderSearch } from './views/search.ts';
 import { renderTelegramChannel } from './views/telegram-channel.ts';
 import { renderTelegramChannels } from './views/telegram-channels.ts';
 import { renderTitleDetail } from './views/media-detail.ts';
+import { registerShellWorker } from './pwa/register.ts';
 
 const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
   { path: '/', label: 'Início', icon: 'home' },
@@ -165,3 +166,5 @@ onRouteChange((route) => {
   dispatch(route);
   window.scrollTo(0, 0);
 });
+
+void registerShellWorker();
