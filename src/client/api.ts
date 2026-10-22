@@ -444,3 +444,7 @@ export const submitTelegramLoginPassword = (password: string): Promise<{ ok: tru
 
 export const cancelTelegramLogin = (): Promise<{ ok: true }> =>
   fetch('/api/telegram/settings/login/cancel', { method: 'POST' }).then((r) => json<{ ok: true }>(r));
+
+/** Encerra a sessão da conta pessoal (no Telegram e localmente). */
+export const logoutTelegram = (): Promise<TelegramSettingsStatus> =>
+  fetch('/api/telegram/settings/login/logout', { method: 'POST' }).then((r) => json<TelegramSettingsStatus>(r));

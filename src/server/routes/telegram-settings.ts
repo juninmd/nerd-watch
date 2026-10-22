@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { config, telegramBotEnabled, telegramPersonalEnabled } from '../config.ts';
 import { updateEnvVar } from '../env-file.ts';
-import { verifyPersonalSession } from '../providers/telegram/personal.ts';
+import { logoutPersonalSession, verifyPersonalSession } from '../providers/telegram/personal.ts';
 import { cancelLogin, getLoginState, startLogin, submitLoginPassword } from '../providers/telegram/qr-login.ts';
 import { startTelegramBotPoller } from '../telegram-bot-poller.ts';
 
@@ -68,4 +68,10 @@ telegramSettingsRoutes.post('/login/password', async (c) => {
 telegramSettingsRoutes.post('/login/cancel', (c) => {
   cancelLogin();
   return c.json({ ok: true });
+});
+
+telegramSettingsRoutes.post('/login/logout', async (c) => {
+  cancelLogin();
+  await logoutPersonalSession();
+  return c.json(statusResponse());
 });

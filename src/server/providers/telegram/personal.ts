@@ -67,6 +67,22 @@ export const verifyPersonalSession = async (): Promise<boolean> => {
   }
 };
 
+/**
+ * Encerra a session de propósito ("Encerrar sessão" em Conexões): pede ao Telegram o auth.logOut — assim ela
+ * também some de Ajustes → Dispositivos — e esquece a session local. O logOut é best-effort: sem rede a
+ * session local é descartada do mesmo jeito. Sem session configurada não faz nada (e não toca no .env).
+ */
+export const logoutPersonalSession = async (): Promise<void> => {
+  if (!telegramPersonalEnabled()) return;
+  try {
+    const client = await getClient();
+    await Promise.race([client.invoke(new Api.auth.LogOut()), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS))]);
+  } catch {
+    // session já morta ou Telegram inalcançável: o descarte local abaixo é o que importa
+  }
+  await dropSession();
+};
+
 const getClient = async (): Promise<TelegramClient> => {
   if (!telegramPersonalEnabled()) throw new TelegramPersonalNotConfiguredError();
   if (!clientPromise) {

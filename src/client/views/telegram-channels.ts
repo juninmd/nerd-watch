@@ -1,7 +1,6 @@
 import { addTelegramChannel, bulkDeleteTelegramChannels, listTelegramChannels, type TelegramChannelDto, type TelegramChannelMode } from '../api.ts';
 import { renderCard } from '../components/card.ts';
 import { openMyChannelsDialog } from '../components/telegram-my-channels.ts';
-import { renderTelegramSettings } from '../components/telegram-settings.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 
@@ -14,8 +13,8 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
       <p class="view-subtitle">
         Adicione um canal pelo @usuário ou importe os canais da sua conta pessoal pra maratonar os vídeos aqui dentro.
         Modo bot exige um token grátis do @BotFather; modo conta pessoal exige um login único por QR code
-        (veja "Configurar credenciais") e não tem limite de tamanho de arquivo. Hoje só os vídeos mais recentes
-        de cada canal são importados.
+        (faça em <a href="#/connections">Conexões</a>) e não tem limite de tamanho de arquivo. Hoje só os vídeos
+        mais recentes de cada canal são importados.
       </p>
     </header>
     <form id="add-form" class="chip-row form-row">
@@ -27,10 +26,6 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
       </select>
       <button class="btn btn-primary btn-sm" type="submit">adicionar</button>
     </form>
-    <details class="settings-details">
-      <summary>⚙️ Configurar credenciais do Telegram</summary>
-      <div id="tg-settings-host"></div>
-    </details>
     <div class="toolbar" id="tg-toolbar">
       <button class="btn btn-ghost btn-sm" id="tg-my-channels" type="button">✈️ meus canais</button>
       <button class="btn btn-ghost btn-sm" id="tg-select-toggle" type="button" aria-pressed="false">☑️ selecionar</button>
@@ -42,8 +37,6 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
     </div>
     <div id="tg-grid"><div class="grid">${Array.from({ length: 6 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div></div>
   `;
-
-  renderTelegramSettings(host.querySelector('#tg-settings-host') as HTMLElement);
 
   const grid = host.querySelector('#tg-grid') as HTMLElement;
   const form = host.querySelector('#add-form') as HTMLFormElement;
