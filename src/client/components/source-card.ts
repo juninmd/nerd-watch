@@ -15,7 +15,7 @@ const chipFor = (s: SourceDto): { ok: boolean; label: string } => {
 const fieldHtml = (cardId: string, f: SourceDto['fields'][number]): string => {
   const id = `${cardId}-${f.key}`;
   const placeholder = f.secret && f.set ? '•••••••• (já definido — deixe vazio para manter)' : f.placeholder;
-  const locked = f.readOnly ? ' readonly aria-describedby="' + id + '-hint"' : '';
+  const locked = f.readOnly ? ` readonly aria-describedby="${id}-hint"` : '';
   const hint = f.readOnly ? `<small class="hint" id="${id}-hint">Só o arquivo .env altera este campo (por segurança).</small>` : '';
   return `<div class="field"><label for="${id}">${escapeHtml(f.label)}</label><input class="input" id="${id}" name="${escapeHtml(f.key)}" autocomplete="off" spellcheck="false"${locked} ${f.secret ? 'type="password"' : ''} value="${escapeHtml(f.value)}" placeholder="${escapeHtml(placeholder)}" />${hint}</div>`;
 };
