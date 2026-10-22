@@ -1,4 +1,6 @@
 import { registerDrive } from '../drive/source.ts';
+import { registerDropbox } from '../dropbox/source.ts';
+import { registerOneDrive } from '../onedrive/source.ts';
 
 /**
  * Um provider novo = um módulo com `registerX()` (descriptor + FileSource) e uma linha aqui.
@@ -10,4 +12,6 @@ export const registerAllSources = (): void => {
   if (registered) return;
   registered = true;
   registerDrive();
+  registerDropbox();
+  registerOneDrive();
 };
