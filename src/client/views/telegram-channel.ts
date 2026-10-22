@@ -1,23 +1,18 @@
-import { deleteTelegramChannel, getTelegramChannel, refreshTelegramChannel, telegramPlayUrl, type TelegramChannelDetailDto, type TelegramItemDto } from '../api.ts';
+import { deleteTelegramChannel, getTelegramChannel, refreshTelegramChannel, type TelegramChannelDetailDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
-import { type DockItem, playInDock, savedPosition } from '../components/player-dock.ts';
+import { savedPosition } from '../components/player-dock.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { icon } from '../icons.ts';
 import { resumePoint } from '../playback-store.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
+import { itemTitle, watchPath } from '../telegram-items.ts';
 import { formatDuration } from '../time-format.ts';
 
 const MODE_LABEL: Record<TelegramChannelDetailDto['mode'], string> = {
   public: 'canal público',
   bot: 'bot',
   personal: 'conta pessoal',
-};
-
-/** Telegram não tem campo de título — usa a 1ª linha da legenda como título e o resto como descrição. */
-const itemTitle = (item: TelegramItemDto, maxLen = 80): string => {
-  const firstLine = item.caption?.split('\n').find((l) => l.trim().length > 0);
-  return firstLine ? firstLine.slice(0, maxLen) : `Vídeo — mensagem ${item.messageId}`;
 };
 
 export const renderTelegramChannel = (host: HTMLElement, titleId: string): void => {
@@ -34,28 +29,22 @@ export const renderTelegramChannel = (host: HTMLElement, titleId: string): void 
   load();
 };
 
-const toDockItem = (d: TelegramChannelDetailDto, item: TelegramItemDto): DockItem => ({
-  key: `${d.titleId}:${item.messageId}`,
-  src: telegramPlayUrl(d.titleId, item.messageId),
-  title: itemTitle(item),
-  subtitle: d.title,
-  poster: item.thumbnailUrl,
-  href: `/telegram/${d.titleId}`,
-});
-
 const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: () => void): void => {
   host.innerHTML = `
     <div class="hero">
       <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(d.posterUrl)}')"` : ''}></div>
       <div class="scrim"></div>
       <div class="hero-content">
+        ${d.posterUrl ? `<div class="hero-avatar" style="background-image:url('${escapeHtml(d.posterUrl)}')" role="img" aria-label="foto de ${escapeHtml(d.title)}"></div>` : ''}
         <div class="hero-info">
           <h1>${escapeHtml(d.title)}</h1>
           <div class="hero-meta">
             <span class="badge badge-archive">telegram · ${MODE_LABEL[d.mode]}</span>
             <span>${d.itemCount} vídeo${d.itemCount === 1 ? '' : 's'}</span>
+            <a class="tg-link" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(d.link.replace('https://', ''))}</a>
           </div>
-          ${d.items.length ? `<div class="hero-actions"><button class="btn btn-primary" id="tg-play-all" type="button">${icon('play', 'sm')} Reproduzir tudo</button></div>` : ''}
+          ${d.description ? `<p class="hero-overview tg-description">${escapeHtml(d.description)}</p>` : ''}
+          ${d.items.length ? `<div class="hero-actions"><button class="btn btn-primary" id="tg-play-all" type="button">${icon('play', 'sm')} Reproduzir tudo</button><a class="btn btn-ghost" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">Abrir no Telegram</a></div>` : ''}
         </div>
       </div>
     </div>
@@ -87,9 +76,11 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   );
 
   const itemsHost = host.querySelector('#tg-items') as HTMLElement;
-  const queue = d.items.map((item) => toDockItem(d, item));
-  // O dock mantém a fila: o fim de um vídeo abre o próximo, e a navegação entre telas não interrompe.
-  const play = (from: number) => playInDock(queue, from);
+  // O vídeo abre na tela de reprodução, com os próximos do canal ao lado; o player fixo só vem de "Minimizar".
+  const play = (from: number) => {
+    const item = d.items[from];
+    if (item) navigate(watchPath(d.titleId, item.messageId));
+  };
 
   host.querySelector('#tg-play-all')?.addEventListener('click', () => play(0));
 
