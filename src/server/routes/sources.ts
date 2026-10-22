@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { config } from '../config.ts';
 import { getDb } from '../db.ts';
+import { encodeEnvValue } from '../env-file.ts';
 import { getDescriptor, getSource, listDescriptors } from '../providers/sources/registry.ts';
 import { sourceErrorBody, syncSourceChannel } from '../providers/sources/service.ts';
 import { readSetting, writeSetting } from '../providers/sources/settings.ts';
@@ -57,6 +58,11 @@ sourcesRoutes.post('/:id/settings', async (c) => {
     if (/[\r\n]/.test(value)) return c.json({ error: `${field.label}: não pode conter quebra de linha` }, 400);
     const problem = value ? field.validate?.(value) : null;
     if (problem) return c.json({ error: `${field.label}: ${problem}` }, 400);
+    try {
+      encodeEnvValue(value);
+    } catch (err) {
+      return c.json({ error: `${field.label}: ${err instanceof Error ? err.message : 'valor inválido'}` }, 400);
+    }
     changes.push({ env: field.env, key, value });
   }
 

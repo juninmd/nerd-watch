@@ -104,6 +104,12 @@ describe('GET /api/sources e POST …/settings', () => {
     expect((await post('/plex/settings', { values: { token: 'a\nINJETADO=1' } })).status).toBe(400);
     expect((await post('/nao-existe/settings', { values: {} })).status).toBe(404);
   });
+
+  test('valor com os três tipos de aspas não cabe no .env: 400 antes de gravar qualquer campo', async () => {
+    const res = await post('/plex/settings', { values: { url: 'http://nas.local', token: 'a\'b"c`d' } });
+    expect(res.status).toBe(400);
+    expect(process.env.TEST_SRC_URL).toBeUndefined();
+  });
 });
 
 describe('POST /api/sources/:mode/channels', () => {
