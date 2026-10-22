@@ -463,8 +463,10 @@ export const bulkDeleteTelegramChannels = (ids: string[]): Promise<{ removed: nu
 
 export interface MyTelegramChannelDto {
   title: string;
-  handle: string | null;
+  /** `usuario` (público) ou `c/<id>` (privado). */
+  handle: string;
   members: number | null;
+  kind: 'channel' | 'group';
   added: boolean;
 }
 

@@ -149,6 +149,12 @@ Sem a interface, dá para preencher `TELEGRAM_API_ID` e `TELEGRAM_API_HASH` no `
   `PORT` e `DB_PATH` próprios; um segundo login na mesma instância substitui a sessão anterior.
 - "O Telegram recusou o api_id/api_hash" na tela de login significa valor errado: confira em
   https://my.telegram.org/apps e use **Corrigir credenciais**.
+- **Canais e grupos privados** (sem @usuário) só funcionam no modo **conta pessoal**, e a conta precisa
+  participar deles. Em **Canais**, cole o link de qualquer mensagem (ex.: `https://t.me/c/2675951342/7`, vale
+  também com tópico) ou o id, ou abra **meus canais**: a lista traz canais e supergrupos, públicos e privados.
+  O app guarda o canal como `c/<id>` e mostra o nome real. Grupos antigos (os que ainda não viraram
+  supergrupo) não têm esse link e ficam de fora. Links de convite (`t.me/+…`) não servem: entre no canal pelo
+  Telegram primeiro.
 - O **modo bot** é opcional: crie um bot com o @BotFather, cole o token em **Conexões → Telegram → Modo bot**
   e adicione o bot como admin do canal. Ele só vê posts de depois que foi adicionado.
 

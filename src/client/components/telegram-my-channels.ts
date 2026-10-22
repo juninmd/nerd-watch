@@ -1,12 +1,13 @@
 import { addTelegramChannel, listMyTelegramChannels, type MyTelegramChannelDto } from '../api.ts';
+import { handleLabel, isPrivateHandle } from '../source-modes.ts';
 import { showToast } from '../state.ts';
 import { escapeHtml } from './card.ts';
 
 const formatMembers = (n: number | null): string => (n === null ? '' : `${n.toLocaleString('pt-BR')} membros`);
 
 /**
- * Diálogo "Meus canais": lista os canais da conta pessoal e importa os marcados (um por vez, com progresso).
- * Canais sem @usuário aparecem desabilitados — o app endereça canais pelo handle.
+ * Diálogo "Meus canais": lista canais e grupos da conta pessoal (inclusive os privados, `c/<id>`) e importa os
+ * marcados (um por vez, com progresso).
  */
 export const openMyChannelsDialog = (onImported: () => void): void => {
   const dialog = document.createElement('dialog');
@@ -42,7 +43,7 @@ export const openMyChannelsDialog = (onImported: () => void): void => {
   const picked = new Set<string>();
   let importing = false;
 
-  const selectable = (ch: MyTelegramChannelDto): ch is MyTelegramChannelDto & { handle: string } => ch.handle !== null && !ch.added;
+  const selectable = (ch: MyTelegramChannelDto): boolean => !ch.added;
 
   const syncFooter = () => {
     const total = channels.filter(selectable).length;
@@ -52,9 +53,9 @@ export const openMyChannelsDialog = (onImported: () => void): void => {
 
   const render = () => {
     const q = filter.value.trim().toLowerCase();
-    const visible = channels.filter((ch) => !q || ch.title.toLowerCase().includes(q) || (ch.handle ?? '').toLowerCase().includes(q));
+    const visible = channels.filter((ch) => !q || ch.title.toLowerCase().includes(q) || ch.handle.toLowerCase().includes(q));
     if (visible.length === 0) {
-      body.innerHTML = `<p class="hint">${channels.length === 0 ? 'você não participa de nenhum canal.' : 'nenhum canal bate com o filtro.'}</p>`;
+      body.innerHTML = `<p class="hint">${channels.length === 0 ? 'você não participa de nenhum canal ou grupo.' : 'nenhum canal bate com o filtro.'}</p>`;
       syncFooter();
       return;
     }
@@ -63,11 +64,11 @@ export const openMyChannelsDialog = (onImported: () => void): void => {
       <label class="check-row check-all"><input type="checkbox" id="mc-all" ${allVisiblePicked && visible.some(selectable) ? 'checked' : ''} /> <span>selecionar todos os visíveis</span></label>
       ${visible
         .map((ch) => {
-          const note = ch.added ? 'já adicionado' : ch.handle === null ? 'canal privado — sem @usuário' : `@${ch.handle}`;
-          const meta = [note, formatMembers(ch.members)].filter(Boolean).join(' · ');
+          const origin = isPrivateHandle(ch.handle) ? 'privado' : `@${ch.handle}`;
+          const meta = [ch.added ? 'já adicionado' : origin, ch.kind === 'group' ? 'grupo' : '', formatMembers(ch.members)].filter(Boolean).join(' · ');
           const on = selectable(ch);
           return `<label class="check-row${on ? '' : ' is-disabled'}">
-            <input type="checkbox" data-handle="${escapeHtml(ch.handle ?? '')}" ${on ? '' : 'disabled'} ${on && picked.has(ch.handle) ? 'checked' : ''} />
+            <input type="checkbox" data-handle="${escapeHtml(ch.handle)}" ${on ? '' : 'disabled'} ${on && picked.has(ch.handle) ? 'checked' : ''} />
             <span class="check-text"><strong>${escapeHtml(ch.title)}</strong><small>${escapeHtml(meta)}</small></span>
           </label>`;
         })
@@ -110,7 +111,8 @@ export const openMyChannelsDialog = (onImported: () => void): void => {
         const ch = channels.find((c) => c.handle === handle);
         if (ch) ch.added = true;
       } catch (err) {
-        showToast(`@${handle}: ${err instanceof Error ? err.message : 'falhou'}`);
+        const title = channels.find((c) => c.handle === handle)?.title;
+        showToast(`${handleLabel(handle, title)}: ${err instanceof Error ? err.message : 'falhou'}`);
       }
     }
     importing = false;

@@ -18,13 +18,10 @@ import {
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { TelegramChannelNotFoundError, fetchPublicChannelItems, fetchPublicChannelPage, resolvePublicPlayUrl } from '../providers/telegram/public.ts';
 import { TelegramBotNotConfiguredError, resolveBotFileUrl, telegramBotEnabled } from '../providers/telegram/bot.ts';
-import {
-  TelegramPersonalNotConfiguredError,
-  fetchPersonalChannelItems,
-  listPersonalChannels,
-  streamPersonalItem,
-  telegramPersonalEnabled,
-} from '../providers/telegram/personal.ts';
+import { PrivateChannelNotFoundError } from '../providers/telegram/peer.ts';
+import { listPersonalChannels } from '../providers/telegram/personal-channels.ts';
+import { TelegramPersonalNotConfiguredError, fetchPersonalChannelItems, streamPersonalItem, telegramPersonalEnabled } from '../providers/telegram/personal.ts';
+import { parseTelegramRef } from '../providers/telegram/ref.ts';
 import { getSource } from '../providers/sources/registry.ts';
 import { playSourceItem, refreshSourceChannel } from '../providers/sources/service.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
@@ -37,7 +34,6 @@ import type { TelegramChannelMode } from '../types.ts';
 export const telegramRoutes = new Hono();
 
 const isMode = (v: unknown): v is TelegramChannelMode => v === 'public' || v === 'personal' || v === 'bot';
-const HANDLE_RE = /^[a-zA-Z][a-zA-Z0-9_]{3,31}$/;
 
 telegramRoutes.get('/channels', async (c) => {
   const db = await getDb();
@@ -71,9 +67,13 @@ telegramRoutes.get('/recent', async (c) => {
 
 telegramRoutes.post('/channels', async (c) => {
   const body = await c.req.json<{ handle?: string; mode?: string }>().catch(() => null);
-  const handle = body?.handle?.trim().replace(/^@/, '');
-  if (!handle || !HANDLE_RE.test(handle)) return c.json({ error: 'handle inválido (use o @usuário do canal, sem espaços)' }, 400);
+  const ref = typeof body?.handle === 'string' ? parseTelegramRef(body.handle) : null;
+  if (!ref) return c.json({ error: 'canal inválido (use o @usuário, um link t.me/… ou o link de uma mensagem do canal privado, t.me/c/…)' }, 400);
   if (!isMode(body?.mode)) return c.json({ error: 'mode deve ser "public", "personal" ou "bot"' }, 400);
+  if (ref.private && body.mode !== 'personal') {
+    return c.json({ error: 'canal ou grupo privado só funciona no modo conta pessoal (a conta precisa participar dele)' }, 400);
+  }
+  const { handle } = ref;
 
   const db = await getDb();
 
@@ -116,7 +116,7 @@ telegramRoutes.post('/channels', async (c) => {
   }
   try {
     const items = await fetchPersonalChannelItems(handle);
-    let channel = upsertTelegramChannel(db, { handle, mode: 'personal' });
+    let channel = upsertTelegramChannel(db, { handle, mode: 'personal', displayName: ref.private ? `Canal privado ${handle.slice(2)}` : undefined });
     if (await syncChannelInfo(db, channel)) channel = getTelegramChannel(db, channel.id) ?? channel;
     const saved = upsertTelegramItems(
       db,
@@ -128,6 +128,7 @@ telegramRoutes.post('/channels', async (c) => {
     return c.json(toChannelResponse(channel, saved.length), 201);
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    if (err instanceof PrivateChannelNotFoundError) return c.json({ error: err.message }, 404);
     return c.json({ error: 'não foi possível ler esse canal com a conta pessoal agora' }, 502);
   }
 });
@@ -204,7 +205,7 @@ telegramRoutes.get('/my-channels', async (c) => {
     const mine = await listPersonalChannels();
     const db = await getDb();
     const added = new Set(listTelegramChannels(db).map((ch) => ch.handle.toLowerCase()));
-    return c.json({ channels: mine.map((ch) => ({ ...ch, added: ch.handle !== null && added.has(ch.handle.toLowerCase()) })) });
+    return c.json({ channels: mine.map((ch) => ({ ...ch, added: added.has(ch.handle.toLowerCase()) })) });
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
     return c.json({ error: 'não foi possível listar os seus canais agora' }, 502);
@@ -258,6 +259,7 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
     return c.json({ itemCount: saved.length });
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    if (err instanceof PrivateChannelNotFoundError) return c.json({ error: err.message }, 404);
     return c.json({ error: 'não foi possível atualizar esse canal agora' }, 502);
   }
 });
@@ -323,6 +325,7 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
     resolved = await streamPersonalItem(channel.handle, messageId, range);
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    if (err instanceof PrivateChannelNotFoundError) return c.json({ error: err.message }, 404);
     return c.json({ error: 'não foi possível acessar o Telegram com a conta pessoal agora' }, 502);
   }
   if (!resolved.ok) {
