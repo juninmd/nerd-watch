@@ -21,6 +21,9 @@ import { sourcesRoutes } from './routes/sources.ts';
 import { playbackRoutes } from './routes/playback.ts';
 import { traktRoutes } from './routes/trakt.ts';
 import { startTorrentSweeper } from './torrent/engine.ts';
+import { getDb } from './db.ts';
+import { buildSinks } from './notify/sinks.ts';
+import { startNotifyScheduler } from './notify/scheduler.ts';
 
 const app = new Hono();
 
@@ -82,9 +85,26 @@ registerAllSources();
 startTelegramBotPoller();
 startTorrentSweeper();
 
+// Avisos de lançamento: só sobe com um destino configurado por env (nunca por request).
+const notifySinks = buildSinks({ webhookUrl: config.notify.webhookUrl, ntfyUrl: config.notify.ntfyUrl });
+if (notifySinks.length > 0) {
+  void getDb()
+    .then((db) =>
+      startNotifyScheduler({
+        db,
+        sinks: notifySinks,
+        leadDays: config.notify.leadDays,
+        now: () => new Date(),
+        log: (line) => console.warn(line),
+      }),
+    )
+    .catch((err: unknown) => console.warn('[notify] agendador não subiu:', err instanceof Error ? err.name : 'erro'));
+}
+
 console.log(
   `nerd-watch em http://127.0.0.1:${config.port} (TMDB ${tmdbEnabled() ? 'ativo' : 'sem chave — só domínio público'}, ` +
     `legendas ${openSubtitlesEnabled() ? 'com chave OpenSubtitles' : 'via addons do Stremio (sem chave)'}, ` +
     `torrent ${torrentEnabled() ? 'ativo' : 'desligado'}, ` +
-    `bot do Telegram ${telegramBotEnabled() ? 'ativo' : 'desligado — sem TELEGRAM_BOT_TOKEN'})`,
+    `bot do Telegram ${telegramBotEnabled() ? 'ativo' : 'desligado — sem TELEGRAM_BOT_TOKEN'}, ` +
+    `avisos de lançamento ${notifySinks.length > 0 ? notifySinks.map((s) => s.name).join(' + ') : 'desligados'})`,
 );

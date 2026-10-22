@@ -23,6 +23,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 🗂️ **Biblioteca** | quero ver / assistindo / assistido / abandonado, nota de 0 a 10, notas livres; abas com contagem, filtro por origem, grade ou lista e ações em lote |
 | 🔖 **Onde você parou** | temporada e episódio atual por série, marcado com um clique |
 | 🗓️ **Agenda** | próximos episódios e estreias de filme dos títulos que você acompanha, com faixa de 7 dias |
+| 🔔 **Avisos de lançamento** | um aviso por lançamento da sua lista, por webhook ou [ntfy](docs/providers/notifications.md) (configurado no `.env`, desligado por padrão); antecedência de 0 a 7 dias |
 | ⌨️ **Ctrl K** | paleta de comandos (títulos, canais, ações) e atalhos `g`+letra (`?` mostra a lista) |
 | 📺 **Episódios** | navegação por temporada, sinopse por episódio com **spoiler oculto por padrão** |
 | 🎬 **Sinopse, nota e trailer** | via TMDB (filme e série) |

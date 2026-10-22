@@ -100,6 +100,12 @@ CREATE TABLE IF NOT EXISTS torrent_sources (
   added_at TEXT NOT NULL
 );
 
+-- Avisos de lançamento já entregues (chave = título + episódio/data). Sem isso, um restart repetiria os avisos.
+CREATE TABLE IF NOT EXISTS notifications_sent (
+  key TEXT PRIMARY KEY,
+  sent_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_episodes_season ON episodes(season_id);
 CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_seasons_title ON seasons(title_id);
