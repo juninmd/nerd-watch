@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled, torrentEnabled } from './config.ts';
 import { startTelegramBotPoller } from './telegram-bot-poller.ts';
+import { createAccess } from './access-guard.ts';
 import { requestAllowed, originAllowed } from './security.ts';
 import { searchRoutes } from './routes/search.ts';
 import { tmdbRoutes } from './routes/tmdb.ts';
@@ -23,11 +24,12 @@ import { traktRoutes } from './routes/trakt.ts';
 import { startTorrentSweeper } from './torrent/engine.ts';
 
 const app = new Hono();
+const remoteAccess = config.access.token !== undefined;
 
 app.use('*', async (c, next) => {
   const host = c.req.header('Host') ?? '';
   const origin = c.req.header('Origin') ?? '';
-  if (!requestAllowed(c.req.method, host, origin)) return c.text('requisição não permitida', 403);
+  if (!requestAllowed(c.req.method, host, origin, remoteAccess)) return c.text('requisição não permitida', 403);
   if (c.req.method === 'OPTIONS' && originAllowed(origin, host)) {
     return new Response(null, {
       status: 204,
@@ -41,6 +43,12 @@ app.use('*', async (c, next) => {
   }
   await next();
 });
+
+if (config.access.token !== undefined) {
+  const access = createAccess({ token: config.access.token, trustProxy: config.access.trustProxy });
+  app.use('*', access.guard);
+  app.route('/', access.routes);
+}
 
 app.get('/api/health', (c) =>
   c.json({
@@ -81,6 +89,9 @@ export default {
 registerAllSources();
 startTelegramBotPoller();
 startTorrentSweeper();
+
+// Sem ACCESS_TOKEN a saída de boot não muda. Com ele, avisa que o HTTPS é responsabilidade do proxy.
+if (remoteAccess) console.log('acesso remoto ativo (ACCESS_TOKEN): exponha só por HTTPS, via proxy reverso (ver README)');
 
 console.log(
   `nerd-watch em http://127.0.0.1:${config.port} (TMDB ${tmdbEnabled() ? 'ativo' : 'sem chave — só domínio público'}, ` +

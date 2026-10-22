@@ -1,3 +1,5 @@
+import { parseAccessToken } from './access.ts';
+
 interface TelegramRuntimeConfig {
   botToken?: string;
   apiId?: number;
@@ -119,6 +121,14 @@ export const config = {
     idleMs: numberEnv(process.env.TORRENT_IDLE_MINUTES, 10, 1) * 60_000,
     /** Quanto esperar a metadata do torrent antes de desistir. */
     metadataTimeoutMs: numberEnv(process.env.TORRENT_METADATA_TIMEOUT_SECONDS, 45, 1) * 1000,
+  },
+  /**
+   * Acesso remoto opcional (ver `access.ts`). Sem `ACCESS_TOKEN` nada muda. `trustProxy` só liga a leitura de
+   * `X-Forwarded-Proto`, para o cookie sair com `Secure` atrás de um proxy HTTPS.
+   */
+  access: {
+    token: parseAccessToken(process.env.ACCESS_TOKEN),
+    trustProxy: process.env.ACCESS_TRUST_PROXY === 'true',
   },
   telegram,
   drive,

@@ -165,6 +165,50 @@ Sem a interface, dá para preencher `TELEGRAM_API_ID` e `TELEGRAM_API_HASH` no `
 
 ---
 
+## 🌐 Expondo fora do localhost
+
+Por padrão o nerd-watch só aceita requisições de `localhost`. Sem configurar nada, nada disso se aplica. Para
+usar de outro aparelho ou de fora da sua rede, ligue o acesso por token:
+
+1. Gere um token com pelo menos 16 caracteres (ex.: `openssl rand -base64 32`) e grave no `.env`:
+   `ACCESS_TOKEN=<valor gerado>`. Um valor curto impede o app de subir, com uma mensagem clara (sem mostrar o valor).
+2. Ponha um **proxy reverso com HTTPS** na frente (Caddy, nginx, Traefik ou um túnel com TLS) apontando para
+   `127.0.0.1:7799`. O servidor continua escutando só em loopback. O proxy precisa repassar o `Host` original
+   (nginx: `proxy_set_header Host $host;`): com outro `Host` o CSRF barra o login.
+3. Só se esse proxy for o único caminho até o app, defina `ACCESS_TRUST_PROXY=true`. Ele faz o cookie sair com
+   `Secure` quando o proxy informa `X-Forwarded-Proto: https`.
+
+> ⚠️ **Use HTTPS, sem exceção.** O token viaja no formulário de login e o cookie de sessão viaja em toda
+> requisição. Em HTTP puro, quem estiver no caminho (Wi-Fi público, roteador comprometido) lê os dois e assume
+> sua sessão. O app não tem TLS próprio: o HTTPS é responsabilidade do proxy.
+
+Como funciona, com `ACCESS_TOKEN` definido:
+
+- Sem credencial, toda rota `/api/*` responde 401. A allowlist pública é só o front estático, `/login`,
+  `/logout` e `GET /api/health` (que devolve apenas flags de ligado/desligado).
+- No navegador, `/login` recebe o token uma vez e grava um cookie `HttpOnly; SameSite=Strict; Path=/`. O valor do
+  cookie é um HMAC derivado do token, não o token. Nada vai para o `localStorage`. O `<video>` e os pedidos de
+  `Range` (streaming) usam o mesmo cookie.
+- Scripts mandam `Authorization: Bearer <token>`.
+- Uma chamada `/api` que volta 401 no navegador leva para `/login`.
+- Tentativas falhas (formulário ou Bearer) são limitadas a 10 a cada 15 minutos, por processo. Durante o bloqueio
+  nenhuma credencial nova entra, mas a sessão já aberta continua valendo.
+- Origin == Host continua barrando CSRF em métodos que mudam estado.
+- `POST /logout` invalida a sessão no servidor. Reiniciar o processo também invalida todas as sessões, e trocar o
+  `ACCESS_TOKEN` derruba quem estiver logado.
+
+Limites conhecidos:
+
+- Ainda não há botão "Sair" na interface; o endpoint existe, mas hoje só dá para chamá-lo por fora.
+- Login OAuth de Conexões (Google Drive e fontes OAuth) usa redirect para `127.0.0.1`: não completa pelo acesso
+  remoto. Conecte essas contas direto no servidor, em localhost, antes de expor.
+- O cookie é `SameSite=Strict`: um link aberto a partir de outro site (e-mail, mensagem) pede o login de novo na
+  primeira vez. É o preço da proteção contra CSRF.
+- O limite de tentativas é global ao processo: alguém que erra a senha de propósito pode travar o login por
+  15 minutos. Reiniciar o processo limpa o bloqueio.
+- Não há TLS, proxy nem navegador reais exercitados nesta versão: os testes cobrem o servidor em memória
+  (`tests/access-*.test.ts`). Valide o seu proxy antes de confiar nele.
+
 ## ✅ Verificação
 
 ```bash
