@@ -230,11 +230,15 @@ export type PersonalStreamResolution =
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'range_not_satisfiable'; totalSize: number };
 
+/** Tamanho de cada pedido ao Telegram. Offsets alinhados a ele nunca atravessam a fronteira de 1 MB. */
+export const DOWNLOAD_REQUEST_SIZE = 512 * 1024;
+
 export type RangePlan = { start: number; end: number; wantedLength: number; alignedOffset: number; leadingTrim: number; downloadLimit: number };
 
 /**
- * upload.GetFile exige offset múltiplo de 4096: alinha pra baixo e descarta o excedente no início
- * (`leadingTrim`). `downloadLimit` é quanto pedir ao Telegram (a partir do offset alinhado); `wantedLength`
+ * upload.GetFile só responde quando o bloco pedido não atravessa uma fronteira de 1 MB (senão devolve 0 bytes,
+ * sem erro): alinha o offset pra baixo ao tamanho do pedido (`DOWNLOAD_REQUEST_SIZE`, divisor de 1 MB) e descarta
+ * o excedente no início (`leadingTrim`). `downloadLimit` é quanto pedir ao Telegram (a partir do offset alinhado); `wantedLength`
  * é quanto efetivamente devolver ao cliente depois de descartar `leadingTrim` — são valores DIFERENTES,
  * e passar `downloadLimit` onde `trimChunkStream` espera `wantedLength` faz a resposta vazar até
  * `leadingTrim` bytes a mais do que o `Content-Length` declarado (corrompe o corpo em qualquer seek
@@ -248,7 +252,7 @@ export const planRange = (range: { start: number; end: number | null }, totalSiz
   // guarda, wantedLength dava negativo e a resposta saía 206 com Content-Length negativo/Content-Range inválido.
   if (end < start) return null;
   const wantedLength = end - start + 1;
-  const alignedOffset = Math.floor(start / 4096) * 4096;
+  const alignedOffset = Math.floor(start / DOWNLOAD_REQUEST_SIZE) * DOWNLOAD_REQUEST_SIZE;
   const leadingTrim = start - alignedOffset;
   return { start, end, wantedLength, alignedOffset, leadingTrim, downloadLimit: leadingTrim + wantedLength };
 };
@@ -288,7 +292,7 @@ export const streamPersonalItem = async (
   const plan = planRange(range, totalSize);
   if (!plan) return { ok: false, reason: 'range_not_satisfiable', totalSize };
 
-  const generator = client.iterDownload(msg, { offset: plan.alignedOffset, limit: plan.downloadLimit });
+  const generator = client.iterDownload(msg, { offset: plan.alignedOffset, limit: plan.downloadLimit, requestSize: DOWNLOAD_REQUEST_SIZE });
 
   return { ok: true, data: buildPersonalStream(generator, plan, doc.mimeType || 'video/mp4', totalSize) };
 };
