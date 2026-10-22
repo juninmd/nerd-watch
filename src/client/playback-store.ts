@@ -7,6 +7,8 @@ export interface ResumeMeta {
   poster: string | null;
   channelId: string;
   messageId: string;
+  /** Para onde "continuar" leva; registros antigos não têm e caem na tela do canal. */
+  route?: string;
 }
 
 export interface StoredPosition {

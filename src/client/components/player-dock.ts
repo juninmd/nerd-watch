@@ -14,6 +14,8 @@ export interface DockItem {
   channelId: string;
   messageId: string;
   durationSeconds: number | null;
+  /** Rota da tela onde esse vídeo toca em tamanho grande (para onde "expandir" volta). */
+  route: string;
 }
 
 /**
@@ -47,7 +49,7 @@ const store = createPlaybackStore(storage);
 export const savedPosition = (key: string): StoredPosition | undefined => store.get(key);
 export const continueWatching = (limit?: number) => store.inProgress(limit);
 
-const metaOf = (item: DockItem): ResumeMeta => ({ title: item.title, subtitle: item.subtitle, poster: item.poster, channelId: item.channelId, messageId: item.messageId });
+const metaOf = (item: DockItem): ResumeMeta => ({ title: item.title, subtitle: item.subtitle, poster: item.poster, channelId: item.channelId, messageId: item.messageId, route: item.route });
 /** Ordem em que o canal é listado e enfileirado: do mais recente ao mais antigo (padrão) ou o contrário. */
 export type QueueOrder = 'newest' | 'oldest';
 const ORDER_KEY = 'nw.player.order';
@@ -275,7 +277,7 @@ export const mountPlayerDock = (host: HTMLElement): void => {
     } else if (act === 'prev') step(-1);
     else if (act === 'next') step(1);
     else if (act === 'close') stopPlayer();
-    else if ((act === 'expand' || target.closest('.dock-title')) && item) navigate(`/watch/${item.channelId}/${item.messageId}`);
+    else if ((act === 'expand' || target.closest('.dock-title')) && item) navigate(item.route);
   });
   q<HTMLInputElement>('.dock-seek').addEventListener('input', (e) => {
     const d = el.duration;

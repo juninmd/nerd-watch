@@ -98,6 +98,8 @@ export interface ArchiveDetailDto {
   subtitleUrl: string | null;
   /** `false` quando o item só tem .ogv/.avi/.mkv — aí não faz sentido oferecer o player P2P. */
   hasPlayableVideo?: boolean;
+  /** Arquivo MP4/WebM para o player do app; nulo quando só o embed da Archive serve. */
+  directVideoUrl?: string | null;
   library: LibraryEntryDto | null;
 }
 

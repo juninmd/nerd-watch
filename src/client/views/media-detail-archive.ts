@@ -1,13 +1,18 @@
 import { getArchiveTitle } from '../api.ts';
+import { renderInlinePlayer } from '../components/inline-player.ts';
+import { parkPlayer, stopIfOnPage } from '../components/player-dock.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderSubtitlesPanel } from '../components/subtitles.ts';
 import { renderTorrentPanel } from '../components/torrent-player.ts';
 import { escapeHtml } from '../components/card.ts';
+import { titlePath } from '../title-link.ts';
 
 export const renderArchiveDetail = (host: HTMLElement, identifier: string): void => {
   host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
 
   const load = () => {
+    // Re-renderizar a página (ex.: mudar o status) destruiria o palco com o vídeo dentro; estaciona antes e o player retoma o mesmo vídeo.
+    parkPlayer();
     getArchiveTitle(identifier)
       .then((d) => {
         host.innerHTML = `
@@ -30,11 +35,10 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
           <div class="detail-grid">
             <div>
               <div class="section-head"><h2>▶️ Assistir agora, dentro do app</h2></div>
-              <div class="player-frame">
-                <iframe src="${escapeHtml(d.embedUrl)}" allowfullscreen title="${escapeHtml(d.title)}"></iframe>
-              </div>
-              <p class="view-subtitle" style="margin-top:-8px">
+              <div id="main-player"></div>
+              <p class="view-subtitle" style="margin-top:8px">
                 Reprodução direta do Internet Archive — este título está em domínio público, sem custo e 100% legal.
+                <span id="player-switch"></span>
               </p>
             </div>
             <div>
@@ -77,6 +81,50 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
         // (diferente de interpolar em `style="...url('${...}')"`, onde HTML é parseado antes do CSS).
         (host.querySelector('.backdrop') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
         (host.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
+
+        // Player do app por padrão quando o item tem MP4/WebM; sem arquivo compatível (ou se o navegador não tocar), o embed da Archive.
+        const playerHost = host.querySelector('#main-player') as HTMLElement;
+        const switchHost = host.querySelector('#player-switch') as HTMLElement;
+        const showEmbed = (reason: string) => {
+          playerHost.innerHTML = `<div class="player-frame"><iframe src="${escapeHtml(d.embedUrl)}" allowfullscreen title="${escapeHtml(d.title)}"></iframe></div>`;
+          switchHost.textContent = reason;
+          // Escolha do usuário (sem erro): dá para voltar ao player do app.
+          const src = d.directVideoUrl;
+          if (src && !reason) {
+            switchHost.innerHTML = '<button class="link-btn" id="use-app" type="button">Usar o player do app</button>';
+            (switchHost.querySelector('#use-app') as HTMLButtonElement).addEventListener('click', () => showAppPlayer(src));
+          }
+        };
+        const showAppPlayer = (src: string) => {
+          playerHost.innerHTML = '';
+          playerHost.appendChild(
+            renderInlinePlayer({
+              item: {
+                key: `archive:${d.identifier}`,
+                src,
+                title: d.title,
+                subtitle: 'Internet Archive',
+                poster: d.posterUrl,
+                channelId: 'archive',
+                messageId: d.identifier,
+                durationSeconds: null,
+                route: titlePath('archive', '_', d.identifier),
+              },
+              minimizable: true,
+              onUnsupported: () => {
+                stopIfOnPage();
+                showEmbed('O seu navegador não tocou este arquivo no player do app; usando o player da Archive.org.');
+              },
+            }),
+          );
+          switchHost.innerHTML = '<button class="link-btn" id="use-embed" type="button">Usar o player do Archive.org</button>';
+          (switchHost.querySelector('#use-embed') as HTMLButtonElement).addEventListener('click', () => {
+            stopIfOnPage();
+            showEmbed('');
+          });
+        };
+        if (d.directVideoUrl) showAppPlayer(d.directVideoUrl);
+        else showEmbed('');
 
         const statusHost = host.querySelector('#status-actions') as HTMLElement;
         statusHost.appendChild(

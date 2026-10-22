@@ -3,7 +3,7 @@
  *
  * O `@types/webtorrent` do DefinitelyTyped está desatualizado para a versão instalada, e um tipo
  * errado é pior que nenhum: ele compila um erro de runtime sem reclamar. Duas armadilhas concretas
- * que esta declaração existe para não repetir (mesma abordagem do `src/client/plyr.d.ts`):
+ * que esta declaração existe para não repetir (mesma abordagem de declarar o módulo à mão):
  *
  * - `path` NÃO é lido das options do construtor do client, só das options do `add` (por torrent).
  *   Declarar em `Options` deixava o `tsc` abençoar o engano de configurar o diretório no client.

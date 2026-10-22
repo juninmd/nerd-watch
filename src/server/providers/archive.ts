@@ -38,12 +38,31 @@ export interface ArchiveMovie {
    * afirmar nada, então a interface não esconde o player P2P.
    */
   hasPlayableVideo?: boolean;
+  /** Arquivo que o navegador toca direto (MP4/WebM), para o player do app. Nulo quando não há (aí cai no embed da Archive). */
+  directVideoUrl?: string | null;
 }
 
 export interface ArchiveFile {
   name: string;
   format?: string;
+  /** A API devolve o tamanho em bytes como texto. */
+  size?: string;
 }
+
+/**
+ * Melhor arquivo para tocar direto num <video>: prefere o derivado H.264 (leve e compatível), depois qualquer MP4/M4V,
+ * depois WebM; em empate, o primeiro pelo nome (itens em partes, "1of3", "2of3"…, começam pela parte 1). Null quando o item só tem formatos que o navegador não toca.
+ */
+export const pickDirectVideoUrl = (identifier: string, files: ArchiveFile[] | undefined): string | null => {
+  const rank = (f: ArchiveFile): number => {
+    if ((f.format ?? '').toLowerCase().includes('h.264')) return 0;
+    return /\.(mp4|m4v)$/i.test(f.name) ? 1 : 2;
+  };
+  const best = (files ?? [])
+    .filter((f) => isPlayableVideo(f.name))
+    .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { numeric: true }))[0];
+  return best ? `https://archive.org/download/${encodeURIComponent(identifier)}/${best.name.split('/').map(encodeURIComponent).join('/')}` : null;
+};
 
 const SUBTITLE_FORMATS = new Set(['subrip', 'webvtt']);
 
@@ -58,7 +77,7 @@ const toOverview = (description: ArchiveDoc['description']): string => {
   return text.replace(/<[^>]+>/g, '').trim();
 };
 
-const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null, hasPlayableVideo?: boolean): ArchiveMovie => {
+const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null, hasPlayableVideo?: boolean, directVideoUrl: string | null = null): ArchiveMovie => {
   const id = encodeURIComponent(doc.identifier);
   return {
     identifier: doc.identifier,
@@ -71,6 +90,7 @@ const toMovie = (doc: ArchiveDoc, subtitleUrl: string | null = null, hasPlayable
     detailsUrl: `https://archive.org/details/${id}`,
     subtitleUrl,
     hasPlayableVideo,
+    directVideoUrl,
   };
 };
 
@@ -106,5 +126,5 @@ export const archiveMovieDetails = withCache(24 * 60 * MINUTES, async (identifie
   const data = (await res.json()) as { metadata?: ArchiveDoc; files?: ArchiveFile[] };
   if (!data.metadata) return null;
   const hasPlayableVideo = (data.files ?? []).some((file) => isPlayableVideo(file.name));
-  return toMovie({ ...data.metadata, identifier }, pickSubtitleUrl(identifier, data.files), hasPlayableVideo);
+  return toMovie({ ...data.metadata, identifier }, pickSubtitleUrl(identifier, data.files), hasPlayableVideo, pickDirectVideoUrl(identifier, data.files));
 });

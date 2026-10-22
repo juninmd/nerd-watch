@@ -24,7 +24,7 @@ export const continueWatchingCards = (): HTMLElement[] =>
         <span class="resume-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><i style="width:${percent}%"></i></span>
       </div>
       <div class="resume-text"><b>${escapeHtml(meta.title)}</b><small>${escapeHtml(meta.subtitle)} · ${left ? `faltam ${left}` : `parou em ${formatDuration(resumeAt)}`}</small></div>`;
-    const go = () => navigate(watchPath(meta.channelId, meta.messageId));
+    const go = () => navigate(meta.route ?? watchPath(meta.channelId, meta.messageId));
     card.addEventListener('click', go);
     card.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') go();

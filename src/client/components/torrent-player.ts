@@ -1,9 +1,9 @@
-import Plyr from 'plyr';
 import { closeTorrent, getTorrentStatus, health, openTorrent, type TorrentOpenResponse } from '../api.ts';
-import { showToast } from '../state.ts';
+import { titlePath } from '../title-link.ts';
 import { escapeHtml } from './card.ts';
+import { renderInlinePlayer } from './inline-player.ts';
+import { getNowPlaying, stopPlayer } from './player-dock.ts';
 
-const PLYR_CONTROLS = ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'settings', 'fullscreen'];
 const POLL_MS = 2000;
 
 const formatBytes = (bytes: number): string => {
@@ -39,23 +39,24 @@ export interface TorrentPanelOptions {
 interface PanelState {
   infoHash: string | null;
   timer: ReturnType<typeof setInterval> | null;
-  player: Plyr | null;
+  /** Chave do vídeo que este painel colocou no player global (para pará-lo sem derrubar outro vídeo). */
+  playerKey: string | null;
   /** Só a troca de rota marca isto. "Parar" NÃO marca: o painel continua utilizável. */
   disposed: boolean;
 }
 
 export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   const wrap = document.createElement('div');
-  const state: PanelState = { infoHash: null, timer: null, player: null, disposed: false };
+  const state: PanelState = { infoHash: null, timer: null, playerKey: null, disposed: false };
 
-  /** Para a reprodução (poller + Plyr). NÃO fecha o torrent: trocar de derivado o reaproveita. */
+  /** Para a reprodução (poller + player). NÃO fecha o torrent: trocar de derivado o reaproveita. */
   const stopPlayback = () => {
     if (state.timer) {
       clearInterval(state.timer);
       state.timer = null;
     }
-    state.player?.destroy();
-    state.player = null;
+    if (state.playerKey && getNowPlaying()?.item.key === state.playerKey) stopPlayer();
+    state.playerKey = null;
   };
 
   /** Para tudo e fecha o torrent no servidor: para de baixar/semear e libera o disco. */
@@ -102,20 +103,32 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   const playing = (result: TorrentOpenResponse) => {
     wrap.innerHTML = `
       ${chooseFile(result)}
-      <div class="player-frame" style="margin-bottom:8px">
-        <video id="torrent-video" src="${escapeHtml(result.streamUrl)}" controls playsinline autoplay
-          ${opts.posterUrl ? `poster="${escapeHtml(opts.posterUrl)}"` : ''}></video>
-      </div>
+      <div id="torrent-player" style="margin-bottom:8px"></div>
       <div class="torrent-stats" id="torrent-stats" style="margin-bottom:8px">conectando aos peers...</div>
       <button class="btn btn-ghost btn-sm" id="torrent-stop" type="button" style="width:100%;justify-content:center">
         ⏹ parar e liberar o torrent
       </button>
     `;
 
-    const video = wrap.querySelector('#torrent-video') as HTMLVideoElement;
-    state.player = new Plyr(video, { controls: PLYR_CONTROLS });
-
-    video.addEventListener('error', () => showToast('não foi possível reproduzir esse arquivo do torrent'));
+    // O mesmo player dos canais, sem "Minimizar": o torrent é fechado ao sair da tela, então o vídeo não sobrevive a ela.
+    const key = `torrent:${result.infoHash}:${result.selected.index}`;
+    state.playerKey = key;
+    (wrap.querySelector('#torrent-player') as HTMLElement).appendChild(
+      renderInlinePlayer({
+        item: {
+          key,
+          src: result.streamUrl,
+          title: opts.title,
+          subtitle: 'Internet Archive · P2P',
+          poster: opts.posterUrl ?? null,
+          channelId: 'archive',
+          messageId: opts.identifier,
+          durationSeconds: null,
+          route: titlePath('archive', '_', opts.identifier),
+        },
+        minimizable: false,
+      }),
+    );
 
     (wrap.querySelector('#torrent-stop') as HTMLButtonElement).addEventListener('click', () => {
       releaseTorrent();
