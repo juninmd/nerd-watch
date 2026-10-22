@@ -12,8 +12,34 @@ const sourceOf = (channel: Pick<TelegramChannel, 'mode'>) => {
 };
 
 /** Lê a origem, grava os vídeos (removendo os que sumiram) e traz as miniaturas para o disco. Devolve quantos itens ficaram. */
+/**
+ * Dois arquivos com o mesmo `messageId` (data de segundo + hash de 3 dígitos) cairiam no mesmo registro e o
+ * segundo sobrescreveria o primeiro sem erro. Quem não colide mantém o ID; na colisão o menor `fileRef` fica
+ * com o ID natural e os demais sobem até o próximo livre.
+ */
+export const uniqueMessageIds = <T extends { messageId: string; fileRef?: string | null }>(items: T[]): T[] => {
+  const natural = new Map<string, number>();
+  for (const item of items) natural.set(item.messageId, (natural.get(item.messageId) ?? 0) + 1);
+  const taken = new Set(natural.keys());
+  const assigned = new Map<T, string>();
+  const colliding = items.filter((item) => (natural.get(item.messageId) ?? 0) > 1).sort((a, b) => (a.fileRef ?? '').localeCompare(b.fileRef ?? ''));
+  const keeps = new Set<string>();
+  for (const item of colliding) {
+    if (!keeps.has(item.messageId)) {
+      keeps.add(item.messageId);
+      continue;
+    }
+    let id = BigInt(item.messageId);
+    do id += 1n;
+    while (taken.has(String(id)));
+    taken.add(String(id));
+    assigned.set(item, String(id));
+  }
+  return items.map((item) => (assigned.has(item) ? { ...item, messageId: assigned.get(item) as string } : item));
+};
+
 export const syncSourceChannel = async (db: Database, channel: TelegramChannel): Promise<number> => {
-  const items = await sourceOf(channel).list(channel.handle);
+  const items = uniqueMessageIds(await sourceOf(channel).list(channel.handle));
   upsertTelegramItems(db, channel.id, items);
   pruneTelegramItems(
     db,

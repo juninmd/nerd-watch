@@ -28,7 +28,7 @@ app.use('*', async (c, next) => {
   const host = c.req.header('Host') ?? '';
   const origin = c.req.header('Origin') ?? '';
   if (!requestAllowed(c.req.method, host, origin)) return c.text('requisição não permitida', 403);
-  if (c.req.method === 'OPTIONS' && originAllowed(origin)) {
+  if (c.req.method === 'OPTIONS' && originAllowed(origin, host)) {
     return new Response(null, {
       status: 204,
       headers: {

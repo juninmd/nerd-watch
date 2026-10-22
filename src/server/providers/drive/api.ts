@@ -1,5 +1,6 @@
 import { config } from '../../config.ts';
 import type { NewTelegramItem } from '../../repo/telegram.ts';
+import { fetchHeaders } from '../sources/http.ts';
 import { DriveReauthRequiredError, driveFetch, getAccessToken, invalidateAccessToken } from './oauth.ts';
 
 export class DriveFolderNotFoundError extends Error {
@@ -146,10 +147,7 @@ export const downloadDriveThumb = async (thumbnailLink: string): Promise<Uint8Ar
 export const streamDriveFile = async (fileId: string, range: string | undefined): Promise<Response> => {
   const url = api(`/files/${fileId}`, { alt: 'media' });
   const call = async () =>
-    driveFetch(url, {
-      headers: { Authorization: `Bearer ${await getAccessToken()}`, ...(range ? { Range: range } : {}) },
-      signal: AbortSignal.timeout(30_000),
-    });
+    fetchHeaders(driveFetch, url, { headers: { Authorization: `Bearer ${await getAccessToken()}`, ...(range ? { Range: range } : {}) } }, 30_000);
   let upstream = await call();
   if (upstream.status === 401) {
     invalidateAccessToken();

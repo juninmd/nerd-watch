@@ -319,6 +319,8 @@ const openFresh = async (torrentId: string | Buffer, identifier: string, require
     strategy: 'sequential',
     path: config.torrent.downloadPath,
     destroyStoreOnDestroy: true,
+    // Pasta própria por torrent: destruir apaga arquivo por nome, e o nome vem de terceiros (ou já existe na pasta do usuário).
+    addUID: true,
   });
 
   try {

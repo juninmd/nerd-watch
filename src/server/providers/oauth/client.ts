@@ -76,6 +76,8 @@ export const createOAuthClient = (spec: OAuthSpec): OAuthClient => {
   let cache: { token: string; expiresAt: number } | null = null;
   let refreshing: Promise<string> | null = null;
   let flowState: FlowState = { status: 'idle' };
+  /** Sobe a cada desconexão: um refresh que já estava em voo não pode reconectar depois dela. */
+  let generation = 0;
   const pending = new Map<string, { verifier: string; redirectUri: string; expiresAt: number }>();
 
   const clientId = () => readSetting(spec.clientIdEnv);
@@ -102,7 +104,13 @@ export const createOAuthClient = (spec: OAuthSpec): OAuthClient => {
   const refresh = async (now: number): Promise<string> => {
     const stored = refreshToken();
     if (!configured() || !stored) throw new OAuthNotConnectedError(spec.name);
+    const startedIn = generation;
     const result = await postToken({ refresh_token: stored, grant_type: 'refresh_token' });
+    if (startedIn !== generation) {
+      // Desconectado durante o pedido: o serviço pode ter girado o token, e o novo ficaria válido sem dono.
+      if (result.refresh_token && spec.revoke) await spec.revoke(result.refresh_token, fetchImpl).catch(() => undefined);
+      throw new OAuthNotConnectedError(spec.name);
+    }
     if (result.error === 'invalid_grant') {
       cache = null;
       throw new OAuthReauthRequiredError(spec.name);
@@ -194,6 +202,7 @@ export const createOAuthClient = (spec: OAuthSpec): OAuthClient => {
     /** Revoga no serviço (melhor esforço) e esquece o token localmente. */
     async disconnect() {
       const token = refreshToken();
+      generation++;
       writeSetting(spec.refreshTokenEnv, '');
       cache = null;
       pending.clear();

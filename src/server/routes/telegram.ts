@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getDb } from '../db.ts';
+import { fetchHeaders } from '../providers/sources/http.ts';
 import { originAllowed } from '../security.ts';
 import {
   countTelegramItemsByChannel,
@@ -266,7 +267,7 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
   // mas essa rota tem efeito colateral real e caro (proxy de download via MTProto/Bot API) — sem esse check
   // qualquer aba de terceiro aberta no mesmo navegador podia forçar downloads repetidos contra o Telegram
   // do usuário só com fetch(), sem precisar ler a resposta (CORS não bloqueia isso, é abuso por efeito colateral).
-  if (!originAllowed(c.req.header('Origin') ?? '')) return c.json({ error: 'origem não permitida' }, 403);
+  if (!originAllowed(c.req.header('Origin') ?? '', c.req.header('Host') ?? '')) return c.json({ error: 'origem não permitida' }, 403);
 
   const db = await getDb();
   const channel = getTelegramChannel(db, c.req.param('id'));
@@ -301,7 +302,7 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
 
     // Proxy: a URL da Bot API carrega o token do bot no path — nunca expor isso direto pro cliente.
     const range = c.req.header('Range');
-    const upstream = await fetch(resolved.url, { headers: range ? { Range: range } : {}, signal: AbortSignal.timeout(30000) });
+    const upstream = await fetchHeaders(fetch, resolved.url, { headers: range ? { Range: range } : {} }, 30_000);
     if (!upstream.ok && upstream.status !== 206) return c.json({ error: `Telegram respondeu ${upstream.status}` }, 502);
 
     const headers = new Headers();

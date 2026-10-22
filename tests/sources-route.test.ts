@@ -1,7 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { openDb, resetDbForTests } from '../src/server/db.ts';
 import { registerDescriptor, registerSource, restoreRegistry, snapshotRegistry } from '../src/server/providers/sources/registry.ts';
-import { relayMedia, syntheticMessageId, titleFromFilename } from '../src/server/providers/sources/service.ts';
+import { relayMedia, syncSourceChannel, syntheticMessageId, titleFromFilename, uniqueMessageIds } from '../src/server/providers/sources/service.ts';
+import { upsertTelegramChannel } from '../src/server/repo/telegram.ts';
 import { type FileSource, SourceError } from '../src/server/providers/sources/types.ts';
 import { sourcesRoutes } from '../src/server/routes/sources.ts';
 import { telegramRoutes } from '../src/server/routes/telegram.ts';
@@ -104,6 +105,18 @@ describe('GET /api/sources e POST …/settings', () => {
     expect((await post('/plex/settings', { values: { token: 'a\nINJETADO=1' } })).status).toBe(400);
     expect((await post('/nao-existe/settings', { values: {} })).status).toBe(404);
   });
+
+  test('valor gigante é recusado: o .env e o ambiente do processo não recebem megabytes', async () => {
+    const res = await post('/plex/settings', { values: { token: 'x'.repeat(5000) } });
+    expect(res.status).toBe(400);
+    expect(process.env.TEST_SRC_TOKEN).toBeUndefined();
+  });
+
+  test('valor com os três tipos de aspas não cabe no .env: 400 antes de gravar qualquer campo', async () => {
+    const res = await post('/plex/settings', { values: { url: 'http://nas.local', token: 'a\'b"c`d' } });
+    expect(res.status).toBe(400);
+    expect(process.env.TEST_SRC_URL).toBeUndefined();
+  });
 });
 
 describe('POST /api/sources/:mode/channels', () => {
@@ -158,6 +171,55 @@ describe('utilitários', () => {
     expect(syntheticMessageId('2026-10-19T12:00:00.000Z', 'arquivo-b')).not.toBe(a);
     expect(BigInt(syntheticMessageId('2026-10-26T12:00:00.000Z', 'arquivo-a'))).toBeGreaterThan(BigInt(a));
     expect(syntheticMessageId(null, 'x')).toMatch(/^\d+$/);
+  });
+
+  test('uniqueMessageIds: colisão de ID não derruba um vídeo; quem não colide mantém o ID', () => {
+    const items = [
+      { messageId: '5', fileRef: 'b' },
+      { messageId: '5', fileRef: 'a' },
+      { messageId: '6', fileRef: 'c' },
+    ];
+    const out = uniqueMessageIds(items);
+    expect(out.map((i) => [i.fileRef, i.messageId])).toEqual([
+      ['b', '7'],
+      ['a', '5'],
+      ['c', '6'],
+    ]);
+    expect(uniqueMessageIds(items).map((i) => i.messageId)).toEqual(out.map((i) => i.messageId));
+    expect(new Set(out.map((i) => i.messageId)).size).toBe(3);
+  });
+
+  test('sync de arquivos do mesmo segundo com hash3 igual guarda todos os vídeos', async () => {
+    const date = '2026-10-19T12:00:00.000Z';
+    const seen = new Map<string, string>();
+    let pair: [string, string] | null = null;
+    for (let i = 0; i < 5000 && !pair; i++) {
+      const key = `arquivo-${i}`;
+      const id = syntheticMessageId(date, key);
+      const other = seen.get(id);
+      if (other) pair = [other, key];
+      else seen.set(id, key);
+    }
+    expect(pair).not.toBeNull();
+    const [first, second] = pair as [string, string];
+    expect(syntheticMessageId(date, first)).toBe(syntheticMessageId(date, second));
+
+    const db = openDb(':memory:');
+    const channel = upsertTelegramChannel(db, { handle: 'plex:colisao', mode: 'plex', displayName: 'Colisão' });
+    // A fonte devolve o mesmo ID para os dois arquivos, como Dropbox/OneDrive fazem com datas de segundo.
+    const same = syntheticMessageId(date, first);
+    registerSource({
+      ...fakeSource,
+      list: async () => [
+        { messageId: same, caption: 'um', postedAt: date, fileRef: first },
+        { messageId: same, caption: 'dois', postedAt: date, fileRef: second },
+      ],
+    });
+    try {
+      expect(await syncSourceChannel(db, channel)).toBe(2);
+    } finally {
+      registerSource(fakeSource);
+    }
   });
 
   test('titleFromFilename tira só a extensão', () => {

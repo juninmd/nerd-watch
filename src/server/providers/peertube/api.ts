@@ -14,6 +14,7 @@ const JSON_MAX_BYTES = 2 * 1024 * 1024;
 const THUMB_MAX_BYTES = 2 * 1024 * 1024;
 const PAGE_SIZE = 100;
 const MAX_ITEMS = 500;
+const MAX_PAGES = 10;
 const MAX_FILE_HEIGHT = 1080;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const THUMB_PATH = /^\/lazy-static\/thumbnails\/[A-Za-z0-9-]+\.(?:jpg|jpeg|png)$/;
@@ -71,7 +72,8 @@ const toItem = (host: string, video: Record<string, unknown>): NewTelegramItem |
 /** Vídeos públicos do canal, do mais novo ao mais antigo, em páginas de 100 e no máximo 500 itens. */
 export const listChannelVideos = async (ref: ChannelRef): Promise<NewTelegramItem[]> => {
   const items: NewTelegramItem[] = [];
-  for (let start = 0; items.length < MAX_ITEMS; start += PAGE_SIZE) {
+  // Página sem vídeo válido não aumenta `items`: sem teto próprio, uma instância hostil mantém o laço até o fim do `total` que ela mesma declara.
+  for (let page = 0, start = 0; items.length < MAX_ITEMS && page < MAX_PAGES; page++, start += PAGE_SIZE) {
     const body = await getJson(ref.host, `/video-channels/${encodeURIComponent(ref.name)}/videos?start=${start}&count=${PAGE_SIZE}&sort=-publishedAt`);
     if (!isRecord(body) || !Array.isArray(body.data)) throw new SourceError('resposta inesperada da instância do PeerTube', 502);
     for (const video of body.data) {

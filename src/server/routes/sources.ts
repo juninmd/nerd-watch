@@ -1,12 +1,16 @@
 import { Hono } from 'hono';
 import { config } from '../config.ts';
 import { getDb } from '../db.ts';
+import { encodeEnvValue } from '../env-file.ts';
 import { getDescriptor, getSource, listDescriptors } from '../providers/sources/registry.ts';
 import { sourceErrorBody, syncSourceChannel } from '../providers/sources/service.ts';
 import { readSetting, writeSetting } from '../providers/sources/settings.ts';
 import type { SourceDescriptor } from '../providers/sources/types.ts';
 import { countTelegramItemsByChannel, deleteTelegramChannel, getTelegramChannelByHandle, upsertTelegramChannel } from '../repo/telegram.ts';
 import { toChannelResponse } from '../telegram-channel-dto.ts';
+
+/** Maior valor aceito por campo: tokens e URLs reais cabem folgados; megabytes não. */
+const MAX_SETTING_CHARS = 4096;
 
 export const sourcesRoutes = new Hono();
 
@@ -55,8 +59,14 @@ sourcesRoutes.post('/:id/settings', async (c) => {
     if (field.readOnly) return c.json({ error: `${field.label}: por segurança só pode ser alterado no arquivo .env (${field.env})` }, 403);
     const value = raw.trim();
     if (/[\r\n]/.test(value)) return c.json({ error: `${field.label}: não pode conter quebra de linha` }, 400);
+    if (value.length > MAX_SETTING_CHARS) return c.json({ error: `${field.label}: passa de ${MAX_SETTING_CHARS} caracteres` }, 400);
     const problem = value ? field.validate?.(value) : null;
     if (problem) return c.json({ error: `${field.label}: ${problem}` }, 400);
+    try {
+      encodeEnvValue(value);
+    } catch (err) {
+      return c.json({ error: `${field.label}: ${err instanceof Error ? err.message : 'valor inválido'}` }, 400);
+    }
     changes.push({ env: field.env, key, value });
   }
 

@@ -130,6 +130,26 @@ describe('accessToken', () => {
     expect(process.env.TEST_OAUTH_REFRESH).toBe('ref-NOVO');
   });
 
+  test('desconectar com um refresh em voo não reconecta: o token girado é descartado e revogado', async () => {
+    const revoked: string[] = [];
+    const rotating = createOAuthClient({ ...spec, revoke: async (token) => void revoked.push(token) });
+    let release: (res: Response) => void = () => undefined;
+    rotating.setFetchForTests(() => new Promise<Response>((resolve) => (release = resolve)));
+    process.env.TEST_OAUTH_REFRESH = 'ref-VELHO';
+
+    const pending = rotating.accessToken(0).catch((e) => e);
+    await Promise.resolve();
+    await rotating.disconnect();
+    release(json({ access_token: 'acc', refresh_token: 'ref-GIRADO', expires_in: 3600 }));
+
+    expect(await pending).toBeInstanceOf(OAuthNotConnectedError);
+    expect(rotating.connected()).toBe(false);
+    expect(process.env.TEST_OAUTH_REFRESH).toBeUndefined();
+    expect(revoked).toEqual(['ref-VELHO', 'ref-GIRADO']);
+    // Sem token em cache: o access token do refresh cancelado não vale mais.
+    expect(await rotating.accessToken(1).catch((e) => e)).toBeInstanceOf(OAuthNotConnectedError);
+  });
+
   test('invalid_grant vira "reconectar" (409) e sem refresh token vira "não conectado" (501)', async () => {
     fake(() => json({ error: 'invalid_grant' }, 400));
     const err = await client.accessToken(0).catch((e) => e);

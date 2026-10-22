@@ -1,5 +1,5 @@
 import type { NewTelegramItem } from '../../repo/telegram.ts';
-import { isHttpsUrl, plainFetch, readCapped, THUMB_MAX_BYTES } from '../sources/http.ts';
+import { fetchHeaders, isHttpsUrl, plainFetch, readCapped, THUMB_MAX_BYTES } from '../sources/http.ts';
 import { relayMedia, syntheticMessageId, titleFromFilename, VIDEO_EXT } from '../sources/service.ts';
 import { SourceError } from '../sources/types.ts';
 import { dropboxOAuth } from './oauth.ts';
@@ -103,7 +103,7 @@ const temporaryLink = async (fileRef: string): Promise<string> => {
 /** Repassa o `Range` ao link temporário (sem `Authorization`: o link já é pré-autenticado) e devolve o corpo em stream. */
 export const streamDropboxFile = async (fileRef: string, range: string | undefined): Promise<Response> => {
   const link = await temporaryLink(fileRef);
-  const upstream = await plainFetch(link, { headers: range ? { Range: range } : {}, redirect: 'manual', signal: AbortSignal.timeout(30_000) });
+  const upstream = await fetchHeaders(plainFetch, link, { headers: range ? { Range: range } : {}, redirect: 'manual' }, 30_000);
   return relayMedia(upstream, NOT_FOUND_FILE);
 };
 

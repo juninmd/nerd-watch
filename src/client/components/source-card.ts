@@ -72,6 +72,9 @@ export const renderSourceCard = (host: HTMLElement, initial: SourceDto, onChange
         if (f.secret && !value && f.set) continue;
         values[f.key] = value;
       }
+      // Duplo clique mandaria dois saves; `draw()` recria o formulário, então o botão volta sozinho no sucesso.
+      const submit = host.querySelector<HTMLButtonElement>('form button[type="submit"]');
+      if (submit) submit.disabled = true;
       saveSourceSettings(source.id, values)
         .then((next) => {
           source = next;
@@ -79,7 +82,10 @@ export const renderSourceCard = (host: HTMLElement, initial: SourceDto, onChange
           showToast(`${source.title}: configuração salva`);
           onChange?.();
         })
-        .catch((err) => showToast(err instanceof Error ? err.message : 'não foi possível salvar'));
+        .catch((err) => {
+          if (submit) submit.disabled = false;
+          showToast(err instanceof Error ? err.message : 'não foi possível salvar');
+        });
     });
 
     host.querySelector<HTMLButtonElement>('[data-act="connect"]')?.addEventListener('click', (e) => {
@@ -132,7 +138,10 @@ export const renderSourceCard = (host: HTMLElement, initial: SourceDto, onChange
           poll(gen, startedAt);
         })
         .catch(() => {
-          if (gen === generation) poll(gen, startedAt);
+          if (gen !== generation) return;
+          // Servidor fora do ar durante a autorização: o teto de tempo vale também aqui, senão o polling nunca para.
+          if (Date.now() - startedAt > POLL_MAX_MS) return draw();
+          poll(gen, startedAt);
         });
     }, POLL_MS);
   };
