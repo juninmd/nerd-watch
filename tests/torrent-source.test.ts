@@ -33,6 +33,8 @@ interface Spec {
 const specs = new Map<string, Spec>();
 /** O que o engine recebeu em cada `add`: um magnet (string) ou o buffer do `.torrent` normalizado. */
 const added: Array<string | Uint8Array> = [];
+/** Opções do `add`: `addUID` decide em que pasta os arquivos do torrent ficam. */
+const addOptions: Array<{ addUID?: boolean; path?: string }> = [];
 const opened: FakeTorrent[] = [];
 
 const bytesOf = (size: number): Uint8Array => Uint8Array.from({ length: size }, (_, i) => i % 251);
@@ -75,8 +77,9 @@ class FakeTorrent extends EventEmitter {
 }
 
 class FakeClient extends EventEmitter {
-  add(torrentId: string | Uint8Array): FakeTorrent {
+  add(torrentId: string | Uint8Array, opts: { addUID?: boolean; path?: string } = {}): FakeTorrent {
     added.push(torrentId);
+    addOptions.push(opts);
     const torrent = new FakeTorrent();
     opened.push(torrent);
     // Como no webtorrent: a metadata chega depois que o chamador já está ouvindo. Com buffer, o infohash sai do arquivo.
@@ -126,6 +129,7 @@ beforeEach(() => {
   stopTorrents();
   specs.clear();
   added.length = 0;
+  addOptions.length = 0;
   opened.length = 0;
   specs.set(H1, seriesSpec());
   db = openDb(':memory:');
@@ -158,6 +162,11 @@ describe('resolve — o engine recebe só o magnet normalizado', () => {
     // `x.pe` (IP de peer informado pelo link) não pode chegar ao engine nem ao banco.
     expect(added[0]).toBe(stored?.magnet);
     expect(added[0]).not.toContain('10.0.0.9');
+  });
+
+  test('cada torrent grava na própria pasta (addUID): destruir um nunca apaga arquivo de mesmo nome de outro ou do usuário', async () => {
+    await importH1();
+    expect(addOptions[0]?.addUID).toBe(true);
   });
 
   test('entrada que não é magnet nem https vira 400 e não abre nada', async () => {
