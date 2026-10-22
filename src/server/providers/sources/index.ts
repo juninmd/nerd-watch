@@ -2,6 +2,9 @@ import { registerDrive } from '../drive/source.ts';
 import { registerDropbox } from '../dropbox/source.ts';
 import { registerOneDrive } from '../onedrive/source.ts';
 import { registerTrakt } from '../trakt/descriptor.ts';
+import { registerLocal } from '../local/source.ts';
+import { registerS3 } from '../s3/source.ts';
+import { registerWebdav } from '../webdav/source.ts';
 
 /**
  * Um provider novo = um módulo com `registerX()` (descriptor + FileSource) e uma linha aqui.
@@ -16,4 +19,7 @@ export const registerAllSources = (): void => {
   registerDropbox();
   registerOneDrive();
   registerTrakt();
+  registerLocal();
+  registerWebdav();
+  registerS3();
 };
