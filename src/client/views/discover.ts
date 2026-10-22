@@ -1,4 +1,4 @@
-import { getCalendar, health, listLibrary, searchArchive, type CalendarEntryDto } from '../api.ts';
+import { type CalendarEntryDto, type CatalogSource, getCalendar, health, listLibrary, searchArchive } from '../api.ts';
 import { escapeHtml, renderCard } from '../components/card.ts';
 import { continueWatchingCards, refreshResumeCards } from '../components/continue-watching.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
@@ -96,7 +96,7 @@ export const renderDiscover = (host: HTMLElement): void => {
         for (const el of upcoming.querySelectorAll<HTMLElement>('.calendar-item')) {
           const { source, sourceId, media } = el.dataset;
           if (!source || !sourceId || !media) continue;
-          const go = () => navigate(titlePath(source as 'tmdb' | 'archive', source === 'archive' ? '_' : (media as 'movie' | 'tv'), sourceId));
+          const go = () => navigate(titlePath(source as CatalogSource, source === 'archive' ? '_' : (media as 'movie' | 'tv'), sourceId));
           el.addEventListener('click', go);
           el.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') go();

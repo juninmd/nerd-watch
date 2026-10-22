@@ -6,6 +6,8 @@ import { requestAllowed, originAllowed } from './security.ts';
 import { searchRoutes } from './routes/search.ts';
 import { tmdbRoutes } from './routes/tmdb.ts';
 import { archiveRoutes } from './routes/archive.ts';
+import { tvmazeRoutes } from './routes/tvmaze.ts';
+import { anilistRoutes } from './routes/anilist.ts';
 import { libraryRoutes } from './routes/library.ts';
 import { calendarRoutes } from './routes/calendar.ts';
 import { subtitlesRoutes } from './routes/subtitles.ts';
@@ -52,6 +54,8 @@ app.get('/api/health', (c) =>
 app.route('/api/search', searchRoutes);
 app.route('/api/tmdb', tmdbRoutes);
 app.route('/api/archive', archiveRoutes);
+app.route('/api/tvmaze', tvmazeRoutes);
+app.route('/api/anilist', anilistRoutes);
 app.route('/api/library', libraryRoutes);
 app.route('/api/calendar', calendarRoutes);
 app.route('/api/subtitles', subtitlesRoutes);

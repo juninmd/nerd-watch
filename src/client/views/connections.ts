@@ -24,6 +24,20 @@ const integrations = (h: HealthResponse): Integration[] => [
     offText: 'Defina TMDB_API_KEY no .env (chave grátis em themoviedb.org) para buscar filmes e séries. Domínio público e sua lista funcionam sem ela.',
   },
   {
+    title: 'Catálogo TVmaze',
+    icon: 'calendar',
+    on: true,
+    onText: 'Séries e datas de episódios da TVmaze: ativo, sem chave.',
+    offText: 'Indisponível.',
+  },
+  {
+    title: 'Catálogo AniList',
+    icon: 'film',
+    on: true,
+    onText: 'Anime do AniList: ativo, sem chave.',
+    offText: 'Indisponível.',
+  },
+  {
     title: 'Legendas (OpenSubtitles)',
     icon: 'list',
     on: h.openSubtitlesEnabled,
