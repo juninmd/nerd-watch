@@ -24,6 +24,7 @@ describe('toDockItem / watchPath', () => {
     const item = toDockItem({ titleId: 'c1', title: 'Canal' }, { messageId: '5', caption: 'Oi', durationSeconds: 30, thumbnailUrl: '/t', postedAt: null });
     expect(item).toMatchObject({ key: 'c1:5', title: 'Oi', subtitle: 'Canal', channelId: 'c1', messageId: '5', poster: '/t', durationSeconds: 30 });
     expect(item.src).toContain('/api/telegram/channels/c1/items/5/play');
+    expect(item.route).toBe('/watch/c1/5');
     expect(watchPath('c1', '5')).toBe('/watch/c1/5');
   });
 });

@@ -29,6 +29,7 @@ export const toDockItem = (channel: { titleId: string; title: string }, item: Te
   channelId: channel.titleId,
   messageId: item.messageId,
   durationSeconds: item.durationSeconds,
+  route: watchPath(channel.titleId, item.messageId),
 });
 
 /**
