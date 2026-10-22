@@ -1,11 +1,11 @@
-import { addTelegramChannel, bulkDeleteTelegramChannels, listTelegramChannels, type TelegramChannelDto, type TelegramChannelMode } from '../api.ts';
+import { addTelegramChannel, bulkDeleteTelegramChannels, listTelegramChannels, refreshTelegramChannelInfo, type TelegramChannelDto, type TelegramChannelMode } from '../api.ts';
 import { renderCard } from '../components/card.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
 import { openMyChannelsDialog } from '../components/telegram-my-channels.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 
-const MODE_LABEL: Record<TelegramChannelMode, string> = { public: 'público', personal: 'conta pessoal', bot: 'bot' };
+const INFO_BACKFILL_KEY = 'nw.telegram.infoBackfill';
 
 export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParams): void => {
   host.innerHTML = `
@@ -82,7 +82,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
         renderCard({
           title: ch.title,
           posterUrl: ch.posterUrl,
-          meta: `${MODE_LABEL[ch.mode]} · ${ch.itemCount} vídeo${ch.itemCount === 1 ? '' : 's'}`,
+          meta: `@${ch.handle} · ${ch.itemCount} vídeo${ch.itemCount === 1 ? '' : 's'}`,
           selection: selecting
             ? {
                 selected: picked.has(ch.titleId),
@@ -101,12 +101,29 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
     if (focusIndex !== undefined) (g.children[focusIndex] as HTMLElement | undefined)?.focus();
   };
 
+  /** Canais antigos ganham nome/foto/descrição e miniaturas uma vez por sessão do navegador (o servidor só faz o que falta). */
+  const backfillInfo = () => {
+    if (channels.length === 0) return;
+    try {
+      if (sessionStorage.getItem(INFO_BACKFILL_KEY)) return;
+      sessionStorage.setItem(INFO_BACKFILL_KEY, '1');
+    } catch {
+      // sem sessionStorage: tenta de novo na próxima visita
+    }
+    refreshTelegramChannelInfo()
+      .then((r) => {
+        if (r.updated > 0) load();
+      })
+      .catch(() => {});
+  };
+
   const load = () => {
     listTelegramChannels()
       .then((data) => {
         channels = data.channels;
         for (const id of picked) if (!channels.some((c) => c.titleId === id)) picked.delete(id);
         renderChannels();
+        backfillInfo();
       })
       .catch(() => {
         grid.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar os canais</div>`;

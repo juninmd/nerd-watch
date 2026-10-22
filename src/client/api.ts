@@ -346,6 +346,8 @@ export interface TelegramChannelDto {
   mode: TelegramChannelMode;
   title: string;
   posterUrl: string | null;
+  description: string | null;
+  link: string;
   itemCount: number;
 }
 
@@ -464,3 +466,7 @@ export interface TelegramRecentItemDto extends TelegramItemDto {
 
 export const listRecentTelegramItems = (limit = 12): Promise<{ items: TelegramRecentItemDto[] }> =>
   fetch(`/api/telegram/recent?limit=${limit}`).then((r) => json<{ items: TelegramRecentItemDto[] }>(r));
+
+/** Completa nome, foto e descrição dos canais adicionados só pelo @. */
+export const refreshTelegramChannelInfo = (): Promise<{ checked: number; updated: number }> =>
+  fetch('/api/telegram/channels/refresh-info', { method: 'POST' }).then((r) => json<{ checked: number; updated: number }>(r));

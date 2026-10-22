@@ -26,13 +26,15 @@ export interface TelegramPublicItem {
   postedAt: string | null;
 }
 
-const decodeEntities = (text: string): string =>
-  text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'");
+const NAMED_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+
+/** Uma passada só: decodificar em etapas transformaria `&amp;lt;` em `<`. Cobre nomeadas e numéricas (`&#33;`, `&#x21;`). */
+export const decodeEntities = (text: string): string =>
+  text.replace(/&(?:#(\d{1,7})|#x([0-9a-fA-F]{1,6})|([a-zA-Z]+));/g, (whole, dec?: string, hex?: string, name?: string) => {
+    if (name) return NAMED_ENTITIES[name] ?? whole;
+    const code = dec ? Number(dec) : Number.parseInt(hex as string, 16);
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+  });
 
 const stripTags = (html: string): string => decodeEntities(html.replace(/<[^>]+>/g, '')).trim();
 
@@ -41,6 +43,35 @@ const parseDuration = (text: string | undefined): number | null => {
   const parts = text.split(':').map(Number);
   if (parts.length === 0 || parts.some(Number.isNaN)) return null;
   return parts.reduce((total, part) => total * 60 + part, 0);
+};
+
+export interface TelegramChannelInfo {
+  title: string | null;
+  photoUrl: string | null;
+  description: string | null;
+}
+
+/** Só CDNs do próprio Telegram: a URL da foto vem de HTML de terceiros e o servidor a baixa depois (evita SSRF). */
+export const isTelegramPhotoUrl = (raw: string): boolean => {
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && /(^|\.)(telesco\.pe|cdn-telegram\.org|telegram\.org|t\.me)$/.test(u.hostname);
+  } catch {
+    return false;
+  }
+};
+
+/** Nome, foto e descrição do cabeçalho da prévia pública (`t.me/s/<canal>`). Campos ausentes viram null. */
+export const parsePublicChannelInfo = (html: string): TelegramChannelInfo => {
+  const title = html.match(/tgme_channel_info_header_title"[^>]*>([\s\S]*?)<\/div>/);
+  const photo = html.match(/tgme_page_photo_image[^>]*><img src="([^"]+)"/);
+  const description = html.match(/tgme_channel_info_description"[^>]*>([\s\S]*?)<\/div>/);
+  const photoUrl = photo ? decodeEntities(photo[1] as string) : null;
+  return {
+    title: title ? stripTags(title[1] as string) || null : null,
+    photoUrl: photoUrl && isTelegramPhotoUrl(photoUrl) ? photoUrl : null,
+    description: description ? stripTags((description[1] as string).replace(/<br\s*\/?>/gi, '\n')) || null : null,
+  };
 };
 
 /** Exportado só para teste direto do parser com HTML fixo, sem bater na rede. */
@@ -76,15 +107,23 @@ export const parsePublicChannelHtml = (html: string, handle: string): TelegramPu
   return items;
 };
 
-export const fetchPublicChannelItems = async (handle: string, beforeMessageId?: string): Promise<TelegramPublicItem[]> => {
+export interface TelegramPublicPage {
+  info: TelegramChannelInfo;
+  items: TelegramPublicItem[];
+}
+
+export const fetchPublicChannelPage = async (handle: string, beforeMessageId?: string): Promise<TelegramPublicPage> => {
   const url = new URL(`${BASE}/s/${encodeURIComponent(handle)}`);
   if (beforeMessageId) url.searchParams.set('before', beforeMessageId);
 
   const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`t.me respondeu ${res.status}`);
   const html = await res.text();
-  return parsePublicChannelHtml(html, handle);
+  return { info: parsePublicChannelInfo(html), items: parsePublicChannelHtml(html, handle) };
 };
+
+export const fetchPublicChannelItems = async (handle: string, beforeMessageId?: string): Promise<TelegramPublicItem[]> =>
+  (await fetchPublicChannelPage(handle, beforeMessageId)).items;
 
 /**
  * Refaz o fetch da mensagem individual pra sempre devolver uma URL de vídeo com token válido no momento do

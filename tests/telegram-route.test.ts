@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { config } from '../src/server/config.ts';
 import { openDb, resetDbForTests } from '../src/server/db.ts';
 import { upsertTelegramChannel, upsertTelegramItems } from '../src/server/repo/telegram.ts';
 import { telegramRoutes } from '../src/server/routes/telegram.ts';
+import { photoStore } from '../src/server/telegram-photos.ts';
 
 const FIXTURE = readFileSync(`${import.meta.dir}/fixtures/telegram-public-channel.html`, 'utf-8');
 const originalFetch = globalThis.fetch;
@@ -170,5 +173,120 @@ describe('GET /api/telegram/recent', () => {
 
   test('limit inválido volta ao padrão em vez de falhar', async () => {
     expect((await telegramRoutes.request('/recent?limit=abc')).status).toBe(200);
+  });
+});
+
+describe('nome, foto, descrição e link do canal', () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9, 9, 9]);
+  const originalDir = photoStore.dir;
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'nw-route-photos-'));
+    photoStore.dir = () => dir;
+    // A prévia pública devolve o HTML do fixture; a foto (CDN do Telegram) devolve bytes de PNG.
+    globalThis.fetch = (async (url: URL | string) => (String(url).includes('avatar-teste.png') ? new Response(PNG) : htmlResponse(FIXTURE))) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    photoStore.dir = originalDir;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('ao adicionar um canal público guarda o nome real, a descrição, o link e a foto', async () => {
+    const res = await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle: 'canalteste', mode: 'public' }) });
+    const body = await res.json();
+    expect(body).toMatchObject({
+      title: 'Canal de Teste',
+      description: 'Série fictícia\nsegunda linha & mais',
+      link: 'https://t.me/canalteste',
+    });
+    expect(body.posterUrl).toStartWith(`/api/telegram/channels/${body.titleId}/photo`);
+
+    const photo = await telegramRoutes.request(`/channels/${body.titleId}/photo`);
+    expect(photo.status).toBe(200);
+    expect(photo.headers.get('Content-Type')).toBe('image/png');
+    expect(new Uint8Array(await photo.arrayBuffer())).toEqual(PNG);
+  });
+
+  test('a foto de um canal sem foto salva, ou com id inválido, dá 404', async () => {
+    expect((await telegramRoutes.request('/channels/123e4567-e89b-42d3-a456-426614174000/photo')).status).toBe(404);
+    expect((await telegramRoutes.request('/channels/..%2F..%2Fsegredo/photo')).status).toBe(404);
+  });
+
+  test('se a foto falhar, o nome e a descrição ainda são guardados', async () => {
+    globalThis.fetch = (async (url: URL | string) => (String(url).includes('avatar-teste.png') ? new Response('x', { status: 500 }) : htmlResponse(FIXTURE))) as unknown as typeof fetch;
+    const body = await (await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle: 'canalteste', mode: 'public' }) })).json();
+    expect(body.title).toBe('Canal de Teste');
+    expect(body.posterUrl).toBeNull();
+  });
+
+  test('refresh-info completa canais antigos que só tinham o @', async () => {
+    const db = openDb(':memory:');
+    resetDbForTests(db);
+    upsertTelegramChannel(db, { handle: 'canalteste', mode: 'public' });
+
+    const res = await telegramRoutes.request('/channels/refresh-info', { method: 'POST' });
+    expect(await res.json()).toEqual({ checked: 1, updated: 1 });
+    const list = await (await telegramRoutes.request('/channels')).json();
+    expect(list.channels[0]).toMatchObject({ title: 'Canal de Teste', description: 'Série fictícia\nsegunda linha & mais' });
+    expect(list.channels[0].posterUrl).toContain('/photo');
+
+    // Já completo: nada a refazer na próxima chamada.
+    expect(await (await telegramRoutes.request('/channels/refresh-info', { method: 'POST' })).json()).toEqual({ checked: 0, updated: 0 });
+  });
+});
+
+describe('miniaturas dos vídeos', () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7, 7]);
+  const originalDir = photoStore.dir;
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'nw-route-thumbs-'));
+    photoStore.dir = () => dir;
+  });
+
+  afterEach(() => {
+    photoStore.dir = originalDir;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const mockTelegram = (thumbOk: boolean) => {
+    globalThis.fetch = (async (url: URL | string) => {
+      const u = String(url);
+      if (u.includes('/file/thumb')) return thumbOk ? new Response(PNG) : new Response('x', { status: 500 });
+      return htmlResponse(FIXTURE);
+    }) as unknown as typeof fetch;
+  };
+
+  test('traz as miniaturas do CDN para o disco e passa a servi-las pela rota local', async () => {
+    mockTelegram(true);
+    const created = await (await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle: 'canalteste', mode: 'public' }) })).json();
+    const detail = await (await telegramRoutes.request(`/channels/${created.titleId}`)).json();
+    const withThumb = detail.items.find((i: { messageId: string }) => i.messageId === '100');
+    expect(withThumb.thumbnailUrl).toBe(`/api/telegram/channels/${created.titleId}/items/100/thumb`);
+
+    const res = await telegramRoutes.request(`/channels/${created.titleId}/items/100/thumb`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('image/png');
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG);
+  });
+
+  test('se o download falhar mantém a URL original e tenta de novo no refresh-info', async () => {
+    mockTelegram(false);
+    const created = await (await telegramRoutes.request('/channels', { method: 'POST', body: JSON.stringify({ handle: 'canalteste', mode: 'public' }) })).json();
+    const before = await (await telegramRoutes.request(`/channels/${created.titleId}`)).json();
+    expect(before.items.find((i: { messageId: string }) => i.messageId === '100').thumbnailUrl).toBe('https://cdn1.telesco.pe/file/thumb100.jpg');
+
+    mockTelegram(true);
+    expect((await (await telegramRoutes.request('/channels/refresh-info', { method: 'POST' })).json()).updated).toBe(1);
+    const after = await (await telegramRoutes.request(`/channels/${created.titleId}`)).json();
+    expect(after.items.find((i: { messageId: string }) => i.messageId === '100').thumbnailUrl).toContain('/thumb');
+  });
+
+  test('miniatura inexistente ou com id inválido dá 404', async () => {
+    expect((await telegramRoutes.request('/channels/123e4567-e89b-42d3-a456-426614174000/items/1/thumb')).status).toBe(404);
+    expect((await telegramRoutes.request('/channels/x/items/..%2F1/thumb')).status).toBe(404);
   });
 });
