@@ -1,10 +1,11 @@
 import type { Database } from 'bun:sqlite';
 import { isWithinWindow, todayIso } from '../date.ts';
+import type { TitleSource } from '../types.ts';
 
 export interface CalendarEntry {
   kind: 'episode' | 'movie';
   titleId: string;
-  titleSource: 'tmdb' | 'archive';
+  titleSource: TitleSource;
   titleSourceId: string;
   titleName: string;
   mediaType: 'movie' | 'tv';
@@ -17,7 +18,7 @@ export interface CalendarEntry {
 
 interface EpisodeCandidateRow {
   title_id: string;
-  title_source: 'tmdb' | 'archive';
+  title_source: TitleSource;
   title_source_id: string;
   title_name: string;
   media_type: 'movie' | 'tv';
@@ -30,7 +31,7 @@ interface EpisodeCandidateRow {
 
 interface MovieCandidateRow {
   title_id: string;
-  title_source: 'tmdb' | 'archive';
+  title_source: TitleSource;
   title_source_id: string;
   title_name: string;
   media_type: 'movie' | 'tv';

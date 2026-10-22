@@ -1,5 +1,5 @@
 export type MediaType = 'movie' | 'tv';
-export type TitleSource = 'tmdb' | 'archive' | 'telegram';
+export type TitleSource = 'tmdb' | 'archive' | 'telegram' | 'tvmaze' | 'anilist';
 export type WatchStatus = 'want' | 'watching' | 'watched' | 'dropped';
 export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive';
 

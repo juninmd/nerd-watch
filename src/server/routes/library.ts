@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { getDb } from '../db.ts';
 import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
 import { upsertTitle } from '../repo/titles.ts';
+import { httpsUrlOrNull } from '../catalog-text.ts';
 import { tmdbImageUrl } from '../providers/tmdb.ts';
 import type { MediaType, TitleSource, WatchStatus } from '../types.ts';
 
@@ -10,8 +11,11 @@ export const libraryRoutes = new Hono();
 const WATCH_STATUSES: WatchStatus[] = ['want', 'watching', 'watched', 'dropped'];
 const isWatchStatus = (v: unknown): v is WatchStatus => typeof v === 'string' && WATCH_STATUSES.includes(v as WatchStatus);
 
+/** Fontes que guardam a URL completa do pôster; as demais guardam só o caminho da TMDB. */
+const ABSOLUTE_POSTER_SOURCES: ReadonlySet<TitleSource> = new Set(['archive', 'tvmaze', 'anilist']);
+
 const posterUrlFor = (item: LibraryItem): string | null =>
-  item.title.source === 'archive' ? item.title.poster_path : tmdbImageUrl(item.title.poster_path, 'w342');
+  ABSOLUTE_POSTER_SOURCES.has(item.title.source) ? item.title.poster_path : tmdbImageUrl(item.title.poster_path, 'w342');
 
 const toResponse = (item: LibraryItem) => ({
   id: item.id,
@@ -64,7 +68,7 @@ libraryRoutes.post('/', async (c) => {
     !body ||
     !isNonEmptyString(body.sourceId) ||
     !isNonEmptyString(body.title) ||
-    (body.source !== 'tmdb' && body.source !== 'archive') ||
+    (body.source !== 'tmdb' && body.source !== 'archive' && body.source !== 'tvmaze' && body.source !== 'anilist') ||
     (body.mediaType !== 'movie' && body.mediaType !== 'tv')
   ) {
     return c.json({ error: 'corpo inválido: source, sourceId, mediaType e title são obrigatórios' }, 400);
@@ -78,7 +82,8 @@ libraryRoutes.post('/', async (c) => {
     mediaType: body.mediaType,
     title: body.title,
     overview: body.overview ?? null,
-    posterPath: body.posterPath ?? null,
+    // Pôster de catálogo sem chave é URL completa: só https, para o navegador nunca receber outro esquema.
+    posterPath: body.source === 'tvmaze' || body.source === 'anilist' ? httpsUrlOrNull(body.posterPath) : (body.posterPath ?? null),
     backdropPath: body.backdropPath ?? null,
     releaseDate: body.releaseDate ?? null,
     voteAverage: body.voteAverage ?? null,

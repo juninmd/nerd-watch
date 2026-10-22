@@ -1,4 +1,4 @@
-import { getCalendar, type CalendarEntryDto } from '../api.ts';
+import { type CatalogSource, getCalendar, type CalendarEntryDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { icon } from '../icons.ts';
 import { navigate } from '../router.ts';
@@ -83,7 +83,7 @@ export const renderCalendar = (host: HTMLElement): void => {
     for (const el of entriesEl.querySelectorAll<HTMLElement>('.calendar-item')) {
       const { source, sourceId, media } = el.dataset;
       if (!source || !sourceId || !media) continue;
-      const go = () => navigate(titlePath(source as 'tmdb' | 'archive', source === 'archive' ? '_' : (media as 'movie' | 'tv'), sourceId));
+      const go = () => navigate(titlePath(source as CatalogSource, source === 'archive' ? '_' : (media as 'movie' | 'tv'), sourceId));
       el.addEventListener('click', go);
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') go();

@@ -1,4 +1,4 @@
-import { addToLibrary, search, type SearchResultDto } from '../api.ts';
+import { addToLibrary, type CatalogSource, search, type SearchResultDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
@@ -12,13 +12,18 @@ const initials = (title: string): string =>
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('');
 
+/** Selo da fonte: tmdb usa o tipo (filme/série); as demais fontes dizem de onde vem. */
+const SOURCE_BADGE: Partial<Record<CatalogSource, string>> = {
+  archive: 'domínio público',
+  tvmaze: 'série · TVmaze',
+  anilist: 'anime · AniList',
+};
+
 const resultCard = (r: SearchResultDto): string => `
   <div class="card" data-source="${r.source}" data-media="${r.mediaType}" data-id="${escapeHtml(r.sourceId)}">
     <div class="poster${r.posterUrl ? '' : ' placeholder'}"${r.posterUrl ? ` style="background-image:url('${r.posterUrl}')"` : ''}>
       ${r.posterUrl ? '' : `<span class="initials">${initials(r.title)}</span>`}
-      <span class="badge badge-corner ${r.source === 'archive' ? 'badge-archive' : 'badge-want'}">${
-        r.source === 'archive' ? 'domínio público' : r.mediaType === 'tv' ? 'série' : 'filme'
-      }</span>
+      <span class="badge badge-corner ${r.source === 'archive' ? 'badge-archive' : 'badge-want'}">${SOURCE_BADGE[r.source] ?? (r.mediaType === 'tv' ? 'série' : 'filme')}</span>
     </div>
     <div class="meta">
       <div class="title">${escapeHtml(r.title)}</div>
@@ -31,7 +36,7 @@ const resultCard = (r: SearchResultDto): string => `
 export const renderSearch = (host: HTMLElement, query: string): void => {
   host.innerHTML = `
     <h1 class="view-title">Buscar</h1>
-    <p class="view-subtitle">Filmes, séries e novelas na TMDB, mais o acervo de domínio público do Internet Archive.</p>
+    <p class="view-subtitle">Filmes, séries e novelas na TMDB, séries na TVmaze, anime no AniList e o acervo de domínio público do Internet Archive.</p>
     <form id="search-form" class="chip-row form-row">
       <input type="search" name="q" class="input input-pill grow" placeholder="Nome do filme, série ou novela" autocomplete="off" aria-label="Buscar no catálogo" value="${escapeHtml(query)}" />
       <button class="btn btn-primary btn-sm" type="submit">buscar</button>
@@ -61,7 +66,7 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
       results.innerHTML = `<div class="grid">${data.results.map(resultCard).join('')}</div>`;
 
       for (const el of results.querySelectorAll<HTMLElement>('.card')) {
-        const source = el.dataset.source as 'tmdb' | 'archive';
+        const source = el.dataset.source as CatalogSource;
         const mediaType = el.dataset.media as 'movie' | 'tv';
         const id = el.dataset.id as string;
         el.addEventListener('click', (e) => {

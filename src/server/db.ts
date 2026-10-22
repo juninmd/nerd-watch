@@ -8,7 +8,7 @@ let instance: Database | undefined;
 const MIGRATIONS = `
 CREATE TABLE IF NOT EXISTS titles (
   id TEXT PRIMARY KEY,
-  source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram')),
+  source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram', 'tvmaze', 'anilist')),
   source_id TEXT NOT NULL,
   media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
   title TEXT NOT NULL,
@@ -124,6 +124,44 @@ export const migrateAddTelegramSource = (db: Database): void => {
 };
 
 /**
+ * `titles.source` ganhou 'tvmaze' e 'anilist' (catálogos sem chave). Mesma técnica do telegram: recria a tabela
+ * com o CHECK novo e preserva as FKs. Idempotente pelo marcador 'anilist' no SQL.
+ *
+ * Rollback (só se precisar voltar a versão): apague antes as linhas novas
+ * (`DELETE FROM titles WHERE source IN ('tvmaze','anilist')`, o CASCADE limpa temporadas, episódios e lista)
+ * e recrie a tabela com o CHECK anterior, usando a mesma sequência de `migrateAddTelegramSource`.
+ */
+export const migrateAddCatalogSources = (db: Database): void => {
+  const row = db.query<{ sql: string }, []>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'titles'").get();
+  if (!row || row.sql.includes("'anilist'")) return;
+
+  db.exec('PRAGMA foreign_keys = OFF;');
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE titles_new (
+        id TEXT PRIMARY KEY,
+        source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram', 'tvmaze', 'anilist')),
+        source_id TEXT NOT NULL,
+        media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
+        title TEXT NOT NULL,
+        original_title TEXT,
+        overview TEXT,
+        poster_path TEXT,
+        backdrop_path TEXT,
+        release_date TEXT,
+        vote_average REAL,
+        created_at TEXT NOT NULL,
+        UNIQUE (source, source_id)
+      );
+    `);
+    db.exec(`INSERT INTO titles_new SELECT * FROM titles`);
+    db.exec(`DROP TABLE titles`);
+    db.exec(`ALTER TABLE titles_new RENAME TO titles`);
+  })();
+  db.exec('PRAGMA foreign_keys = ON;');
+};
+
+/**
  * `telegram_channels.mode` ganhou 'drive' (pastas do Google Drive reaproveitam canais, fila e player).
  * Mesmo motivo e mesma técnica da migração do `titles`: o CHECK não se altera, então recria a tabela sob nome
  * temporário e renomeia a nova. Idempotente: só roda se o CHECK antigo ainda estiver lá.
@@ -165,6 +203,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   migrateAddTelegramSource(db);
   migrateAddTelegramItemFileRef(db);
   migrateAddDriveMode(db);
+  migrateAddCatalogSources(db);
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
   return db;
