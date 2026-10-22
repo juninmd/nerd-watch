@@ -3,6 +3,7 @@ import { telegramPersonalEnabled } from '../config.ts';
 import { getDb } from '../db.ts';
 import { PrivateChannelNotFoundError } from '../providers/telegram/peer.ts';
 import { TelegramPersonalNotConfiguredError } from '../providers/telegram/personal.ts';
+import { TelegramChannelNotFoundError } from '../providers/telegram/public.ts';
 import { getTelegramChannel } from '../repo/telegram.ts';
 import { hasHistory, loadMoreHistory, searchHistory } from '../telegram-history.ts';
 
@@ -14,7 +15,7 @@ export const telegramHistoryRoutes = new Hono();
 /** Traduz as falhas do Telegram para o mesmo vocabulário de status das outras rotas do canal. */
 const failure = (err: unknown): { error: string; status: 404 | 501 | 502 } => {
   if (err instanceof TelegramPersonalNotConfiguredError) return { error: err.message, status: 501 };
-  if (err instanceof PrivateChannelNotFoundError) return { error: err.message, status: 404 };
+  if (err instanceof PrivateChannelNotFoundError || err instanceof TelegramChannelNotFoundError) return { error: err.message, status: 404 };
   return { error: 'não foi possível ler o Telegram agora', status: 502 };
 };
 

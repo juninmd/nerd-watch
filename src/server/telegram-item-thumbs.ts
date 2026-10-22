@@ -58,8 +58,8 @@ export const localizeThumbs = async (db: Database, channel: TelegramChannel, ite
   return done;
 };
 
-/** Quanto a abertura de um canal espera pelas miniaturas; o que passar disso termina em segundo plano. */
-const WAIT_BUDGET_MS = 8_000;
+/** `waitMs`: quanto a abertura de um canal espera pelas miniaturas; o que passar disso termina em segundo plano. */
+export const thumbLimits = { waitMs: 8_000 };
 /** Depois de tentar, não tenta de novo antes disso: vídeo sem miniatura no Telegram não pode martelar a conta a cada abertura. */
 const RETRY_AFTER_MS = 60_000;
 const lastTry = new Map<string, number>();
@@ -77,7 +77,7 @@ export const ensureThumbs = async (db: Database, channel: TelegramChannel, items
   lastTry.set(channel.id, Date.now());
   let timer: ReturnType<typeof setTimeout> | undefined;
   const budget = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, WAIT_BUDGET_MS);
+    timer = setTimeout(resolve, thumbLimits.waitMs);
   });
   try {
     await Promise.race([localizeThumbs(db, channel, items), budget]);

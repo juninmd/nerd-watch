@@ -20,12 +20,13 @@ const video = (id: number, text = `v${id}`) =>
 const photo = (id: number) => Object.assign(Object.create(Api.Message.prototype), { id, message: 'foto', date: 1_790_000_000, media: undefined });
 
 /** Cliente falso que devolve as mensagens dadas e guarda os argumentos do `getMessages`. */
-const fakeClient = (messages: unknown[]) => {
+const fakeClient = (messages: unknown[], probe: unknown[] = []) => {
   const calls: Array<{ peer: unknown; opts: Record<string, unknown> }> = [];
   const client = {
+    // 1ª chamada: a página pedida. Chamadas seguintes: a consulta de confirmação do fim do histórico.
     getMessages: async (peer: unknown, opts: Record<string, unknown>) => {
       calls.push({ peer, opts });
-      return messages;
+      return calls.length === 1 ? messages : probe;
     },
   };
   spies.push(spyOn(personal, 'withLiveSession').mockImplementation(async (fn) => fn(client as never)));
@@ -55,13 +56,24 @@ describe('fetchPersonalVideoPage', () => {
     expect(calls[0]?.opts.filter).toBeInstanceOf(Api.InputMessagesFilterVideo);
   });
 
-  test('página cheia: ainda há histórico; página curta: acabou', async () => {
+  test('página cheia: ainda há histórico, sem gastar uma consulta de confirmação', async () => {
     const full = Array.from({ length: PERSONAL_PAGE_SIZE }, (_, i) => video(PERSONAL_PAGE_SIZE - i));
-    fakeClient(full);
+    const calls = fakeClient(full);
     expect(await fetchPersonalVideoPage('cine_ch')).toMatchObject({ exhausted: false, oldestId: '1' });
-    for (const spy of spies.splice(0)) spy.mockRestore();
-    fakeClient([video(7), video(6)]);
-    expect(await fetchPersonalVideoPage('cine_ch')).toMatchObject({ exhausted: true, oldestId: '6' });
+    expect(calls).toHaveLength(1);
+  });
+
+  test('página curta: só acaba se a consulta de confirmação, logo antes da mais antiga, vier vazia', async () => {
+    const calls = fakeClient([video(7), video(6)], []);
+    expect(await fetchPersonalVideoPage('cine_ch', { query: 'x' })).toMatchObject({ exhausted: true, oldestId: '6' });
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.opts).toMatchObject({ limit: 1, offsetId: 6, search: 'x' });
+    expect(calls[1]?.opts.filter).toBeInstanceOf(Api.InputMessagesFilterVideo);
+  });
+
+  test('o Telegram devolveu página curta mas ainda há histórico: NÃO encerra (o cursor seguiria e nunca alcançaria o resto)', async () => {
+    fakeClient([video(7), video(6)], [video(5)]);
+    expect(await fetchPersonalVideoPage('cine_ch')).toMatchObject({ exhausted: false, oldestId: '6' });
   });
 
   test('mensagem que não é vídeo conta para o fim do histórico, mas não vira item', async () => {
@@ -72,8 +84,9 @@ describe('fetchPersonalVideoPage', () => {
   });
 
   test('página vazia: acabou e não há id mais antigo', async () => {
-    fakeClient([]);
+    const calls = fakeClient([]);
     expect(await fetchPersonalVideoPage('cine_ch')).toEqual({ items: [], exhausted: true, oldestId: null });
+    expect(calls).toHaveLength(1);
   });
 
   test('fetchPersonalChannelItems segue devolvendo só a lista', async () => {

@@ -10,6 +10,7 @@ import * as personalInfo from '../src/server/providers/telegram/personal-info.ts
 import { getTelegramChannel, listTelegramItems, updateChannelCursor, upsertTelegramChannel, upsertTelegramItems } from '../src/server/repo/telegram.ts';
 import { telegramRoutes } from '../src/server/routes/telegram.ts';
 import { resetThumbRetries } from '../src/server/telegram-item-thumbs.ts';
+import { historyLimits } from '../src/server/telegram-history.ts';
 import { photoStore } from '../src/server/telegram-photos.ts';
 import type { TelegramChannelMode } from '../src/server/types.ts';
 
@@ -85,15 +86,48 @@ describe('POST /channels/:id/load-more — conta pessoal', () => {
     const { db, channel } = setup('personal', 'c/2675951342', [200], '200');
     fakePage([199, 198]);
     await post(channel.id, 'load-more');
-    const thumbs = listTelegramItems(db, channel.id).map((i) => i.thumbnail_url);
-    expect(thumbs.every((u) => u?.startsWith('/api/telegram/channels/'))).toBe(true);
+    const fresh = listTelegramItems(db, channel.id).filter((i) => ['199', '198'].includes(i.message_id));
+    expect(fresh).toHaveLength(2);
+    expect(fresh.every((i) => i.thumbnail_url?.startsWith('/api/telegram/channels/'))).toBe(true);
   });
 
-  test('sem cursor (canal antigo) usa o menor id já guardado', async () => {
+  test('sem cursor (canal antigo) começa do topo: reler a página mais nova é inofensivo, pular o meio não', async () => {
     const { channel } = setup('personal', 'cine_ch', [50, 40, 30], null);
-    const page = fakePage([29]);
+    const page = fakePage([50, 40, 30]);
     await post(channel.id, 'load-more');
-    expect(page.mock.calls[0]?.[1]).toEqual({ before: '30' });
+    expect(page.mock.calls[0]?.[1]).toEqual({});
+  });
+
+  test('buscar num canal sem cursor não abre lacuna: o load-more seguinte ainda parte do topo', async () => {
+    const { channel } = setup('personal', 'cine_ch', [200, 199], null);
+    const page = fakePage([5]);
+    await post(channel.id, 'search', { q: 'antigo' });
+    page.mockResolvedValue({ items: [item(198)], exhausted: false, oldestId: '198' });
+    await post(channel.id, 'load-more');
+    expect(page.mock.calls[1]?.[1]).toEqual({});
+  });
+
+  test('só as miniaturas dos vídeos da página nova são pedidas, não as de todo o canal', async () => {
+    const { channel } = setup('personal', 'cine_ch', [12, 11, 10], '10');
+    fakePage([9]);
+    const thumbs = personalInfo.fetchPersonalThumbs as unknown as { mock: { calls: unknown[][] } };
+    thumbs.mock.calls.length = 0;
+    await post(channel.id, 'load-more');
+    expect(thumbs.mock.calls.map((c) => c[1])).toEqual([['9']]);
+  });
+
+  test('uma chamada que trava não deixa o canal bloqueado: estoura o tempo (502) e libera o próximo clique', async () => {
+    const { channel } = setup('personal', 'cine_ch', [10], '10');
+    const page = fakePage([9]);
+    page.mockImplementationOnce(() => new Promise(() => {}));
+    const before = historyLimits.workMs;
+    historyLimits.workMs = 20;
+    try {
+      expect((await post(channel.id, 'load-more')).status).toBe(502);
+      expect((await post(channel.id, 'load-more')).status).toBe(200);
+    } finally {
+      historyLimits.workMs = before;
+    }
   });
 
   test('página curta marca o fim do histórico e a chamada seguinte nem pergunta ao Telegram', async () => {
@@ -198,6 +232,12 @@ describe('POST /channels/:id/search', () => {
       expect((await post(channel.id, 'search', body)).status).toBe(400);
     }
     expect(page).not.toHaveBeenCalled();
+  });
+
+  test('canal público que deixou de existir: 404, como na importação', async () => {
+    globalThis.fetch = (async () => new Response('<html>nada</html>')) as unknown as typeof fetch;
+    const { channel } = setup('public', 'canalteste', [101], '101');
+    expect((await post(channel.id, 'search', { q: 'x' })).status).toBe(404);
   });
 
   test('canal inexistente: 404; modo bot: 501', async () => {

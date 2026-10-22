@@ -445,8 +445,9 @@ export interface TelegramChannelDetailDto extends TelegramChannelDto {
   items: TelegramItemDto[];
 }
 
-export const getTelegramChannel = (titleId: string): Promise<TelegramChannelDetailDto> =>
-  fetch(`/api/telegram/channels/${titleId}`).then((r) => json<TelegramChannelDetailDto>(r));
+/** `fillThumbs`: a página do canal espera as miniaturas que faltam; a tela de reprodução só quer a lista. */
+export const getTelegramChannel = (titleId: string, opts: { fillThumbs?: boolean } = {}): Promise<TelegramChannelDetailDto> =>
+  fetch(`/api/telegram/channels/${titleId}${opts.fillThumbs ? '?thumbs=fill' : ''}`).then((r) => json<TelegramChannelDetailDto>(r));
 
 export const refreshTelegramChannel = (titleId: string): Promise<{ itemCount: number }> =>
   fetch(`/api/telegram/channels/${titleId}/refresh`, { method: 'POST' }).then((r) => json<{ itemCount: number }>(r));

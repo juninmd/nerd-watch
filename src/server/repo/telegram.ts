@@ -121,10 +121,6 @@ export const updateChannelCursor =(db: Database, channelId: string, cursor: stri
 export const countTelegramItems = (db: Database, channelId: string): number =>
   db.query<{ n: number }, [string]>('SELECT COUNT(*) AS n FROM telegram_items WHERE channel_id = ?').get(channelId)?.n ?? 0;
 
-/** Menor id de mensagem guardado: de onde continuar quando o canal (importado antes do cursor existir) não tem cursor. */
-export const oldestStoredMessageId = (db: Database, channelId: string): string | null =>
-  db.query<{ id: string | null }, [string]>('SELECT MIN(CAST(message_id AS INTEGER)) AS id FROM telegram_items WHERE channel_id = ?').get(channelId)?.id?.toString() ?? null;
-
 export interface NewTelegramItem {
   messageId: string;
   caption?: string | null;

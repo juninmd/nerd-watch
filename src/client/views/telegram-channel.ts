@@ -31,7 +31,7 @@ export const renderTelegramChannel = (host: HTMLElement, titleId: string): void 
   const ui: ListState = { q: '', shown: PAGE_SIZE };
 
   const load = () => {
-    getTelegramChannel(titleId)
+    getTelegramChannel(titleId, { fillThumbs: true })
       .then((d) => renderDetail(host, d, load, ui))
       .catch(() => {
         host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar esse canal</div>`;
@@ -236,7 +236,10 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   let typing: ReturnType<typeof setTimeout> | undefined;
   searchInput.addEventListener('input', () => {
     clearTimeout(typing);
-    typing = setTimeout(() => applySearch(searchInput.value), 150);
+    // A tela pode ter sido redesenhada (ordem, recarregar) antes dos 150 ms: o campo antigo não manda mais no estado.
+    typing = setTimeout(() => {
+      if (searchInput.isConnected) applySearch(searchInput.value);
+    }, 150);
   });
   searchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && searchInput.value) {

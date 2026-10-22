@@ -126,7 +126,7 @@ export const PERSONAL_PAGE_SIZE = 100;
 
 export interface PersonalVideoPage {
   items: TelegramPersonalItem[];
-  /** O Telegram devolveu menos que uma página cheia: não há mais mensagens antes dessas. */
+  /** Confirmado: não há mais mensagens antes dessas. */
   exhausted: boolean;
   /** Menor id de mensagem da página (vídeo ou não): é de onde a próxima página continua. */
   oldestId: string | null;
@@ -137,21 +137,25 @@ export interface PersonalVideoPage {
  * da mensagem pelo canal inteiro (no servidor do Telegram), não só no que já foi importado.
  */
 export const fetchPersonalVideoPage = async (handle: string, opts: { before?: string; query?: string } = {}): Promise<PersonalVideoPage> => {
-  const messages = await withLiveSession(async (client) =>
-    client.getMessages(await resolvePeer(client, handle), {
-      limit: PERSONAL_PAGE_SIZE,
-      filter: new Api.InputMessagesFilterVideo(),
-      offsetId: opts.before ? Number(opts.before) : 0,
-      ...(opts.query ? { search: opts.query } : {}),
-    }),
-  );
+  const { messages, confirmedEnd } = await withLiveSession(async (client) => {
+    const peer = await resolvePeer(client, handle);
+    const filter = new Api.InputMessagesFilterVideo();
+    const search = opts.query ? { search: opts.query } : {};
+    const page = await client.getMessages(peer, { limit: PERSONAL_PAGE_SIZE, filter, offsetId: opts.before ? Number(opts.before) : 0, ...search });
+    if (page.length === 0) return { messages: page, confirmedEnd: true };
+    if (page.length === PERSONAL_PAGE_SIZE) return { messages: page, confirmedEnd: false };
+    // Página curta não prova o fim (o Telegram pode devolver menos que o pedido): confirma com uma consulta antes da mais antiga.
+    // Marcar o fim cedo demais deixaria o resto do histórico inalcançável.
+    const probe = await client.getMessages(peer, { limit: 1, filter, offsetId: Math.min(...page.map((m) => m.id)), ...search });
+    return { messages: page, confirmedEnd: probe.length === 0 };
+  });
   const items: TelegramPersonalItem[] = [];
   for (const msg of messages) {
     const item = toItem(msg);
     if (item) items.push(item);
   }
   const ids = messages.map((m) => m.id);
-  return { items, exhausted: messages.length < PERSONAL_PAGE_SIZE, oldestId: ids.length ? String(Math.min(...ids)) : null };
+  return { items, exhausted: confirmedEnd, oldestId: ids.length ? String(Math.min(...ids)) : null };
 };
 
 /** Lista vídeos do canal, do mais recente pro mais antigo. `beforeMessageId` pagina pra trás no histórico. */

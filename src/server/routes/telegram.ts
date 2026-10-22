@@ -144,9 +144,11 @@ telegramRoutes.get('/channels/:id', async (c) => {
   const channel = getTelegramChannel(db, c.req.param('id'));
   if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
 
-  // Quem abre o canal espera ver a miniatura de todos os vídeos: o que ficou sem (download que falhou) é completado agora.
+  // A página do canal pede (`?thumbs=fill`) e espera ver a miniatura de todos os vídeos: o que ficou sem (download que
+  // falhou) é completado agora. A tela de reprodução também lê este detalhe e não deve esperar por isso.
   const stored = listTelegramItems(db, channel.id);
-  const complete = channel.mode === 'public' || channel.mode === 'personal' ? await ensureThumbs(db, channel, stored) : stored;
+  const fill = c.req.query('thumbs') === 'fill' && (channel.mode === 'public' || channel.mode === 'personal');
+  const complete = fill ? await ensureThumbs(db, channel, stored) : stored;
   // Mais recente primeiro: é a ordem da lista de vídeos e da fila de reprodução (do último ao mais antigo).
   const items = complete.reverse();
   return c.json({

@@ -8,7 +8,7 @@ import * as personal from '../src/server/providers/telegram/personal.ts';
 import * as personalInfo from '../src/server/providers/telegram/personal-info.ts';
 import { setTelegramItemThumbnail, upsertTelegramChannel, upsertTelegramItems } from '../src/server/repo/telegram.ts';
 import { telegramRoutes } from '../src/server/routes/telegram.ts';
-import { resetThumbRetries } from '../src/server/telegram-item-thumbs.ts';
+import { resetThumbRetries, thumbLimits } from '../src/server/telegram-item-thumbs.ts';
 import { photoStore } from '../src/server/telegram-photos.ts';
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7, 7]);
@@ -84,8 +84,9 @@ const channelWithoutThumbs = (messageIds: string[]) => {
   return { db, channel };
 };
 
-const openChannel = async (id: string) =>
-  (await (await telegramRoutes.request(`/channels/${id}`)).json()) as { items: Array<{ messageId: string; thumbnailUrl: string | null }> };
+/** `fill: true` é o que a página do canal pede; a tela de reprodução abre sem completar miniaturas. */
+const openChannel = async (id: string, fill = true) =>
+  (await (await telegramRoutes.request(`/channels/${id}${fill ? '?thumbs=fill' : ''}`)).json()) as { items: Array<{ messageId: string; thumbnailUrl: string | null }> };
 
 describe('abrir o canal completa as miniaturas que faltam', () => {
   test('todos os vídeos chegam com miniatura local na primeira abertura', async () => {
@@ -95,6 +96,28 @@ describe('abrir o canal completa as miniaturas que faltam', () => {
     expect(detail.items.map((i) => i.thumbnailUrl)).toEqual(detail.items.map((i) => `/api/telegram/channels/${channel.id}/items/${i.messageId}/thumb`));
     expect(thumbs).toHaveBeenCalledTimes(1);
     expect(thumbs.mock.calls[0]?.[1]).toEqual(['10', '11', '12']);
+  });
+
+  test('quem não pede (tela de reprodução) abre na hora, sem esperar nem baixar miniatura', async () => {
+    const thumbs = fakeTelegram([]);
+    const { channel } = channelWithoutThumbs(['10']);
+    expect((await openChannel(channel.id, false)).items[0]?.thumbnailUrl).toBeNull();
+    expect(thumbs).not.toHaveBeenCalled();
+  });
+
+  test('se o Telegram travar, a abertura espera só o orçamento e devolve o canal', async () => {
+    const thumbs = fakeTelegram([]);
+    thumbs.mockImplementation(() => new Promise(() => {}));
+    const { channel } = channelWithoutThumbs(['10']);
+    const before = thumbLimits.waitMs;
+    thumbLimits.waitMs = 30;
+    try {
+      const started = performance.now();
+      expect((await openChannel(channel.id)).items[0]?.thumbnailUrl).toBeNull();
+      expect(performance.now() - started).toBeLessThan(2000);
+    } finally {
+      thumbLimits.waitMs = before;
+    }
   });
 
   test('só pede ao Telegram o que falta: com tudo local não há chamada', async () => {
