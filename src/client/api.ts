@@ -448,3 +448,10 @@ export const cancelTelegramLogin = (): Promise<{ ok: true }> =>
 /** Encerra a sessão da conta pessoal (no Telegram e localmente). */
 export const logoutTelegram = (): Promise<TelegramSettingsStatus> =>
   fetch('/api/telegram/settings/login/logout', { method: 'POST' }).then((r) => json<TelegramSettingsStatus>(r));
+
+export type BulkLibraryInput = { titleIds: string[]; action: 'remove' } | { titleIds: string[]; action: 'status'; watchStatus: WatchStatus };
+
+export const bulkLibrary = (input: BulkLibraryInput): Promise<{ affected: number }> =>
+  fetch('/api/library/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).then((r) =>
+    json<{ affected: number }>(r),
+  );

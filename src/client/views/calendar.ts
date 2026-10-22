@@ -38,7 +38,7 @@ export const renderCalendar = (host: HTMLElement): void => {
     getCalendar(days)
       .then((data) => {
         if (data.entries.length === 0) {
-          entriesEl.innerHTML = `<div class="empty-state"><div class="big">📭</div>nada previsto nos próximos ${days} dias — acompanhe algo em <a href="#/my-list">Minha lista</a></div>`;
+          entriesEl.innerHTML = `<div class="empty-state"><div class="big">📭</div>nada previsto nos próximos ${days} dias — acompanhe algo em <a href="#/library">Biblioteca</a></div>`;
           return;
         }
         const groups = groupByDay(data.entries);

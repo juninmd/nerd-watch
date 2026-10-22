@@ -8,7 +8,7 @@ import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './state.ts';
 import { renderCalendar } from './views/calendar.ts';
 import { renderConnections } from './views/connections.ts';
 import { renderDiscover } from './views/discover.ts';
-import { renderMyList } from './views/my-list.ts';
+import { renderLibrary } from './views/library.ts';
 import { renderPublicDomain } from './views/public-domain.ts';
 import { renderSearch } from './views/search.ts';
 import { renderTelegramChannel } from './views/telegram-channel.ts';
@@ -127,7 +127,7 @@ const dispatch = (route: Route) => {
       renderSearch(viewEl, route.query.get('q') ?? '');
       return;
     case '/library':
-      renderMyList(viewEl);
+      renderLibrary(viewEl);
       return;
     case '/agenda':
       renderCalendar(viewEl);

@@ -38,7 +38,7 @@ export const renderDiscover = (host: HTMLElement): void => {
         <p class="view-subtitle">O que você está assistindo, o que estreia em breve e clássicos de domínio público prontos para assistir agora.</p>
         ${banner}
         <div class="section">
-          <div class="section-head"><h2>▶️ Continuar assistindo</h2><span class="hint"><a href="#/my-list">ver lista completa</a></span></div>
+          <div class="section-head"><h2>▶️ Continuar assistindo</h2><span class="hint"><a href="#/library">ver lista completa</a></span></div>
           <div class="rail" id="watching-rail"></div>
         </div>
         <div class="section">
