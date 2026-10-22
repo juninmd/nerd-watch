@@ -37,13 +37,13 @@ const fakeClient = (messages: unknown[], fail: (id: number) => boolean = () => f
 };
 
 describe('fetchPersonalThumbs', () => {
-  test('baixa várias miniaturas ao mesmo tempo, mas com teto (não é um download por vez, nem tudo de uma vez)', async () => {
+  test('baixa várias miniaturas ao mesmo tempo, mas com teto (10) (não é um download por vez, nem tudo de uma vez)', async () => {
     const ids = Array.from({ length: 12 }, (_, i) => i + 1);
     const state = fakeClient(ids.map((id) => videoMessage(id)));
     const thumbs = await fetchPersonalThumbs('cine_ch', ids.map(String));
     expect([...thumbs.keys()].sort((a, b) => Number(a) - Number(b))).toEqual(ids.map(String));
     expect(state.peak).toBeGreaterThan(1);
-    expect(state.peak).toBeLessThanOrEqual(4);
+    expect(state.peak).toBeLessThanOrEqual(10);
   });
 
   test('um download que falha não leva junto as outras miniaturas', async () => {

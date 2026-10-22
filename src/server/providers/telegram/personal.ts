@@ -10,10 +10,8 @@ import { resolvePeer } from './peer.ts';
  * Bot API na nuvem. Login é sempre via `bun run telegram:login` (CLI local) — a session string resultante
  * fica só no .env, nunca é aceita por HTTP.
  *
- * LIMITAÇÃO ATUAL: só a 1ª página (30 mensagens mais recentes) é importada — `beforeMessageId` existe
- * pra paginar pra trás mas nada ainda chama com esse argumento, e `telegram_channels.cursor` é gravado
- * mas nunca lido de volta. "Histórico completo" hoje é uma capacidade do protocolo, não algo entregue
- * pela UI/rotas atuais.
+ * Histórico: `fetchPersonalVideoPage` pagina pra trás (`before`) e busca por texto (`query`); o app importa a página mais recente
+ * e o usuário carrega as mais antigas sob demanda (`POST /channels/:id/load-more`).
  */
 export class TelegramPersonalNotConfiguredError extends Error {
   constructor() {
@@ -123,13 +121,28 @@ const toItem = (msg: Api.Message): TelegramPersonalItem | null => {
   };
 };
 
-/** Lista vídeos do canal, do mais recente pro mais antigo. `beforeMessageId` pagina pra trás no histórico. */
-export const fetchPersonalChannelItems = async (handle: string, beforeMessageId?: string): Promise<TelegramPersonalItem[]> => {
+/** Máximo que o Telegram devolve por chamada de `getMessages`. */
+export const PERSONAL_PAGE_SIZE = 100;
+
+export interface PersonalVideoPage {
+  items: TelegramPersonalItem[];
+  /** O Telegram devolveu menos que uma página cheia: não há mais mensagens antes dessas. */
+  exhausted: boolean;
+  /** Menor id de mensagem da página (vídeo ou não): é de onde a próxima página continua. */
+  oldestId: string | null;
+}
+
+/**
+ * Uma página de vídeos, do mais recente pro mais antigo. `before` pagina pra trás no histórico e `query` busca no texto
+ * da mensagem pelo canal inteiro (no servidor do Telegram), não só no que já foi importado.
+ */
+export const fetchPersonalVideoPage = async (handle: string, opts: { before?: string; query?: string } = {}): Promise<PersonalVideoPage> => {
   const messages = await withLiveSession(async (client) =>
     client.getMessages(await resolvePeer(client, handle), {
-      limit: 30,
+      limit: PERSONAL_PAGE_SIZE,
       filter: new Api.InputMessagesFilterVideo(),
-      offsetId: beforeMessageId ? Number(beforeMessageId) : 0,
+      offsetId: opts.before ? Number(opts.before) : 0,
+      ...(opts.query ? { search: opts.query } : {}),
     }),
   );
   const items: TelegramPersonalItem[] = [];
@@ -137,8 +150,13 @@ export const fetchPersonalChannelItems = async (handle: string, beforeMessageId?
     const item = toItem(msg);
     if (item) items.push(item);
   }
-  return items;
+  const ids = messages.map((m) => m.id);
+  return { items, exhausted: messages.length < PERSONAL_PAGE_SIZE, oldestId: ids.length ? String(Math.min(...ids)) : null };
 };
+
+/** Lista vídeos do canal, do mais recente pro mais antigo. `beforeMessageId` pagina pra trás no histórico. */
+export const fetchPersonalChannelItems = async (handle: string, beforeMessageId?: string): Promise<TelegramPersonalItem[]> =>
+  (await fetchPersonalVideoPage(handle, { before: beforeMessageId })).items;
 
 export interface PersonalStream {
   stream: ReadableStream<Uint8Array>;

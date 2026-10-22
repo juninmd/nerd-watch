@@ -107,23 +107,32 @@ export const parsePublicChannelHtml = (html: string, handle: string): TelegramPu
   return items;
 };
 
+/** Menor id entre todos os posts do canal na página (com vídeo ou não): é de onde a próxima página (`before`) continua. */
+export const oldestPostId = (html: string, handle: string): string | null => {
+  const ids = [...html.matchAll(/data-post="([^/"]+)\/(\d+)"/g)].filter((m) => (m[1] as string).toLowerCase() === handle.toLowerCase()).map((m) => Number(m[2]));
+  return ids.length ? String(Math.min(...ids)) : null;
+};
+
 export interface TelegramPublicPage {
   info: TelegramChannelInfo;
   items: TelegramPublicItem[];
+  oldestId: string | null;
 }
 
-export const fetchPublicChannelPage = async (handle: string, beforeMessageId?: string): Promise<TelegramPublicPage> => {
+/** `before` pagina pra trás e `query` usa a busca de texto da própria prévia (`?q=`). */
+export const fetchPublicChannelPage = async (handle: string, opts: { before?: string; query?: string } = {}): Promise<TelegramPublicPage> => {
   const url = new URL(`${BASE}/s/${encodeURIComponent(handle)}`);
-  if (beforeMessageId) url.searchParams.set('before', beforeMessageId);
+  if (opts.before) url.searchParams.set('before', opts.before);
+  if (opts.query) url.searchParams.set('q', opts.query);
 
   const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`t.me respondeu ${res.status}`);
   const html = await res.text();
-  return { info: parsePublicChannelInfo(html), items: parsePublicChannelHtml(html, handle) };
+  return { info: parsePublicChannelInfo(html), items: parsePublicChannelHtml(html, handle), oldestId: oldestPostId(html, handle) };
 };
 
 export const fetchPublicChannelItems = async (handle: string, beforeMessageId?: string): Promise<TelegramPublicItem[]> =>
-  (await fetchPublicChannelPage(handle, beforeMessageId)).items;
+  (await fetchPublicChannelPage(handle, { before: beforeMessageId })).items;
 
 /**
  * Refaz o fetch da mensagem individual pra sempre devolver uma URL de vídeo com token válido no momento do

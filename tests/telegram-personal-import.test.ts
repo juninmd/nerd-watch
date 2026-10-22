@@ -36,7 +36,7 @@ afterEach(() => {
 
 const fakeTelegram = (messageIds: string[], thumbsFail = false) => {
   const items = messageIds.map((messageId) => ({ messageId, caption: `v${messageId}`, durationSeconds: 60, postedAt: '2026-10-01T00:00:00.000Z' }));
-  spies.push(spyOn(personal, 'fetchPersonalChannelItems').mockResolvedValue(items));
+  spies.push(spyOn(personal, 'fetchPersonalVideoPage').mockResolvedValue({ items, exhausted: true, oldestId: messageIds.length ? String(Math.min(...messageIds.map(Number))) : null }));
   spies.push(spyOn(personalInfo, 'fetchPersonalChannelInfo').mockResolvedValue({ title: 'Canal falso', description: null, photo: null }));
   // Só os ids pedidos voltam com miniatura: o que o Telegram não tem fica de fora, como no código real.
   const thumbs = spyOn(personalInfo, 'fetchPersonalThumbs');

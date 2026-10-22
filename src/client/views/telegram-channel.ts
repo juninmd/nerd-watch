@@ -1,4 +1,11 @@
-import { deleteTelegramChannel, getTelegramChannel, refreshTelegramChannel, type TelegramChannelDetailDto } from '../api.ts';
+import {
+  deleteTelegramChannel,
+  getTelegramChannel,
+  loadMoreTelegramHistory,
+  refreshTelegramChannel,
+  searchTelegramHistory,
+  type TelegramChannelDetailDto,
+} from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { getQueueOrder, type QueueOrder, savedPosition, setQueueOrder } from '../components/player-dock.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
@@ -7,15 +14,25 @@ import { resumePoint } from '../playback-store.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 import { canRefreshMode, handleLabel, MODE_INFO } from '../source-modes.ts';
-import { itemTitle, orderItems, watchPath } from '../telegram-items.ts';
+import { filterItems, itemTitle, orderItems, watchPath } from '../telegram-items.ts';
 import { formatDuration } from '../time-format.ts';
+
+/** Quantos cards aparecem de cada vez: milhares de vídeos carregados não viram milhares de nós no DOM. */
+const PAGE_SIZE = 60;
+
+/** Estado da lista que precisa sobreviver a um `reload()` (carregar mais antigos, buscar no Telegram…). */
+interface ListState {
+  q: string;
+  shown: number;
+}
 
 export const renderTelegramChannel = (host: HTMLElement, titleId: string): void => {
   host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  const ui: ListState = { q: '', shown: PAGE_SIZE };
 
   const load = () => {
     getTelegramChannel(titleId)
-      .then((d) => renderDetail(host, d, load))
+      .then((d) => renderDetail(host, d, load, ui))
       .catch(() => {
         host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar esse canal</div>`;
       });
@@ -24,7 +41,7 @@ export const renderTelegramChannel = (host: HTMLElement, titleId: string): void 
   load();
 };
 
-const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: () => void): void => {
+const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: () => void, ui: ListState): void => {
   const order = getQueueOrder();
   const items = orderItems(d.items, order);
   host.innerHTML = `
@@ -49,7 +66,13 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       <div>
         <div class="section-head"><h2>Vídeos</h2>${d.items.length > 1 ? `<select class="select" id="tg-order" aria-label="Ordem dos vídeos"><option value="newest"${order === 'newest' ? ' selected' : ''}>Mais recentes primeiro</option><option value="oldest"${order === 'oldest' ? ' selected' : ''}>Mais antigos primeiro</option></select>` : ''}${canRefreshMode(d.mode) ? `<button class="btn btn-ghost btn-sm" id="tg-refresh" type="button">${icon('download', 'sm')} atualizar</button>` : ''}</div>
         ${d.mode === 'bot' ? `<p class="hint">modo bot só recebe vídeos postados a partir de agora — sem histórico retroativo.</p>` : ''}
+        <div class="tg-search">
+          <input type="search" class="input input-pill" id="tg-q" placeholder="buscar no título e na descrição dos vídeos" autocomplete="off" aria-label="Buscar nos vídeos deste canal" value="${escapeHtml(ui.q)}" />
+          <span class="hint" id="tg-count" role="status" aria-live="polite"></span>
+        </div>
         <div id="tg-items" class="grid"></div>
+        <div id="tg-empty"></div>
+        <div id="tg-more" class="tg-more"></div>
       </div>
       <div>
         <div class="side-card">
@@ -73,26 +96,106 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   );
 
   const itemsHost = host.querySelector('#tg-items') as HTMLElement;
+  const emptyHost = host.querySelector('#tg-empty') as HTMLElement;
+  const moreHost = host.querySelector('#tg-more') as HTMLElement;
+  const countEl = host.querySelector('#tg-count') as HTMLElement;
+  const searchInput = host.querySelector('#tg-q') as HTMLInputElement;
+  const remote = d.mode === 'personal' || d.mode === 'public';
+
+  // Lista na ordem escolhida e já filtrada pela busca: "Reproduzir tudo" e o clique no card usam esta mesma lista.
+  let current: typeof items = [];
   // O vídeo abre na tela de reprodução, com os próximos do canal ao lado; o player fixo só vem de "Minimizar".
   const play = (from: number) => {
-    const item = items[from];
+    const item = current[from];
     if (item) navigate(watchPath(d.titleId, item.messageId));
   };
 
-  host.querySelector('#tg-play-all')?.addEventListener('click', () => play(0));
-  host.querySelector('#tg-order')?.addEventListener('change', (e) => {
-    setQueueOrder((e.target as HTMLSelectElement).value as QueueOrder);
-    renderDetail(host, d, reload);
-  });
+  /** Botão de rodapé que roda uma ação demorada (fala com o Telegram) com feedback e sem clique duplo. */
+  const action = (label: string, run: () => Promise<string>): HTMLButtonElement => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-ghost';
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      btn.textContent = 'carregando do Telegram…';
+      run()
+        .then((message) => {
+          showToast(message);
+          reload();
+        })
+        .catch((err) => {
+          showToast(err instanceof Error ? err.message : 'não foi possível falar com o Telegram agora');
+          btn.disabled = false;
+          btn.textContent = label;
+        });
+    });
+    return btn;
+  };
 
-  if (d.items.length === 0) {
-    const emptyMessage =
-      d.mode === 'bot'
-        ? 'nenhum vídeo ainda — o bot precisa estar adicionado como admin do canal, e só grava o que for postado a partir de agora'
-        : 'nenhum vídeo encontrado nesse canal ainda';
-    itemsHost.outerHTML = `<div class="empty-state"><div class="big">📭</div>${emptyMessage}</div>`;
-  } else {
-    for (const [i, item] of items.entries()) {
+  const renderFooter = (matches: number, visible: number) => {
+    moreHost.replaceChildren();
+    if (matches > visible) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'btn btn-ghost';
+      more.textContent = `mostrar mais (${matches - visible})`;
+      more.addEventListener('click', () => {
+        ui.shown += PAGE_SIZE;
+        renderItems();
+      });
+      moreHost.appendChild(more);
+      return;
+    }
+    if (!remote) return;
+    const query = ui.q.trim();
+    if (query) {
+      moreHost.appendChild(
+        action(`buscar “${query}” no Telegram`, async () => {
+          const res = await searchTelegramHistory(d.titleId, query);
+          ui.shown += res.added;
+          return res.found === 0 ? 'o Telegram não achou nenhum vídeo com esse texto' : `${res.found} vídeo(s) achado(s), ${res.added} novo(s) na lista`;
+        }),
+      );
+    } else if (d.canLoadMore) {
+      moreHost.appendChild(
+        action('carregar vídeos mais antigos', async () => {
+          const res = await loadMoreTelegramHistory(d.titleId);
+          ui.shown += res.added;
+          return res.exhausted ? `${res.added} vídeo(s) a mais — esse é o começo do histórico` : `${res.added} vídeo(s) mais antigos carregados`;
+        }),
+      );
+    } else if (d.items.length > 0) {
+      moreHost.innerHTML = `<p class="hint">fim do histórico: todos os vídeos desse canal já estão aqui.</p>`;
+    }
+  };
+
+  const renderItems = () => {
+    const matches = filterItems(orderItems(d.items, order), ui.q);
+    current = matches;
+    const visible = matches.slice(0, ui.shown);
+    itemsHost.replaceChildren();
+
+    const plural = d.items.length === 1 ? '' : 's';
+    countEl.textContent = ui.q.trim()
+      ? `${matches.length} de ${d.items.length} vídeo${plural} carregado${plural}`
+      : d.items.length > visible.length
+        ? `mostrando ${visible.length} de ${d.items.length}`
+        : '';
+
+    if (d.items.length === 0) {
+      const emptyMessage =
+        d.mode === 'bot'
+          ? 'nenhum vídeo ainda — o bot precisa estar adicionado como admin do canal, e só grava o que for postado a partir de agora'
+          : 'nenhum vídeo encontrado nesse canal ainda';
+      emptyHost.innerHTML = `<div class="empty-state"><div class="big">📭</div>${emptyMessage}</div>`;
+    } else if (matches.length === 0) {
+      emptyHost.innerHTML = `<div class="empty-state"><div class="big">🔎</div>nenhum vídeo com “${escapeHtml(ui.q.trim())}” entre os ${d.items.length} carregados${remote ? '<br /><small>use o botão abaixo para procurar no canal inteiro</small>' : ''}</div>`;
+    } else {
+      emptyHost.replaceChildren();
+    }
+
+    for (const [i, item] of visible.entries()) {
       const saved = savedPosition(`${d.titleId}:${item.messageId}`);
       const resumeAt = resumePoint(saved);
       const watched = saved?.done === true;
@@ -122,7 +225,33 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       });
       itemsHost.appendChild(card);
     }
-  }
+    renderFooter(matches.length, visible.length);
+  };
+
+  const applySearch = (text: string) => {
+    ui.q = text;
+    ui.shown = PAGE_SIZE;
+    renderItems();
+  };
+  let typing: ReturnType<typeof setTimeout> | undefined;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(typing);
+    typing = setTimeout(() => applySearch(searchInput.value), 150);
+  });
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && searchInput.value) {
+      e.preventDefault();
+      searchInput.value = '';
+      applySearch('');
+    }
+  });
+
+  host.querySelector('#tg-play-all')?.addEventListener('click', () => play(0));
+  host.querySelector('#tg-order')?.addEventListener('change', (e) => {
+    setQueueOrder((e.target as HTMLSelectElement).value as QueueOrder);
+    renderDetail(host, d, reload, ui);
+  });
+  renderItems();
 
   const deleteBtn = host.querySelector('#tg-delete') as HTMLButtonElement;
   deleteBtn.addEventListener('click', () => {

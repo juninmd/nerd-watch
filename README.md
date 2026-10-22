@@ -155,6 +155,11 @@ Sem a interface, dá para preencher `TELEGRAM_API_ID` e `TELEGRAM_API_HASH` no `
   O app guarda o canal como `c/<id>` e mostra o nome real. Grupos antigos (os que ainda não viraram
   supergrupo) não têm esse link e ficam de fora. Links de convite (`t.me/+…`) não servem: entre no canal pelo
   Telegram primeiro.
+- **Histórico e busca:** ao importar, o app traz os 100 vídeos mais recentes (na prévia pública, a página que o t.me mostra). Na página
+  do canal, **carregar vídeos mais antigos** lê a próxima página do Telegram, até o começo do histórico. O
+  campo de busca filtra pelo título e pela descrição dos vídeos já carregados (sem diferenciar maiúsculas nem
+  acentos); **buscar “…” no Telegram** procura no canal inteiro e acrescenta os achados à lista, no lugar
+  certo pela data. Vale para conta pessoal e canal público; o modo bot só recebe o que for postado dali em diante.
 - O **modo bot** é opcional: crie um bot com o @BotFather, cole o token em **Conexões → Telegram → Modo bot**
   e adicione o bot como admin do canal. Ele só vê posts de depois que foi adicionado.
 

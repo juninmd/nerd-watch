@@ -21,7 +21,7 @@ export const fetchPersonalChannelInfo = (handle: string): Promise<PersonalChanne
     return { title, description, photo: photo && typeof photo !== 'string' ? new Uint8Array(photo) : null };
   });
 
-const THUMB_CONCURRENCY = 4;
+const THUMB_CONCURRENCY = 10;
 
 /**
  * Miniaturas dos vídeos pedidos (id da mensagem → bytes). Só baixa a miniatura embutida; se a mensagem não tiver
@@ -39,7 +39,7 @@ export const fetchPersonalThumbs = (handle: string, messageIds: string[]): Promi
       const best = sizes.sort((a, b) => b.w * b.h - a.w * a.h)[0];
       if (best) wanted.push({ msg, best });
     }
-    // Medido com 30 vídeos: ~130 ms cada em sequência contra ~0,4 s por lote de 4 depois de aquecido; quem abre o canal espera por isso.
+    // Medido com 30 vídeos: ~130 ms cada em sequência contra ~0,25 s por lote de 10 depois de aquecido (4 por vez gastava ~10 s em 100 vídeos); quem abre o canal espera por isso.
     for (let i = 0; i < wanted.length; i += THUMB_CONCURRENCY) {
       await Promise.all(
         wanted.slice(i, i + THUMB_CONCURRENCY).map(async ({ msg, best }) => {

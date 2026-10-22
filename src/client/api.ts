@@ -412,6 +412,8 @@ export interface TelegramChannelDto {
   /** Fontes sem página própria (pasta local, torrent) não têm link. */
   link: string | null;
   itemCount: number;
+  /** Ainda há vídeos mais antigos no Telegram para carregar. */
+  canLoadMore: boolean;
 }
 
 export interface TelegramChannelListResponse {
@@ -448,6 +450,28 @@ export const getTelegramChannel = (titleId: string): Promise<TelegramChannelDeta
 
 export const refreshTelegramChannel = (titleId: string): Promise<{ itemCount: number }> =>
   fetch(`/api/telegram/channels/${titleId}/refresh`, { method: 'POST' }).then((r) => json<{ itemCount: number }>(r));
+
+export interface LoadMoreResultDto {
+  added: number;
+  total: number;
+  exhausted: boolean;
+}
+
+/** Lê do Telegram a próxima página de vídeos mais antigos do canal. */
+export const loadMoreTelegramHistory = (titleId: string): Promise<LoadMoreResultDto> =>
+  fetch(`/api/telegram/channels/${titleId}/load-more`, { method: 'POST' }).then((r) => json<LoadMoreResultDto>(r));
+
+export interface SearchChannelResultDto {
+  found: number;
+  added: number;
+  total: number;
+}
+
+/** Busca o texto no canal inteiro (no Telegram) e guarda os achados na lista do canal. */
+export const searchTelegramHistory = (titleId: string, q: string): Promise<SearchChannelResultDto> =>
+  fetch(`/api/telegram/channels/${titleId}/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q }) }).then((r) =>
+    json<SearchChannelResultDto>(r),
+  );
 
 export const deleteTelegramChannel = (titleId: string): Promise<void> =>
   fetch(`/api/telegram/channels/${titleId}`, { method: 'DELETE' }).then((res) => {

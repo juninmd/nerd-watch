@@ -324,3 +324,27 @@
 .tg-description {
   white-space: pre-line;
 }
+
+/* Busca e paginação da lista de vídeos do canal */
+.tg-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0 0 16px;
+}
+
+.tg-search .input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.tg-more {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0 8px;
+}
+
+.tg-more:empty {
+  display: none;
+}
