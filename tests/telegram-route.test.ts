@@ -70,7 +70,7 @@ describe('GET /api/telegram/channels e /channels/:id', () => {
 
     const detail = await (await telegramRoutes.request(`/channels/${created.titleId}`)).json();
     expect(detail.items).toHaveLength(2);
-    expect(detail.items[0].messageId).toBe('100');
+    expect(detail.items[0].messageId).toBe('102'); // mais recente primeiro
   });
 
   test('404 pra canal inexistente', async () => {
@@ -288,5 +288,17 @@ describe('miniaturas dos vídeos', () => {
   test('miniatura inexistente ou com id inválido dá 404', async () => {
     expect((await telegramRoutes.request('/channels/123e4567-e89b-42d3-a456-426614174000/items/1/thumb')).status).toBe(404);
     expect((await telegramRoutes.request('/channels/x/items/..%2F1/thumb')).status).toBe(404);
+  });
+});
+
+describe('ordem dos vídeos do canal', () => {
+  test('o detalhe lista do vídeo mais recente ao mais antigo, mesmo importado em ordem inversa', async () => {
+    const db = openDb(':memory:');
+    resetDbForTests(db);
+    const ch = upsertTelegramChannel(db, { handle: 'canal_ordem', mode: 'public' });
+    upsertTelegramItems(db, ch.id, ['9', '100', '20', '3'].map((messageId) => ({ messageId })));
+
+    const body = await (await telegramRoutes.request(`/channels/${ch.id}`)).json();
+    expect(body.items.map((i: { messageId: string }) => i.messageId)).toEqual(['100', '20', '9', '3']);
   });
 });

@@ -30,3 +30,22 @@ export const toDockItem = (channel: { titleId: string; title: string }, item: Te
   messageId: item.messageId,
   durationSeconds: item.durationSeconds,
 });
+
+/**
+ * Próximo canal para sugerir ao fim de um: o seguinte na ordem da lista (volta ao início no fim da lista),
+ * pulando canais sem vídeo. Null quando não há nenhum outro com vídeos.
+ */
+export const pickNextChannel = <T extends { titleId: string; itemCount: number }>(channels: T[], currentId: string): T | null => {
+  const at = channels.findIndex((c) => c.titleId === currentId);
+  for (let step = 1; step < channels.length; step++) {
+    const candidate = channels[(at + step + channels.length) % channels.length];
+    if (candidate && candidate.titleId !== currentId && candidate.itemCount > 0) return candidate;
+  }
+  return null;
+};
+
+/** Ordena pelo id da mensagem (cresce com o tempo): `newest` = mais recente primeiro. Não altera a lista original. */
+export const orderItems = <T extends { messageId: string }>(items: T[], order: 'newest' | 'oldest'): T[] => {
+  const sorted = [...items].sort((a, b) => Number(a.messageId) - Number(b.messageId));
+  return order === 'newest' ? sorted.reverse() : sorted;
+};
