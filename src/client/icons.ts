@@ -27,6 +27,7 @@ const PATHS = {
   keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h0M10 10h0M14 10h0M18 10h0M7 14h10"/>',
   skipNext: '<path d="M6 5l9 7-9 7z" fill="currentColor" stroke="none"/><path d="M19 5v14"/>',
   skipPrev: '<path d="M18 5l-9 7 9 7z" fill="currentColor" stroke="none"/><path d="M5 5v14"/>',
+  minimize: '<path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;
