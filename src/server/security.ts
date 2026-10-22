@@ -13,10 +13,18 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export const hostAllowed = (host: string): boolean => !host || LOOPBACK_HOST.test(host);
 
-export const originAllowed = (origin: string): boolean => !origin || LOOPBACK_ORIGIN.test(origin);
+/**
+ * Loopback não basta: qualquer outra página local (`http://localhost:3000`) também é loopback e poderia reapontar
+ * a URL de uma fonte para um host dela e receber as credenciais salvas. Com `host`, só a própria origem passa.
+ */
+export const originAllowed = (origin: string, host = ''): boolean => {
+  if (!origin) return true;
+  if (!LOOPBACK_ORIGIN.test(origin)) return false;
+  return !host || origin.slice('http://'.length).toLowerCase() === host.toLowerCase();
+};
 
 export const requestAllowed = (method: string, host: string, origin: string): boolean => {
   if (!hostAllowed(host)) return false;
   if (SAFE_METHODS.has(method)) return true;
-  return originAllowed(origin);
+  return originAllowed(origin, host);
 };

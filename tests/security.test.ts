@@ -50,3 +50,27 @@ describe('requestAllowed', () => {
     expect(requestAllowed('POST', '127.0.0.1:7799', 'http://127.0.0.1:7799')).toBe(true);
   });
 });
+
+describe('mesma origem — outra página em loopback não fala com a API', () => {
+  // Uma página em http://localhost:3000 (dev server, app local qualquer) é loopback, mas não é o app:
+  // sem isso ela reaponta `WEBDAV_URL` para um host dela e recebe as credenciais salvas.
+  test('POST de outra porta loopback bloqueia', () => {
+    expect(requestAllowed('POST', '127.0.0.1:7799', 'http://localhost:3000')).toBe(false);
+    expect(requestAllowed('POST', '127.0.0.1:7799', 'http://127.0.0.1:3000')).toBe(false);
+    expect(requestAllowed('POST', '127.0.0.1:7799', 'http://[::1]:7799')).toBe(false);
+  });
+
+  test('POST do próprio app passa, em qualquer das grafias de loopback', () => {
+    expect(requestAllowed('POST', 'localhost:7799', 'http://localhost:7799')).toBe(true);
+    expect(requestAllowed('POST', 'LOCALHOST:7799', 'http://localhost:7799')).toBe(true);
+    expect(requestAllowed('POST', '[::1]:7799', 'http://[::1]:7799')).toBe(true);
+  });
+
+  test('originAllowed com Host: só a própria origem; sem Host vale a regra antiga', () => {
+    expect(originAllowed('http://localhost:3000', '127.0.0.1:7799')).toBe(false);
+    expect(originAllowed('http://127.0.0.1:7799', '127.0.0.1:7799')).toBe(true);
+    expect(originAllowed('http://localhost:3000')).toBe(true);
+    expect(originAllowed('', '127.0.0.1:7799')).toBe(true);
+  });
+
+});
