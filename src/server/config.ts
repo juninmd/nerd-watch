@@ -17,6 +17,36 @@ const telegram: TelegramRuntimeConfig = {
   session: process.env.TELEGRAM_SESSION?.trim() || undefined,
 };
 
+interface DriveRuntimeConfig {
+  clientId?: string;
+  clientSecret?: string;
+  refreshToken?: string;
+}
+
+/** Como o Telegram: configurado pela UI em runtime (ver `routes/drive.ts`), por isso fora do `as const`. */
+const drive: DriveRuntimeConfig = {
+  clientId: process.env.GOOGLE_CLIENT_ID?.trim() || undefined,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET?.trim() || undefined,
+  refreshToken: process.env.GOOGLE_DRIVE_REFRESH_TOKEN?.trim() || undefined,
+};
+
+const GOOGLE = {
+  authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+  tokenUrl: 'https://oauth2.googleapis.com/token',
+  revokeUrl: 'https://oauth2.googleapis.com/revoke',
+  apiUrl: 'https://www.googleapis.com/drive/v3',
+};
+
+/**
+ * Só para testes ponta a ponta com um Google falso. Aceita apenas loopback: um valor vindo do ambiente nunca
+ * pode mandar o refresh token ou o código de autorização para um host externo.
+ */
+const driveEndpoints = (fake: string | undefined) => {
+  if (!fake || !/^http:\/\/127\.0\.0\.1:\d+$/.test(fake.trim())) return GOOGLE;
+  const base = fake.trim();
+  return { authUrl: `${base}/auth`, tokenUrl: `${base}/token`, revokeUrl: `${base}/revoke`, apiUrl: `${base}/drive/v3` };
+};
+
 /**
  * Sem esta validação um `TORRENT_MAX_ACTIVE=abc` viraria `NaN`, e `handles.size >= NaN` é sempre
  * falso — ou seja, o teto de torrents abertos silenciosamente deixaria de existir. O `min` existe
@@ -91,11 +121,15 @@ export const config = {
     metadataTimeoutMs: numberEnv(process.env.TORRENT_METADATA_TIMEOUT_SECONDS, 45, 1) * 1000,
   },
   telegram,
+  drive,
+  driveEndpoints: driveEndpoints(process.env.DRIVE_FAKE_BASE_URL),
 } as const;
 
 export const tmdbEnabled = (): boolean => Boolean(config.tmdb.apiKey);
 export const openSubtitlesEnabled = (): boolean => Boolean(config.opensubtitles.apiKey);
 export const torrentEnabled = (): boolean => config.torrent.enabled;
+export const driveClientConfigured = (): boolean => Boolean(config.drive.clientId && config.drive.clientSecret);
+export const driveConnected = (): boolean => driveClientConfigured() && Boolean(config.drive.refreshToken);
 export const telegramBotEnabled = (): boolean => Boolean(config.telegram.botToken);
 export const telegramPersonalEnabled = (): boolean =>
   Boolean(config.telegram.apiId && config.telegram.apiHash && config.telegram.session);

@@ -1,7 +1,7 @@
 export type MediaType = 'movie' | 'tv';
 export type TitleSource = 'tmdb' | 'archive' | 'telegram';
 export type WatchStatus = 'want' | 'watching' | 'watched' | 'dropped';
-export type TelegramChannelMode = 'public' | 'personal' | 'bot';
+export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive';
 
 export interface TitleRow {
   id: string;

@@ -1,5 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import { telegramPersonalEnabled } from './config.ts';
+import { downloadDriveThumb } from './providers/drive/api.ts';
 import { fetchPersonalThumbs } from './providers/telegram/personal-info.ts';
 import { type TelegramChannel, setTelegramItemThumbnail } from './repo/telegram.ts';
 import { downloadPhoto, readThumb, saveThumb, thumbUrl } from './telegram-photos.ts';
@@ -44,6 +45,8 @@ export const localizeThumbs = async (db: Database, channel: TelegramChannel, ite
     if (channel.mode === 'personal' && telegramPersonalEnabled()) {
       const thumbs = await fetchPersonalThumbs(channel.handle, missing.map((i) => i.message_id));
       for (const item of missing) await store(item, thumbs.get(item.message_id));
+    } else if (channel.mode === 'drive') {
+      await inBatches(missing, CONCURRENCY, async (item) => store(item, item.thumbnail_url ? await downloadDriveThumb(item.thumbnail_url).catch(() => null) : null));
     } else {
       await inBatches(missing, CONCURRENCY, async (item) => store(item, item.thumbnail_url ? await downloadPhoto(item.thumbnail_url).catch(() => null) : null));
     }

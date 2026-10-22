@@ -148,6 +148,17 @@ export const upsertTelegramItems = (db: Database, channelId: string, items: NewT
   return listTelegramItems(db, channelId);
 };
 
+/** Remove os itens que não estão mais na origem (ex.: vídeo apagado da pasta do Drive). Devolve quantos saíram. */
+export const pruneTelegramItems = (db: Database, channelId: string, keepMessageIds: string[]): number => {
+  const keep = new Set(keepMessageIds);
+  const stale = listTelegramItems(db, channelId).filter((i) => !keep.has(i.message_id));
+  const remove = db.query('DELETE FROM telegram_items WHERE channel_id = ? AND message_id = ?');
+  db.transaction(() => {
+    for (const item of stale) remove.run(channelId, item.message_id);
+  })();
+  return stale.length;
+};
+
 export const getTelegramItem = (db: Database, channelId: string, messageId: string): TelegramItemRow | null =>
   db.query<TelegramItemRow, [string, string]>('SELECT * FROM telegram_items WHERE channel_id = ? AND message_id = ?').get(channelId, messageId);
 
