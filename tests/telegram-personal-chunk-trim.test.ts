@@ -110,9 +110,10 @@ describe('planRange', () => {
       // Vídeo com o moov no fim (ex.: 456 MB) ficava sem reproduzir: pedidos de 512 KB iniciados em offsets só
       // múltiplos de 4096 atravessam a fronteira de 1 MB e o upload.GetFile responde com 0 bytes.
       const plan = planRange({ start, end: start + 99_999 }, 1_000_000_000);
-      expect(plan?.alignedOffset % DOWNLOAD_REQUEST_SIZE).toBe(0);
-      expect(plan?.alignedOffset).toBeLessThanOrEqual(start);
-      expect(start - (plan?.alignedOffset ?? 0)).toBe(plan?.leadingTrim ?? -1);
+      if (!plan) throw new Error('range deveria ser satisfazível');
+      expect(plan.alignedOffset % DOWNLOAD_REQUEST_SIZE).toBe(0);
+      expect(plan.alignedOffset).toBeLessThanOrEqual(start);
+      expect(start - plan.alignedOffset).toBe(plan.leadingTrim);
     },
   );
 
