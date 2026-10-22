@@ -12,10 +12,10 @@ import {
   toItems,
 } from '../providers/drive/api.ts';
 import { DriveNotConnectedError, DriveReauthRequiredError, completeAuthFlow, disconnectDrive, getFlowState, startAuthFlow } from '../providers/drive/oauth.ts';
-import { countTelegramItemsByChannel, getTelegramItem, listTelegramItems, pruneTelegramItems, updateChannelCursor, upsertTelegramChannel, upsertTelegramItems } from '../repo/telegram.ts';
+import { countTelegramItemsByChannel, getTelegramItem, listTelegramItems, pruneTelegramItems, setTelegramItemThumbnail, updateChannelCursor, upsertTelegramChannel, upsertTelegramItems } from '../repo/telegram.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
 import { toChannelResponse } from '../telegram-channel-dto.ts';
-import { localizeThumbs } from '../telegram-item-thumbs.ts';
+import { localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
 
 export const driveRoutes = new Hono();
 
@@ -95,8 +95,10 @@ export const syncDriveFolder = async (db: Database, channel: TelegramChannel, fo
     channel.id,
     items.map((i) => i.messageId),
   );
+  await localizeThumbs(db, channel, listTelegramItems(db, channel.id));
+  // O link do Google é temporário e exige token: se não virou arquivo local, o navegador não deve tentar carregá-lo.
   const current = listTelegramItems(db, channel.id);
-  await localizeThumbs(db, channel, current);
+  for (const item of current) if (needsThumb(item) && item.thumbnail_url) setTelegramItemThumbnail(db, channel.id, item.message_id, null);
   const oldest = current[0]?.message_id ?? null;
   if (oldest) updateChannelCursor(db, channel.id, oldest);
   return current.length;

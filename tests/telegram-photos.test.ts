@@ -71,6 +71,12 @@ describe('saveThumb / readThumb', () => {
     expect(await readThumb(ID, '101')).toBeNull();
   });
 
+  test('aceita o messageId de 16 dígitos das pastas do Drive, mas não um número gigante', async () => {
+    expect(await saveThumb(ID, '1792639714884123', JPG)).toBe(true);
+    expect((await readThumb(ID, '1792639714884123'))?.type).toBe('image/jpeg');
+    expect(await saveThumb(ID, '1'.repeat(20), JPG)).toBe(false);
+  });
+
   test('recusa ids que sairiam da pasta, bytes que não são imagem e miniaturas grandes demais', async () => {
     expect(await saveThumb('../x', '100', JPG)).toBe(false);
     expect(await saveThumb(ID, '../100', JPG)).toBe(false);

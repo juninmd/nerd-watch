@@ -1,6 +1,6 @@
 import type { WatchStatus } from '../server/types.ts';
 
-const json = async <T>(res: Response): Promise<T> => {
+export const json = async <T>(res: Response): Promise<T> => {
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error ?? `erro ${res.status}`);
@@ -338,7 +338,7 @@ export const importBackup = (data: unknown): Promise<ImportBackupResponse> =>
     body: JSON.stringify(data),
   }).then((r) => json<ImportBackupResponse>(r));
 
-export type TelegramChannelMode = 'public' | 'personal' | 'bot';
+export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive';
 
 export interface TelegramChannelDto {
   titleId: string;

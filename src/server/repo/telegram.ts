@@ -203,6 +203,6 @@ export const updateTelegramChannelInfo = (db: Database, id: string, patch: Teleg
   });
 };
 
-export const setTelegramItemThumbnail = (db: Database, channelId: string, messageId: string, url: string): void => {
+export const setTelegramItemThumbnail = (db: Database, channelId: string, messageId: string, url: string | null): void => {
   db.query("UPDATE telegram_items SET thumbnail_url = ? WHERE channel_id = ? AND message_id = ?").run(url, channelId, messageId);
 };

@@ -19,7 +19,7 @@ import {
 import { icon } from '../icons.ts';
 import { resumePoint } from '../playback-store.ts';
 import { navigate } from '../router.ts';
-import { itemDescription, orderItems, pickNextChannel, toDockItem, watchPath } from '../telegram-items.ts';
+import { itemDescription, openLinkLabel, orderItems, pickNextChannel, toDockItem, watchPath } from '../telegram-items.ts';
 import { formatDuration } from '../time-format.ts';
 
 const SEEK_SECONDS = 10;
@@ -185,7 +185,7 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
         <div class="watch-channel-text"><a href="#/telegram/${escapeHtml(d.titleId)}"><b>${escapeHtml(d.title)}</b></a><small>${escapeHtml(meta)}</small></div>
         <div class="watch-actions">
           <button class="btn btn-ghost btn-sm" id="watch-minimize" type="button">${icon('minimize', 'sm')} Minimizar</button>
-          <a class="btn btn-ghost btn-sm" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">Abrir no Telegram</a>
+          <a class="btn btn-ghost btn-sm" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${openLinkLabel(d.mode)}</a>
         </div>
       </div>
       ${description ? `<p class="watch-desc">${escapeHtml(description)}</p>` : ''}`;

@@ -18,7 +18,7 @@ const fakeGoogle = async (url: URL | string | Request, init?: RequestInit): Prom
   const u = new URL(String(url));
   if (u.pathname.endsWith('/token')) return json({ access_token: 'acc-1', expires_in: 3600 });
   if (u.pathname.endsWith(`/files/${ID}`)) return json({ id: ID, name: 'Bleach TYBW', mimeType: 'application/vnd.google-apps.folder' });
-  if (u.pathname.endsWith('/files')) return json({ files: videos.map((v) => ({ ...v, mimeType: 'video/mp4', videoMediaMetadata: { durationMillis: '60000' } })) });
+  if (u.pathname.endsWith('/files')) return json({ files: videos.map((v) => ({ ...v, mimeType: 'video/mp4', videoMediaMetadata: { durationMillis: '60000' }, thumbnailLink: 'https://lh3.googleusercontent.com/x=s220' })) });
   if (u.searchParams.get('alt') === 'media') {
     const range = new Headers(init?.headers).get('Range');
     return range ? new Response('xyz', { status: 206, headers: { 'Content-Type': 'video/mp4', 'Content-Range': 'bytes 5-7/100', 'Content-Length': '3' } }) : new Response('full', { headers: { 'Content-Type': 'video/mp4' } });
@@ -104,6 +104,14 @@ describe('POST /api/drive/folders', () => {
 
     const detail = (await (await telegramRoutes.request(`/channels/${channel.titleId}`)).json()) as { items: Array<{ caption: string }> };
     expect(detail.items.map((i) => i.caption)).toEqual(['Ep 09', 'Ep 08']);
+  });
+
+  test('miniatura que não virou arquivo local não deixa o link temporário do Google para o navegador', async () => {
+    const res = await post('/folders', { folder: ID });
+    const { titleId } = (await res.json()) as { titleId: string };
+    const detail = (await (await telegramRoutes.request(`/channels/${titleId}`)).json()) as { items: Array<{ thumbnailUrl: string | null }> };
+    // banco em memória não tem pasta de miniaturas: o download é descartado e o link remoto some
+    expect(detail.items.map((i) => i.thumbnailUrl)).toEqual([null, null]);
   });
 
   test('importar de novo não duplica o canal nem os vídeos', async () => {

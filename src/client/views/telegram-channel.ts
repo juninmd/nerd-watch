@@ -6,10 +6,11 @@ import { icon } from '../icons.ts';
 import { resumePoint } from '../playback-store.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
-import { itemTitle, orderItems, watchPath } from '../telegram-items.ts';
+import { itemTitle, openLinkLabel, orderItems, watchPath } from '../telegram-items.ts';
 import { formatDuration } from '../time-format.ts';
 
 const MODE_LABEL: Record<TelegramChannelDetailDto['mode'], string> = {
+  drive: 'pasta',
   public: 'canal público',
   bot: 'bot',
   personal: 'conta pessoal',
@@ -41,18 +42,18 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
         <div class="hero-info">
           <h1>${escapeHtml(d.title)}</h1>
           <div class="hero-meta">
-            <span class="badge badge-archive">telegram · ${MODE_LABEL[d.mode]}</span>
+            <span class="badge badge-archive">${d.mode === 'drive' ? 'google drive' : `telegram · ${MODE_LABEL[d.mode]}`}</span>
             <span>${d.itemCount} vídeo${d.itemCount === 1 ? '' : 's'}</span>
             <a class="tg-link" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(d.link.replace('https://', ''))}</a>
           </div>
           ${d.description ? `<p class="hero-overview tg-description">${escapeHtml(d.description)}</p>` : ''}
-          ${d.items.length ? `<div class="hero-actions"><button class="btn btn-primary" id="tg-play-all" type="button">${icon('play', 'sm')} Reproduzir tudo</button><a class="btn btn-ghost" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">Abrir no Telegram</a></div>` : ''}
+          ${d.items.length ? `<div class="hero-actions"><button class="btn btn-primary" id="tg-play-all" type="button">${icon('play', 'sm')} Reproduzir tudo</button><a class="btn btn-ghost" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${openLinkLabel(d.mode)}</a></div>` : ''}
         </div>
       </div>
     </div>
     <div class="detail-grid">
       <div>
-        <div class="section-head"><h2>Vídeos</h2>${d.items.length > 1 ? `<select class="select" id="tg-order" aria-label="Ordem dos vídeos"><option value="newest"${order === 'newest' ? ' selected' : ''}>Mais recentes primeiro</option><option value="oldest"${order === 'oldest' ? ' selected' : ''}>Mais antigos primeiro</option></select>` : ''}${d.mode === 'public' || d.mode === 'personal' ? `<button class="btn btn-ghost btn-sm" id="tg-refresh" type="button">${icon('download', 'sm')} atualizar</button>` : ''}</div>
+        <div class="section-head"><h2>Vídeos</h2>${d.items.length > 1 ? `<select class="select" id="tg-order" aria-label="Ordem dos vídeos"><option value="newest"${order === 'newest' ? ' selected' : ''}>Mais recentes primeiro</option><option value="oldest"${order === 'oldest' ? ' selected' : ''}>Mais antigos primeiro</option></select>` : ''}${d.mode === 'public' || d.mode === 'personal' || d.mode === 'drive' ? `<button class="btn btn-ghost btn-sm" id="tg-refresh" type="button">${icon('download', 'sm')} atualizar</button>` : ''}</div>
         ${d.mode === 'bot' ? `<p class="hint">modo bot só recebe vídeos postados a partir de agora — sem histórico retroativo.</p>` : ''}
         <div id="tg-items" class="grid"></div>
       </div>

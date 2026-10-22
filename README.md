@@ -32,6 +32,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | ⚡ **Streaming P2P** | toca o torrent do acervo livre dentro do app, com seek — engine em processo, sem depender da banda do archive.org |
 | 💬 **Legendas sem chave** | busca em addons do protocolo do Stremio (padrão: o OpenSubtitles v3 oficial) — **não precisa de cadastro nem de chave** |
 | ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais. Login por QR code guiado em **Conexões**, feed de novidades e player fixo com fila e retomada |
+| 📂 **Pastas do Google Drive** | aponte uma pasta de vídeos do **seu** Drive (acesso só leitura, login OAuth em **Conexões**) e assista aqui dentro, com a mesma fila, miniaturas e "continuar assistindo" dos canais. Toca MP4/H.264 e WebM (o navegador não toca MKV/AVI) |
 | 🔒 **Local-first** | sua lista e seu progresso ficam no `data/nerd-watch.db` (SQLite); consultas ao catálogo e ao Telegram usam os serviços externos correspondentes |
 
 Filmes e séries **protegidos por direitos autorais não são reproduzidos dentro do app** — o app te leva
@@ -90,7 +91,7 @@ Hono (Bun) — server local, só escuta em 127.0.0.1
   ├─ front  → public/  (bundle Bun: catálogo, calendário, player)
   ├─ SQLite → data/nerd-watch.db (sua lista, progresso, cache de episódios)
   ├─ torrents → .cache/torrents (engine WebTorrent em processo, só acervo livre)
-  └─ providers → TMDB (com chave) + Internet Archive (sem chave) + Telegram (opcional)
+  └─ providers → TMDB (com chave) + Internet Archive (sem chave) + Telegram (opcional) + Google Drive (opcional)
                  + legendas via addons do protocolo Stremio (sem chave)
 ```
 
