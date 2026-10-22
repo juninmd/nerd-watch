@@ -17,8 +17,8 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
         Adicione um canal do Telegram pelo @usuário, importe os canais da sua conta pessoal ou aponte uma fonte de vídeos
         (Google Drive, pasta local, WebDAV, Jellyfin, YouTube…; configure em <a href="#/connections">Conexões</a>) pra maratonar tudo aqui dentro.
         Modo bot exige um token grátis do @BotFather; modo conta pessoal exige um login único por QR code
-        (faça em <a href="#/connections">Conexões</a>) e não tem limite de tamanho de arquivo. Hoje só os vídeos
-        mais recentes de cada canal são importados.
+        (faça em <a href="#/connections">Conexões</a>) e não tem limite de tamanho de arquivo. Os canais do Telegram entram com os vídeos
+        mais recentes; dentro do canal dá para carregar os mais antigos e buscar pelo texto.
       </p>
     </header>
     <form id="add-form" class="chip-row form-row">
