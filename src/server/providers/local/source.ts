@@ -41,7 +41,7 @@ export const registerLocal = (): void => {
   registerDescriptor({
     id: 'local',
     title: 'Pasta local',
-    description: `Pastas do seu computador viram canais. Só pastas dentro de ${LOCAL_ENV} podem ser adicionadas.`,
+    description: `Pastas do seu computador viram canais. Só pastas dentro de ${LOCAL_ENV} (definido no .env) podem ser adicionadas.`,
     icon: 'folder',
     fields: [
       {
@@ -50,6 +50,7 @@ export const registerLocal = (): void => {
         env: LOCAL_ENV,
         placeholder: 'C:\\Videos;D:\\Series',
         required: true,
+        readOnly: true,
         validate: validateLocalRoots,
       },
     ],

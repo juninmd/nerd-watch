@@ -37,6 +37,7 @@ beforeAll(() => {
     fields: [
       { key: 'url', label: 'endereço', env: 'TEST_SRC_URL', validate: (v) => (v.startsWith('http') ? null : 'precisa começar com http') },
       { key: 'token', label: 'token', env: 'TEST_SRC_TOKEN', secret: true },
+      { key: 'roots', label: 'raízes', env: 'TEST_SRC_ROOTS', readOnly: true },
     ],
     add: { mode: 'plex', label: 'biblioteca', placeholder: 'ok:nome' },
     configured: () => Boolean(process.env.TEST_SRC_URL),
@@ -84,6 +85,16 @@ describe('GET /api/sources e POST …/settings', () => {
 
     await post('/plex/settings', { values: { token: '' } });
     expect(process.env.TEST_SRC_TOKEN).toBeUndefined();
+  });
+
+  test('campo somente-leitura (lista de permissão do disco) não muda pela API e o DTO avisa a UI', async () => {
+    process.env.TEST_SRC_ROOTS = '/videos';
+    const res = await post('/plex/settings', { values: { roots: '/' } });
+    expect(res.status).toBe(403);
+    expect(process.env.TEST_SRC_ROOTS).toBe('/videos');
+    const dto = (await (await sourcesRoutes.request('/')).json()) as { sources: Array<{ id: string; fields: Array<{ key: string; readOnly: boolean }> }> };
+    expect(dto.sources.find((s) => s.id === 'plex')?.fields.find((f) => f.key === 'roots')?.readOnly).toBe(true);
+    delete process.env.TEST_SRC_ROOTS;
   });
 
   test('um campo inválido não deixa gravar os outros (tudo ou nada) e rejeita chave desconhecida e quebra de linha', async () => {

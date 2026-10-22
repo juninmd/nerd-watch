@@ -18,7 +18,7 @@ LOCAL_MEDIA_DIRS=C:\Videos;D:\Series
 
 ## Como adicionar
 
-Em Conexões, cadastre `LOCAL_MEDIA_DIRS`. Depois, em "Adicionar canal", informe:
+Defina `LOCAL_MEDIA_DIRS` no `.env` e reinicie o app (a tela de Conexões só mostra o valor; a UI não altera essa lista). Depois, em "Adicionar canal", informe:
 
 - um **caminho absoluto** dentro de uma raiz (`C:\Videos\Anime`), ou
 - um **caminho relativo à primeira raiz** (`Anime`).
@@ -40,5 +40,5 @@ Em Conexões, cadastre `LOCAL_MEDIA_DIRS`. Depois, em "Adicionar canal", informe
 
 - No Windows, a checagem de raiz ignora maiúsculas e minúsculas. Em Linux/macOS a comparação é exata.
 - Um caminho relativo em `add` é resolvido pela **primeira raiz que existe** no disco.
-- Quem consegue `POST` local pode alterar `LOCAL_MEDIA_DIRS` pela UI. Isso é intencional (o campo é configurável), mas amplia a permissão para quem tem acesso à aba local.
+- `LOCAL_MEDIA_DIRS` é **somente-leitura pela API/UI** (a rota de configuração responde 403): qualquer página aberta em outra porta de loopback passa pela checagem de `Origin` do app, e esta lista é a permissão de leitura do disco. Só quem edita o `.env` a amplia.
 - Não há detecção de mudanças em tempo real: novos arquivos aparecem no próximo "atualizar".

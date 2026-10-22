@@ -6,6 +6,7 @@ export interface SourceFieldDto {
   secret: boolean;
   placeholder: string;
   required: boolean;
+  readOnly: boolean;
   /** Segredos nunca voltam do servidor: só `set`. */
   set: boolean;
   value: string;

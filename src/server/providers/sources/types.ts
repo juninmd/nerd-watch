@@ -48,6 +48,8 @@ export interface SettingField {
   secret?: boolean;
   placeholder?: string;
   required?: boolean;
+  /** Só o `.env` altera (a UI mostra e não grava): para valores que ampliam o acesso, como as pastas liberadas do disco. */
+  readOnly?: boolean;
   /** Mensagem de erro, ou null quando o valor é válido. Valores vazios limpam o campo e não passam por aqui. */
   validate?(value: string): string | null;
 }

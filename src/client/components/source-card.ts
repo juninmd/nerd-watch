@@ -15,7 +15,9 @@ const chipFor = (s: SourceDto): { ok: boolean; label: string } => {
 const fieldHtml = (cardId: string, f: SourceDto['fields'][number]): string => {
   const id = `${cardId}-${f.key}`;
   const placeholder = f.secret && f.set ? '•••••••• (já definido — deixe vazio para manter)' : f.placeholder;
-  return `<div class="field"><label for="${id}">${escapeHtml(f.label)}</label><input class="input" id="${id}" name="${escapeHtml(f.key)}" autocomplete="off" spellcheck="false" ${f.secret ? 'type="password"' : ''} value="${escapeHtml(f.value)}" placeholder="${escapeHtml(placeholder)}" /></div>`;
+  const locked = f.readOnly ? ' readonly aria-describedby="' + id + '-hint"' : '';
+  const hint = f.readOnly ? `<small class="hint" id="${id}-hint">Só o arquivo .env altera este campo (por segurança).</small>` : '';
+  return `<div class="field"><label for="${id}">${escapeHtml(f.label)}</label><input class="input" id="${id}" name="${escapeHtml(f.key)}" autocomplete="off" spellcheck="false"${locked} ${f.secret ? 'type="password"' : ''} value="${escapeHtml(f.value)}" placeholder="${escapeHtml(placeholder)}" />${hint}</div>`;
 };
 
 /**
@@ -63,6 +65,7 @@ export const renderSourceCard = (host: HTMLElement, initial: SourceDto, onChange
       e.preventDefault();
       const values: Record<string, string> = {};
       for (const f of source.fields) {
+        if (f.readOnly) continue;
         const input = host.querySelector<HTMLInputElement>(`[name="${f.key}"]`);
         const value = input?.value.trim() ?? '';
         // Segredo vazio = manter o que já está salvo (o servidor nunca devolve o valor para repreencher).

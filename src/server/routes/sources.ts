@@ -26,6 +26,7 @@ const toDto = (d: SourceDescriptor) => ({
     secret: Boolean(f.secret),
     placeholder: f.placeholder ?? '',
     required: Boolean(f.required),
+    readOnly: Boolean(f.readOnly),
     set: Boolean(readSetting(f.env)),
     value: f.secret ? '' : (readSetting(f.env) ?? ''),
   })),
@@ -50,6 +51,8 @@ sourcesRoutes.post('/:id/settings', async (c) => {
   for (const [key, raw] of Object.entries(values)) {
     const field = descriptor.fields.find((f) => f.key === key);
     if (!field || typeof raw !== 'string') return c.json({ error: `campo inválido: ${key}` }, 400);
+    // Qualquer página em loopback (outra porta) passa pela checagem de Origin: o que amplia acesso ao disco só muda no `.env`.
+    if (field.readOnly) return c.json({ error: `${field.label}: por segurança só pode ser alterado no arquivo .env (${field.env})` }, 403);
     const value = raw.trim();
     if (/[\r\n]/.test(value)) return c.json({ error: `${field.label}: não pode conter quebra de linha` }, 400);
     const problem = value ? field.validate?.(value) : null;
