@@ -1,0 +1,16 @@
+services:
+  nerd-watch:
+    build: .
+    image: nerd-watch:local
+    # Publicado só em 127.0.0.1 do host: outra máquina da rede não alcança o app.
+    ports:
+      - "127.0.0.1:7799:7799"
+    volumes:
+      - nerd-watch-data:/app/data
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+
+volumes:
+  nerd-watch-data:
