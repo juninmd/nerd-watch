@@ -98,7 +98,9 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     itemsHost.outerHTML = `<div class="empty-state"><div class="big">📭</div>${emptyMessage}</div>`;
   } else {
     for (const [i, item] of items.entries()) {
-      const resumeAt = resumePoint(savedPosition(`${d.titleId}:${item.messageId}`));
+      const saved = savedPosition(`${d.titleId}:${item.messageId}`);
+      const resumeAt = resumePoint(saved);
+      const watched = saved?.done === true;
       const card = document.createElement('div');
       card.className = 'card';
       card.tabIndex = 0;
@@ -109,6 +111,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
           ${item.thumbnailUrl ? '' : `<span class="initials">${icon('film')}</span>`}
           ${item.durationSeconds ? `<span class="badge badge-corner">${formatDuration(item.durationSeconds)}</span>` : ''}
           ${resumeAt !== null ? `<span class="badge badge-watching resume-badge">continuar ${formatDuration(resumeAt)}</span>` : ''}
+          ${watched ? `<span class="badge badge-watched resume-badge">assistido</span>` : ''}
         </div>
         <div class="meta">
           <div class="title">${escapeHtml(itemTitle(item, 60))}</div>

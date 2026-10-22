@@ -1,5 +1,6 @@
 import { getCalendar, health, listLibrary, searchArchive, type CalendarEntryDto } from '../api.ts';
 import { escapeHtml, renderCard } from '../components/card.ts';
+import { continueWatchingCards } from '../components/continue-watching.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
 import { icon, type IconName } from '../icons.ts';
 import { navigate } from '../router.ts';
@@ -58,7 +59,10 @@ export const renderDiscover = (host: HTMLElement): void => {
       `;
 
       const watchingRail = host.querySelector('#watching-rail') as HTMLElement;
-      if (watching.items.length === 0) {
+      // Vídeos de canais começados vêm primeiro: é o que a pessoa largou por último.
+      const resumeCards = continueWatchingCards();
+      for (const card of resumeCards) watchingRail.appendChild(card);
+      if (watching.items.length === 0 && resumeCards.length === 0) {
         watchingRail.innerHTML = `<div class="empty-state" style="flex:1">nada em andamento — busque algo (<kbd>Ctrl K</kbd>) e marque como "assistindo"</div>`;
       }
       for (const item of watching.items) {
