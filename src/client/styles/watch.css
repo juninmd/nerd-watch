@@ -261,3 +261,59 @@
   gap: 8px;
   margin-top: 6px;
 }
+
+/* "Continuar assistindo" no Início: vídeos de canais com a posição salva. */
+.resume-card {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.resume-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2) center / cover;
+  color: var(--text-faint);
+}
+
+.resume-bar {
+  position: absolute;
+  inset: auto 0 0;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.resume-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.resume-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.resume-text b {
+  font-size: 13.5px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.resume-text small {
+  color: var(--text-faint);
+  font-size: 12px;
+}

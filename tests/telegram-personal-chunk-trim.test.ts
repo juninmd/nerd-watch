@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildPersonalStream, planRange, trimChunkStream } from '../src/server/providers/telegram/personal.ts';
+import { buildPersonalStream, DOWNLOAD_REQUEST_SIZE, planRange, trimChunkStream } from '../src/server/providers/telegram/personal.ts';
 
 const fakeGenerator = async function* (chunks: Buffer[]): AsyncGenerator<Buffer, void, unknown> {
   for (const c of chunks) yield c;
@@ -99,10 +99,23 @@ describe('planRange', () => {
     expect(plan).toEqual({ start: 0, end: 999, wantedLength: 1000, alignedOffset: 0, leadingTrim: 0, downloadLimit: 1000 });
   });
 
-  test('range começando no meio de um bloco de 4096: leadingTrim > 0, downloadLimit > wantedLength', () => {
+  test('range começando no meio de um bloco: leadingTrim > 0, downloadLimit > wantedLength', () => {
     const plan = planRange({ start: 5000, end: 5999 }, 1_000_000);
-    expect(plan).toEqual({ start: 5000, end: 5999, wantedLength: 1000, alignedOffset: 4096, leadingTrim: 904, downloadLimit: 1904 });
+    expect(plan).toEqual({ start: 5000, end: 5999, wantedLength: 1000, alignedOffset: 0, leadingTrim: 5000, downloadLimit: 6000 });
   });
+
+  test.each([1_052_700, 200_000_000, 420_000_000, 455_000_000, 455_999_488])(
+    'regressão: offset %i alinha ao tamanho do pedido, senão o bloco cruza 1 MB e o Telegram devolve vazio',
+    (start) => {
+      // Vídeo com o moov no fim (ex.: 456 MB) ficava sem reproduzir: pedidos de 512 KB iniciados em offsets só
+      // múltiplos de 4096 atravessam a fronteira de 1 MB e o upload.GetFile responde com 0 bytes.
+      const plan = planRange({ start, end: start + 99_999 }, 1_000_000_000);
+      if (!plan) throw new Error('range deveria ser satisfazível');
+      expect(plan.alignedOffset % DOWNLOAD_REQUEST_SIZE).toBe(0);
+      expect(plan.alignedOffset).toBeLessThanOrEqual(start);
+      expect(start - plan.alignedOffset).toBe(plan.leadingTrim);
+    },
+  );
 
   test('range sem fim explícito (Range: bytes=N-): usa totalSize - 1 como fim', () => {
     const plan = planRange({ start: 999_990, end: null }, 1_000_000);

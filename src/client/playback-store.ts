@@ -1,9 +1,21 @@
 /** Posição salva de cada vídeo (só neste navegador). Regras puras e armazenamento injetável para serem testáveis. */
 
+/** O que a lista "continuar assistindo" precisa para mostrar o vídeo sem consultar o canal de novo. */
+export interface ResumeMeta {
+  title: string;
+  subtitle: string;
+  poster: string | null;
+  channelId: string;
+  messageId: string;
+}
+
 export interface StoredPosition {
   seconds: number;
   duration: number | null;
   at: number;
+  meta?: ResumeMeta;
+  /** Assistiu até o fim: some de "continuar", mas fica marcado como assistido. */
+  done?: boolean;
 }
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -47,13 +59,26 @@ export const createPlaybackStore = (storage: StorageLike, now: () => number = Da
 
   return {
     get: (key: string): StoredPosition | undefined => read()[key],
-    save: (key: string, seconds: number, duration: number | null): void => {
+    save: (key: string, seconds: number, duration: number | null, meta?: ResumeMeta): void => {
       if (!Number.isFinite(seconds) || seconds < 0) return;
       const map = read();
-      if (isFinished(seconds, duration)) delete map[key];
-      else map[key] = { seconds, duration, at: now() };
+      // Abrir de novo um vídeo já assistido não apaga a marca de assistido.
+      if (map[key]?.done && seconds < RESUME_MIN_SECONDS) return;
+      const entry: StoredPosition = { seconds, duration, at: now() };
+      if (meta) entry.meta = meta;
+      if (isFinished(seconds, duration)) entry.done = true;
+      map[key] = entry;
       write(map);
     },
+    /** Vídeos começados e não terminados, o último assistido primeiro. */
+    inProgress: (limit = 12): Array<{ key: string; position: StoredPosition; meta: ResumeMeta; resumeAt: number }> =>
+      Object.entries(read())
+        .flatMap(([key, position]) => {
+          const resumeAt = resumePoint(position);
+          return position.meta && resumeAt !== null ? [{ key, position, meta: position.meta, resumeAt }] : [];
+        })
+        .sort((a, b) => b.position.at - a.position.at)
+        .slice(0, limit),
     clear: (key: string): void => {
       const map = read();
       delete map[key];
