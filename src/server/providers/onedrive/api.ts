@@ -1,5 +1,5 @@
 import type { NewTelegramItem } from '../../repo/telegram.ts';
-import { isHttpsUrl, plainFetch, readCapped, THUMB_MAX_BYTES } from '../sources/http.ts';
+import { fetchHeaders, isHttpsUrl, plainFetch, readCapped, THUMB_MAX_BYTES } from '../sources/http.ts';
 import { relayMedia, syntheticMessageId, titleFromFilename, VIDEO_EXT } from '../sources/service.ts';
 import { SourceError } from '../sources/types.ts';
 import { onedriveOAuth } from './oauth.ts';
@@ -127,7 +127,7 @@ export const streamOneDriveFile = async (fileRef: string, range: string | undefi
   const item = await graphJson<GraphItem>(`${GRAPH}/me/drive/items/${fileRef}?select=id,@microsoft.graph.downloadUrl`, NOT_FOUND_FILE);
   const link = item['@microsoft.graph.downloadUrl'];
   if (!link || !isHttpsUrl(link)) throw new SourceError('o OneDrive não devolveu o link de reprodução', 502);
-  const upstream = await plainFetch(link, { headers: range ? { Range: range } : {}, redirect: 'manual', signal: AbortSignal.timeout(30_000) });
+  const upstream = await fetchHeaders(plainFetch, link, { headers: range ? { Range: range } : {}, redirect: 'manual' }, 30_000);
   return relayMedia(upstream, NOT_FOUND_FILE);
 };
 
