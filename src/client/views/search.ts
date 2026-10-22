@@ -32,12 +32,21 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
   host.innerHTML = `
     <h1 class="view-title">Buscar</h1>
     <p class="view-subtitle">Filmes, séries e novelas na TMDB, mais o acervo de domínio público do Internet Archive.</p>
+    <form id="search-form" class="chip-row form-row">
+      <input type="search" name="q" class="input input-pill grow" placeholder="Nome do filme, série ou novela" autocomplete="off" aria-label="Buscar no catálogo" value="${escapeHtml(query)}" />
+      <button class="btn btn-primary btn-sm" type="submit">buscar</button>
+    </form>
     <div id="results"></div>
   `;
   const results = host.querySelector('#results') as HTMLElement;
+  (host.querySelector('#search-form') as HTMLFormElement).addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = new FormData(e.target as HTMLFormElement).get('q')?.toString().trim() ?? '';
+    navigate(`/search${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+  });
 
   if (!query) {
-    results.innerHTML = `<div class="empty-state"><div class="big">🔎</div>digite algo na busca no topo da tela</div>`;
+    results.innerHTML = `<div class="empty-state"><div class="big">🔎</div>digite o nome de um título acima — ou use <kbd>Ctrl K</kbd> de qualquer tela</div>`;
     return;
   }
 

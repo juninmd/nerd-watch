@@ -1,0 +1,229 @@
+/* Controles de formulário, barra de ferramentas, seleção em massa e diálogo modal. */
+
+.input,
+.select {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.input::placeholder {
+  color: var(--text-faint);
+}
+
+.input:focus-visible,
+.select:focus-visible {
+  outline: none;
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.22);
+}
+
+.input-pill {
+  border-radius: 999px;
+  width: auto;
+}
+
+.input.grow {
+  flex: 1;
+  min-width: 220px;
+}
+
+.form-row {
+  margin-bottom: 20px;
+  gap: 10px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
+}
+
+.btn-danger {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.btn-danger:not(:disabled):hover {
+  background: rgba(248, 113, 113, 0.2);
+}
+
+.view-head {
+  margin-bottom: 20px;
+}
+
+.view-head .view-subtitle {
+  max-width: 72ch;
+  margin-bottom: 0;
+  line-height: 1.55;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.toolbar-selection {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.toolbar-selection[hidden] {
+  display: none;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+/* Card em modo seleção */
+.card .select-mark {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  background: rgba(10, 11, 18, 0.55);
+  display: grid;
+  place-items: center;
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.card.is-selected .select-mark {
+  background: var(--gradient);
+  border-color: transparent;
+}
+
+.card.is-selected .select-mark::after {
+  content: "✓";
+}
+
+/* Diálogo modal nativo (<dialog>) */
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80vh, 720px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+.dialog::backdrop {
+  background: rgba(5, 6, 10, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialog-head h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.dialog-body {
+  flex: 1;
+  min-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.dialog-body > .hint {
+  padding: 16px;
+  margin: 0;
+}
+
+.dialog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.check-row:last-child {
+  border-bottom: none;
+}
+
+.check-row:hover:not(.is-disabled) {
+  background: var(--surface-hover);
+}
+
+.check-row.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.check-all {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.check-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.check-text strong,
+.check-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.check-text small {
+  color: var(--text-faint);
+  font-size: 12px;
+}

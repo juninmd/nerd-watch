@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { config, telegramBotEnabled, telegramPersonalEnabled } from '../config.ts';
 import { updateEnvVar } from '../env-file.ts';
+import { logoutPersonalSession, verifyPersonalSession } from '../providers/telegram/personal.ts';
 import { cancelLogin, getLoginState, startLogin, submitLoginPassword } from '../providers/telegram/qr-login.ts';
 import { startTelegramBotPoller } from '../telegram-bot-poller.ts';
 
@@ -12,7 +13,12 @@ const statusResponse = () => ({
   personalConfigured: telegramPersonalEnabled(),
 });
 
-telegramSettingsRoutes.get('/', (c) => c.json(statusResponse()));
+telegramSettingsRoutes.get('/', async (c) => {
+  // Uma session encerrada no app do Telegram continuaria aparecendo como "logada". Conferir custa uma conexão MTProto,
+  // então só a tela de Conexões pede (`?verify=1`); a barra superior usa a leitura barata.
+  if (c.req.query('verify') === '1') await verifyPersonalSession();
+  return c.json(statusResponse());
+});
 
 telegramSettingsRoutes.post('/', async (c) => {
   const body = await c.req.json<{ botToken?: string; apiId?: number | string; apiHash?: string }>().catch(() => null);
@@ -62,4 +68,10 @@ telegramSettingsRoutes.post('/login/password', async (c) => {
 telegramSettingsRoutes.post('/login/cancel', (c) => {
   cancelLogin();
   return c.json({ ok: true });
+});
+
+telegramSettingsRoutes.post('/login/logout', async (c) => {
+  cancelLogin();
+  await logoutPersonalSession();
+  return c.json(statusResponse());
 });

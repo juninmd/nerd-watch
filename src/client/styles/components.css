@@ -10,10 +10,12 @@
   transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
 }
 
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-pop);
-  border-color: var(--border);
+@media (hover: hover) {
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-pop);
+    border-color: var(--border);
+  }
 }
 
 .card .poster {
@@ -250,19 +252,6 @@
     transform: translateY(0);
     opacity: 1;
   }
-}
-
-.tmdb-off-banner {
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  background: rgba(251, 191, 36, 0.08);
-  color: var(--warning);
-  padding: 12px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  margin-bottom: 20px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
 }
 
 /* Player P2P (torrent) do acervo de domínio público — estado de conexão e escolha do derivado. */

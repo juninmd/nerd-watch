@@ -1,0 +1,131 @@
+/* Biblioteca: contagens nas abas e modo lista. */
+.toolbar-spacer {
+  flex: 1;
+}
+
+.chip .count {
+  margin-left: 4px;
+  font-size: 11.5px;
+  opacity: 0.7;
+}
+
+.grid.as-list {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.grid.as-list .card {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 12px 8px 8px;
+  min-height: 72px;
+}
+
+.grid.as-list .card .poster {
+  width: 56px;
+  position: static;
+}
+
+.grid.as-list .card .badge-corner {
+  top: 50%;
+  right: 14px;
+  left: auto;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.toolbar[hidden] {
+  display: none;
+}
+
+.calendar-item:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+/* Faixa de 7 dias da Agenda. */
+.week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.week-strip .day {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text-dim);
+}
+
+.week-strip .day small {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.week-strip .day b {
+  font-size: 20px;
+  color: var(--text);
+}
+
+.week-strip .dot {
+  min-width: 20px;
+  min-height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  color: #fff;
+}
+
+.week-strip .day.has .dot {
+  background: var(--gradient);
+}
+
+.week-strip .day.active {
+  border-color: var(--accent-2);
+  background: rgba(124, 92, 255, 0.14);
+}
+
+/* Detalhe do título: ações do herói e painel "Onde assistir". */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.provider-group {
+  margin-bottom: 12px;
+}
+
+.provider-group .hint {
+  margin-bottom: 6px;
+}
+
+.where-link {
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.provider-name {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+}
+
+#where-card:focus-visible,
+#trailer:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
+}

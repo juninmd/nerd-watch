@@ -2,4 +2,9 @@
 @import "./styles/plyr.css";
 @import "./styles/layout.css";
 @import "./styles/components.css";
+@import "./styles/controls.css";
+@import "./styles/palette.css";
+@import "./styles/connections.css";
+@import "./styles/library.css";
+@import "./styles/dock.css";
 @import "./styles/views.css";

@@ -20,9 +20,10 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 
 | | |
 |---|---|
-| 🗂️ **Sua lista** | quero ver / assistindo / assistido / abandonado, nota de 0 a 10, notas livres |
+| 🗂️ **Biblioteca** | quero ver / assistindo / assistido / abandonado, nota de 0 a 10, notas livres; abas com contagem, filtro por origem, grade ou lista e ações em lote |
 | 🔖 **Onde você parou** | temporada e episódio atual por série, marcado com um clique |
-| 🗓️ **Calendário** | próximos episódios e estreias de filme, só dos títulos que você acompanha |
+| 🗓️ **Agenda** | próximos episódios e estreias de filme dos títulos que você acompanha, com faixa de 7 dias |
+| ⌨️ **Ctrl K** | paleta de comandos (títulos, canais, ações) e atalhos `g`+letra (`?` mostra a lista) |
 | 📺 **Episódios** | navegação por temporada, sinopse por episódio com **spoiler oculto por padrão** |
 | 🎬 **Sinopse, nota e trailer** | via TMDB (filme e série) |
 | 📡 **Onde assistir** | streamings disponíveis na sua região (TMDB watch/providers) |
@@ -30,7 +31,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 🧲 **Torrent legal** | o torrent oficial que a própria Archive.org gera para cada item de domínio público |
 | ⚡ **Streaming P2P** | toca o torrent do acervo livre dentro do app, com seek — engine em processo, sem depender da banda do archive.org |
 | 💬 **Legendas sem chave** | busca em addons do protocolo do Stremio (padrão: o OpenSubtitles v3 oficial) — **não precisa de cadastro nem de chave** |
-| ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais |
+| ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais. Login por QR code guiado em **Conexões**, feed de novidades e player fixo com fila e retomada |
 | 🔒 **Local-first** | sua lista e seu progresso ficam no `data/nerd-watch.db` (SQLite); consultas ao catálogo e ao Telegram usam os serviços externos correspondentes |
 
 Filmes e séries **protegidos por direitos autorais não são reproduzidos dentro do app** — o app te leva
@@ -52,7 +53,7 @@ Capturas da app em execução com o banco fictício criado por `bun run seed`. N
 
 ![Página inicial com títulos fictícios em andamento e calendário](docs/screenshots/inicio.png)
 
-| Minha lista | Calendário |
+| Biblioteca (antes "Minha lista") | Agenda (antes "Calendário") |
 |---|---|
 | ![Lista fictícia com filtros de acompanhamento](docs/screenshots/minha-lista.png) | ![Calendário de lançamentos dos títulos fictícios](docs/screenshots/calendario.png) |
 

@@ -87,3 +87,41 @@ describe('DELETE /api/library/:entryId', () => {
     expect(list.items).toHaveLength(0);
   });
 });
+
+describe('POST /api/library/bulk', () => {
+  const bulk = (body: unknown) => libraryRoutes.request('/bulk', { method: 'POST', body: JSON.stringify(body) });
+  const add = async (sourceId: string) =>
+    (await (await libraryRoutes.request('/', { method: 'POST', body: JSON.stringify({ ...addBody, sourceId }) })).json()) as { titleId: string };
+
+  test('muda o status de vários itens de uma vez e ignora ids sem entrada', async () => {
+    const [a, b] = [await add('1'), await add('2')];
+    const res = await bulk({ titleIds: [a.titleId, b.titleId, 'inexistente'], action: 'status', watchStatus: 'watched' });
+    expect(await res.json()).toEqual({ affected: 2 });
+    const list = await (await libraryRoutes.request('/?status=watched')).json();
+    expect(list.items).toHaveLength(2);
+  });
+
+  test('remove só os selecionados, preservando o resto da lista', async () => {
+    const [a, b] = [await add('1'), await add('2')];
+    const res = await bulk({ titleIds: [a.titleId], action: 'remove' });
+    expect(await res.json()).toEqual({ affected: 1 });
+    const list = await (await libraryRoutes.request('/')).json();
+    expect(list.items.map((i: { titleId: string }) => i.titleId)).toEqual([b.titleId]);
+  });
+
+  test.each([
+    ['titleIds ausente', { action: 'remove' }],
+    ['titleIds com valor não-string', { titleIds: [1], action: 'remove' }],
+    ['ação desconhecida', { titleIds: ['x'], action: 'apagar-tudo' }],
+    ['status sem watchStatus válido', { titleIds: ['x'], action: 'status', watchStatus: 'inventado' }],
+    ['lote acima do limite', { titleIds: Array.from({ length: 501 }, (_, i) => `id${i}`), action: 'remove' }],
+  ])('rejeita %s', async (_label, body) => {
+    expect((await bulk(body)).status).toBe(400);
+  });
+
+  test('lista vazia não altera nada', async () => {
+    await add('1');
+    expect(await (await bulk({ titleIds: [], action: 'remove' })).json()).toEqual({ affected: 0 });
+    expect((await (await libraryRoutes.request('/')).json()).items).toHaveLength(1);
+  });
+});

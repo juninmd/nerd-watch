@@ -79,3 +79,11 @@ describe('login por QR code', () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe('POST /login/logout', () => {
+  test('sem session é idempotente: devolve o status e não mexe no .env', async () => {
+    const res = await telegramSettingsRoutes.request('/login/logout', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ botTokenConfigured: false, apiCredentialsConfigured: false, personalConfigured: false });
+  });
+});

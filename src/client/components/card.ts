@@ -21,13 +21,29 @@ export interface CardOptions {
   meta?: string;
   status?: WatchStatus;
   isPublicDomain?: boolean;
+  /** Modo seleção: o clique alterna a marca em vez de abrir o item. */
+  selection?: { selected: boolean; onToggle: () => void };
   onClick: () => void;
 }
 
 export const renderCard = (opts: CardOptions): HTMLElement => {
   const card = document.createElement('div');
   card.className = 'card';
-  card.addEventListener('click', opts.onClick);
+  card.tabIndex = 0;
+  card.setAttribute('role', opts.selection ? 'checkbox' : 'link');
+  if (opts.selection) {
+    card.setAttribute('aria-checked', String(opts.selection.selected));
+    card.classList.toggle('is-selected', opts.selection.selected);
+  }
+  card.setAttribute('aria-label', opts.meta ? `${opts.title} — ${opts.meta}` : opts.title);
+  const activate = opts.selection ? opts.selection.onToggle : opts.onClick;
+  card.addEventListener('click', activate);
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || (e.key === ' ' && opts.selection)) {
+      e.preventDefault();
+      activate();
+    }
+  });
 
   const poster = document.createElement('div');
   if (opts.posterUrl) {
@@ -49,6 +65,8 @@ export const renderCard = (opts: CardOptions): HTMLElement => {
     badge.textContent = 'domínio público';
     poster.appendChild(badge);
   }
+
+  if (opts.selection) poster.insertAdjacentHTML('beforeend', '<span class="select-mark" aria-hidden="true"></span>');
 
   card.appendChild(poster);
 

@@ -1,0 +1,248 @@
+/* Central de Conexões e login guiado do Telegram. */
+.hint {
+  margin: 0 0 14px;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.hint a {
+  color: #a996ff;
+  text-decoration: underline;
+}
+
+.conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.conn-wide {
+  grid-column: 1 / -1;
+}
+
+.conn-stack {
+  display: contents;
+}
+
+.conn-card {
+  padding: 22px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.conn-card:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+.conn-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.conn-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.conn-head h2 {
+  margin: 0 0 3px;
+  font-size: 17px;
+}
+
+.conn-head p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.conn-ic {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: #a996ff;
+}
+
+#tg-body {
+  margin-top: 18px;
+}
+
+.chip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+.chip-status.ok {
+  color: var(--success);
+}
+
+.conn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.conn-card > .conn-head + .conn-actions {
+  margin-top: 18px;
+}
+
+.conn-form {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+  margin-bottom: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.field-err {
+  min-height: 0;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.pw-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pw-row .input {
+  flex: 1;
+}
+
+.conn-more {
+  margin-top: 8px;
+  color: var(--text-dim);
+}
+
+.conn-more summary {
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 6px 0;
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.steps li > span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.steps li.now {
+  color: var(--text);
+}
+
+.steps li.now > span {
+  background: var(--gradient);
+  border-color: transparent;
+  color: #fff;
+}
+
+.steps li.done {
+  color: var(--success);
+}
+
+.steps li.done > span {
+  border-color: var(--success);
+}
+
+.banner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.banner.warn {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: var(--warning);
+}
+
+.banner.err {
+  background: rgba(255, 90, 90, 0.08);
+  border: 1px solid rgba(255, 90, 90, 0.35);
+  color: var(--danger);
+}
+
+.qr-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  align-items: flex-start;
+}
+
+.qr-row img {
+  border-radius: 14px;
+  background: #fff;
+}
+
+.howto {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  line-height: 1.8;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.diag {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  font-size: 13.5px;
+}

@@ -135,7 +135,7 @@ export interface LibraryItemDto {
   title: {
     id: string;
     sourceId: string;
-    source: 'tmdb' | 'archive';
+    source: 'tmdb' | 'archive' | 'telegram';
     mediaType: 'movie' | 'tv';
     title: string;
     posterUrl: string | null;
@@ -382,7 +382,29 @@ export const getTelegramChannel = (titleId: string): Promise<TelegramChannelDeta
 export const refreshTelegramChannel = (titleId: string): Promise<{ itemCount: number }> =>
   fetch(`/api/telegram/channels/${titleId}/refresh`, { method: 'POST' }).then((r) => json<{ itemCount: number }>(r));
 
-export const telegramPlayUrl = (titleId: string, messageId: string): string =>
+export const deleteTelegramChannel = (titleId: string): Promise<void> =>
+  fetch(`/api/telegram/channels/${titleId}`, { method: 'DELETE' }).then((res) => {
+    if (!res.ok) throw new Error('não foi possível remover o canal');
+  });
+
+export const bulkDeleteTelegramChannels = (ids: string[]): Promise<{ removed: number }> =>
+  fetch('/api/telegram/channels/bulk-delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  }).then((r) => json<{ removed: number }>(r));
+
+export interface MyTelegramChannelDto {
+  title: string;
+  handle: string | null;
+  members: number | null;
+  added: boolean;
+}
+
+export const listMyTelegramChannels = (): Promise<{ channels: MyTelegramChannelDto[] }> =>
+  fetch('/api/telegram/my-channels').then((r) => json<{ channels: MyTelegramChannelDto[] }>(r));
+
+export const telegramPlayUrl =(titleId: string, messageId: string): string =>
   `/api/telegram/channels/${titleId}/items/${encodeURIComponent(messageId)}/play`;
 
 export interface TelegramSettingsStatus {
@@ -391,8 +413,9 @@ export interface TelegramSettingsStatus {
   personalConfigured: boolean;
 }
 
-export const getTelegramSettings = (): Promise<TelegramSettingsStatus> =>
-  fetch('/api/telegram/settings').then((r) => json<TelegramSettingsStatus>(r));
+/** `verify` pergunta ao Telegram se a sessão ainda vale (mais lento); sem ele a leitura é só local. */
+export const getTelegramSettings = (verify = false): Promise<TelegramSettingsStatus> =>
+  fetch(`/api/telegram/settings${verify ? '?verify=1' : ''}`).then((r) => json<TelegramSettingsStatus>(r));
 
 export const saveTelegramSettings = (input: { botToken?: string; apiId?: number; apiHash?: string }): Promise<TelegramSettingsStatus> =>
   fetch('/api/telegram/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).then(
@@ -421,3 +444,23 @@ export const submitTelegramLoginPassword = (password: string): Promise<{ ok: tru
 
 export const cancelTelegramLogin = (): Promise<{ ok: true }> =>
   fetch('/api/telegram/settings/login/cancel', { method: 'POST' }).then((r) => json<{ ok: true }>(r));
+
+/** Encerra a sessão da conta pessoal (no Telegram e localmente). */
+export const logoutTelegram = (): Promise<TelegramSettingsStatus> =>
+  fetch('/api/telegram/settings/login/logout', { method: 'POST' }).then((r) => json<TelegramSettingsStatus>(r));
+
+export type BulkLibraryInput = { titleIds: string[]; action: 'remove' } | { titleIds: string[]; action: 'status'; watchStatus: WatchStatus };
+
+export const bulkLibrary = (input: BulkLibraryInput): Promise<{ affected: number }> =>
+  fetch('/api/library/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).then((r) =>
+    json<{ affected: number }>(r),
+  );
+
+export interface TelegramRecentItemDto extends TelegramItemDto {
+  channelId: string;
+  channelTitle: string;
+  handle: string;
+}
+
+export const listRecentTelegramItems = (limit = 12): Promise<{ items: TelegramRecentItemDto[] }> =>
+  fetch(`/api/telegram/recent?limit=${limit}`).then((r) => json<{ items: TelegramRecentItemDto[] }>(r));

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { getDb } from '../db.ts';
-import { listLibrary, removeLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
+import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
 import { upsertTitle } from '../repo/titles.ts';
 import { tmdbImageUrl } from '../providers/tmdb.ts';
 import type { MediaType, TitleSource, WatchStatus } from '../types.ts';
@@ -111,4 +111,26 @@ libraryRoutes.delete('/:entryId', async (c) => {
   const db = await getDb();
   removeLibraryEntry(db, c.req.param('entryId'));
   return c.body(null, 204);
+});
+
+const BULK_LIMIT = 500;
+
+interface BulkBody {
+  titleIds?: unknown;
+  action?: unknown;
+  watchStatus?: unknown;
+}
+
+libraryRoutes.post('/bulk', async (c) => {
+  const body = await c.req.json<BulkBody>().catch(() => null);
+  if (!body || !Array.isArray(body.titleIds) || !body.titleIds.every(isNonEmptyString)) return c.json({ error: 'titleIds deve ser uma lista de ids' }, 400);
+  if (body.titleIds.length > BULK_LIMIT) return c.json({ error: `no máximo ${BULK_LIMIT} itens por vez` }, 400);
+
+  let action: BulkLibraryAction;
+  if (body.action === 'remove') action = { type: 'remove' };
+  else if (body.action === 'status' && isWatchStatus(body.watchStatus)) action = { type: 'status', watchStatus: body.watchStatus };
+  else return c.json({ error: 'action deve ser "remove" ou "status" (com watchStatus válido)' }, 400);
+
+  const db = await getDb();
+  return c.json({ affected: bulkLibraryAction(db, body.titleIds, action) });
 });

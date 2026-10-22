@@ -1,6 +1,7 @@
 import { Api, TelegramClient } from 'teleproto';
 import { StringSession } from 'teleproto/sessions';
 import { config, telegramPersonalEnabled } from '../../config.ts';
+import { updateEnvVar } from '../../env-file.ts';
 
 /**
  * Conta pessoal via MTProto (`teleproto`, fork mantido do GramJS): único modo estruturalmente capaz de
@@ -22,6 +23,66 @@ export class TelegramPersonalNotConfiguredError extends Error {
 
 let clientPromise: Promise<TelegramClient> | null = null;
 
+/** Erros do Telegram que significam "essa session não vale mais" (ex.: encerrada em Ajustes → Dispositivos). */
+const DEAD_SESSION_ERRORS = new Set(['AUTH_KEY_UNREGISTERED', 'SESSION_REVOKED', 'SESSION_EXPIRED', 'USER_DEACTIVATED', 'USER_DEACTIVATED_BAN', 'AUTH_KEY_DUPLICATED']);
+
+export const isDeadSessionError = (err: unknown): boolean =>
+  typeof err === 'object' && err !== null && 'errorMessage' in err && DEAD_SESSION_ERRORS.has(String(err.errorMessage));
+
+/** Esquece a session morta (memória + .env) pra o app voltar a oferecer o login por QR em vez de ficar "logado" à toa. */
+const dropSession = async (): Promise<void> => {
+  const pending = clientPromise;
+  clientPromise = null;
+  config.telegram.session = undefined;
+  updateEnvVar('TELEGRAM_SESSION', '');
+  await pending?.then((client) => client.disconnect()).catch(() => {});
+};
+
+const withLiveSession = async <T>(fn: (client: TelegramClient) => Promise<T>): Promise<T> => {
+  const client = await getClient();
+  try {
+    return await fn(client);
+  } catch (err) {
+    if (!isDeadSessionError(err)) throw err;
+    await dropSession();
+    throw new TelegramPersonalNotConfiguredError();
+  }
+};
+
+const VERIFY_TIMEOUT_MS = 8_000;
+
+/**
+ * Pergunta ao Telegram se a session ainda vale. Só uma rejeição explícita de auth derruba a session —
+ * rede fora ou timeout contam como "não sei" e mantêm tudo como está.
+ */
+export const verifyPersonalSession = async (): Promise<boolean> => {
+  if (!telegramPersonalEnabled()) return false;
+  try {
+    await withLiveSession(async (client) => {
+      await Promise.race([client.getMe(), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS))]);
+    });
+    return true;
+  } catch (err) {
+    return !(err instanceof TelegramPersonalNotConfiguredError);
+  }
+};
+
+/**
+ * Encerra a session de propósito ("Encerrar sessão" em Conexões): pede ao Telegram o auth.logOut — assim ela
+ * também some de Ajustes → Dispositivos — e esquece a session local. O logOut é best-effort: sem rede a
+ * session local é descartada do mesmo jeito. Sem session configurada não faz nada (e não toca no .env).
+ */
+export const logoutPersonalSession = async (): Promise<void> => {
+  if (!telegramPersonalEnabled()) return;
+  try {
+    const client = await getClient();
+    await Promise.race([client.invoke(new Api.auth.LogOut()), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS))]);
+  } catch {
+    // session já morta ou Telegram inalcançável: o descarte local abaixo é o que importa
+  }
+  await dropSession();
+};
+
 const getClient = async (): Promise<TelegramClient> => {
   if (!telegramPersonalEnabled()) throw new TelegramPersonalNotConfiguredError();
   if (!clientPromise) {
@@ -38,6 +99,36 @@ const getClient = async (): Promise<TelegramClient> => {
     );
   }
   return clientPromise;
+};
+
+export interface PersonalChannelInfo {
+  title: string;
+  /** Sem @usuário (canal privado) não há como importar: o app endereça canais pelo handle. */
+  handle: string | null;
+  members: number | null;
+}
+
+interface DialogLike {
+  isChannel: boolean;
+  isGroup: boolean;
+  title?: string;
+  entity?: unknown;
+}
+
+/** Só canais de transmissão: grupos e supergrupos (`isGroup`) e conversas diretas ficam de fora. */
+export const channelInfoFromDialog = (d: DialogLike): PersonalChannelInfo | null => {
+  if (!d.isChannel || d.isGroup || !(d.entity instanceof Api.Channel)) return null;
+  const ch = d.entity;
+  const handle = ch.username ?? ch.usernames?.find((u) => u.active)?.username ?? null;
+  return { title: d.title || ch.title, handle, members: ch.participantsCount ?? null };
+};
+
+const MAX_DIALOGS = 500;
+
+/** Canais em que a conta pessoal participa, na ordem do chat list (mais recentes primeiro). */
+export const listPersonalChannels = async (): Promise<PersonalChannelInfo[]> => {
+  const dialogs = await withLiveSession((client) => client.getDialogs({ limit: MAX_DIALOGS }));
+  return dialogs.flatMap((d) => channelInfoFromDialog(d) ?? []);
 };
 
 export interface TelegramPersonalItem {
@@ -63,12 +154,13 @@ const toItem = (msg: Api.Message): TelegramPersonalItem | null => {
 
 /** Lista vídeos do canal, do mais recente pro mais antigo. `beforeMessageId` pagina pra trás no histórico. */
 export const fetchPersonalChannelItems = async (handle: string, beforeMessageId?: string): Promise<TelegramPersonalItem[]> => {
-  const client = await getClient();
-  const messages = await client.getMessages(handle, {
-    limit: 30,
-    filter: new Api.InputMessagesFilterVideo(),
-    offsetId: beforeMessageId ? Number(beforeMessageId) : 0,
-  });
+  const messages = await withLiveSession((client) =>
+    client.getMessages(handle, {
+      limit: 30,
+      filter: new Api.InputMessagesFilterVideo(),
+      offsetId: beforeMessageId ? Number(beforeMessageId) : 0,
+    }),
+  );
   const items: TelegramPersonalItem[] = [];
   for (const msg of messages) {
     const item = toItem(msg);
@@ -186,7 +278,7 @@ export const streamPersonalItem = async (
   range: { start: number; end: number | null },
 ): Promise<PersonalStreamResolution> => {
   const client = await getClient();
-  const messages = await client.getMessages(handle, { ids: [Number(messageId)] });
+  const messages = await withLiveSession((c) => c.getMessages(handle, { ids: [Number(messageId)] }));
   const msg = messages[0];
   if (!msg || !(msg.media instanceof Api.MessageMediaDocument) || !(msg.media.document instanceof Api.Document))
     return { ok: false, reason: 'not_found' };

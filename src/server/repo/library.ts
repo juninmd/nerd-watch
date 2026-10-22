@@ -127,3 +127,21 @@ export const listLibrary = (db: Database, status?: WatchStatus): LibraryItem[] =
     : db.query<JoinedRow, []>(`${JOIN_SELECT} ORDER BY le.updated_at DESC`).all();
   return rows.map(toLibraryItem);
 };
+
+export type BulkLibraryAction = { type: 'status'; watchStatus: WatchStatus } | { type: 'remove' };
+
+/** Aplica a mesma ação a várias entradas (por título) numa transação só; devolve quantas existiam e foram afetadas. */
+export const bulkLibraryAction = (db: Database, titleIds: string[], action: BulkLibraryAction): number => {
+  if (titleIds.length === 0) return 0;
+  const marks = titleIds.map(() => '?').join(',');
+  const run = db.transaction((): number => {
+    const result =
+      action.type === 'remove'
+        ? db.query(`DELETE FROM library_entries WHERE title_id IN (${marks})`).run(...titleIds)
+        : db
+            .query(`UPDATE library_entries SET watch_status = ?, updated_at = ? WHERE title_id IN (${marks})`)
+            .run(action.watchStatus, new Date().toISOString(), ...titleIds);
+    return result.changes;
+  });
+  return run();
+};
