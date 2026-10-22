@@ -80,6 +80,17 @@ CREATE TABLE IF NOT EXISTS telegram_items (
   UNIQUE (channel_id, message_id)
 );
 
+/* Progresso de reprodução por vídeo (chave = a mesma do cliente). Criada com IF NOT EXISTS: idempotente. */
+CREATE TABLE IF NOT EXISTS playback_positions (
+  key TEXT PRIMARY KEY,
+  seconds REAL NOT NULL,
+  duration REAL,
+  at INTEGER NOT NULL,
+  done INTEGER NOT NULL DEFAULT 0,
+  meta TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_playback_at ON playback_positions(at);
 CREATE INDEX IF NOT EXISTS idx_episodes_season ON episodes(season_id);
 CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_seasons_title ON seasons(title_id);

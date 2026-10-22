@@ -1,5 +1,6 @@
 import { icon } from '../icons.ts';
-import { createPlaybackStore, type ResumeMeta, resumePoint, type StoredPosition } from '../playback-store.ts';
+import { type ResumeMeta, resumePoint, type StoredPosition } from '../playback-store.ts';
+import { playbackSync, storage } from '../playback-service.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 import { formatDuration } from '../time-format.ts';
@@ -28,23 +29,7 @@ type Mode = 'hidden' | 'page' | 'dock';
 const SAVE_EVERY_MS = 5_000;
 const AUTOPLAY_KEY = 'nw.player.autoplay';
 
-const storage = {
-  getItem: (k: string): string | null => {
-    try {
-      return localStorage.getItem(k);
-    } catch {
-      return null;
-    }
-  },
-  setItem: (k: string, v: string): void => {
-    try {
-      localStorage.setItem(k, v);
-    } catch {
-      // armazenamento bloqueado
-    }
-  },
-};
-const store = createPlaybackStore(storage);
+const store = playbackSync.store;
 
 export const savedPosition = (key: string): StoredPosition | undefined => store.get(key);
 export const continueWatching = (limit?: number) => store.inProgress(limit);
@@ -252,10 +237,12 @@ export const mountPlayerDock = (host: HTMLElement): void => {
   el.addEventListener('play', syncControls);
   el.addEventListener('pause', () => {
     persist();
+    void playbackSync.flush();
     syncControls();
   });
   el.addEventListener('ended', () => {
     persist();
+    void playbackSync.flush();
     if (index < queue.length - 1) {
       if (getAutoplay()) step(1);
       else syncControls();
@@ -283,7 +270,15 @@ export const mountPlayerDock = (host: HTMLElement): void => {
     const d = el.duration;
     if (d && Number.isFinite(d)) el.currentTime = (Number((e.target as HTMLInputElement).value) / 1000) * d;
   });
-  window.addEventListener('pagehide', persist);
+  window.addEventListener('pagehide', () => {
+    persist();
+    playbackSync.flushKeepalive();
+  });
+  // Puxa o progresso de outros aparelhos ao abrir e ao voltar para a aba.
+  void playbackSync.pull();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void playbackSync.pull();
+  });
 
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', () => void el.play());

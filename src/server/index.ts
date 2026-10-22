@@ -16,6 +16,7 @@ import { telegramSettingsRoutes } from './routes/telegram-settings.ts';
 import { registerAllSources } from './providers/sources/index.ts';
 import { driveRoutes } from './routes/drive.ts';
 import { sourcesRoutes } from './routes/sources.ts';
+import { playbackRoutes } from './routes/playback.ts';
 import { startTorrentSweeper } from './torrent/engine.ts';
 
 const app = new Hono();
@@ -59,6 +60,7 @@ app.route('/api/telegram', telegramRoutes);
 app.route('/api/telegram/settings', telegramSettingsRoutes);
 app.route('/api/drive', driveRoutes);
 app.route('/api/sources', sourcesRoutes);
+app.route('/api/playback', playbackRoutes);
 
 app.use('/*', serveStatic({ root: './public' }));
 

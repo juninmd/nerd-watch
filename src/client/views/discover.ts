@@ -1,8 +1,9 @@
 import { getCalendar, health, listLibrary, searchArchive, type CalendarEntryDto } from '../api.ts';
 import { escapeHtml, renderCard } from '../components/card.ts';
-import { continueWatchingCards } from '../components/continue-watching.ts';
+import { continueWatchingCards, refreshResumeCards } from '../components/continue-watching.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
 import { icon, type IconName } from '../icons.ts';
+import { PLAYBACK_CHANGED_EVENT } from '../playback-sync.ts';
 import { navigate } from '../router.ts';
 import { addDays, localIsoDate } from '../time-format.ts';
 import { libraryItemPath, titlePath } from '../title-link.ts';
@@ -65,6 +66,15 @@ export const renderDiscover = (host: HTMLElement): void => {
       if (watching.items.length === 0 && resumeCards.length === 0) {
         watchingRail.innerHTML = `<div class="empty-state" style="flex:1">nada em andamento — busque algo (<kbd>Ctrl K</kbd>) e marque como "assistindo"</div>`;
       }
+      // A sincronização pode trazer posições de outro aparelho depois que a tela já renderizou.
+      const onPlaybackChanged = () => {
+        if (!watchingRail.isConnected) {
+          window.removeEventListener(PLAYBACK_CHANGED_EVENT, onPlaybackChanged);
+          return;
+        }
+        refreshResumeCards(watchingRail);
+      };
+      window.addEventListener(PLAYBACK_CHANGED_EVENT, onPlaybackChanged);
       for (const item of watching.items) {
         watchingRail.appendChild(
           renderCard({
