@@ -100,6 +100,12 @@ describe('list (vídeos do canal)', () => {
     expect(calls).toHaveLength(5);
   });
 
+  test('instância que só devolve páginas inválidas com total enorme não prende o sync (teto de páginas)', async () => {
+    respond = () => json({ total: 1_000_000, data: Array.from({ length: 100 }, () => ({ uuid: 'invalido', name: 'x' })) });
+    expect(await peertubeSource.list(HANDLE)).toHaveLength(0);
+    expect(calls.length).toBeLessThanOrEqual(10);
+  });
+
   test('ignora entrada malformada (uuid inválido, nome vazio) sem quebrar a lista', async () => {
     respond = () => json({ total: 3, data: [video('não-é-uuid'), video(UUID_B, { name: '  ', duration: -5, publishedAt: 'lixo' }), null] });
     const items = await peertubeSource.list(HANDLE);
