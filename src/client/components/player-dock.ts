@@ -45,6 +45,11 @@ const storage = {
 const store = createPlaybackStore(storage);
 
 export const savedPosition = (key: string): StoredPosition | undefined => store.get(key);
+/** Ordem em que o canal é listado e enfileirado: do mais recente ao mais antigo (padrão) ou o contrário. */
+export type QueueOrder = 'newest' | 'oldest';
+const ORDER_KEY = 'nw.player.order';
+export const getQueueOrder = (): QueueOrder => (storage.getItem(ORDER_KEY) === 'oldest' ? 'oldest' : 'newest');
+export const setQueueOrder = (order: QueueOrder): void => storage.setItem(ORDER_KEY, order);
 export const getAutoplay = (): boolean => storage.getItem(AUTOPLAY_KEY) !== '0';
 export const setAutoplay = (on: boolean): void => storage.setItem(AUTOPLAY_KEY, on ? '1' : '0');
 
@@ -64,6 +69,14 @@ const emit = (): void => {
 export const subscribePlayer = (fn: () => void): (() => void) => {
   listeners.add(fn);
   return () => listeners.delete(fn);
+};
+
+const endedListeners = new Set<() => void>();
+
+/** Avisa quando o último vídeo da fila termina. */
+export const subscribeEnded = (fn: () => void): (() => void) => {
+  endedListeners.add(fn);
+  return () => endedListeners.delete(fn);
 };
 
 const q = <T extends HTMLElement>(sel: string): T => (dock as HTMLElement).querySelector(sel) as T;
@@ -238,8 +251,14 @@ export const mountPlayerDock = (host: HTMLElement): void => {
   });
   el.addEventListener('ended', () => {
     persist();
-    if (getAutoplay() && index < queue.length - 1) step(1);
-    else syncControls();
+    if (index < queue.length - 1) {
+      if (getAutoplay()) step(1);
+      else syncControls();
+      return;
+    }
+    // Acabou o último vídeo da fila: a tela de reprodução pode sugerir o próximo canal.
+    syncControls();
+    for (const fn of endedListeners) fn();
   });
   el.addEventListener('error', onVideoError);
 

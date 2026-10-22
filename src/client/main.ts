@@ -107,7 +107,7 @@ mountPlayerDock(document.getElementById('dock') as HTMLElement);
 
 const TITLE_RE = /^\/title\/(tmdb|archive)\/(movie|tv|_)\/(.+)$/;
 const TELEGRAM_CHANNEL_RE = /^\/telegram\/(.+)$/;
-const WATCH_RE = /^\/watch\/([^/]+)\/(\d+)$/;
+const WATCH_RE = /^\/watch\/([^/]+)\/(\d+|start)$/;
 
 const dispatch = (route: Route) => {
   // Fecha torrents (e mata os pollers) da tela anterior antes de trocar de view.

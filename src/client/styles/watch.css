@@ -190,3 +190,74 @@
     grid-template-columns: 128px 1fr;
   }
 }
+
+.watch-stage {
+  position: relative;
+}
+
+.watch-order {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.watch-order .select {
+  flex: 1;
+  max-width: 220px;
+}
+
+.next-channel .next-thumb {
+  border-radius: 50%;
+  aspect-ratio: 1;
+  width: 72px;
+  justify-self: center;
+}
+
+.next-channel {
+  grid-template-columns: 92px 1fr;
+}
+
+/* Sugestão do próximo canal por cima do vídeo quando acabam os vídeos do canal. */
+.watch-end {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(6, 7, 12, 0.86);
+  backdrop-filter: blur(6px);
+}
+
+.watch-end[hidden] {
+  display: none;
+}
+
+.watch-end-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  text-align: center;
+}
+
+.watch-end-card small {
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+.watch-end-card b {
+  font-size: 17px;
+}
+
+.watch-end-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}

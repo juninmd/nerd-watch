@@ -145,7 +145,8 @@ telegramRoutes.get('/channels/:id', async (c) => {
   const channel = getTelegramChannel(db, c.req.param('id'));
   if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
 
-  const items = listTelegramItems(db, channel.id);
+  // Mais recente primeiro: é a ordem da lista de vídeos e da fila de reprodução (do último ao mais antigo).
+  const items = listTelegramItems(db, channel.id).reverse();
   return c.json({
     ...toChannelResponse(channel, items.length),
     library: getLibraryEntryByTitle(db, channel.id),
