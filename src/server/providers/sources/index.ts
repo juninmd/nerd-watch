@@ -7,6 +7,8 @@ import { registerS3 } from '../s3/source.ts';
 import { registerWebdav } from '../webdav/source.ts';
 import { registerPeertube } from '../peertube/source.ts';
 import { registerYoutube } from '../youtube/source.ts';
+import { registerJellyfin } from '../jellyfin/source.ts';
+import { registerPlex } from '../plex/source.ts';
 
 /**
  * Um provider novo = um módulo com `registerX()` (descriptor + FileSource) e uma linha aqui.
@@ -26,4 +28,6 @@ export const registerAllSources = (): void => {
   registerS3();
   registerPeertube();
   registerYoutube();
+  registerJellyfin();
+  registerPlex();
 };
