@@ -2,11 +2,12 @@ import { Database } from 'bun:sqlite';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { config } from './config.ts';
-import { TELEGRAM_CHANNEL_MODES } from './types.ts';
+import { LIBRARY_HISTORY_KINDS, TELEGRAM_CHANNEL_MODES } from './types.ts';
 
 let instance: Database | undefined;
 
 const MODES_SQL = TELEGRAM_CHANNEL_MODES.map((m) => `'${m}'`).join(', ');
+const HISTORY_KINDS_SQL = LIBRARY_HISTORY_KINDS.map((k) => `'${k}'`).join(', ');
 
 const MIGRATIONS = `
 CREATE TABLE IF NOT EXISTS titles (
@@ -100,6 +101,16 @@ CREATE TABLE IF NOT EXISTS torrent_sources (
   added_at TEXT NOT NULL
 );
 
+-- Histórico da lista por título (sobrevive à remoção da entrada). Só cresce: o import reaproveita os ids do backup.
+CREATE TABLE IF NOT EXISTS library_history (
+  id TEXT PRIMARY KEY,
+  title_id TEXT NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN (${HISTORY_KINDS_SQL})),
+  at TEXT NOT NULL,
+  detail TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_library_history_title ON library_history(title_id, at);
 CREATE INDEX IF NOT EXISTS idx_episodes_season ON episodes(season_id);
 CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_seasons_title ON seasons(title_id);
@@ -220,6 +231,13 @@ export const migrateAddTelegramItemFileRef = (db: Database): void => {
   db.exec('ALTER TABLE telegram_items ADD COLUMN file_ref TEXT;');
 };
 
+/** `library_entries.rewatch_count` (quantas revisões). Roda depois de MIGRATIONS: a tabela já existe em qualquer banco. */
+export const migrateAddRewatchCount = (db: Database): void => {
+  const columns = db.query<{ name: string }, []>('PRAGMA table_info(library_entries)').all();
+  if (columns.some((c) => c.name === 'rewatch_count')) return;
+  db.exec('ALTER TABLE library_entries ADD COLUMN rewatch_count INTEGER NOT NULL DEFAULT 0;');
+};
+
 export const openDb = (path: string = config.dbPath): Database => {
   const db = new Database(path, { create: true });
   db.exec('PRAGMA journal_mode = WAL;');
@@ -229,6 +247,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   migrateAddCatalogSources(db);
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
+  migrateAddRewatchCount(db);
   return db;
 };
 

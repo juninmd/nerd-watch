@@ -98,6 +98,7 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
             entryId: d.library?.id ?? null,
             watchStatus: d.library?.watch_status ?? null,
             rating: d.library?.rating ?? null,
+            rewatchCount: d.library?.rewatch_count ?? 0,
             onChange: () => load(),
           }),
         );
