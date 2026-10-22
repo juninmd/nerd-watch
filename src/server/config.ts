@@ -55,6 +55,19 @@ export const config = {
     languages: process.env.OPENSUBTITLES_LANGUAGES?.trim() || 'pt-BR,pt,en',
   },
   /**
+   * Busca de legendas. Duas fontes com naturezas diferentes: addons do protocolo do Stremio
+   * (sem chave, devolvem a URL do arquivo) e a OpenSubtitles.com REST (com chave, com cota).
+   */
+  subtitles: {
+    /** URLs-base de addons do Stremio que sirvam `subtitles`. Separadas por vírgula. */
+    addons: (process.env.SUBTITLE_ADDONS?.trim() || 'https://opensubtitles-v3.strem.io')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    /** Idiomas aceitos, na ordem de preferência. */
+    languages: process.env.OPENSUBTITLES_LANGUAGES?.trim() || 'pt-BR,pt,en',
+  },
+  /**
    * Engine de torrent P2P. Escopo deliberadamente restrito ao acervo de domínio público da
    * Internet Archive (ver `torrent/engine.ts`): o app monta a URL do .torrent a partir do
    * `identifier` do item, nunca aceita magnet/.torrent arbitrário — assim ele não vira um

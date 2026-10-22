@@ -107,7 +107,13 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
 
         const subtitlesHost = host.querySelector('#subtitles-panel') as HTMLElement;
         subtitlesHost.appendChild(
-          mediaType === 'movie' ? renderSubtitlesPanel({ tmdbId: Number(id) }) : renderSubtitlesPanel({ query: d.title }),
+          renderSubtitlesPanel({
+            tmdbId: Number(id),
+            mediaType,
+            // Para série, o addon exige `tt…:temporada:episódio`; usamos onde você parou.
+            season: mediaType === 'tv' ? (d.library?.current_season ?? null) : null,
+            episode: mediaType === 'tv' ? (d.library?.current_episode ?? null) : null,
+          }),
         );
       })
       .catch((err) => {

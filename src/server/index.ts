@@ -68,7 +68,7 @@ startTorrentSweeper();
 
 console.log(
   `nerd-watch em http://127.0.0.1:${config.port} (TMDB ${tmdbEnabled() ? 'ativo' : 'sem chave — só domínio público'}, ` +
-    `legendas ${openSubtitlesEnabled() ? 'ativas' : 'desligadas — sem OPENSUBTITLES_API_KEY'}, ` +
+    `legendas ${openSubtitlesEnabled() ? 'com chave OpenSubtitles' : 'via addons do Stremio (sem chave)'}, ` +
     `torrent ${torrentEnabled() ? 'ativo' : 'desligado'}, ` +
     `bot do Telegram ${telegramBotEnabled() ? 'ativo' : 'desligado — sem TELEGRAM_BOT_TOKEN'})`,
 );
