@@ -303,3 +303,59 @@ kbd {
     padding-bottom: 96px;
   }
 }
+
+/* Carrossel (faixa horizontal com setas) */
+.carousel {
+  position: relative;
+}
+
+.carousel-btn {
+  position: absolute;
+  top: 36%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(18, 20, 31, 0.88);
+  color: var(--text);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition: opacity 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.carousel-btn .i {
+  width: 20px;
+  height: 20px;
+}
+
+.carousel-prev {
+  left: 6px;
+}
+
+.carousel-next {
+  right: 6px;
+}
+
+.carousel-btn:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.carousel.is-static .carousel-btn {
+  display: none;
+}
+
+.carousel-btn:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .carousel-btn:not(:disabled):hover {
+    background: var(--surface-hover);
+  }
+}
