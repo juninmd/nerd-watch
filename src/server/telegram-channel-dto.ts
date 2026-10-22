@@ -1,5 +1,7 @@
 import { getSource } from './providers/sources/registry.ts';
 import { isPrivateHandle } from './providers/telegram/ref.ts';
+import { HISTORY_END } from './repo/telegram.ts';
+import { hasHistory } from './telegram-history.ts';
 import type { TelegramChannel } from './repo/telegram.ts';
 
 /** Link externo do canal: `t.me` para o Telegram; fontes de arquivo dizem o próprio (ou nenhum). */
@@ -23,4 +25,6 @@ export const toChannelResponse =(channel: TelegramChannel, itemCount: number) =>
   description: channel.title.overview,
   link: channelLink(channel),
   itemCount,
+  /** Ainda há vídeos mais antigos no Telegram para carregar (o bot e as fontes de arquivo não têm). */
+  canLoadMore: hasHistory(channel.mode) && channel.cursor !== HISTORY_END,
 });

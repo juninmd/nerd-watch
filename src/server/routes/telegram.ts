@@ -22,16 +22,20 @@ import { PrivateChannelNotFoundError } from '../providers/telegram/peer.ts';
 import { listPersonalChannels } from '../providers/telegram/personal-channels.ts';
 import { TelegramPersonalNotConfiguredError, fetchPersonalChannelItems, streamPersonalItem, telegramPersonalEnabled } from '../providers/telegram/personal.ts';
 import { parseTelegramRef } from '../providers/telegram/ref.ts';
+import { fetchPersonalVideoPage } from '../providers/telegram/personal.ts';
+import { nextCursor, publicHistoryExhausted } from '../telegram-history.ts';
+import { telegramHistoryRoutes } from './telegram-history.ts';
 import { getSource } from '../providers/sources/registry.ts';
 import { playSourceItem, refreshSourceChannel } from '../providers/sources/service.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
 import { applyPublicInfo, syncChannelInfo } from '../telegram-channel-info.ts';
-import { localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
+import { ensureThumbs, localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
 import { itemEmbedUrl, toChannelResponse } from '../telegram-channel-dto.ts';
 import { readPhoto, readThumb } from '../telegram-photos.ts';
 import type { TelegramChannelMode } from '../types.ts';
 
 export const telegramRoutes = new Hono();
+telegramRoutes.route('/channels', telegramHistoryRoutes);
 
 const isMode = (v: unknown): v is TelegramChannelMode => v === 'public' || v === 'personal' || v === 'bot';
 
@@ -95,8 +99,8 @@ telegramRoutes.post('/channels', async (c) => {
         })),
       );
       await localizeThumbs(db, channel, saved);
-      const oldest = saved[0]?.message_id ?? null;
-      if (oldest) updateChannelCursor(db, channel.id, oldest);
+      updateChannelCursor(db, channel.id, nextCursor({ oldestId: page.oldestId, exhausted: publicHistoryExhausted(page.oldestId) }, null));
+      channel = getTelegramChannel(db, channel.id) ?? channel;
       return c.json(toChannelResponse(channel, saved.length), 201);
     } catch (err) {
       if (err instanceof TelegramChannelNotFoundError) return c.json({ error: err.message }, 404);
@@ -115,16 +119,18 @@ telegramRoutes.post('/channels', async (c) => {
     return c.json({ error: 'conta pessoal do Telegram não configurada — rode `bun run telegram:login` e configure o .env' }, 501);
   }
   try {
-    const items = await fetchPersonalChannelItems(handle);
+    const page = await fetchPersonalVideoPage(handle);
     let channel = upsertTelegramChannel(db, { handle, mode: 'personal', displayName: ref.private ? `Canal privado ${handle.slice(2)}` : undefined });
     if (await syncChannelInfo(db, channel)) channel = getTelegramChannel(db, channel.id) ?? channel;
     const saved = upsertTelegramItems(
       db,
       channel.id,
-      items.map((i) => ({ messageId: i.messageId, caption: i.caption, durationSeconds: i.durationSeconds, postedAt: i.postedAt })),
+      page.items.map((i) => ({ messageId: i.messageId, caption: i.caption, durationSeconds: i.durationSeconds, postedAt: i.postedAt })),
     );
-    const oldest = saved[0]?.message_id ?? null;
-    if (oldest) updateChannelCursor(db, channel.id, oldest);
+    // Sem isso o canal recém-importado só ganha miniaturas depois de um "atualizar" (o modo público já faz igual).
+    await localizeThumbs(db, channel, saved);
+    updateChannelCursor(db, channel.id, nextCursor(page, null));
+    channel = getTelegramChannel(db, channel.id) ?? channel;
     return c.json(toChannelResponse(channel, saved.length), 201);
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
@@ -138,8 +144,13 @@ telegramRoutes.get('/channels/:id', async (c) => {
   const channel = getTelegramChannel(db, c.req.param('id'));
   if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
 
+  // A página do canal pede (`?thumbs=fill`) e espera ver a miniatura de todos os vídeos: o que ficou sem (download que
+  // falhou) é completado agora. A tela de reprodução também lê este detalhe e não deve esperar por isso.
+  const stored = listTelegramItems(db, channel.id);
+  const fill = c.req.query('thumbs') === 'fill' && (channel.mode === 'public' || channel.mode === 'personal');
+  const complete = fill ? await ensureThumbs(db, channel, stored) : stored;
   // Mais recente primeiro: é a ordem da lista de vídeos e da fila de reprodução (do último ao mais antigo).
-  const items = listTelegramItems(db, channel.id).reverse();
+  const items = complete.reverse();
   return c.json({
     ...toChannelResponse(channel, items.length),
     library: getLibraryEntryByTitle(db, channel.id),

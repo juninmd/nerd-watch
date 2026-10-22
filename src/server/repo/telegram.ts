@@ -108,9 +108,18 @@ export const deleteTelegramChannel = (db: Database, id: string): boolean =>
 export const deleteTelegramChannels = (db: Database, ids: string[]): number =>
   db.transaction((list: string[]) => list.reduce((n, id) => n + (deleteTelegramChannel(db, id) ? 1 : 0), 0))(ids);
 
+/**
+ * `cursor` é o id da mensagem mais antiga já lida (a próxima página começa antes dela). `HISTORY_END` diz que o
+ * histórico acabou, então nem adianta perguntar ao Telegram de novo.
+ */
+export const HISTORY_END = 'end';
+
 export const updateChannelCursor =(db: Database, channelId: string, cursor: string | null): void => {
   db.query('UPDATE telegram_channels SET cursor = $cursor WHERE id = $id').run({ $cursor: cursor, $id: channelId });
 };
+
+export const countTelegramItems = (db: Database, channelId: string): number =>
+  db.query<{ n: number }, [string]>('SELECT COUNT(*) AS n FROM telegram_items WHERE channel_id = ?').get(channelId)?.n ?? 0;
 
 export interface NewTelegramItem {
   messageId: string;

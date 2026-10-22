@@ -51,3 +51,16 @@ export const orderItems = <T extends { messageId: string }>(items: T[], order: '
   const sorted = [...items].sort((a, b) => Number(a.messageId) - Number(b.messageId));
   return order === 'newest' ? sorted.reverse() : sorted;
 };
+
+/** Minúsculas, sem acento e sem espaços repetidos: "Pânico  na TV" casa com "panico". */
+export const normalizeSearch = (text: string): string => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** Busca na legenda (título e descrição): todas as palavras digitadas precisam aparecer, em qualquer ordem. Sem texto devolve a lista. */
+export const filterItems = <T extends { caption: string | null }>(items: T[], query: string): T[] => {
+  const words = normalizeSearch(query).split(' ').filter(Boolean);
+  if (words.length === 0) return items;
+  return items.filter((item) => {
+    const text = normalizeSearch(item.caption ?? '');
+    return words.every((word) => text.includes(word));
+  });
+};
