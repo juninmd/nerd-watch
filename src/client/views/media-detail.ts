@@ -1,5 +1,6 @@
 import { type CatalogSource, getTmdbTitle } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
+import { renderRefreshMetadata } from '../components/refresh-metadata.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderSubtitlesPanel } from '../components/subtitles.ts';
 import { whereToWatchHtml } from '../components/where-to-watch.ts';
@@ -79,6 +80,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
               <div class="side-card">
                 <h3>Sua lista</h3>
                 <div id="status-actions"></div>
+                <div id="refresh-metadata" style="margin-top:12px"></div>
               </div>
               <div class="side-card">
                 <h3>Legendas</h3>
@@ -107,6 +109,8 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
             onChange: () => load(),
           }),
         );
+
+        (host.querySelector('#refresh-metadata') as HTMLElement).appendChild(renderRefreshMetadata(d.titleId, () => load()));
 
         if (mediaType === 'tv') {
           renderSeasons(host.querySelector('#seasons-section') as HTMLElement, id, d.seasons, d.titleId, d.library, load);

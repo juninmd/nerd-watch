@@ -18,6 +18,10 @@ export interface TitleRow {
   release_date: string | null;
   vote_average: number | null;
   created_at: string;
+  /** Status da série na TMDB ("Returning Series", "Ended"…); guia a frequência do refresh automático. */
+  metadata_status: string | null;
+  /** Instante (ISO) do último refresh de metadados bem-sucedido; nulo = nunca atualizado. */
+  metadata_refreshed_at: string | null;
 }
 
 export interface SeasonRow {

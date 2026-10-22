@@ -249,6 +249,17 @@ export const removeFromLibrary = (entryId: string): Promise<void> =>
     if (!res.ok) throw new Error('falha ao remover');
   });
 
+export interface RefreshMetadataDto {
+  titleId: string;
+  seasons: number;
+  episodes: number;
+  refreshedAt: string;
+}
+
+/** Re-busca temporadas, episódios e datas na TMDB. Erro 429 traz a mensagem de espera (cooldown de 60 s). */
+export const refreshTitleMetadata = (titleId: string): Promise<RefreshMetadataDto> =>
+  fetch(`/api/library/${titleId}/refresh`, { method: 'POST' }).then((r) => json<RefreshMetadataDto>(r));
+
 export interface CalendarEntryDto {
   kind: 'episode' | 'movie';
   titleId: string;
