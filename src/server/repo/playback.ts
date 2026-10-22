@@ -127,7 +127,8 @@ export const upsertPlaybackEntry = (db: Database, e: PlaybackEntry): boolean =>
       $meta: e.meta ? JSON.stringify(e.meta) : null,
     });
     db.exec(`DELETE FROM playback_positions WHERE key IN (SELECT key FROM playback_positions ORDER BY at DESC LIMIT -1 OFFSET ${PLAYBACK_MAX_ROWS})`);
-    return true;
+    // A gravação mais antiga do teto cai no próprio prune: dizer "aplicada" faria o cliente achar que ela está no servidor.
+    return db.query('SELECT 1 FROM playback_positions WHERE key = ?').get(e.key) !== null;
   })();
 
 /** Mais recentes primeiro; `key` desempata para a paginação ser estável. */

@@ -37,8 +37,6 @@ export const toDockItem = (channel: { titleId: string; title: string }, item: Te
  * Próximo canal para sugerir ao fim de um: o seguinte na ordem da lista (volta ao início no fim da lista),
  * pulando canais sem vídeo. Null quando não há nenhum outro com vídeos.
  */
-/** Texto do link externo do canal conforme a origem (o link em si vem pronto do servidor). */
-
 export const pickNextChannel = <T extends { titleId: string; itemCount: number }>(channels: T[], currentId: string): T | null => {
   const at = channels.findIndex((c) => c.titleId === currentId);
   for (let step = 1; step < channels.length; step++) {

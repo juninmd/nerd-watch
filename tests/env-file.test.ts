@@ -41,13 +41,13 @@ describe('updateEnvVar — o valor volta igual quando o Bun lê o arquivo no pr�
   // O parser do Bun trunca em `#`, expande `$VAR` (até entre aspas simples) e não trata `\"`: gravar cru corrompe a senha em silêncio.
   const VALUES: Record<string, string> = {
     HASH: 'ab#cd',
-    EXPAND: 'a${USER}b',
+    EXPAND: `a$${"{"}USER}b`,
     DOLLAR: 'x$HOME_NOPE',
     QUOTES: `p "q" 'r'`,
     DQUOTE: 'pa"ss',
     LEAD: '  espaço nas pontas  ',
-    SLASH: 'back\slash',
-    ESCDOLLAR: 'a\$b',
+    SLASH: String.raw`back\slash`,
+    ESCDOLLAR: String.raw`a\$b`,
     PLAIN: 'abc123:+/=',
   };
 

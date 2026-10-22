@@ -127,6 +127,14 @@ describe('last-write-wins por at', () => {
     expect(db.query('SELECT 1 FROM playback_positions WHERE key = ?').get('c1:1')).toBeNull();
     expect(db.query('SELECT 1 FROM playback_positions WHERE key = ?').get(`c1:${PLAYBACK_MAX_ROWS + 1}`)).toBeTruthy();
   });
+
+  test('gravação mais antiga que todas no teto não é "aplicada": ela some na hora e o cliente precisa saber', () => {
+    const db = openDb(':memory:');
+    for (let i = 1; i <= PLAYBACK_MAX_ROWS; i++) upsertPlaybackEntry(db, parsePlaybackEntry(`c1:${i}`, body({ at: NOW + i }), NOW));
+    const applied = upsertPlaybackEntry(db, parsePlaybackEntry('velho:1', body({ at: NOW - 1000 }), NOW));
+    expect(db.query('SELECT 1 FROM playback_positions WHERE key = ?').get('velho:1')).toBeNull();
+    expect(applied).toBe(false);
+  });
 });
 
 describe('/api/playback', () => {
