@@ -4,11 +4,10 @@ import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEn
 import { upsertTitle } from '../repo/titles.ts';
 import { httpsUrlOrNull } from '../catalog-text.ts';
 import { tmdbImageUrl } from '../providers/tmdb.ts';
-import type { MediaType, TitleSource, WatchStatus } from '../types.ts';
+import { type MediaType, type TitleSource, WATCH_STATUSES, type WatchStatus } from '../types.ts';
 
 export const libraryRoutes = new Hono();
 
-const WATCH_STATUSES: WatchStatus[] = ['want', 'watching', 'watched', 'dropped'];
 const isWatchStatus = (v: unknown): v is WatchStatus => typeof v === 'string' && WATCH_STATUSES.includes(v as WatchStatus);
 
 /** Fontes que guardam a URL completa do pôster; as demais guardam só o caminho da TMDB. */
