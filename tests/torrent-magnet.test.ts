@@ -146,6 +146,22 @@ describe('safeTrackers e isPrivateHost', () => {
     expect(isPrivateHost('8.8.8.8')).toBe(false);
     expect(isPrivateHost('example.org')).toBe(false);
   });
+
+  test('IPv4 embutido em IPv6 vale como o IPv4 (::ffff:7f00:1 é loopback)', () => {
+    for (const host of ['[::ffff:7f00:1]', '[::ffff:127.0.0.1]', '[::ffff:c0a8:a]', '[::ffff:a00:1]', '[::127.0.0.1]', '[::7f00:1]', '[::ffff:ac10:1]']) {
+      expect(isPrivateHost(host)).toBe(true);
+    }
+    expect(isPrivateHost('[::ffff:808:808]')).toBe(false);
+    expect(isPrivateHost('[2606:4700:4700::1111]')).toBe(false);
+    expect(isPrivateHost('[fec0::1]')).toBe(true);
+  });
+
+  test('esquemas sem host especial (udp:) escrevem o IPv4 de outras formas; todas valem como o IPv4', () => {
+    const hostile = ['udp://2130706433:6969', 'udp://127.1:6969', 'udp://0x7f000001:6969', 'udp://0177.0.0.1:6969', 'udp://localhost.:6969', 'udp://[::ffff:7f00:1]:6969', 'http://[::ffff:7f00:1]:1/announce'];
+    expect(safeTrackers(hostile)).toEqual([]);
+    expect(isPrivateHost('2130706433')).toBe(true);
+    expect(isPrivateHost('localhost.')).toBe(true);
+  });
 });
 
 describe('isSafeTorrentPath — traversal via nomes dentro do torrent', () => {

@@ -47,17 +47,41 @@ export const parseInfoHash = (raw: string): string | null => {
   return hex.length === 40 ? hex : null;
 };
 
-/** Hosts que só alcançam a própria máquina ou a LAN. Não cobre nome DNS que resolva para IP privado. */
-export const isPrivateHost = (hostname: string): boolean => {
-  const host = hostname.toLowerCase();
-  if (host === 'localhost' || host.endsWith('.localhost')) return true;
-  if (host.startsWith('[')) {
-    return host === '[::1]' || host === '[::]' || /^\[f[cd]/.test(host) || /^\[fe[89ab]/.test(host);
-  }
+const isPrivateV4 = (host: string): boolean => {
   const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
   if (!v4) return false;
   const [a, b] = [Number(v4[1]), Number(v4[2])];
   return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+};
+
+/** Esquemas sem host especial (`udp:`) guardam `2130706433` e `127.1` como texto; reparsear como http: os normaliza. */
+const canonicalHost = (hostname: string): string => {
+  const host = hostname.toLowerCase().replace(/\.$/, '');
+  try {
+    return new URL(`http://${host}`).hostname;
+  } catch {
+    return host;
+  }
+};
+
+/** `[::ffff:7f00:1]` e `[::7f00:1]` carregam um IPv4: vale a regra dele. */
+const embeddedV4 = (host: string): string | null => {
+  const m = /^\[::(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})\]$/.exec(host);
+  if (!m) return null;
+  const [hi, lo] = [Number.parseInt(m[1] as string, 16), Number.parseInt(m[2] as string, 16)];
+  return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+};
+
+/** Hosts que só alcançam a própria máquina ou a LAN. Não cobre nome DNS que resolva para IP privado. */
+export const isPrivateHost = (hostname: string): boolean => {
+  const host = canonicalHost(hostname);
+  if (host === 'localhost' || host.endsWith('.localhost')) return true;
+  if (host.startsWith('[')) {
+    const v4 = embeddedV4(host);
+    if (v4) return isPrivateV4(v4);
+    return host === '[::1]' || host === '[::]' || /^\[f[cd]/.test(host) || /^\[fe[89abcdef]/.test(host);
+  }
+  return isPrivateV4(host);
 };
 
 /** Filtra trackers: só protocolos de tracker e nunca host local/privado. Deduplica e limita. */
