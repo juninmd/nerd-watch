@@ -94,3 +94,38 @@
   border-color: var(--accent-2);
   background: rgba(124, 92, 255, 0.14);
 }
+
+/* Detalhe do título: ações do herói e painel "Onde assistir". */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.provider-group {
+  margin-bottom: 12px;
+}
+
+.provider-group .hint {
+  margin-bottom: 6px;
+}
+
+.where-link {
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.provider-name {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+}
+
+#where-card:focus-visible,
+#trailer:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
+}

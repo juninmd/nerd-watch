@@ -2,6 +2,7 @@ import { getTmdbTitle } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderSubtitlesPanel } from '../components/subtitles.ts';
+import { whereToWatchHtml } from '../components/where-to-watch.ts';
 import { renderArchiveDetail } from './media-detail-archive.ts';
 import { renderSeasons } from './media-detail-seasons.ts';
 
@@ -33,13 +34,6 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
     getTmdbTitle(mediaType, id)
       .then((d) => {
         const year = d.releaseDate?.slice(0, 4) ?? '—';
-        const providersHtml = (label: string, list: typeof d.watchProviders.flatrate) =>
-          list.length
-            ? `<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:6px">${label}</div><div class="provider-row">${list
-                .map((p) => (p.logoUrl ? `<div class="provider-logo" title="${escapeHtml(p.name)}"><img src="${p.logoUrl}" alt="${escapeHtml(p.name)}" /></div>` : ''))
-                .join('')}</div></div>`
-            : '';
-
         host.innerHTML = `
           <div class="hero">
             <div class="backdrop${d.backdropUrl ? '' : ' placeholder'}"${d.backdropUrl ? ` style="background-image:url('${d.backdropUrl}')"` : ''}></div>
@@ -57,30 +51,24 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
                   <span>${escapeHtml(d.status)}</span>
                 </div>
                 <p class="hero-overview">${escapeHtml(d.overview || 'Sem sinopse disponível.')}</p>
+                <div class="hero-actions">
+                  <button class="btn btn-primary" type="button" data-jump="where-card">Onde assistir</button>
+                  ${d.trailerKey ? '<button class="btn btn-ghost" type="button" data-jump="trailer">Trailer</button>' : ''}
+                </div>
               </div>
             </div>
           </div>
           <div class="detail-grid">
             <div>
-              ${d.trailerKey ? `<div class="trailer-frame"><iframe src="https://www.youtube.com/embed/${d.trailerKey}" allowfullscreen title="trailer"></iframe></div>` : ''}
+              ${d.trailerKey ? `<div class="trailer-frame" id="trailer" tabindex="-1"><iframe src="https://www.youtube.com/embed/${d.trailerKey}" allowfullscreen title="trailer"></iframe></div>` : ''}
               <div id="seasons-section"></div>
               ${mediaType === 'movie' ? `<div class="empty-state"><div class="big">🎬</div>filmes protegidos por direitos autorais não são reproduzidos dentro do app — use os streamings ao lado, ou confira o acervo de <a href="#/public-domain">domínio público</a> se este título já for livre.</div>` : ''}
             </div>
             <div>
+              <div class="side-card" id="where-card" tabindex="-1">${whereToWatchHtml(d.watchProviders)}</div>
               <div class="side-card">
                 <h3>Sua lista</h3>
                 <div id="status-actions"></div>
-              </div>
-              <div class="side-card">
-                <h3>Onde assistir</h3>
-                ${providersHtml('Incluso na assinatura', d.watchProviders.flatrate)}
-                ${providersHtml('Alugar', d.watchProviders.rent)}
-                ${providersHtml('Comprar', d.watchProviders.buy)}
-                ${
-                  d.watchProviders.link
-                    ? `<a class="btn btn-primary btn-sm" href="${d.watchProviders.link}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-top:6px">abrir no TMDB</a>`
-                    : `<p class="hint">sem streamings listados para sua região</p>`
-                }
               </div>
               <div class="side-card">
                 <h3>Legendas</h3>
@@ -89,6 +77,15 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
             </div>
           </div>
         `;
+
+        for (const btn of host.querySelectorAll<HTMLElement>('[data-jump]')) {
+          btn.addEventListener('click', () => {
+            const target = host.querySelector<HTMLElement>(`#${btn.dataset.jump}`);
+            const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            target?.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
+            target?.focus({ preventScroll: true });
+          });
+        }
 
         const statusHost = host.querySelector('#status-actions') as HTMLElement;
         statusHost.appendChild(
