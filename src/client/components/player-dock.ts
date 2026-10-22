@@ -1,5 +1,5 @@
 import { icon } from '../icons.ts';
-import { createPlaybackStore, resumePoint, type StoredPosition } from '../playback-store.ts';
+import { createPlaybackStore, type ResumeMeta, resumePoint, type StoredPosition } from '../playback-store.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 import { formatDuration } from '../time-format.ts';
@@ -45,6 +45,9 @@ const storage = {
 const store = createPlaybackStore(storage);
 
 export const savedPosition = (key: string): StoredPosition | undefined => store.get(key);
+export const continueWatching = (limit?: number) => store.inProgress(limit);
+
+const metaOf = (item: DockItem): ResumeMeta => ({ title: item.title, subtitle: item.subtitle, poster: item.poster, channelId: item.channelId, messageId: item.messageId });
 /** Ordem em que o canal é listado e enfileirado: do mais recente ao mais antigo (padrão) ou o contrário. */
 export type QueueOrder = 'newest' | 'oldest';
 const ORDER_KEY = 'nw.player.order';
@@ -92,7 +95,7 @@ export const getVideo = (): HTMLVideoElement | null => video;
 const persist = (): void => {
   const item = current();
   if (!item || !video || video.readyState < 1) return;
-  store.save(item.key, video.currentTime, Number.isFinite(video.duration) ? video.duration : null);
+  store.save(item.key, video.currentTime, Number.isFinite(video.duration) ? video.duration : null, metaOf(item));
 };
 
 const syncControls = (): void => {

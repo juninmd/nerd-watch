@@ -13,9 +13,11 @@ import {
   setQueueOrder,
   showInPage,
   subscribeEnded,
+  savedPosition,
   subscribePlayer,
 } from '../components/player-dock.ts';
 import { icon } from '../icons.ts';
+import { resumePoint } from '../playback-store.ts';
 import { navigate } from '../router.ts';
 import { itemDescription, orderItems, pickNextChannel, toDockItem, watchPath } from '../telegram-items.ts';
 import { formatDuration } from '../time-format.ts';
@@ -25,9 +27,12 @@ const NEXT_CHANNEL_COUNTDOWN = 8;
 
 const nextRow = (item: DockItem, i: number): string => {
   const length = formatDuration(item.durationSeconds);
+  const saved = savedPosition(item.key);
+  const resumeAt = resumePoint(saved);
+  const status = saved?.done ? ' · assistido' : resumeAt !== null ? ` · parou em ${formatDuration(resumeAt)}` : '';
   return `<button type="button" class="next-item" data-i="${i}">
     <span class="next-thumb"${item.poster ? ` style="background-image:url('${escapeHtml(item.poster)}')"` : ''}>${item.poster ? '' : icon('film')}${length ? `<small>${length}</small>` : ''}</span>
-    <span class="next-text"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.subtitle)}</small></span>
+    <span class="next-text"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.subtitle)}${status}</small></span>
   </button>`;
 };
 
