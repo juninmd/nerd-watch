@@ -303,3 +303,24 @@
 .star.filled {
   color: var(--warning);
 }
+
+/* Canal do Telegram: foto redonda, link e descrição com as quebras de linha originais. */
+.hero-avatar {
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow-pop);
+}
+
+.tg-link {
+  color: #a996ff;
+  text-decoration: underline;
+}
+
+.tg-description {
+  white-space: pre-line;
+}

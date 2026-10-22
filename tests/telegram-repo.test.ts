@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { openDb, resetDbForTests } from '../src/server/db.ts';
-import { getTelegramChannelByHandle, listRecentTelegramItems, upsertTelegramChannel, upsertTelegramItems } from '../src/server/repo/telegram.ts';
+import { getTelegramChannelByHandle, listRecentTelegramItems, updateTelegramChannelInfo, upsertTelegramChannel, upsertTelegramItems } from '../src/server/repo/telegram.ts';
 
 let db: ReturnType<typeof openDb>;
 
@@ -54,5 +54,27 @@ describe('listRecentTelegramItems', () => {
 
   test('sem canais devolve lista vazia', () => {
     expect(listRecentTelegramItems(db, 10)).toEqual([]);
+  });
+});
+
+describe('updateTelegramChannelInfo', () => {
+  test('atualiza nome, descrição e foto', () => {
+    const ch = upsertTelegramChannel(db, { handle: 'canal_info', mode: 'public' });
+    updateTelegramChannelInfo(db, ch.id, { title: 'Nome Real', description: 'Sobre o canal', posterPath: '/api/telegram/channels/x/photo' });
+    const after = getTelegramChannelByHandle(db, 'canal_info');
+    expect(after?.title).toMatchObject({ title: 'Nome Real', overview: 'Sobre o canal', poster_path: '/api/telegram/channels/x/photo' });
+  });
+
+  test('campos ausentes preservam o que já existe (falha parcial não apaga dados)', () => {
+    const ch = upsertTelegramChannel(db, { handle: 'canal_info', mode: 'public' });
+    updateTelegramChannelInfo(db, ch.id, { title: 'Nome Real', description: 'Sobre', posterPath: '/p' });
+    updateTelegramChannelInfo(db, ch.id, { title: null, description: undefined, posterPath: null });
+    expect(getTelegramChannelByHandle(db, 'canal_info')?.title).toMatchObject({ title: 'Nome Real', overview: 'Sobre', poster_path: '/p' });
+  });
+
+  test('só mexe em títulos do Telegram', () => {
+    db.query("INSERT INTO titles (id, source, source_id, media_type, title, created_at) VALUES ('t1', 'tmdb', '1', 'movie', 'Filme', 'now')").run();
+    updateTelegramChannelInfo(db, 't1', { title: 'Hackeado' });
+    expect(db.query<{ title: string }, []>("SELECT title FROM titles WHERE id = 't1'").get()?.title).toBe('Filme');
   });
 });
