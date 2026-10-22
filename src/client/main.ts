@@ -3,6 +3,7 @@ import { openCommandPalette } from './components/command-palette.ts';
 import { releaseTorrentPlayers } from './components/torrent-player.ts';
 import { icon, type IconName } from './icons.ts';
 import { onRouteChange, type Route } from './router.ts';
+import { mountPlayerDock } from './components/player-dock.ts';
 import { installShortcuts } from './shortcuts.ts';
 import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './state.ts';
 import { renderCalendar } from './views/calendar.ts';
@@ -44,6 +45,7 @@ app.innerHTML = `
       <main id="view" tabindex="-1"></main>
     </div>
   </div>
+  <div id="dock"></div>
 `;
 
 const navEl = document.getElementById('nav') as HTMLElement;
@@ -99,6 +101,7 @@ refreshConnectionPill();
 
 document.getElementById('cmd-open')?.addEventListener('click', openCommandPalette);
 installShortcuts();
+mountPlayerDock(document.getElementById('dock') as HTMLElement);
 
 const TITLE_RE = /^\/title\/(tmdb|archive)\/(movie|tv|_)\/(.+)$/;
 const TELEGRAM_CHANNEL_RE = /^\/telegram\/(.+)$/;

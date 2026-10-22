@@ -1,39 +1,17 @@
-import Plyr from 'plyr';
 import { deleteTelegramChannel, getTelegramChannel, refreshTelegramChannel, telegramPlayUrl, type TelegramChannelDetailDto, type TelegramItemDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
+import { type DockItem, playInDock, savedPosition } from '../components/player-dock.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
+import { icon } from '../icons.ts';
+import { resumePoint } from '../playback-store.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
-
-const PLYR_CONTROLS = ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'settings', 'fullscreen'];
-
-/** Vídeo retrato (9:16 etc.) esticaria até a largura toda do container — trava a largura pelo orçamento de altura. */
-const capPortraitWidth = (container: HTMLElement, video: HTMLVideoElement): (() => void) => {
-  const apply = () => {
-    const { videoWidth: w, videoHeight: h } = video;
-    if (!w || !h) return;
-    const heightBudget = Math.min(window.innerHeight * 0.72, 720);
-    container.style.maxWidth = h > w ? `${Math.round((heightBudget * w) / h)}px` : '';
-  };
-  if (video.readyState >= 1) apply();
-  else video.addEventListener('loadedmetadata', apply, { once: true });
-  window.addEventListener('resize', apply);
-  return () => window.removeEventListener('resize', apply);
-};
+import { formatDuration } from '../time-format.ts';
 
 const MODE_LABEL: Record<TelegramChannelDetailDto['mode'], string> = {
   public: 'canal público',
   bot: 'bot',
   personal: 'conta pessoal',
-};
-
-const formatDuration = (seconds: number | null): string => {
-  if (!seconds) return '';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
-  return `${h > 0 ? `${h}:` : ''}${mm}:${String(s).padStart(2, '0')}`;
 };
 
 /** Telegram não tem campo de título — usa a 1ª linha da legenda como título e o resto como descrição. */
@@ -42,30 +20,12 @@ const itemTitle = (item: TelegramItemDto, maxLen = 80): string => {
   return firstLine ? firstLine.slice(0, maxLen) : `Vídeo — mensagem ${item.messageId}`;
 };
 
-const itemDescription = (item: TelegramItemDto): string | null => {
-  if (!item.caption) return null;
-  const rest = item.caption
-    .split('\n')
-    .filter((l) => l.trim().length > 0)
-    .slice(1)
-    .join(' ')
-    .trim();
-  return rest || null;
-};
-
-interface PlayerState {
-  player: Plyr | null;
-  cleanupResize: (() => void) | null;
-}
-
 export const renderTelegramChannel = (host: HTMLElement, titleId: string): void => {
   host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
 
-  const playerState: PlayerState = { player: null, cleanupResize: null };
-
   const load = () => {
     getTelegramChannel(titleId)
-      .then((d) => renderDetail(host, d, load, playerState))
+      .then((d) => renderDetail(host, d, load))
       .catch(() => {
         host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar esse canal</div>`;
       });
@@ -74,13 +34,16 @@ export const renderTelegramChannel = (host: HTMLElement, titleId: string): void 
   load();
 };
 
-/** Toda vez que `reload()` reconstrói o DOM (troca de status/nota, "atualizar"), o player anterior precisa ser destruído antes — senão o Plyr e o listener de resize de `capPortraitWidth` vazam a cada re-render. */
-const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: () => void, playerState: PlayerState): void => {
-  playerState.player?.destroy();
-  playerState.cleanupResize?.();
-  playerState.player = null;
-  playerState.cleanupResize = null;
+const toDockItem = (d: TelegramChannelDetailDto, item: TelegramItemDto): DockItem => ({
+  key: `${d.titleId}:${item.messageId}`,
+  src: telegramPlayUrl(d.titleId, item.messageId),
+  title: itemTitle(item),
+  subtitle: d.title,
+  poster: item.thumbnailUrl,
+  href: `/telegram/${d.titleId}`,
+});
 
+const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: () => void): void => {
   host.innerHTML = `
     <div class="hero">
       <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(d.posterUrl)}')"` : ''}></div>
@@ -92,14 +55,14 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
             <span class="badge badge-archive">telegram · ${MODE_LABEL[d.mode]}</span>
             <span>${d.itemCount} vídeo${d.itemCount === 1 ? '' : 's'}</span>
           </div>
+          ${d.items.length ? `<div class="hero-actions"><button class="btn btn-primary" id="tg-play-all" type="button">${icon('play', 'sm')} Reproduzir tudo</button></div>` : ''}
         </div>
       </div>
     </div>
     <div class="detail-grid">
       <div>
-        <div id="tg-player"></div>
-        <div class="section-head"><h2>🎬 Vídeos</h2>${d.mode === 'public' || d.mode === 'personal' ? `<button class="btn btn-ghost btn-sm" id="tg-refresh">🔄 atualizar</button>` : ''}</div>
-        ${d.mode === 'bot' ? `<p class="hint" style="margin-top:-10px;margin-bottom:14px">modo bot só recebe vídeos postados a partir de agora — sem histórico retroativo.</p>` : ''}
+        <div class="section-head"><h2>Vídeos</h2>${d.mode === 'public' || d.mode === 'personal' ? `<button class="btn btn-ghost btn-sm" id="tg-refresh" type="button">${icon('download', 'sm')} atualizar</button>` : ''}</div>
+        ${d.mode === 'bot' ? `<p class="hint">modo bot só recebe vídeos postados a partir de agora — sem histórico retroativo.</p>` : ''}
         <div id="tg-items" class="grid"></div>
       </div>
       <div>
@@ -107,7 +70,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
           <h3>Sua lista</h3>
           <div id="status-actions"></div>
         </div>
-        <button class="btn btn-ghost btn-sm" id="tg-delete" style="width:100%;justify-content:center;margin-top:12px;color:var(--danger)">🗑️ remover canal</button>
+        <button class="btn btn-ghost btn-sm" id="tg-delete" style="width:100%;justify-content:center;margin-top:12px;color:var(--danger)">${icon('trash', 'sm')} remover canal</button>
       </div>
     </div>
   `;
@@ -123,39 +86,12 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     }),
   );
 
-  const playerHost = host.querySelector('#tg-player') as HTMLElement;
   const itemsHost = host.querySelector('#tg-items') as HTMLElement;
+  const queue = d.items.map((item) => toDockItem(d, item));
+  // O dock mantém a fila: o fim de um vídeo abre o próximo, e a navegação entre telas não interrompe.
+  const play = (from: number) => playInDock(queue, from);
 
-  const playItem = (item: TelegramItemDto) => {
-    playerState.player?.destroy();
-    playerState.cleanupResize?.();
-    const playUrl = telegramPlayUrl(d.titleId, item.messageId);
-    const meta = [formatDuration(item.durationSeconds), item.postedAt ? new Date(item.postedAt).toLocaleDateString('pt-BR') : null]
-      .filter(Boolean)
-      .join(' · ');
-    const description = itemDescription(item);
-    playerHost.innerHTML = `
-      <div class="tg-player-heading">
-        <h3>${escapeHtml(itemTitle(item))}</h3>
-        ${meta ? `<div class="tg-player-meta">${escapeHtml(meta)}</div>` : ''}
-      </div>
-      <div class="tg-player">
-        <video src="${escapeHtml(playUrl)}" autoplay playsinline ${item.thumbnailUrl ? `poster="${escapeHtml(item.thumbnailUrl)}"` : ''}></video>
-      </div>
-      ${description ? `<p class="view-subtitle">${escapeHtml(description)}</p>` : ''}
-    `;
-    const video = playerHost.querySelector('video') as HTMLVideoElement;
-    video.addEventListener('error', () => {
-      // Range mínimo: sem isso, no modo conta pessoal um erro de player dispararia um download completo do vídeo só pra ler o corpo de erro.
-      fetch(playUrl, { headers: { Range: 'bytes=0-0' } })
-        .then((r) => r.json())
-        .then((body) => showToast(body.error ?? 'não foi possível reproduzir esse vídeo'))
-        .catch(() => showToast('não foi possível reproduzir esse vídeo'));
-    });
-    playerState.player = new Plyr(video, { controls: PLYR_CONTROLS });
-    playerState.cleanupResize = capPortraitWidth(playerState.player.elements.container, video);
-    playerHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  host.querySelector('#tg-play-all')?.addEventListener('click', () => play(0));
 
   if (d.items.length === 0) {
     const emptyMessage =
@@ -164,27 +100,29 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
         : 'nenhum vídeo encontrado nesse canal ainda';
     itemsHost.outerHTML = `<div class="empty-state"><div class="big">📭</div>${emptyMessage}</div>`;
   } else {
-    for (const item of d.items) {
+    for (const [i, item] of d.items.entries()) {
+      const resumeAt = resumePoint(savedPosition(`${d.titleId}:${item.messageId}`));
       const card = document.createElement('div');
       card.className = 'card';
       card.tabIndex = 0;
       card.setAttribute('role', 'button');
-      card.setAttribute('aria-label', `reproduzir: ${itemTitle(item, 60)}`);
+      card.setAttribute('aria-label', `reproduzir: ${itemTitle(item, 60)}${resumeAt !== null ? ` (continuar de ${formatDuration(resumeAt)})` : ''}`);
       card.innerHTML = `
         <div class="poster${item.thumbnailUrl ? '' : ' placeholder'}"${item.thumbnailUrl ? ` style="background-image:url('${escapeHtml(item.thumbnailUrl)}')"` : ''}>
-          ${item.thumbnailUrl ? '' : '<span class="initials">🎬</span>'}
+          ${item.thumbnailUrl ? '' : `<span class="initials">${icon('film')}</span>`}
           ${item.durationSeconds ? `<span class="badge badge-corner">${formatDuration(item.durationSeconds)}</span>` : ''}
+          ${resumeAt !== null ? `<span class="badge badge-watching resume-badge">continuar ${formatDuration(resumeAt)}</span>` : ''}
         </div>
         <div class="meta">
           <div class="title">${escapeHtml(itemTitle(item, 60))}</div>
           ${item.postedAt ? `<div class="sub">${new Date(item.postedAt).toLocaleDateString('pt-BR')}</div>` : ''}
         </div>
       `;
-      card.addEventListener('click', () => playItem(item));
+      card.addEventListener('click', () => play(i));
       card.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          playItem(item);
+          play(i);
         }
       });
       itemsHost.appendChild(card);

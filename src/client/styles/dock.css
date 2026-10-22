@@ -1,0 +1,195 @@
+/* Player global: barra fixa que sobrevive à troca de telas; "modo teatro" expande a mesma barra. */
+.dock {
+  position: fixed;
+  z-index: 30;
+  left: 88px;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1.2fr) auto minmax(100px, 2fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px clamp(16px, 2.6vw, 36px);
+  background: rgba(14, 16, 26, 0.94);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+}
+
+.dock[hidden] {
+  display: none;
+}
+
+.dock button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dock-video video {
+  width: 96px;
+  aspect-ratio: 16 / 9;
+  display: block;
+  border-radius: 8px;
+  background: #000;
+  object-fit: contain;
+}
+
+.dock-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dock-title {
+  text-align: left;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dock-title:hover {
+  text-decoration: underline;
+}
+
+.dock-sub {
+  color: var(--text-faint);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dock-controls,
+.dock-end {
+  display: flex;
+  gap: 4px;
+}
+
+.dock button:not(.dock-title) {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text);
+}
+
+.dock button:not(.dock-title):hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.dock button:disabled {
+  opacity: 0.35;
+}
+
+.dock [data-act="toggle"] {
+  background: var(--gradient);
+}
+
+.dock-seek {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.dock-time {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Teatro: a mesma barra vira um painel central com o vídeo grande e os controles nativos. */
+.dock.theater {
+  inset: 4vh 4vw auto auto;
+  left: 50%;
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  width: min(1100px, 92vw);
+  max-height: 92vh;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas: "video video video" "info controls end";
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 100vmax rgba(5, 6, 10, 0.78), var(--shadow-pop);
+}
+
+.dock.theater .dock-video {
+  grid-area: video;
+}
+
+.dock.theater .dock-video video {
+  width: 100%;
+  aspect-ratio: auto;
+  max-height: 72vh;
+}
+
+.dock.theater .dock-info {
+  grid-area: info;
+}
+
+.dock.theater .dock-controls {
+  grid-area: controls;
+}
+
+.dock.theater .dock-end {
+  grid-area: end;
+}
+
+.dock.theater .dock-seek,
+.dock.theater .dock-time {
+  display: none;
+}
+
+.resume-badge {
+  left: 8px;
+  bottom: 8px;
+  top: auto;
+  right: auto;
+}
+
+/* Com o player aberto o conteúdo ganha espaço para não ficar escondido atrás dele. */
+body.has-dock .main {
+  padding-bottom: 120px;
+}
+
+@media (max-width: 880px) {
+  .dock {
+    left: 0;
+    bottom: 62px;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    row-gap: 6px;
+  }
+  .dock-seek,
+  .dock-time {
+    display: none;
+  }
+  .dock {
+    gap: 8px;
+  }
+  .dock button:not(.dock-title) {
+    width: 34px;
+    height: 34px;
+  }
+  .dock-video video {
+    width: 64px;
+  }
+  .dock.theater {
+    bottom: auto;
+  }
+  body.has-dock .main {
+    padding-bottom: 180px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock,
+  .dock * {
+    transition: none;
+  }
+}
