@@ -12,7 +12,7 @@ export const renderPublicDomain = (host: HTMLElement): void => {
     </p>
     <div class="chip-row" style="margin-bottom:20px">
       <input type="search" id="pd-search" placeholder="Buscar no acervo (ex: Chaplin, terror, faroeste)..."
-        style="flex:1;min-width:240px;padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text)" />
+        class="input input-pill grow" />
     </div>
     <div id="pd-grid"><div class="grid">${Array.from({ length: 12 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div></div>
   `;

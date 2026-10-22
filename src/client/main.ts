@@ -26,7 +26,7 @@ app.innerHTML = `
   <div class="shell">
     <aside class="sidebar">
       <div class="brand"><span class="mark">🍿</span> nerd-watch</div>
-      <nav class="nav" id="nav"></nav>
+      <nav class="nav" id="nav" aria-label="principal"></nav>
       <div class="sidebar-footer">local-first · seus dados ficam no seu SQLite</div>
     </aside>
     <div class="main">
@@ -55,6 +55,7 @@ const renderNav = (activePath: string) => {
     const a = document.createElement('a');
     a.href = `#${item.path}`;
     a.className = `nav-link${active ? ' active' : ''}`;
+    if (active) a.setAttribute('aria-current', 'page');
     a.innerHTML = `<span class="icon">${item.icon}</span><span class="label">${item.label}</span>`;
     navEl.appendChild(a);
   }
