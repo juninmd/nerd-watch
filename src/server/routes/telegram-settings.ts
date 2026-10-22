@@ -14,8 +14,9 @@ const statusResponse = () => ({
 });
 
 telegramSettingsRoutes.get('/', async (c) => {
-  // Uma session encerrada no app do Telegram continuaria aparecendo como "logada" — confere antes de responder.
-  await verifyPersonalSession();
+  // Uma session encerrada no app do Telegram continuaria aparecendo como "logada". Conferir custa uma conexão MTProto,
+  // então só a tela de Conexões pede (`?verify=1`); a barra superior usa a leitura barata.
+  if (c.req.query('verify') === '1') await verifyPersonalSession();
   return c.json(statusResponse());
 });
 

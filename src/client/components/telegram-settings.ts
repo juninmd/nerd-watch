@@ -173,7 +173,7 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
   };
 
   const refresh = () => {
-    getTelegramSettings()
+    getTelegramSettings(true)
       .then((status) => {
         renderStatusBadges(status);
         renderQrSection(status);

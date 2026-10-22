@@ -135,7 +135,7 @@ export interface LibraryItemDto {
   title: {
     id: string;
     sourceId: string;
-    source: 'tmdb' | 'archive';
+    source: 'tmdb' | 'archive' | 'telegram';
     mediaType: 'movie' | 'tv';
     title: string;
     posterUrl: string | null;
@@ -413,8 +413,9 @@ export interface TelegramSettingsStatus {
   personalConfigured: boolean;
 }
 
-export const getTelegramSettings = (): Promise<TelegramSettingsStatus> =>
-  fetch('/api/telegram/settings').then((r) => json<TelegramSettingsStatus>(r));
+/** `verify` pergunta ao Telegram se a sessão ainda vale (mais lento); sem ele a leitura é só local. */
+export const getTelegramSettings = (verify = false): Promise<TelegramSettingsStatus> =>
+  fetch(`/api/telegram/settings${verify ? '?verify=1' : ''}`).then((r) => json<TelegramSettingsStatus>(r));
 
 export const saveTelegramSettings = (input: { botToken?: string; apiId?: number; apiHash?: string }): Promise<TelegramSettingsStatus> =>
   fetch('/api/telegram/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).then(

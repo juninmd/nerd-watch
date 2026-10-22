@@ -7,7 +7,7 @@ import { showToast } from '../state.ts';
 
 const MODE_LABEL: Record<TelegramChannelMode, string> = { public: 'público', personal: 'conta pessoal', bot: 'bot' };
 
-export const renderTelegramChannels = (host: HTMLElement): void => {
+export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParams): void => {
   host.innerHTML = `
     <header class="view-head">
       <h1 class="view-title">✈️ Canais do Telegram</h1>
@@ -164,4 +164,10 @@ export const renderTelegramChannels = (host: HTMLElement): void => {
   });
 
   load();
+
+  // Atalho da paleta de comandos ("Importar meus canais"): abre o diálogo e limpa o parâmetro para não reabrir ao recarregar.
+  if (query?.get('import') === '1') {
+    history.replaceState(null, '', '#/telegram');
+    openMyChannelsDialog(load);
+  }
 };
