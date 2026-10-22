@@ -32,6 +32,8 @@ declare module 'webtorrent' {
     path?: string;
     /** Apaga os pedaços baixados quando o torrent é destruído. */
     destroyStoreOnDestroy?: boolean;
+    /** Guarda os arquivos em `<path>/<nome> - <infohash8>/`: nomes iguais ou já existentes na pasta não se atropelam. */
+    addUID?: boolean;
     /** `sequential` é o que permite tocar antes de baixar o arquivo inteiro. */
     strategy?: 'sequential' | 'rarest';
   }
