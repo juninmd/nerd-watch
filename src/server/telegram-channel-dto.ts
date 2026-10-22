@@ -7,7 +7,11 @@ export const channelLink = (channel: Pick<TelegramChannel, 'mode' | 'handle'>): 
   return source ? source.link(channel.handle) : `https://t.me/${channel.handle}`;
 };
 
-export const toChannelResponse = (channel: TelegramChannel, itemCount: number) => ({
+/** Só fontes que tocam por embed (YouTube) entregam `embedUrl`; o resto usa o player do app (ou o fallback de embed do próprio provider). */
+export const itemEmbedUrl = (channel: Pick<TelegramChannel, 'mode'>, fileRef: string | null): string | undefined =>
+  fileRef ? (getSource(channel.mode)?.embedUrl?.(fileRef) ?? undefined) : undefined;
+
+export const toChannelResponse =(channel: TelegramChannel, itemCount: number) => ({
   titleId: channel.id,
   handle: channel.handle,
   mode: channel.mode,
