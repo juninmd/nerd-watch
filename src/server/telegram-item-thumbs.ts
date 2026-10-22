@@ -2,7 +2,7 @@ import type { Database } from 'bun:sqlite';
 import { telegramPersonalEnabled } from './config.ts';
 import { getSource } from './providers/sources/registry.ts';
 import { fetchPersonalThumbs } from './providers/telegram/personal-info.ts';
-import { type TelegramChannel, setTelegramItemThumbnail } from './repo/telegram.ts';
+import { type TelegramChannel, listTelegramItems, setTelegramItemThumbnail } from './repo/telegram.ts';
 import { downloadPhoto, readThumb, saveThumb, thumbUrl } from './telegram-photos.ts';
 import type { TelegramItemRow } from './types.ts';
 
@@ -56,4 +56,33 @@ export const localizeThumbs = async (db: Database, channel: TelegramChannel, ite
     // enriquecimento: a falha não pode derrubar a importação do canal
   }
   return done;
+};
+
+/** Quanto a abertura de um canal espera pelas miniaturas; o que passar disso termina em segundo plano. */
+const WAIT_BUDGET_MS = 8_000;
+/** Depois de tentar, não tenta de novo antes disso: vídeo sem miniatura no Telegram não pode martelar a conta a cada abertura. */
+const RETRY_AFTER_MS = 60_000;
+const lastTry = new Map<string, number>();
+
+export const resetThumbRetries = (): void => lastTry.clear();
+
+/**
+ * Ao abrir um canal: se algum vídeo ainda está sem miniatura local (importado antes da correção, ou o download
+ * falhou), baixa agora e devolve a lista atualizada; sem nada faltando devolve a própria lista. Nunca lança.
+ */
+export const ensureThumbs = async (db: Database, channel: TelegramChannel, items: TelegramItemRow[]): Promise<TelegramItemRow[]> => {
+  if (!items.some(needsThumb)) return items;
+  const last = lastTry.get(channel.id);
+  if (last !== undefined && Date.now() - last < RETRY_AFTER_MS) return items;
+  lastTry.set(channel.id, Date.now());
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const budget = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, WAIT_BUDGET_MS);
+  });
+  try {
+    await Promise.race([localizeThumbs(db, channel, items), budget]);
+  } finally {
+    clearTimeout(timer);
+  }
+  return listTelegramItems(db, channel.id);
 };

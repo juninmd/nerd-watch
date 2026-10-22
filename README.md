@@ -95,7 +95,7 @@ bun run seed     # popula data/nerd-watch.db com um catálogo fictício, só par
 Hono (Bun) — server local, só escuta em 127.0.0.1
   ├─ front  → public/  (bundle Bun: catálogo, calendário, player)
   ├─ SQLite → data/nerd-watch.db (sua lista, progresso, cache de episódios)
-  ├─ torrents → .cache/torrents (engine WebTorrent em processo, só acervo livre)
+  ├─ torrents → .cache/torrents (engine WebTorrent em processo: acervo do Archive + o que você colar em Conexões)
   └─ providers → TMDB (com chave) + Internet Archive (sem chave) + Telegram (opcional) + Google Drive (opcional)
                  + legendas via addons do protocolo Stremio (sem chave)
 ```

@@ -26,7 +26,7 @@ import { getSource } from '../providers/sources/registry.ts';
 import { playSourceItem, refreshSourceChannel } from '../providers/sources/service.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
 import { applyPublicInfo, syncChannelInfo } from '../telegram-channel-info.ts';
-import { localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
+import { ensureThumbs, localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
 import { itemEmbedUrl, toChannelResponse } from '../telegram-channel-dto.ts';
 import { readPhoto, readThumb } from '../telegram-photos.ts';
 import type { TelegramChannelMode } from '../types.ts';
@@ -123,6 +123,8 @@ telegramRoutes.post('/channels', async (c) => {
       channel.id,
       items.map((i) => ({ messageId: i.messageId, caption: i.caption, durationSeconds: i.durationSeconds, postedAt: i.postedAt })),
     );
+    // Sem isso o canal recém-importado só ganha miniaturas depois de um "atualizar" (o modo público já faz igual).
+    await localizeThumbs(db, channel, saved);
     const oldest = saved[0]?.message_id ?? null;
     if (oldest) updateChannelCursor(db, channel.id, oldest);
     return c.json(toChannelResponse(channel, saved.length), 201);
@@ -138,8 +140,11 @@ telegramRoutes.get('/channels/:id', async (c) => {
   const channel = getTelegramChannel(db, c.req.param('id'));
   if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
 
+  // Quem abre o canal espera ver a miniatura de todos os vídeos: o que ficou sem (download que falhou) é completado agora.
+  const stored = listTelegramItems(db, channel.id);
+  const complete = channel.mode === 'public' || channel.mode === 'personal' ? await ensureThumbs(db, channel, stored) : stored;
   // Mais recente primeiro: é a ordem da lista de vídeos e da fila de reprodução (do último ao mais antigo).
-  const items = listTelegramItems(db, channel.id).reverse();
+  const items = complete.reverse();
   return c.json({
     ...toChannelResponse(channel, items.length),
     library: getLibraryEntryByTitle(db, channel.id),
