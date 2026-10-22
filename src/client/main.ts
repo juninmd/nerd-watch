@@ -20,7 +20,7 @@ import { renderTitleDetail } from './views/media-detail.ts';
 const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
   { path: '/', label: 'Início', icon: 'home' },
   { path: '/library', label: 'Biblioteca', icon: 'library' },
-  { path: '/telegram', label: 'Telegram', icon: 'send' },
+  { path: '/telegram', label: 'Canais', icon: 'send' },
   { path: '/agenda', label: 'Agenda', icon: 'calendar' },
   { path: '/connections', label: 'Conexões', icon: 'sliders' },
 ];

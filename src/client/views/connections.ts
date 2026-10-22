@@ -1,4 +1,5 @@
 import { exportBackup, health, importBackup, type HealthResponse } from '../api.ts';
+import { renderDriveConnect } from '../components/drive-connect.ts';
 import { renderTelegramLogin } from '../components/telegram-login.ts';
 import { icon, type IconName } from '../icons.ts';
 import { showToast } from '../state.ts';
@@ -84,6 +85,7 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
     </header>
     <div class="conn-grid">
       <section class="conn-card conn-wide" id="conn-telegram"></section>
+      <section class="conn-card conn-wide" id="conn-drive"></section>
       <div id="conn-status" class="conn-stack"></div>
       <section class="conn-card" id="conn-backup" tabindex="-1">
         <div class="conn-head">
@@ -100,6 +102,7 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
   `;
 
   renderTelegramLogin(host.querySelector('#conn-telegram') as HTMLElement);
+  renderDriveConnect(host.querySelector('#conn-drive') as HTMLElement);
   bindBackup(host.querySelector('#conn-backup') as HTMLElement);
 
   const statusEl = host.querySelector('#conn-status') as HTMLElement;

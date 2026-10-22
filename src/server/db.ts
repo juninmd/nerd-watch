@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS library_entries (
 
 CREATE TABLE IF NOT EXISTS telegram_channels (
   id TEXT PRIMARY KEY REFERENCES titles(id) ON DELETE CASCADE,
-  mode TEXT NOT NULL CHECK (mode IN ('public', 'personal', 'bot')),
+  mode TEXT NOT NULL CHECK (mode IN ('public', 'personal', 'bot', 'drive')),
   handle TEXT NOT NULL,
   cursor TEXT,
   created_at TEXT NOT NULL
@@ -123,6 +123,33 @@ export const migrateAddTelegramSource = (db: Database): void => {
   db.exec('PRAGMA foreign_keys = ON;');
 };
 
+/**
+ * `telegram_channels.mode` ganhou 'drive' (pastas do Google Drive reaproveitam canais, fila e player).
+ * Mesmo motivo e mesma técnica da migração do `titles`: o CHECK não se altera, então recria a tabela sob nome
+ * temporário e renomeia a nova. Idempotente: só roda se o CHECK antigo ainda estiver lá.
+ */
+export const migrateAddDriveMode = (db: Database): void => {
+  const row = db.query<{ sql: string }, []>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'telegram_channels'").get();
+  if (!row || row.sql.includes("'drive'")) return;
+
+  db.exec('PRAGMA foreign_keys = OFF;');
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE telegram_channels_new (
+        id TEXT PRIMARY KEY REFERENCES titles(id) ON DELETE CASCADE,
+        mode TEXT NOT NULL CHECK (mode IN ('public', 'personal', 'bot', 'drive')),
+        handle TEXT NOT NULL,
+        cursor TEXT,
+        created_at TEXT NOT NULL
+      );
+    `);
+    db.exec('INSERT INTO telegram_channels_new SELECT id, mode, handle, cursor, created_at FROM telegram_channels');
+    db.exec('DROP TABLE telegram_channels');
+    db.exec('ALTER TABLE telegram_channels_new RENAME TO telegram_channels');
+  })();
+  db.exec('PRAGMA foreign_keys = ON;');
+};
+
 /** `telegram_items.file_ref` foi adicionada depois; `ADD COLUMN` simples resolve (sem a dança de CHECK). */
 export const migrateAddTelegramItemFileRef = (db: Database): void => {
   const hasTable = db.query<{ n: number }, []>("SELECT COUNT(*) as n FROM sqlite_master WHERE type = 'table' AND name = 'telegram_items'").get();
@@ -137,6 +164,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   db.exec('PRAGMA journal_mode = WAL;');
   migrateAddTelegramSource(db);
   migrateAddTelegramItemFileRef(db);
+  migrateAddDriveMode(db);
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
   return db;

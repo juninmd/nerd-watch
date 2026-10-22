@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { itemDescription, itemTitle, orderItems, pickNextChannel, toDockItem, watchPath } from '../src/client/telegram-items.ts';
+import { itemDescription, itemTitle, openLinkLabel, orderItems, pickNextChannel, toDockItem, watchPath } from '../src/client/telegram-items.ts';
 
 describe('itemTitle / itemDescription', () => {
   test('a primeira linha não vazia é o título e o resto vira descrição, mantendo as quebras', () => {
@@ -25,6 +25,13 @@ describe('toDockItem / watchPath', () => {
     expect(item).toMatchObject({ key: 'c1:5', title: 'Oi', subtitle: 'Canal', channelId: 'c1', messageId: '5', poster: '/t', durationSeconds: 30 });
     expect(item.src).toContain('/api/telegram/channels/c1/items/5/play');
     expect(watchPath('c1', '5')).toBe('/watch/c1/5');
+  });
+});
+
+describe('openLinkLabel', () => {
+  test('o link externo diz de onde o canal vem', () => {
+    expect(openLinkLabel('drive')).toBe('Abrir no Drive');
+    expect(openLinkLabel('public')).toBe('Abrir no Telegram');
   });
 });
 

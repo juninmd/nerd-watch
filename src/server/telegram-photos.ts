@@ -55,7 +55,7 @@ export const downloadPhoto = async (url: string): Promise<Uint8Array | null> => 
   return bytes.length > 0 && bytes.length <= MAX_BYTES ? bytes : null;
 };
 
-const MESSAGE_ID_RE = /^\d{1,12}$/;
+const MESSAGE_ID_RE = /^\d{1,19}$/;
 
 const thumbPath = (channelId: string, messageId: string, type: Photo['type']): string | null => {
   const dir = photoStore.dir();

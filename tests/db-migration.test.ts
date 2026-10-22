@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { unlinkSync } from 'node:fs';
-import { migrateAddTelegramSource, openDb } from '../src/server/db.ts';
+import { migrateAddDriveMode, migrateAddTelegramSource, openDb } from '../src/server/db.ts';
 
 const OLD_SCHEMA = `
 CREATE TABLE titles (
@@ -76,6 +76,59 @@ describe('migrateAddTelegramSource', () => {
 
     const count = db.query<{ n: number }, []>('SELECT COUNT(*) as n FROM titles').get();
     expect(count?.n).toBe(1);
+  });
+});
+
+const PRE_DRIVE_SCHEMA = `
+${OLD_SCHEMA.replace("('tmdb', 'archive')", "('tmdb', 'archive', 'telegram')")}
+CREATE TABLE telegram_channels (
+  id TEXT PRIMARY KEY REFERENCES titles(id) ON DELETE CASCADE,
+  mode TEXT NOT NULL CHECK (mode IN ('public', 'personal', 'bot')),
+  handle TEXT NOT NULL,
+  cursor TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE telegram_items (
+  id TEXT PRIMARY KEY,
+  channel_id TEXT NOT NULL REFERENCES telegram_channels(id) ON DELETE CASCADE,
+  message_id TEXT NOT NULL,
+  caption TEXT,
+  UNIQUE (channel_id, message_id)
+);
+`;
+
+describe('migrateAddDriveMode', () => {
+  const seed = (db: Database) => {
+    db.exec('PRAGMA foreign_keys = ON;');
+    db.exec(PRE_DRIVE_SCHEMA);
+    db.query(`INSERT INTO titles (id, source, source_id, media_type, title, created_at) VALUES ('c1', 'telegram', 'canal', 'tv', 'Canal', '2026-01-01')`).run();
+    db.query(`INSERT INTO telegram_channels (id, mode, handle, created_at) VALUES ('c1', 'public', 'canal', '2026-01-01')`).run();
+    db.query(`INSERT INTO telegram_items (id, channel_id, message_id, caption) VALUES ('i1', 'c1', '10', 'Ep 1')`).run();
+  };
+
+  test('preserva canais e vídeos, mantém a FK dos itens e passa a aceitar mode=drive', () => {
+    const db = new Database(':memory:');
+    seed(db);
+
+    migrateAddDriveMode(db);
+
+    expect(db.query<{ handle: string }, []>("SELECT handle FROM telegram_channels WHERE id = 'c1'").get()?.handle).toBe('canal');
+    expect(db.query<{ caption: string }, []>("SELECT caption FROM telegram_items WHERE id = 'i1'").get()?.caption).toBe('Ep 1');
+    db.query(`INSERT INTO titles (id, source, source_id, media_type, title, created_at) VALUES ('d1', 'telegram', 'pasta', 'tv', 'Pasta', '2026-01-01')`).run();
+    expect(() => db.query(`INSERT INTO telegram_channels (id, mode, handle, created_at) VALUES ('d1', 'drive', 'pasta', '2026-01-01')`).run()).not.toThrow();
+    // o ON DELETE CASCADE dos itens continua apontando para a tabela recriada
+    db.query("DELETE FROM titles WHERE id = 'c1'").run();
+    expect(db.query<{ n: number }, []>('SELECT COUNT(*) as n FROM telegram_items').get()?.n).toBe(0);
+    // FK ativa: item de canal inexistente continua sendo rejeitado
+    expect(() => db.query("INSERT INTO telegram_items (id, channel_id, message_id) VALUES ('i2', 'nao-existe', '1')").run()).toThrow();
+  });
+
+  test('é idempotente', () => {
+    const db = new Database(':memory:');
+    seed(db);
+    migrateAddDriveMode(db);
+    migrateAddDriveMode(db);
+    expect(db.query<{ n: number }, []>('SELECT COUNT(*) as n FROM telegram_channels').get()?.n).toBe(1);
   });
 });
 

@@ -31,6 +31,7 @@ export const applyPublicInfo = async (db: Database, channel: TelegramChannel, in
  * caso contrário a prévia pública, que existe para qualquer canal público. Nunca lança: é um enriquecimento.
  */
 export const syncChannelInfo = async (db: Database, channel: TelegramChannel): Promise<boolean> => {
+  if (channel.mode === 'drive') return false;
   try {
     if (channel.mode === 'personal' && telegramPersonalEnabled()) {
       return await applyChannelInfo(db, channel, await fetchPersonalChannelInfo(channel.handle));

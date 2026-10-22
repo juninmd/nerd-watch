@@ -24,9 +24,11 @@ import {
   streamPersonalItem,
   telegramPersonalEnabled,
 } from '../providers/telegram/personal.ts';
+import { playDriveItem, refreshDriveChannel } from './drive.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
 import { applyPublicInfo, syncChannelInfo } from '../telegram-channel-info.ts';
 import { localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
+import { toChannelResponse } from '../telegram-channel-dto.ts';
 import { readPhoto, readThumb } from '../telegram-photos.ts';
 import type { TelegramChannelMode } from '../types.ts';
 
@@ -34,17 +36,6 @@ export const telegramRoutes = new Hono();
 
 const isMode = (v: unknown): v is TelegramChannelMode => v === 'public' || v === 'personal' || v === 'bot';
 const HANDLE_RE = /^[a-zA-Z][a-zA-Z0-9_]{3,31}$/;
-
-const toChannelResponse = (channel: TelegramChannel, itemCount: number) => ({
-  titleId: channel.id,
-  handle: channel.handle,
-  mode: channel.mode,
-  title: channel.title.title,
-  posterUrl: channel.title.poster_path,
-  description: channel.title.overview,
-  link: `https://t.me/${channel.handle}`,
-  itemCount,
-});
 
 telegramRoutes.get('/channels', async (c) => {
   const db = await getDb();
@@ -102,8 +93,7 @@ telegramRoutes.post('/channels', async (c) => {
         })),
       );
       await localizeThumbs(db, channel, saved);
-      await localizeThumbs(db, channel, saved);
-    const oldest = saved[0]?.message_id ?? null;
+      const oldest = saved[0]?.message_id ?? null;
       if (oldest) updateChannelCursor(db, channel.id, oldest);
       return c.json(toChannelResponse(channel, saved.length), 201);
     } catch (err) {
@@ -228,6 +218,10 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
   const db = await getDb();
   const channel = getTelegramChannel(db, c.req.param('id'));
   if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
+  if (channel.mode === 'drive') {
+    const result = await refreshDriveChannel(db, channel);
+    return 'error' in result ? c.json({ error: result.error }, result.status) : c.json(result);
+  }
   if (channel.mode !== 'public' && channel.mode !== 'personal') {
     return c.json({ error: `atualização automática ainda não existe pro modo "${channel.mode}"` }, 501);
   }
@@ -283,6 +277,8 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
     if (!url) return c.json({ error: 'não foi possível obter uma URL de reprodução válida agora' }, 502);
     return c.redirect(url, 302);
   }
+
+  if (channel.mode === 'drive') return playDriveItem(db, channel, messageId, c.req.header('Range'));
 
   if (channel.mode === 'bot') {
     const item = getTelegramItem(db, channel.id, messageId);

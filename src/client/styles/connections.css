@@ -246,3 +246,7 @@
   color: var(--text-dim);
   font-size: 13.5px;
 }
+
+#gd-body {
+  margin-top: 12px;
+}
