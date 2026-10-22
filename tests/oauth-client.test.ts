@@ -173,6 +173,18 @@ describe('authedFetch', () => {
     expect(seen).toEqual(['Bearer acc-1', 'Bearer acc-2']);
   });
 
+  test('não segue redirect por padrão: o Bearer nunca viaja para outra origem (quem precisa seguir pede explicitamente)', async () => {
+    const seen: Array<RequestInit['redirect']> = [];
+    client.setFetchForTests(async (url, init) => {
+      if (String(url).endsWith('/token')) return json({ access_token: 'a', expires_in: 3600 });
+      seen.push(init?.redirect);
+      return new Response('ok');
+    });
+    await client.authedFetch('https://api.example/x');
+    await client.authedFetch('https://api.example/y', { redirect: 'follow' });
+    expect(seen).toEqual(['manual', 'follow']);
+  });
+
   test('401 persistente vira "reconectar"', async () => {
     client.setFetchForTests(async (url) => (String(url).endsWith('/token') ? json({ access_token: 'a', expires_in: 3600 }) : new Response('', { status: 401 })));
     await expect(client.authedFetch('https://api.example/x')).rejects.toBeInstanceOf(OAuthReauthRequiredError);

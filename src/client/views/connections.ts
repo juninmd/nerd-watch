@@ -135,10 +135,17 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
           continue;
         }
         // Trakt tem ações além da conexão (importar/exportar): ficam num bloco abaixo do cartão genérico.
-        const actions = document.createElement('div');
+        const actions = document.createElement('section');
+        actions.className = 'conn-card';
+        actions.hidden = true;
         sourcesEl.appendChild(actions);
-        renderSourceCard(card, s, () => void mountTraktActions(actions));
-        void mountTraktActions(actions);
+        // Vazio (conta não conectada) não pode ocupar uma célula do grid.
+        const mountActions = () =>
+          void mountTraktActions(actions).then(() => {
+            actions.hidden = actions.childElementCount === 0;
+          });
+        renderSourceCard(card, s, mountActions);
+        mountActions();
       }
     })
     .catch(() => {

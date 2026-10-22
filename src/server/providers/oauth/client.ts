@@ -179,8 +179,9 @@ export const createOAuthClient = (spec: OAuthSpec): OAuthClient => {
     },
 
     async authedFetch(url, init = {}) {
+      // Sem seguir redirect por padrão: o Bearer não pode acompanhar um 3xx para outra origem.
       const call = async () =>
-        fetchImpl(url, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${await client.accessToken()}` } });
+        fetchImpl(url, { redirect: 'manual', ...init, headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${await client.accessToken()}` } });
       let res = await call();
       if (res.status === 401) {
         client.invalidate();

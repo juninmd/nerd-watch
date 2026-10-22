@@ -180,7 +180,9 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
         sourceByMode.set(s.add.mode, s);
         const opt = document.createElement('option');
         opt.value = s.add.mode;
-        opt.textContent = s.configured ? s.add.label : `${s.add.label} — configure em Conexões`;
+        // O rótulo da fonte pode não citar o serviço ("biblioteca…", "bucket…"): sem prefixo as opções ficam ambíguas.
+        const label = s.add.label.toLowerCase().includes(s.title.toLowerCase()) ? s.add.label : `${s.title}: ${s.add.label}`;
+        opt.textContent = s.configured ? label : `${label} — configure em Conexões`;
         opt.disabled = !s.configured;
         modeInput.appendChild(opt);
       }
