@@ -3,6 +3,8 @@ import { getDb } from '../db.ts';
 import { originAllowed } from '../security.ts';
 import {
   countTelegramItemsByChannel,
+  deleteTelegramChannel,
+  deleteTelegramChannels,
   getTelegramChannel,
   getTelegramItem,
   listTelegramChannels,
@@ -14,7 +16,13 @@ import {
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { TelegramChannelNotFoundError, fetchPublicChannelItems, resolvePublicPlayUrl } from '../providers/telegram/public.ts';
 import { TelegramBotNotConfiguredError, resolveBotFileUrl, telegramBotEnabled } from '../providers/telegram/bot.ts';
-import { TelegramPersonalNotConfiguredError, fetchPersonalChannelItems, streamPersonalItem, telegramPersonalEnabled } from '../providers/telegram/personal.ts';
+import {
+  TelegramPersonalNotConfiguredError,
+  fetchPersonalChannelItems,
+  listPersonalChannels,
+  streamPersonalItem,
+  telegramPersonalEnabled,
+} from '../providers/telegram/personal.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
 import type { TelegramChannelMode } from '../types.ts';
 
@@ -116,6 +124,37 @@ telegramRoutes.get('/channels/:id', async (c) => {
       postedAt: i.posted_at,
     })),
   });
+});
+
+const BULK_DELETE_MAX = 500;
+
+telegramRoutes.post('/channels/bulk-delete', async (c) => {
+  const body = await c.req.json<{ ids?: unknown }>().catch(() => null);
+  const ids = body?.ids;
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > BULK_DELETE_MAX || !ids.every((id) => typeof id === 'string')) {
+    return c.json({ error: `ids deve ser uma lista de 1 a ${BULK_DELETE_MAX} ids de canal` }, 400);
+  }
+  const db = await getDb();
+  return c.json({ removed: deleteTelegramChannels(db, ids) });
+});
+
+telegramRoutes.get('/my-channels', async (c) => {
+  if (!telegramPersonalEnabled()) return c.json({ error: 'entre com a conta pessoal (QR code) para listar os seus canais' }, 501);
+  try {
+    const mine = await listPersonalChannels();
+    const db = await getDb();
+    const added = new Set(listTelegramChannels(db).map((ch) => ch.handle.toLowerCase()));
+    return c.json({ channels: mine.map((ch) => ({ ...ch, added: ch.handle !== null && added.has(ch.handle.toLowerCase()) })) });
+  } catch (err) {
+    if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    return c.json({ error: 'não foi possível listar os seus canais agora' }, 502);
+  }
+});
+
+telegramRoutes.delete('/channels/:id', async (c) => {
+  const db = await getDb();
+  if (!deleteTelegramChannel(db, c.req.param('id'))) return c.json({ error: 'canal não encontrado' }, 404);
+  return c.body(null, 204);
 });
 
 telegramRoutes.post('/channels/:id/refresh', async (c) => {

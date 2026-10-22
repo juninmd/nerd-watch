@@ -100,7 +100,15 @@ export const upsertTelegramChannel = (
   return getTelegramChannel(db, titleRow.id)!;
 };
 
-export const updateChannelCursor = (db: Database, channelId: string, cursor: string | null): void => {
+/** Apaga o `title` do canal; o ON DELETE CASCADE leva junto telegram_channels, telegram_items e a entrada da lista. */
+export const deleteTelegramChannel = (db: Database, id: string): boolean =>
+  db.query("DELETE FROM titles WHERE id = $id AND source = 'telegram'").run({ $id: id }).changes > 0;
+
+/** Remove vários canais numa transação só; ids inexistentes são ignorados. Devolve quantos de fato saíram. */
+export const deleteTelegramChannels = (db: Database, ids: string[]): number =>
+  db.transaction((list: string[]) => list.reduce((n, id) => n + (deleteTelegramChannel(db, id) ? 1 : 0), 0))(ids);
+
+export const updateChannelCursor =(db: Database, channelId: string, cursor: string | null): void => {
   db.query('UPDATE telegram_channels SET cursor = $cursor WHERE id = $id').run({ $cursor: cursor, $id: channelId });
 };
 

@@ -1,7 +1,8 @@
 import Plyr from 'plyr';
-import { getTelegramChannel, refreshTelegramChannel, telegramPlayUrl, type TelegramChannelDetailDto, type TelegramItemDto } from '../api.ts';
+import { deleteTelegramChannel, getTelegramChannel, refreshTelegramChannel, telegramPlayUrl, type TelegramChannelDetailDto, type TelegramItemDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
+import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 
 const PLYR_CONTROLS = ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'settings', 'fullscreen'];
@@ -106,6 +107,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
           <h3>Sua lista</h3>
           <div id="status-actions"></div>
         </div>
+        <button class="btn btn-ghost btn-sm" id="tg-delete" style="width:100%;justify-content:center;margin-top:12px;color:var(--danger)">🗑️ remover canal</button>
       </div>
     </div>
   `;
@@ -165,6 +167,9 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     for (const item of d.items) {
       const card = document.createElement('div');
       card.className = 'card';
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `reproduzir: ${itemTitle(item, 60)}`);
       card.innerHTML = `
         <div class="poster${item.thumbnailUrl ? '' : ' placeholder'}"${item.thumbnailUrl ? ` style="background-image:url('${escapeHtml(item.thumbnailUrl)}')"` : ''}>
           ${item.thumbnailUrl ? '' : '<span class="initials">🎬</span>'}
@@ -176,9 +181,30 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
         </div>
       `;
       card.addEventListener('click', () => playItem(item));
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          playItem(item);
+        }
+      });
       itemsHost.appendChild(card);
     }
   }
+
+  const deleteBtn = host.querySelector('#tg-delete') as HTMLButtonElement;
+  deleteBtn.addEventListener('click', () => {
+    if (!confirm(`Remover @${d.handle} do app? Os vídeos importados e o seu status somem (o canal no Telegram não é afetado).`)) return;
+    deleteBtn.disabled = true;
+    deleteTelegramChannel(d.titleId)
+      .then(() => {
+        showToast('canal removido');
+        navigate('/telegram');
+      })
+      .catch((err) => {
+        showToast(err instanceof Error ? err.message : 'falha ao remover');
+        deleteBtn.disabled = false;
+      });
+  });
 
   const refreshBtn = host.querySelector('#tg-refresh') as HTMLButtonElement | null;
   refreshBtn?.addEventListener('click', () => {

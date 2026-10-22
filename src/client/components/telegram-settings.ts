@@ -41,18 +41,22 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
         <button class="btn btn-ghost btn-sm" type="submit">salvar</button>
       </form>
 
+      <div id="tg-api-block">
       <p class="hint" style="margin-top:0">api_id / api_hash (my.telegram.org) — necessário pra conta pessoal</p>
       <form id="tg-api-form" style="margin-bottom:14px">
         <input type="text" id="tg-api-id" placeholder="api_id" autocomplete="off" inputmode="numeric" style="${INPUT_STYLE}" />
         <input type="password" id="tg-api-hash" placeholder="api_hash" autocomplete="off" style="${INPUT_STYLE}" />
         <button class="btn btn-ghost btn-sm" type="submit" style="width:100%;justify-content:center">salvar</button>
       </form>
+      </div>
 
       <div id="tg-qr-section"></div>
     </div>
   `;
 
   const renderStatusBadges = (status: TelegramSettingsStatus) => {
+    // Com api_id/hash já configurados o login é só escanear o QR — o formulário de credenciais não faz sentido.
+    (host.querySelector('#tg-api-block') as HTMLElement).hidden = status.apiCredentialsConfigured;
     const el = host.querySelector('#tg-settings-status') as HTMLElement;
     el.innerHTML =
       badge('bot', status.botTokenConfigured) + badge('api_id/hash', status.apiCredentialsConfigured) + badge('conta pessoal', status.personalConfigured);
@@ -116,6 +120,8 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
     }
 
     if (state.status === 'need_password') {
+      // O polling segue rodando nesta etapa; sem esta guarda cada ciclo recriava o formulário e apagava a senha digitada.
+      if (qrHost.querySelector('#tg-password-form')) return;
       qrHost.innerHTML = `
         <p class="hint" style="margin-top:0">conta com verificação em duas etapas${state.hint ? ` (dica: ${escapeHtml(state.hint)})` : ''}</p>
         <form id="tg-password-form" style="display:flex;gap:8px;margin-bottom:8px">
@@ -127,9 +133,13 @@ export const renderTelegramSettings = (host: HTMLElement): void => {
       (qrHost.querySelector('#tg-password-form') as HTMLFormElement).addEventListener('submit', (e) => {
         e.preventDefault();
         const pwInput = qrHost.querySelector('#tg-password-input') as HTMLInputElement;
-        submitTelegramLoginPassword(pwInput.value)
-          .then(() => poll(generation))
-          .catch(() => showToast('não foi possível enviar a senha'));
+        const submitBtn = qrHost.querySelector('#tg-password-form button') as HTMLButtonElement;
+        submitBtn.disabled = true;
+        // O polling já está ativo (ver acima); só o estado seguinte (success/error) vai redesenhar a seção.
+        submitTelegramLoginPassword(pwInput.value).catch(() => {
+          showToast('não foi possível enviar a senha');
+          submitBtn.disabled = false;
+        });
       });
       wireCancelButton();
       return;

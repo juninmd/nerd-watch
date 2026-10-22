@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { config, telegramBotEnabled, telegramPersonalEnabled } from '../config.ts';
 import { updateEnvVar } from '../env-file.ts';
+import { verifyPersonalSession } from '../providers/telegram/personal.ts';
 import { cancelLogin, getLoginState, startLogin, submitLoginPassword } from '../providers/telegram/qr-login.ts';
 import { startTelegramBotPoller } from '../telegram-bot-poller.ts';
 
@@ -12,7 +13,11 @@ const statusResponse = () => ({
   personalConfigured: telegramPersonalEnabled(),
 });
 
-telegramSettingsRoutes.get('/', (c) => c.json(statusResponse()));
+telegramSettingsRoutes.get('/', async (c) => {
+  // Uma session encerrada no app do Telegram continuaria aparecendo como "logada" — confere antes de responder.
+  await verifyPersonalSession();
+  return c.json(statusResponse());
+});
 
 telegramSettingsRoutes.post('/', async (c) => {
   const body = await c.req.json<{ botToken?: string; apiId?: number | string; apiHash?: string }>().catch(() => null);

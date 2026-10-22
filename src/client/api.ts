@@ -348,7 +348,29 @@ export const getTelegramChannel = (titleId: string): Promise<TelegramChannelDeta
 export const refreshTelegramChannel = (titleId: string): Promise<{ itemCount: number }> =>
   fetch(`/api/telegram/channels/${titleId}/refresh`, { method: 'POST' }).then((r) => json<{ itemCount: number }>(r));
 
-export const telegramPlayUrl = (titleId: string, messageId: string): string =>
+export const deleteTelegramChannel = (titleId: string): Promise<void> =>
+  fetch(`/api/telegram/channels/${titleId}`, { method: 'DELETE' }).then((res) => {
+    if (!res.ok) throw new Error('não foi possível remover o canal');
+  });
+
+export const bulkDeleteTelegramChannels = (ids: string[]): Promise<{ removed: number }> =>
+  fetch('/api/telegram/channels/bulk-delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  }).then((r) => json<{ removed: number }>(r));
+
+export interface MyTelegramChannelDto {
+  title: string;
+  handle: string | null;
+  members: number | null;
+  added: boolean;
+}
+
+export const listMyTelegramChannels = (): Promise<{ channels: MyTelegramChannelDto[] }> =>
+  fetch('/api/telegram/my-channels').then((r) => json<{ channels: MyTelegramChannelDto[] }>(r));
+
+export const telegramPlayUrl =(titleId: string, messageId: string): string =>
   `/api/telegram/channels/${titleId}/items/${encodeURIComponent(messageId)}/play`;
 
 export interface TelegramSettingsStatus {
