@@ -221,6 +221,26 @@ Catálogos e sincronização: [TVmaze](docs/providers/tvmaze.md), [AniList](docs
 
 ---
 
+## 📥 Biblioteca em planilha (CSV e MyAnimeList)
+
+Em **Conexões → Biblioteca em planilha**: baixe sua lista como CSV (abre no Excel e no Sheets) ou importe um CSV
+deste formato. Dá também para importar o XML exportado do MyAnimeList.
+
+- **Exportar:** `GET /api/library/export.csv`. Título, ano, tipo, status, nota, temporada e episódio atuais,
+  notas, `tmdb_id` e data de inclusão. Células que viram fórmula na planilha recebem um apóstrofo.
+- **Importar CSV:** `POST /api/library/import.csv`. Idempotente: reimportar o mesmo arquivo não duplica nada, e
+  cada linha ruim vem no relatório com o número da linha. Teto de 1 MiB e 2000 linhas.
+- **Importar MyAnimeList:** `POST /api/library/import.mal`. Lê o status e a nota. **Hoje o app não tem como
+  casar entradas do MAL com títulos offline**, então elas aparecem no relatório como "sem correspondência" e
+  nada é gravado. Não há chute.
+
+Formato, regras de casamento, mapeamento de status e o que não foi provado: [docs/providers/importers.md](docs/providers/importers.md).
+
+**Próximo:** um mapeamento MAL -> título (por exemplo, consulta ao AniList pelo `idMal`, online e com limite de
+taxa, ou uma tabela preenchida pelo usuário) para o importador de MAL passar a gravar. Precisa de ADR antes.
+
+---
+
 ## Limites conhecidos
 
 - **Sem empacotamento desktop** (Tauri) nesta primeira versão — roda como app web local. Fica como
