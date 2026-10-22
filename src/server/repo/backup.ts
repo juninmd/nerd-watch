@@ -1,5 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import type { EpisodeRow, LibraryEntryRow, SeasonRow, TelegramChannelRow, TelegramItemRow, TitleRow } from '../types.ts';
+import { InvalidPlaybackError, PLAYBACK_MAX_ROWS, type PlaybackEntry, listPlaybackEntries, parsePlaybackEntry, upsertPlaybackEntry } from './playback.ts';
 
 export interface BackupData {
   version: 1;
@@ -10,6 +11,8 @@ export interface BackupData {
   libraryEntries: LibraryEntryRow[];
   telegramChannels?: TelegramChannelRow[];
   telegramItems?: TelegramItemRow[];
+  /** Opcional: backups anteriores a esta tabela não têm o campo. */
+  playbackPositions?: PlaybackEntry[];
 }
 
 export class InvalidBackupError extends Error {}
@@ -23,6 +26,7 @@ export const exportBackup = (db: Database): BackupData => ({
   libraryEntries: db.query<LibraryEntryRow, []>('SELECT * FROM library_entries').all(),
   telegramChannels: db.query<TelegramChannelRow, []>('SELECT * FROM telegram_channels').all(),
   telegramItems: db.query<TelegramItemRow, []>('SELECT * FROM telegram_items').all(),
+  playbackPositions: listPlaybackEntries(db, PLAYBACK_MAX_ROWS, 0),
 });
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -37,6 +41,18 @@ export const validateBackup = (data: unknown): BackupData => {
   }
   if (data.telegramItems !== undefined && !Array.isArray(data.telegramItems)) {
     throw new InvalidBackupError('campo "telegramItems" inválido');
+  }
+  if (data.playbackPositions !== undefined) {
+    if (!Array.isArray(data.playbackPositions)) throw new InvalidBackupError('campo "playbackPositions" inválido');
+    // Valida tudo antes de abrir a transação: uma linha ruim não pode deixar o import pela metade.
+    for (const row of data.playbackPositions as unknown[]) {
+      try {
+        parsePlaybackEntry((row as { key?: unknown } | null)?.key, row);
+      } catch (err) {
+        if (err instanceof InvalidPlaybackError) throw new InvalidBackupError(`playbackPositions: ${err.message}`);
+        throw err;
+      }
+    }
   }
   return data as unknown as BackupData;
 };
@@ -175,6 +191,10 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
           $file_ref: i.file_ref,
         });
       }
+    }
+    // LWW: reimportar um backup antigo não regride uma posição mais nova que já está no banco.
+    if (data.playbackPositions) {
+      for (const p of data.playbackPositions) upsertPlaybackEntry(db, parsePlaybackEntry(p.key, p));
     }
   });
   tx(backup);

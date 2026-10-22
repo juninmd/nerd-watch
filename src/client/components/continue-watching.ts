@@ -31,3 +31,11 @@ export const continueWatchingCards = (): HTMLElement[] =>
     });
     return card;
   });
+
+/** Troca só os cards de "continuar" de um trilho (ex.: a sincronização trouxe posições novas), sem mexer no resto. */
+export const refreshResumeCards = (rail: HTMLElement): void => {
+  for (const old of rail.querySelectorAll('.resume-card')) old.remove();
+  const cards = continueWatchingCards();
+  if (cards.length) rail.querySelector('.empty-state')?.remove();
+  rail.prepend(...cards);
+};
