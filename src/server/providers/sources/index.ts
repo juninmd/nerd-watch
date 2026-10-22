@@ -9,6 +9,7 @@ import { registerPeertube } from '../peertube/source.ts';
 import { registerYoutube } from '../youtube/source.ts';
 import { registerJellyfin } from '../jellyfin/source.ts';
 import { registerPlex } from '../plex/source.ts';
+import { registerTorrent } from '../torrent/source.ts';
 
 /**
  * Um provider novo = um módulo com `registerX()` (descriptor + FileSource) e uma linha aqui.
@@ -30,4 +31,5 @@ export const registerAllSources = (): void => {
   registerYoutube();
   registerJellyfin();
   registerPlex();
+  registerTorrent();
 };

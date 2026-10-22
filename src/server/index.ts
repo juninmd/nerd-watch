@@ -74,6 +74,8 @@ export default {
   port: config.port,
   hostname: '127.0.0.1',
   fetch: app.fetch,
+  // O padrão do Bun (10s) derruba o streaming de torrent antes do primeiro pedaço chegar de um peer lento.
+  idleTimeout: 255,
 };
 
 registerAllSources();
