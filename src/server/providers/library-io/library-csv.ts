@@ -4,7 +4,9 @@ import { CSV_MAX_ROWS, InputError, type RowError } from './common.ts';
 import { CsvError, guardCell, parseCsv, toCsv, unguardCell } from './csv.ts';
 
 /** Ordem das colunas no arquivo. Só `title`, `type` e `status` são obrigatórias na importação; as demais podem faltar. */
-export const LIBRARY_CSV_COLUMNS = ['title', 'year', 'type', 'status', 'rating', 'current_season', 'current_episode', 'notes', 'tmdb_id', 'added_at'] as const;
+export const LIBRARY_CSV_COLUMNS = ['title', 'year', 'type', 'status', 'rating', 'current_season', 'current_episode', 'notes', 'tmdb_id', 'added_at', 'lists'] as const;
+/** Separador dos nomes de listas na coluna "lists" (exportação; a importação ainda não lê essa coluna). */
+const LISTS_SEPARATOR = ' | ';
 const REQUIRED_COLUMNS = ['title', 'type', 'status'] as const;
 
 /** Excel precisa do BOM para ler acentos corretamente; o leitor o remove. */
@@ -40,7 +42,8 @@ const invalid = (message: string): never => {
   throw new RowValidationError(message);
 };
 
-export const exportLibraryCsv = (items: LibraryItem[]): string => {
+/** `listNames`: nomes das listas de cada título (ver `listNamesByTitle`); sem ele a coluna sai vazia. */
+export const exportLibraryCsv = (items: LibraryItem[], listNames: Map<string, string[]> = new Map()): string => {
   const rows = items.map((item) =>
     [
       item.title.title,
@@ -53,6 +56,7 @@ export const exportLibraryCsv = (items: LibraryItem[]): string => {
       item.notes ?? '',
       item.title.source === 'tmdb' ? item.title.source_id : '',
       item.added_at,
+      (listNames.get(item.title_id) ?? []).join(LISTS_SEPARATOR),
     ].map(guardCell),
   );
   return BOM + toCsv([[...LIBRARY_CSV_COLUMNS], ...rows]);
