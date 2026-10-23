@@ -1,5 +1,6 @@
 import { exportBackup, health, importBackup, type HealthResponse } from '../api.ts';
 import { renderDriveConnect } from '../components/drive-connect.ts';
+import { renderLibraryIo } from '../components/library-io.ts';
 import { renderSourceCard } from '../components/source-card.ts';
 import { renderTelegramLogin } from '../components/telegram-login.ts';
 import { mountTraktActions } from '../components/trakt-actions.ts';
@@ -116,6 +117,7 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
           <input type="file" accept="application/json" id="import-file" hidden />
         </div>
       </section>
+      <section class="conn-card" id="conn-library-io"></section>
     </div>
   `;
 
@@ -153,6 +155,7 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
     });
   renderDriveConnect(host.querySelector('#conn-drive') as HTMLElement);
   bindBackup(host.querySelector('#conn-backup') as HTMLElement);
+  renderLibraryIo(host.querySelector('#conn-library-io') as HTMLElement);
 
   const statusEl = host.querySelector('#conn-status') as HTMLElement;
   health()
