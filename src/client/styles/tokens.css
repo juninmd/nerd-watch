@@ -99,6 +99,35 @@ img {
 }
 /* biome-ignore-end lint/complexity/noImportantStyles: fim do bloco reduced-motion */
 
+/* prefers-contrast: more pede bordas e textos secundários mais fortes. */
+@media (prefers-contrast: more) {
+  :root {
+    --border: #5b6186;
+    --text-dim: #c4c9de;
+    --text-faint: #b3b9d1;
+  }
+}
+
+/* forced-colors: o sistema tira fundos e sombras, então bordas e foco viram cores do sistema para continuar visíveis. */
+@media (forced-colors: active) {
+  .btn,
+  .chip,
+  .pill,
+  .cmd,
+  .card,
+  .navlink,
+  .select,
+  .input-pill,
+  .input {
+    border: 1px solid ButtonText;
+  }
+
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
 ::selection {
   background: var(--accent);
   color: white;
