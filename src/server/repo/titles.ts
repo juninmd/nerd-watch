@@ -1,4 +1,5 @@
 import type { Database } from 'bun:sqlite';
+import { encodeGenres } from '../stats/catalog-fields.ts';
 import type { EpisodeRow, MediaType, SeasonRow, TitleRow, TitleSource } from '../types.ts';
 
 /** Teto de parâmetros por consulta (SQLite limita variáveis; 500 fica folgado em qualquer build). */
@@ -45,7 +46,27 @@ export const upsertTitle = (db: Database, input: NewTitle): TitleRow => {
   return db.query<TitleRow, [string]>('SELECT * FROM titles WHERE id = ?').get(id)!;
 };
 
-export interface TitleMetadataUpdate {
+export interface CatalogStats {
+  /** `null` = o provider não trouxe o campo: a coluna guarda o valor anterior (ausência não apaga). */
+  genres: string[] | null;
+  runtimeMinutes: number | null;
+}
+
+/**
+ * Gêneros e duração são dado de catálogo: `COALESCE` mantém o valor anterior quando o provider não trouxe o campo.
+ * Nunca toca em `library_entries`.
+ */
+export const setCatalogStats = (db: Database, titleId: string, stats: CatalogStats): void => {
+  db.query(
+    'UPDATE titles SET genres = COALESCE($genres, genres), runtime_minutes = COALESCE($runtimeMinutes, runtime_minutes) WHERE id = $id',
+  ).run({
+    $id: titleId,
+    $genres: encodeGenres(stats.genres),
+    $runtimeMinutes: stats.runtimeMinutes,
+  });
+};
+
+export interface TitleMetadataUpdate extends CatalogStats {
   title: string;
   overview: string | null;
   posterPath: string | null;
@@ -59,7 +80,8 @@ export interface TitleMetadataUpdate {
 export const updateTitleMetadata = (db: Database, titleId: string, m: TitleMetadataUpdate, refreshedAt: string): void => {
   db.query(
     `UPDATE titles SET title = $title, overview = $overview, poster_path = $posterPath, backdrop_path = $backdropPath,
-       release_date = $releaseDate, vote_average = $voteAverage, metadata_status = $status, metadata_refreshed_at = $refreshedAt
+       release_date = $releaseDate, vote_average = $voteAverage, metadata_status = $status, metadata_refreshed_at = $refreshedAt,
+       genres = COALESCE($genres, genres), runtime_minutes = COALESCE($runtimeMinutes, runtime_minutes)
      WHERE id = $id`,
   ).run({
     $id: titleId,
@@ -71,6 +93,8 @@ export const updateTitleMetadata = (db: Database, titleId: string, m: TitleMetad
     $voteAverage: m.voteAverage,
     $status: m.status,
     $refreshedAt: refreshedAt,
+    $genres: encodeGenres(m.genres),
+    $runtimeMinutes: m.runtimeMinutes,
   });
 };
 

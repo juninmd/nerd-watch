@@ -1,5 +1,6 @@
 import { withCache } from '../cache.ts';
 import { CatalogRequestError, htmlToText, httpsUrlOrNull } from '../catalog-text.ts';
+import { normalizeGenres, normalizeRuntimeMinutes } from '../stats/catalog-fields.ts';
 import { createRateLimiter, RateLimitExceededError } from '../rate-limit.ts';
 
 /**
@@ -104,6 +105,10 @@ export interface TvmazeShowDetails extends TvmazeShowSummary {
   premiered: string | null;
   ended: string | null;
   episodes: TvmazeEpisode[];
+  /** Gêneros do show (`[]` se o campo faltar; a TVmaze sempre o envia). */
+  genres: string[];
+  /** Duração típica do episódio (`averageRuntime`, ou `runtime` quando não há média). */
+  runtimeMinutes: number | null;
 }
 
 const toEpisode = (raw: unknown): TvmazeEpisode | null => {
@@ -137,5 +142,7 @@ export const tvmazeShowDetails = withCache(60 * MINUTES, async (id: number): Pro
     premiered: typeof raw.premiered === 'string' && DATE_RE.test(raw.premiered) ? raw.premiered : null,
     ended: typeof raw.ended === 'string' && DATE_RE.test(raw.ended) ? raw.ended : null,
     episodes,
+    genres: normalizeGenres(raw.genres) ?? [],
+    runtimeMinutes: normalizeRuntimeMinutes(raw.averageRuntime ?? raw.runtime),
   };
 });

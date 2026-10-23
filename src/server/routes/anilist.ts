@@ -5,7 +5,7 @@ import { todayIso } from '../date.ts';
 import { getDb } from '../db.ts';
 import { anilistDetails, anilistSearch } from '../providers/anilist.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
-import { replaceEpisodes, upsertSeason, upsertTitle } from '../repo/titles.ts';
+import { replaceEpisodes, setCatalogStats, upsertSeason, upsertTitle } from '../repo/titles.ts';
 import type { MediaType } from '../types.ts';
 
 export const anilistRoutes = new Hono();
@@ -64,6 +64,7 @@ anilistRoutes.get('/:id', async (c) => {
       releaseDate: media.year ? `${media.year}-01-01` : null,
       voteAverage: media.averageScore === null ? null : media.averageScore / 10,
     });
+    setCatalogStats(db, titleRow.id, { genres: media.genres, runtimeMinutes: media.runtimeMinutes });
     persistNextEpisode(db, titleRow.id, media.nextAiringEpisode);
 
     return c.json({

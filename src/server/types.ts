@@ -23,6 +23,10 @@ export interface TitleRow {
   metadata_status: string | null;
   /** Instante (ISO) do último refresh de metadados bem-sucedido; nulo = nunca atualizado. */
   metadata_refreshed_at: string | null;
+  /** JSON de array de strings (gêneros do catálogo); nulo = nunca buscado. Ver stats/catalog-fields.ts. */
+  genres: string | null;
+  /** Duração em minutos: do filme, ou típica do episódio em série. Nulo = desconhecida. */
+  runtime_minutes: number | null;
 }
 
 export interface SeasonRow {

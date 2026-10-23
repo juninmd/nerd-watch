@@ -117,6 +117,8 @@ CREATE TABLE IF NOT EXISTS library_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_library_history_title ON library_history(title_id, at);
+-- Estatísticas leem eventos por intervalo de data (todos os títulos): o índice por título não ajuda nisso.
+CREATE INDEX IF NOT EXISTS idx_library_history_at ON library_history(at);
 -- Avisos de lançamento já entregues (chave = título + episódio/data). Sem isso, um restart repetiria os avisos.
 CREATE TABLE IF NOT EXISTS notifications_sent (
   key TEXT PRIMARY KEY,
@@ -273,6 +275,16 @@ export const migrateAddTelegramItemMediaAttrs = (db: Database): void => {
   }
 };
 
+/**
+ * `titles.genres` (JSON array de strings) e `titles.runtime_minutes` (filme; em série, duração típica do episódio).
+ * Nulas até o primeiro fetch do catálogo que as traga. `ADD COLUMN` por coluna que falta: idempotente.
+ */
+export const migrateAddTitleStats = (db: Database): void => {
+  const columns = new Set(db.query<{ name: string }, []>('PRAGMA table_info(titles)').all().map((c) => c.name));
+  if (!columns.has('genres')) db.exec('ALTER TABLE titles ADD COLUMN genres TEXT;');
+  if (!columns.has('runtime_minutes')) db.exec('ALTER TABLE titles ADD COLUMN runtime_minutes INTEGER;');
+};
+
 /** `library_entries.rewatch_count` (quantas revisões). Roda depois de MIGRATIONS: a tabela já existe em qualquer banco. */
 export const migrateAddRewatchCount = (db: Database): void => {
   const columns = db.query<{ name: string }, []>('PRAGMA table_info(library_entries)').all();
@@ -292,6 +304,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
   migrateAddRewatchCount(db);
+  migrateAddTitleStats(db);
   return db;
 };
 

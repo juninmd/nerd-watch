@@ -3,7 +3,7 @@ import { Hono, type Context } from 'hono';
 import { CatalogRequestError } from '../catalog-text.ts';
 import { getDb } from '../db.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
-import { replaceEpisodes, upsertSeason, upsertTitle } from '../repo/titles.ts';
+import { replaceEpisodes, setCatalogStats, upsertSeason, upsertTitle } from '../repo/titles.ts';
 import { TVMAZE_ATTRIBUTION, tvmazeSearchShows, tvmazeShowDetails, type TvmazeEpisode } from '../providers/tvmaze.ts';
 
 export const tvmazeRoutes = new Hono();
@@ -83,6 +83,7 @@ tvmazeRoutes.get('/:id', async (c) => {
       releaseDate: show.premiered,
       voteAverage: show.rating,
     });
+    setCatalogStats(db, titleRow.id, { genres: show.genres, runtimeMinutes: show.runtimeMinutes });
     const seasons = persistSeasons(db, titleRow.id, show.episodes);
 
     return c.json({

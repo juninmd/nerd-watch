@@ -13,7 +13,8 @@ const JOIN_SELECT = `
     t.title as t_title, t.original_title as t_original_title, t.overview as t_overview,
     t.poster_path as t_poster_path, t.backdrop_path as t_backdrop_path,
     t.release_date as t_release_date, t.vote_average as t_vote_average, t.created_at as t_created_at,
-    t.metadata_status as t_metadata_status, t.metadata_refreshed_at as t_metadata_refreshed_at
+    t.metadata_status as t_metadata_status, t.metadata_refreshed_at as t_metadata_refreshed_at,
+    t.genres as t_genres, t.runtime_minutes as t_runtime_minutes
   FROM library_entries le JOIN titles t ON t.id = le.title_id
 `;
 
@@ -42,6 +43,8 @@ interface JoinedRow {
   t_created_at: string;
   t_metadata_status: string | null;
   t_metadata_refreshed_at: string | null;
+  t_genres: string | null;
+  t_runtime_minutes: number | null;
 }
 
 const toLibraryItem = (row: JoinedRow): LibraryItem => ({
@@ -70,6 +73,8 @@ const toLibraryItem = (row: JoinedRow): LibraryItem => ({
     created_at: row.t_created_at,
     metadata_status: row.t_metadata_status,
     metadata_refreshed_at: row.t_metadata_refreshed_at,
+    genres: row.t_genres,
+    runtime_minutes: row.t_runtime_minutes,
   },
 });
 
@@ -87,14 +92,14 @@ export const getLibraryEntriesByTitles = (db: Database, titleIds: string[]): Lib
 };
 
 /**
- * Séries/filmes TMDB que você acompanha (quero ver / assistindo): o alvo do refresh automático. O limite protege
+ * Séries/filmes TMDB que você acompanha (quero ver / assistindo), mais os que ainda não têm gêneros (backfill): o alvo do refresh automático. O limite protege
  * a consulta; a ordem põe o refresh mais antigo (ou nunca feito) primeiro, então o teto não esconde títulos vencidos.
  */
 export const listFollowedTmdbTitles = (db: Database, limit: number): TitleRow[] =>
   db
     .query<TitleRow, [number]>(
       `SELECT t.* FROM library_entries le JOIN titles t ON t.id = le.title_id
-       WHERE le.watch_status IN ('want', 'watching') AND t.source = 'tmdb'
+       WHERE t.source = 'tmdb' AND (le.watch_status IN ('want', 'watching') OR t.genres IS NULL)
        ORDER BY t.metadata_refreshed_at IS NOT NULL, t.metadata_refreshed_at ASC
        LIMIT ?`,
     )
