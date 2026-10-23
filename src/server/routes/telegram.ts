@@ -128,7 +128,16 @@ telegramRoutes.post('/channels', async (c) => {
     const saved = upsertTelegramItems(
       db,
       channel.id,
-      page.items.map((i) => ({ messageId: i.messageId, caption: i.caption, durationSeconds: i.durationSeconds, postedAt: i.postedAt })),
+      page.items.map((i) => ({
+        messageId: i.messageId,
+        caption: i.caption,
+        durationSeconds: i.durationSeconds,
+        postedAt: i.postedAt,
+        width: i.width,
+        height: i.height,
+        supportsStreaming: i.supportsStreaming,
+        fileName: i.fileName,
+      })),
     );
     // Sem isso o canal recém-importado só ganha miniaturas depois de um "atualizar" (o modo público já faz igual).
     await localizeThumbs(db, channel, saved);
