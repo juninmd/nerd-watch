@@ -1,6 +1,7 @@
 import { listLibrary, listTelegramChannels } from '../api.ts';
 import { icon } from '../icons.ts';
 import { filterEntries, type PaletteEntry } from '../palette-search.ts';
+import { openPickDialog } from './pick-dialog.ts';
 import { navigate } from '../router.ts';
 import { handleLabel } from '../source-modes.ts';
 import { libraryItemPath } from '../title-link.ts';
@@ -17,6 +18,7 @@ const staticActions = (): PaletteEntry[] => [
   { id: 'go-agenda', group: 'Ações', title: 'Ir para a Agenda', keys: 'g a', run: () => navigate('/agenda') },
   { id: 'go-connections', group: 'Ações', title: 'Ir para as Conexões', keys: 'g c', run: () => navigate('/connections') },
   { id: 'go-pd', group: 'Ações', title: 'Explorar o domínio público', run: () => navigate('/public-domain') },
+  { id: 'pick', group: 'Ações', title: 'O que assistir hoje (sorteio)', run: () => openPickDialog() },
   { id: 'telegram-import', group: 'Ações', title: 'Importar meus canais do Telegram', run: () => navigate('/telegram?import=1') },
   { id: 'backup', group: 'Ações', title: 'Exportar ou importar backup', run: () => navigate('/connections?focus=backup') },
 ];

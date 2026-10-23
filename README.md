@@ -25,6 +25,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | ⏭️ **Próximos episódios** | no início, o próximo episódio não visto de cada série em andamento, pela última atividade (carrega até 12; posição de vídeo de canal segue em "Continuar assistindo") |
 | 🗓️ **Agenda** | próximos episódios e estreias de filme dos títulos que você acompanha, com faixa de 7 dias |
 | ⌨️ **Ctrl K** | paleta de comandos (títulos, canais, ações) e atalhos `g`+letra (`?` mostra a lista) |
+| 🎲 **O que assistir hoje** | sorteia um título da sua lista "quero ver" (filtro de tipo e nota mínima); "Outro" não repete o anterior. Botão na Biblioteca ou na Ctrl K |
 | 📺 **Episódios** | navegação por temporada, sinopse por episódio com **spoiler oculto por padrão** |
 | 🎬 **Sinopse, nota e trailer** | via TMDB (filme e série) |
 | 📡 **Onde assistir** | streamings disponíveis na sua região (TMDB watch/providers) |
