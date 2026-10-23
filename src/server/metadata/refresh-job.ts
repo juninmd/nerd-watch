@@ -1,7 +1,7 @@
 import { config } from '../config.ts';
 import { TmdbRequestError } from '../providers/tmdb.ts';
 import type { TitleRow } from '../types.ts';
-import { needsRefresh } from './refresh-policy.ts';
+import { needsRefresh, needsStatsBackfill } from './refresh-policy.ts';
 
 /** Primeira pausa depois de um erro transitório; dobra a cada falha seguida até o teto. */
 export const BACKOFF_BASE_MS = 60_000;
@@ -69,7 +69,7 @@ export const runRefreshTick = async (deps: TickDeps, state: RefreshState): Promi
 
   const due = deps
     .listCandidates()
-    .filter((t) => (state.skipUntil.get(t.id) ?? 0) <= nowMs && needsRefresh(t, now))
+    .filter((t) => (state.skipUntil.get(t.id) ?? 0) <= nowMs && (needsRefresh(t, now) || needsStatsBackfill(t)))
     .slice(0, deps.maxPerTick);
 
   let refreshed = 0;
