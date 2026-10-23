@@ -20,7 +20,7 @@ const SOURCE_BADGE: Partial<Record<CatalogSource, string>> = {
 };
 
 const resultCard = (r: SearchResultDto): string => `
-  <div class="card" data-source="${r.source}" data-media="${r.mediaType}" data-id="${escapeHtml(r.sourceId)}">
+  <div class="card" tabindex="0" role="link" aria-label="${escapeHtml(r.title)}" data-source="${r.source}" data-media="${r.mediaType}" data-id="${escapeHtml(r.sourceId)}">
     <div class="poster${r.posterUrl ? '' : ' placeholder'}"${r.posterUrl ? ` style="background-image:url('${r.posterUrl}')"` : ''}>
       ${r.posterUrl ? '' : `<span class="initials">${initials(r.title)}</span>`}
       <span class="badge badge-corner ${r.source === 'archive' ? 'badge-archive' : 'badge-want'}">${SOURCE_BADGE[r.source] ?? (r.mediaType === 'tv' ? 'série' : 'filme')}</span>
@@ -69,9 +69,16 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
         const source = el.dataset.source as CatalogSource;
         const mediaType = el.dataset.media as 'movie' | 'tv';
         const id = el.dataset.id as string;
+        const open = () => navigate(titlePath(source, source === 'archive' ? '_' : mediaType, id));
         el.addEventListener('click', (e) => {
           if ((e.target as HTMLElement).closest('[data-add]')) return;
-          navigate(titlePath(source, source === 'archive' ? '_' : mediaType, id));
+          open();
+        });
+        // Card é role=link: Enter abre; o botão "+ lista" interno tem o próprio Enter.
+        el.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter' || (e.target as HTMLElement).closest('[data-add]')) return;
+          e.preventDefault();
+          open();
         });
         el.querySelector('[data-add]')?.addEventListener('click', (e) => {
           e.stopPropagation();
