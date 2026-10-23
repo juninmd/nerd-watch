@@ -16,7 +16,7 @@ const isWatchStatus = (v: unknown): v is WatchStatus => typeof v === 'string' &&
 /** Fontes que guardam a URL completa do pôster; as demais guardam só o caminho da TMDB. */
 const ABSOLUTE_POSTER_SOURCES: ReadonlySet<TitleSource> = new Set(['archive', 'tvmaze', 'anilist']);
 
-const posterUrl = (source: TitleSource, posterPath: string | null): string | null =>
+export const posterUrl = (source: TitleSource, posterPath: string | null): string | null =>
   ABSOLUTE_POSTER_SOURCES.has(source) ? posterPath : tmdbImageUrl(posterPath, 'w342');
 
 const posterUrlFor = (item: LibraryItem): string | null => posterUrl(item.title.source, item.title.poster_path);

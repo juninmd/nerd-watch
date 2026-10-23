@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { config } from './config.ts';
 import { LIBRARY_HISTORY_KINDS, TELEGRAM_CHANNEL_MODES } from './types.ts';
+import { LISTS_SCHEMA } from './schema-lists.ts';
 
 let instance: Database | undefined;
 
@@ -128,7 +129,7 @@ CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_seasons_title ON seasons(title_id);
 CREATE INDEX IF NOT EXISTS idx_telegram_items_channel ON telegram_items(channel_id);
 CREATE INDEX IF NOT EXISTS idx_library_status ON library_entries(watch_status);
-`;
+${LISTS_SCHEMA}`;
 
 /**
  * `titles.source` já existia com CHECK sem 'telegram'; SQLite não faz ALTER de CHECK, então recriamos a
