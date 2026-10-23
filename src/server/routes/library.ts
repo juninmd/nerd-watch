@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getDb } from '../db.ts';
-import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
+import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEntry, rewatchLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
+import { listLibraryHistory, parseHistoryPage } from '../repo/library-history.ts';
 import { upsertTitle } from '../repo/titles.ts';
 import { httpsUrlOrNull } from '../catalog-text.ts';
 import { tmdbImageUrl } from '../providers/tmdb.ts';
@@ -25,6 +26,7 @@ const toResponse = (item: LibraryItem) => ({
   notes: item.notes,
   currentSeason: item.current_season,
   currentEpisode: item.current_episode,
+  rewatchCount: item.rewatch_count,
   addedAt: item.added_at,
   updatedAt: item.updated_at,
   title: {
@@ -116,6 +118,25 @@ libraryRoutes.delete('/:entryId', async (c) => {
   const db = await getDb();
   removeLibraryEntry(db, c.req.param('entryId'));
   return c.body(null, 204);
+});
+
+libraryRoutes.get('/:titleId/history', async (c) => {
+  const page = parseHistoryPage(c.req.query('limit'), c.req.query('offset'));
+  if (!page) return c.json({ error: 'limit deve ser de 1 a 100 e offset um inteiro não negativo' }, 400);
+  const listing = listLibraryHistory(await getDb(), c.req.param('titleId'), page);
+  return c.json({
+    items: listing.items.map((r) => ({ id: r.id, kind: r.kind, at: r.at, detail: r.detail })),
+    total: listing.total,
+    limit: listing.limit,
+    offset: listing.offset,
+  });
+});
+
+libraryRoutes.post('/:titleId/rewatch', async (c) => {
+  const outcome = rewatchLibraryEntry(await getDb(), c.req.param('titleId'));
+  if (outcome.ok) return c.json(toResponse(outcome.item));
+  if (outcome.reason === 'not_found') return c.json({ error: 'título não está na lista' }, 404);
+  return c.json({ error: 'só dá para rever um título marcado como assistido' }, 409);
 });
 
 const BULK_LIMIT = 500;

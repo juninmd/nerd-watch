@@ -22,6 +22,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 |---|---|
 | 🗂️ **Biblioteca** | quero ver / assistindo / assistido / abandonado, nota de 0 a 10, notas livres; abas com contagem, filtro por origem, grade ou lista e ações em lote |
 | 🔖 **Onde você parou** | temporada e episódio atual por série, marcado com um clique |
+| 🕘 **Histórico e revisão** | cada mudança de status e de progresso fica registrada (lista recolhível na página do título, no backup também); **Rever** volta um título assistido para "assistindo" e conta as revisões ("Visto N vezes") |
 | 🗓️ **Agenda** | próximos episódios e estreias de filme dos títulos que você acompanha, com faixa de 7 dias |
 | 🔔 **Avisos de lançamento** | um aviso por lançamento da sua lista, por webhook ou [ntfy](docs/providers/notifications.md) (configurado no `.env`, desligado por padrão); antecedência de 0 a 7 dias |
 | 📅 **Assinar a agenda** | feed `.ics` em `/api/calendar.ics` (`?days=`, padrão 60, máx. 365) com os mesmos lançamentos; cada evento tem UID estável, então reassinar não duplica. Botão **Assinar no calendário** copia o link. Só alcança apps que rodam na mesma máquina, porque o servidor escuta em `127.0.0.1` |
