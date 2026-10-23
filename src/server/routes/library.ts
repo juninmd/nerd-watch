@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getDb } from '../db.ts';
+import { refreshAllChannelLinks } from '../repo/telegram-links.ts';
 import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEntry, rewatchLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
 import { listLibraryHistory, parseHistoryPage } from '../repo/library-history.ts';
 import { InvalidProgressError, markProgressThrough, ProgressNotFoundError } from '../repo/library-progress.ts';
@@ -16,7 +17,7 @@ const isWatchStatus = (v: unknown): v is WatchStatus => typeof v === 'string' &&
 /** Fontes que guardam a URL completa do pôster; as demais guardam só o caminho da TMDB. */
 const ABSOLUTE_POSTER_SOURCES: ReadonlySet<TitleSource> = new Set(['archive', 'tvmaze', 'anilist']);
 
-const posterUrl = (source: TitleSource, posterPath: string | null): string | null =>
+export const posterUrl = (source: TitleSource, posterPath: string | null): string | null =>
   ABSOLUTE_POSTER_SOURCES.has(source) ? posterPath : tmdbImageUrl(posterPath, 'w342');
 
 const posterUrlFor = (item: LibraryItem): string | null => posterUrl(item.title.source, item.title.poster_path);
@@ -69,6 +70,7 @@ libraryRoutes.get('/up-next', async (c) => {
       episodeName: r.episodeName,
       runtime: r.runtime,
       activityAt: r.activityAt,
+      channelVideo: r.channelVideo,
     })),
   });
 });
@@ -146,6 +148,7 @@ libraryRoutes.post('/', async (c) => {
     voteAverage: body.voteAverage ?? null,
   });
   const item = upsertLibraryEntry(db, titleRow.id, { watchStatus: body.watchStatus ?? 'want' });
+  refreshAllChannelLinks(db);
   return c.json(toResponse(item), 201);
 });
 
@@ -172,6 +175,7 @@ libraryRoutes.patch('/:titleId', async (c) => {
 libraryRoutes.delete('/:entryId', async (c) => {
   const db = await getDb();
   removeLibraryEntry(db, c.req.param('entryId'));
+  refreshAllChannelLinks(db);
   return c.body(null, 204);
 });
 
@@ -213,5 +217,7 @@ libraryRoutes.post('/bulk', async (c) => {
   else return c.json({ error: 'action deve ser "remove" ou "status" (com watchStatus válido)' }, 400);
 
   const db = await getDb();
-  return c.json({ affected: bulkLibraryAction(db, body.titleIds, action) });
+  const affected = bulkLibraryAction(db, body.titleIds, action);
+  refreshAllChannelLinks(db);
+  return c.json({ affected });
 });

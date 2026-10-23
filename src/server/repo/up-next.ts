@@ -13,6 +13,8 @@ export interface UpNextRow {
   episodeName: string;
   runtime: number | null;
   activityAt: string;
+  /** Vídeo de canal vinculado a este episódio (o alvo de "continuar"); nulo quando não há. */
+  channelVideo: { channelId: string; messageId: string } | null;
 }
 
 /**
@@ -68,18 +70,58 @@ interface Row {
   activity_at: string;
 }
 
+interface LinkedVideoRow {
+  title_id: string;
+  season_number: number;
+  episode_number: number;
+  episode_end: number | null;
+  channel_id: string;
+  message_id: string;
+}
+
+/**
+ * Vídeos de canal confirmados (`linked`) para os títulos listados. Uma consulta só; a ordem (primeiro postado) decide
+ * qual vale quando há mais de um para o mesmo episódio. Não há dedupe por arquivo: o banco não guarda o id do documento.
+ */
+const linkedVideosByEpisode = (db: Database, titleIds: string[]): Map<string, LinkedVideoRow> => {
+  const found = new Map<string, LinkedVideoRow>();
+  if (titleIds.length === 0) return found;
+  const rows = db
+    .query<LinkedVideoRow, string[]>(
+      `SELECT title_id, season_number, episode_number, episode_end, channel_id, message_id FROM telegram_items
+       WHERE link_status = 'linked' AND title_id IN (${titleIds.map(() => '?').join(', ')})
+       ORDER BY posted_at IS NULL, posted_at ASC, CAST(message_id AS INTEGER) ASC`,
+    )
+    .all(...titleIds);
+  for (const v of rows) {
+    const last = v.episode_end ?? v.episode_number;
+    for (let e = v.episode_number; e <= last; e++) {
+      const key = `${v.title_id}:${v.season_number}:${e}`;
+      if (!found.has(key)) found.set(key, v);
+    }
+  }
+  return found;
+};
+
 /** `limit` já validado pela rota (1..50); a consulta nunca devolve mais que isso. */
-export const listUpNext = (db: Database, limit: number): UpNextRow[] =>
-  db.query<Row, [number]>(UP_NEXT_SQL).all(limit).map((r) => ({
-    titleId: r.title_id,
-    source: r.source,
-    sourceId: r.source_id,
-    mediaType: r.media_type,
-    title: r.title,
-    posterPath: r.poster_path,
-    seasonNumber: r.season_number,
-    episodeNumber: r.episode_number,
-    episodeName: r.episode_name,
-    runtime: r.runtime,
-    activityAt: r.activity_at,
-  }));
+export const listUpNext = (db: Database, limit: number): UpNextRow[] => {
+  const rows = db.query<Row, [number]>(UP_NEXT_SQL).all(limit);
+  const videos = linkedVideosByEpisode(db, [...new Set(rows.map((r) => r.title_id))]);
+  return rows.map((r) => {
+    const v = videos.get(`${r.title_id}:${r.season_number}:${r.episode_number}`);
+    return {
+      titleId: r.title_id,
+      source: r.source,
+      sourceId: r.source_id,
+      mediaType: r.media_type,
+      title: r.title,
+      posterPath: r.poster_path,
+      seasonNumber: r.season_number,
+      episodeNumber: r.episode_number,
+      episodeName: r.episode_name,
+      runtime: r.runtime,
+      activityAt: r.activity_at,
+      channelVideo: v ? { channelId: v.channel_id, messageId: v.message_id } : null,
+    };
+  });
+};

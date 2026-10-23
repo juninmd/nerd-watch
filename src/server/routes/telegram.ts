@@ -23,21 +23,24 @@ import { listPersonalChannels } from '../providers/telegram/personal-channels.ts
 import { TelegramPersonalNotConfiguredError, fetchPersonalChannelItems, streamPersonalItem, telegramPersonalEnabled } from '../providers/telegram/personal.ts';
 import { TelegramFloodWaitError, floodWaitResponse } from '../providers/telegram/flood-wait.ts';
 import { parseTelegramRef } from '../providers/telegram/ref.ts';
+import { loadLinkedTitles } from '../repo/telegram-links.ts';
 import { fetchPersonalVideoPage } from '../providers/telegram/personal.ts';
 import { itemMediaDto } from '../telegram-item-dto.ts';
 import { nextCursor, publicHistoryExhausted } from '../telegram-history.ts';
 import { telegramHistoryRoutes } from './telegram-history.ts';
+import { telegramLinkRoutes } from './telegram-links.ts';
 import { getSource } from '../providers/sources/registry.ts';
 import { playSourceItem, refreshSourceChannel } from '../providers/sources/service.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
 import { applyPublicInfo, syncChannelInfo } from '../telegram-channel-info.ts';
 import { ensureThumbs, localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
-import { itemEmbedUrl, toChannelResponse } from '../telegram-channel-dto.ts';
+import { itemEmbedUrl, itemLinkDto, toChannelResponse } from '../telegram-channel-dto.ts';
 import { readPhoto, readThumb } from '../telegram-photos.ts';
 import type { TelegramChannelMode } from '../types.ts';
 
 export const telegramRoutes = new Hono();
 telegramRoutes.route('/channels', telegramHistoryRoutes);
+telegramRoutes.route('/channels', telegramLinkRoutes);
 
 const isMode = (v: unknown): v is TelegramChannelMode => v === 'public' || v === 'personal' || v === 'bot';
 
@@ -164,10 +167,12 @@ telegramRoutes.get('/channels/:id', async (c) => {
   const complete = fill ? await ensureThumbs(db, channel, stored) : stored;
   // Mais recente primeiro: é a ordem da lista de vídeos e da fila de reprodução (do último ao mais antigo).
   const items = complete.reverse();
+  const linkedTitles = loadLinkedTitles(db, items.flatMap((i) => (i.title_id ? [i.title_id] : [])));
   return c.json({
     ...toChannelResponse(channel, items.length),
     library: getLibraryEntryByTitle(db, channel.id),
     items: items.map((i) => ({
+      link: itemLinkDto(i, linkedTitles),
       messageId: i.message_id,
       caption: i.caption,
       durationSeconds: i.duration_seconds,
