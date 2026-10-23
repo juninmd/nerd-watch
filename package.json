@@ -23,7 +23,7 @@
     "parse-torrent": "^11.0.24",
     "qrcode": "^1.5.4",
     "teleproto": "^1.229.0",
-    "webtorrent": "^5.0.0"
+    "webtorrent": "^3.0.21"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
