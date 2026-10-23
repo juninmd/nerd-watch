@@ -1,4 +1,4 @@
-import { isPermanentError, type PlaybackApi } from './playback-api.ts';
+import { isPermanentError, type LinkedProgressDto, type PlaybackApi } from './playback-api.ts';
 import { type PendingOp, type RemotePosition, type SyncState, mergeRemote } from './playback-merge.ts';
 import { createPlaybackStore, type StorageLike, type StoredPosition } from './playback-store.ts';
 
@@ -21,6 +21,8 @@ export interface PlaybackSyncOptions {
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
   onRemoteChange?: () => void;
+  /** Um vídeo de canal vinculado avançou "Onde parei" nesta gravação (o aviso tem desfazer). */
+  onLinkedProgress?: (progress: LinkedProgressDto) => void;
 }
 
 const loadState = (storage: StorageLike): SyncState => {
@@ -40,7 +42,7 @@ const loadState = (storage: StorageLike): SyncState => {
  * cima de um GET (e o merge não confunde "ainda não chegou" com "foi apagado").
  */
 export const createPlaybackSync = (opts: PlaybackSyncOptions) => {
-  const { storage, api, onRemoteChange } = opts;
+  const { storage, api, onRemoteChange, onLinkedProgress } = opts;
   const setTimer = opts.setTimer ?? ((fn: () => void, ms: number) => setTimeout(fn, ms));
   const clearTimer = opts.clearTimer ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
   const state = loadState(storage);
@@ -96,8 +98,10 @@ export const createPlaybackSync = (opts: PlaybackSyncOptions) => {
         continue;
       }
       try {
-        if (sent) await api.put(key, sent);
-        else await api.remove(key);
+        if (sent) {
+          const progress = await api.put(key, sent);
+          if (progress?.changed) onLinkedProgress?.(progress);
+        } else await api.remove(key);
       } catch (err) {
         if (!isPermanentError(err)) {
           persist();

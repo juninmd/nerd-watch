@@ -1,12 +1,15 @@
 import {
+  acceptTelegramSuggestions,
   deleteTelegramChannel,
   getTelegramChannel,
   loadMoreTelegramHistory,
   refreshTelegramChannel,
+  refreshTelegramLinks,
   searchTelegramHistory,
   type TelegramChannelDetailDto,
 } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
+import { linkBadge, openLinkDialog } from '../components/telegram-link.ts';
 import { getQueueOrder, type QueueOrder, savedPosition, setQueueOrder } from '../components/player-dock.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { icon } from '../icons.ts';
@@ -31,7 +34,10 @@ export const renderTelegramChannel = (host: HTMLElement, titleId: string): void 
   const ui: ListState = { q: '', shown: PAGE_SIZE };
 
   const load = () => {
-    getTelegramChannel(titleId, { fillThumbs: true })
+    // Recalcula o vínculo automático com a biblioteca atual antes de mostrar a lista (idempotente, sem falhar a tela).
+    refreshTelegramLinks(titleId)
+      .catch(() => undefined)
+      .then(() => getTelegramChannel(titleId, { fillThumbs: true }))
       .then((d) => renderDetail(host, d, load, ui))
       .catch(() => {
         host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar esse canal</div>`;
@@ -66,6 +72,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       <div>
         <div class="section-head"><h2>Vídeos</h2>${d.items.length > 1 ? `<select class="select" id="tg-order" aria-label="Ordem dos vídeos"><option value="newest"${order === 'newest' ? ' selected' : ''}>Mais recentes primeiro</option><option value="oldest"${order === 'oldest' ? ' selected' : ''}>Mais antigos primeiro</option></select>` : ''}${canRefreshMode(d.mode) ? `<button class="btn btn-ghost btn-sm" id="tg-refresh" type="button">${icon('download', 'sm')} atualizar</button>` : ''}</div>
         ${d.mode === 'bot' ? `<p class="hint">modo bot só recebe vídeos postados a partir de agora — sem histórico retroativo.</p>` : ''}
+        ${d.items.some((i) => i.link?.status === 'suggested') ? `<div class="tg-links-bar" role="region" aria-label="Sugestões de vínculo"><span>${d.items.filter((i) => i.link?.status === 'suggested').length} sugestão(ões) de vínculo para confirmar</span><button class="btn btn-ghost btn-sm" id="tg-accept" type="button">aceitar sugestões</button></div>` : ''}
         <div class="tg-search">
           <input type="search" class="input input-pill" id="tg-q" placeholder="buscar no título e na descrição dos vídeos" autocomplete="off" aria-label="Buscar nos vídeos deste canal" value="${escapeHtml(ui.q)}" />
           <span class="hint" id="tg-count" role="status" aria-live="polite"></span>
@@ -224,7 +231,18 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
           play(i);
         }
       });
-      itemsHost.appendChild(card);
+      // O botão de vínculo fica fora do card (que já é um botão de reprodução): nada de controle dentro de controle.
+      const wrap = document.createElement('div');
+      wrap.className = 'tg-item';
+      wrap.appendChild(card);
+      const linkRow = document.createElement('div');
+      linkRow.className = 'tg-item-link';
+      linkRow.innerHTML = `${linkBadge(item.link ?? null)}<button class="btn btn-ghost btn-sm" type="button" aria-label="${escapeHtml(`vincular “${itemTitle(item, 60)}” a um título`)}">${item.link ? 'alterar vínculo' : 'vincular a um título'}</button>`;
+      linkRow.querySelector('button')?.addEventListener('click', () =>
+        openLinkDialog({ channelId: d.titleId, messageId: item.messageId, current: item.link ?? null, onDone: () => reload() }),
+      );
+      wrap.appendChild(linkRow);
+      itemsHost.appendChild(wrap);
     }
     renderFooter(matches.length, visible.length);
   };
@@ -251,6 +269,19 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   });
 
   host.querySelector('#tg-play-all')?.addEventListener('click', () => play(0));
+  host.querySelector('#tg-accept')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    btn.disabled = true;
+    acceptTelegramSuggestions(d.titleId)
+      .then((res) => {
+        showToast(`${res.accepted} vínculo(s) confirmado(s)`);
+        reload();
+      })
+      .catch(() => {
+        showToast('não foi possível confirmar as sugestões agora');
+        btn.disabled = false;
+      });
+  });
   host.querySelector('#tg-order')?.addEventListener('change', (e) => {
     setQueueOrder((e.target as HTMLSelectElement).value as QueueOrder);
     renderDetail(host, d, reload, ui);
