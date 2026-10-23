@@ -1,4 +1,4 @@
-import type { WatchStatus } from '../server/types.ts';
+import type { LibraryHistoryKind, WatchStatus } from '../server/types.ts';
 
 /** Fontes de catálogo com página de detalhe própria. Telegram tem outra rota (canais). */
 export type CatalogSource = 'tmdb' | 'archive' | 'tvmaze' | 'anilist';
@@ -65,6 +65,7 @@ export interface LibraryEntryDto {
   notes: string | null;
   current_season: number | null;
   current_episode: number | null;
+  rewatch_count: number;
   added_at: string;
   updated_at: string;
 }
@@ -192,6 +193,7 @@ export interface LibraryItemDto {
   notes: string | null;
   currentSeason: number | null;
   currentEpisode: number | null;
+  rewatchCount: number;
   addedAt: string;
   updatedAt: string;
   title: {
@@ -231,6 +233,19 @@ export const addToLibrary = (input: AddToLibraryInput): Promise<LibraryItemDto> 
     json<LibraryItemDto>(r),
   );
 
+export interface UpNextItemDto {
+  titleId: string;
+  title: { sourceId: string; source: CatalogSource | 'telegram'; mediaType: 'movie' | 'tv'; title: string; posterUrl: string | null };
+  seasonNumber: number;
+  episodeNumber: number;
+  episodeName: string;
+  runtime: number | null;
+  activityAt: string;
+}
+
+export const listUpNext = (limit = 12): Promise<{ items: UpNextItemDto[] }> =>
+  fetch(`/api/library/up-next?limit=${limit}`).then((r) => json<{ items: UpNextItemDto[] }>(r));
+
 export interface PatchLibraryInput {
   watchStatus?: WatchStatus;
   rating?: number | null;
@@ -244,10 +259,54 @@ export const patchLibrary = (titleId: string, patch: PatchLibraryInput): Promise
     (r) => json<LibraryItemDto>(r),
   );
 
+export interface MarkThroughResult {
+  changed: boolean;
+  previous: { watchStatus: WatchStatus; currentSeason: number | null; currentEpisode: number | null } | null;
+  item: LibraryItemDto;
+}
+
+export const markProgressThrough = (titleId: string, seasonNumber: number, episodeNumber: number): Promise<MarkThroughResult> =>
+  fetch(`/api/library/${titleId}/progress`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seasonNumber, episodeNumber }),
+  }).then((r) => json<MarkThroughResult>(r));
+export interface LibraryHistoryItemDto {
+  id: string;
+  kind: LibraryHistoryKind;
+  at: string;
+  detail: string | null;
+}
+
+export interface LibraryHistoryPageDto {
+  items: LibraryHistoryItemDto[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export const getLibraryHistory = (titleId: string, limit: number, offset: number): Promise<LibraryHistoryPageDto> =>
+  fetch(`/api/library/${titleId}/history?limit=${limit}&offset=${offset}`).then((r) => json<LibraryHistoryPageDto>(r));
+
+/** Revisão: só funciona com o título marcado como assistido (senão o servidor responde 409). */
+export const rewatchLibrary = (titleId: string): Promise<LibraryItemDto> =>
+  fetch(`/api/library/${titleId}/rewatch`, { method: 'POST' }).then((r) => json<LibraryItemDto>(r));
+
 export const removeFromLibrary = (entryId: string): Promise<void> =>
   fetch(`/api/library/${entryId}`, { method: 'DELETE' }).then((res) => {
     if (!res.ok) throw new Error('falha ao remover');
   });
+
+export interface RefreshMetadataDto {
+  titleId: string;
+  seasons: number;
+  episodes: number;
+  refreshedAt: string;
+}
+
+/** Re-busca temporadas, episódios e datas na TMDB. Erro 429 traz a mensagem de espera (cooldown de 60 s). */
+export const refreshTitleMetadata = (titleId: string): Promise<RefreshMetadataDto> =>
+  fetch(`/api/library/${titleId}/refresh`, { method: 'POST' }).then((r) => json<RefreshMetadataDto>(r));
 
 export interface CalendarEntryDto {
   kind: 'episode' | 'movie';
@@ -399,6 +458,55 @@ export const importBackup = (data: unknown): Promise<ImportBackupResponse> =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   }).then((r) => json<ImportBackupResponse>(r));
+
+export const exportLibraryCsv = (): Promise<Blob> =>
+  fetch('/api/library/export.csv').then(async (r) => {
+    if (!r.ok) throw new Error(`erro ${r.status} ao exportar`);
+    return r.blob();
+  });
+
+export interface LibraryRowError {
+  row: number;
+  message: string;
+}
+
+export interface LibraryCsvReport {
+  imported: number;
+  updated: number;
+  unchanged: number;
+  failed: number;
+  errors: LibraryRowError[];
+}
+
+export const importLibraryCsv = (text: string): Promise<LibraryCsvReport> =>
+  fetch('/api/library/import.csv', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/csv; charset=utf-8' },
+    body: text,
+  }).then((r) => json<LibraryCsvReport>(r));
+
+export interface MalUnresolvedEntry {
+  row: number;
+  malId: number;
+  title: string;
+  watchStatus: string;
+}
+
+export interface MalImportReport {
+  entries: number;
+  imported: number;
+  updated: number;
+  unchanged: number;
+  unresolved: MalUnresolvedEntry[];
+  errors: LibraryRowError[];
+}
+
+export const importMalList = (xml: string): Promise<MalImportReport> =>
+  fetch('/api/library/import.mal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+    body: xml,
+  }).then((r) => json<MalImportReport>(r));
 
 export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive' | 'local' | 'webdav' | 'dropbox' | 'onedrive' | 'jellyfin' | 'plex' | 'peertube' | 's3' | 'youtube' | 'torrent';
 

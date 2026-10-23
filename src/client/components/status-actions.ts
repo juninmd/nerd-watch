@@ -1,6 +1,7 @@
 import type { WatchStatus } from '../../server/types.ts';
-import { patchLibrary, removeFromLibrary, type LibraryEntryDto } from '../api.ts';
+import { patchLibrary, removeFromLibrary, rewatchLibrary, type LibraryEntryDto, type LibraryItemDto } from '../api.ts';
 import { showToast } from '../state.ts';
+import { renderLibraryHistory } from './library-history.ts';
 
 const STATUS_OPTIONS: Array<{ value: WatchStatus; label: string; icon: string }> = [
   { value: 'want', label: 'Quero ver', icon: '📌' },
@@ -14,8 +15,22 @@ export interface StatusActionsOptions {
   entryId: string | null;
   watchStatus: WatchStatus | null;
   rating: number | null;
+  rewatchCount: number;
   onChange: (entry: LibraryEntryDto | null) => void;
 }
+
+const toEntryDto = (item: LibraryItemDto): LibraryEntryDto => ({
+  id: item.id,
+  title_id: item.titleId,
+  watch_status: item.watchStatus,
+  rating: item.rating,
+  notes: item.notes,
+  current_season: item.currentSeason,
+  current_episode: item.currentEpisode,
+  rewatch_count: item.rewatchCount,
+  added_at: item.addedAt,
+  updated_at: item.updatedAt,
+});
 
 export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => {
   const wrap = document.createElement('div');
@@ -30,23 +45,45 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
       patchLibrary(opts.titleId, { watchStatus: s.value })
         .then((item) => {
           showToast(`marcado como "${s.label.toLowerCase()}"`);
-          opts.onChange({
-            id: item.id,
-            title_id: item.titleId,
-            watch_status: item.watchStatus,
-            rating: item.rating,
-            notes: item.notes,
-            current_season: item.currentSeason,
-            current_episode: item.currentEpisode,
-            added_at: item.addedAt,
-            updated_at: item.updatedAt,
-          });
+          opts.onChange(toEntryDto(item));
         })
         .catch(() => showToast('não foi possível atualizar'));
     });
     statusRow.appendChild(btn);
   }
   wrap.appendChild(statusRow);
+
+  if (opts.watchStatus === 'watched' || opts.rewatchCount > 0) {
+    const rewatchRow = document.createElement('div');
+    rewatchRow.className = 'rewatch-row';
+    if (opts.watchStatus === 'watched') {
+      const rewatch = document.createElement('button');
+      rewatch.className = 'btn btn-ghost btn-sm';
+      rewatch.textContent = '🔁 Rever';
+      rewatch.addEventListener('click', () => {
+        // Desabilita durante o pedido: um segundo clique receberia 409 e enganaria o usuário.
+        rewatch.disabled = true;
+        rewatchLibrary(opts.titleId)
+          .then((item) => {
+            showToast('revisão iniciada');
+            opts.onChange(toEntryDto(item));
+          })
+          .catch(() => {
+            rewatch.disabled = false;
+            showToast('não foi possível rever');
+          });
+      });
+      rewatchRow.appendChild(rewatch);
+    }
+    if (opts.rewatchCount > 0) {
+      const count = document.createElement('span');
+      count.className = 'rewatch-count';
+      // rewatch_count conta as revisões; a primeira exibição conta como uma a mais.
+      count.textContent = `👁 Visto ${opts.rewatchCount + 1} vezes`;
+      rewatchRow.appendChild(count);
+    }
+    wrap.appendChild(rewatchRow);
+  }
 
   if (opts.watchStatus) {
     const ratingRow = document.createElement('div');
@@ -60,19 +97,7 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
       star.addEventListener('click', () => {
         const value = (i + 1) * 2;
         patchLibrary(opts.titleId, { rating: value === opts.rating ? null : value })
-          .then((item) =>
-            opts.onChange({
-              id: item.id,
-              title_id: item.titleId,
-              watch_status: item.watchStatus,
-              rating: item.rating,
-              notes: item.notes,
-              current_season: item.currentSeason,
-              current_episode: item.currentEpisode,
-              added_at: item.addedAt,
-              updated_at: item.updatedAt,
-            }),
-          )
+          .then((item) => opts.onChange(toEntryDto(item)))
           .catch(() => showToast('não foi possível avaliar'));
       });
       ratingRow.appendChild(star);
@@ -96,6 +121,8 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
       wrap.appendChild(remove);
     }
   }
+
+  if (opts.entryId) wrap.appendChild(renderLibraryHistory(opts.titleId));
 
   return wrap;
 };

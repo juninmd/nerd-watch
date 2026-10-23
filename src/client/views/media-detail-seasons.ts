@@ -1,11 +1,37 @@
-import { getTmdbSeason, patchLibrary, type LibraryEntryDto, type TmdbDetailDto } from '../api.ts';
+import {
+  getTmdbSeason,
+  markProgressThrough,
+  patchLibrary,
+  removeFromLibrary,
+  type LibraryEntryDto,
+  type MarkThroughResult,
+  type TmdbDetailDto,
+} from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderSpoilerText } from '../components/spoiler.ts';
+import { isEpisodeWatched } from '../episode-progress.ts';
 import { showToast } from '../state.ts';
 
 const dateLabel = (iso: string | null): string => {
   if (!iso) return '';
   return new Date(`${iso}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+/** Desfaz a marcação com o estado que estava antes (ou tira a entrada, se a série não estava na lista). */
+const undoMark = (titleId: string, result: MarkThroughResult, refresh: () => void): void => {
+  const restore = result.previous
+    ? patchLibrary(titleId, {
+        watchStatus: result.previous.watchStatus,
+        currentSeason: result.previous.currentSeason,
+        currentEpisode: result.previous.currentEpisode,
+      })
+    : removeFromLibrary(result.item.id);
+  restore
+    .then(() => {
+      showToast('progresso desfeito');
+      refresh();
+    })
+    .catch(() => showToast('não foi possível desfazer'));
 };
 
 export const renderSeasons = (
@@ -57,32 +83,45 @@ export const renderSeasons = (
           return;
         }
         listEl.innerHTML = '';
+        const marker = library?.current_season != null && library?.current_episode != null ? { season: library.current_season, episode: library.current_episode } : null;
         for (const ep of data.episodes) {
-          const isCurrent = library?.current_season === activeSeason && library?.current_episode === ep.episodeNumber;
+          const isCurrent = marker?.season === activeSeason && marker?.episode === ep.episodeNumber;
+          const watched = !isCurrent && isEpisodeWatched(marker, activeSeason, ep.episodeNumber);
           const row = document.createElement('div');
-          row.className = `episode-row${isCurrent ? ' current' : ''}`;
+          row.className = `episode-row${isCurrent ? ' current' : ''}${watched ? ' watched' : ''}`;
           row.innerHTML = `
             <div class="still"${ep.stillUrl ? ` style="background-image:url('${ep.stillUrl}')"` : ''}></div>
             <div class="body">
               <div class="head">
-                <span class="name">${ep.episodeNumber}. ${escapeHtml(ep.name)}</span>
+                <span class="name">${ep.episodeNumber}. ${escapeHtml(ep.name)}${watched ? ' <span class="seen">visto</span>' : ''}</span>
                 <span class="date">${dateLabel(ep.airDate)}</span>
               </div>
               <div class="overview-slot"></div>
-              <button class="btn btn-ghost btn-sm mark-current" style="margin-top:10px">
-                ${isCurrent ? '✓ é onde você parou' : '📍 marcar como onde parei'}
+              <button class="btn btn-ghost btn-sm mark-current" style="margin-top:10px" type="button">
+                ${isCurrent ? '✓ é onde você parou' : watched ? '↩ voltar o marcador para cá' : '📍 marcar até aqui'}
               </button>
             </div>
           `;
           row.querySelector('.overview-slot')?.appendChild(renderSpoilerText(ep.overview || 'Sem sinopse.', 'overview'));
           if (!isCurrent) {
-            row.querySelector('.mark-current')?.addEventListener('click', () => {
-              patchLibrary(titleId, { watchStatus: library?.watch_status ?? 'watching', currentSeason: activeSeason, currentEpisode: ep.episodeNumber })
-                .then(() => {
-                  showToast(`marcado: T${activeSeason} · Ep ${ep.episodeNumber}`);
+            row.querySelector<HTMLButtonElement>('.mark-current')?.addEventListener('click', (e) => {
+              const btn = e.currentTarget as HTMLButtonElement;
+              // Desabilitar durante o envio evita o duplo clique; o servidor também não regrava o mesmo marcador.
+              btn.disabled = true;
+              markProgressThrough(titleId, activeSeason, ep.episodeNumber)
+                .then((res) => {
+                  if (!res.changed) {
+                    showToast('já estava marcado até aqui');
+                    btn.disabled = false;
+                    return;
+                  }
+                  showToast(`marcado até T${activeSeason} · Ep ${ep.episodeNumber}`, { label: 'Desfazer', run: () => undoMark(titleId, res, refreshParent) });
                   refreshParent();
                 })
-                .catch(() => showToast('não foi possível marcar'));
+                .catch(() => {
+                  btn.disabled = false;
+                  showToast('não foi possível marcar');
+                });
             });
           }
           listEl.appendChild(row);

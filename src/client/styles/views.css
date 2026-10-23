@@ -193,6 +193,21 @@
   box-shadow: 0 0 0 1px rgba(124, 92, 255, 0.35);
 }
 
+/* Anteriores ao marcador: visíveis, mas sem competir com o episódio atual. */
+.episode-row.watched .still {
+  opacity: 0.55;
+}
+
+.episode-row .seen {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
 .trailer-frame {
   position: relative;
   width: 100%;
@@ -292,6 +307,38 @@
 .rating-row {
   display: flex;
   gap: 4px;
+}
+
+.rewatch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.rewatch-count {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.history-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.history-list time {
+  color: var(--text-dim);
+  margin-right: 6px;
+}
+
+.history-empty,
+.history-error {
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
 .star {

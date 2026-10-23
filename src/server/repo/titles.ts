@@ -45,6 +45,35 @@ export const upsertTitle = (db: Database, input: NewTitle): TitleRow => {
   return db.query<TitleRow, [string]>('SELECT * FROM titles WHERE id = ?').get(id)!;
 };
 
+export interface TitleMetadataUpdate {
+  title: string;
+  overview: string | null;
+  posterPath: string | null;
+  backdropPath: string | null;
+  releaseDate: string | null;
+  voteAverage: number | null;
+  status: string | null;
+}
+
+/** Refresh do catálogo: só mexe nas colunas da TMDB; `created_at` e a lista do usuário ficam como estão. */
+export const updateTitleMetadata = (db: Database, titleId: string, m: TitleMetadataUpdate, refreshedAt: string): void => {
+  db.query(
+    `UPDATE titles SET title = $title, overview = $overview, poster_path = $posterPath, backdrop_path = $backdropPath,
+       release_date = $releaseDate, vote_average = $voteAverage, metadata_status = $status, metadata_refreshed_at = $refreshedAt
+     WHERE id = $id`,
+  ).run({
+    $id: titleId,
+    $title: m.title,
+    $overview: m.overview,
+    $posterPath: m.posterPath,
+    $backdropPath: m.backdropPath,
+    $releaseDate: m.releaseDate,
+    $voteAverage: m.voteAverage,
+    $status: m.status,
+    $refreshedAt: refreshedAt,
+  });
+};
+
 /** Títulos TMDB pelos ids (em lotes: uma consulta por lote, não uma por id). */
 export const findTmdbTitles = (db: Database, tmdbIds: string[]): TitleRow[] => {
   const rows: TitleRow[] = [];
@@ -70,7 +99,23 @@ export const upsertSeason = (
   const existing = db
     .query<SeasonRow, [string, number]>('SELECT * FROM seasons WHERE title_id = ? AND season_number = ?')
     .get(titleId, season.seasonNumber);
-  if (existing) return existing;
+  if (existing) {
+    // Nome, sinopse e data de temporada mudam na TMDB; a linha é só catálogo (nada do usuário fica aqui).
+    const next = {
+      name: season.name,
+      overview: season.overview ?? null,
+      air_date: season.airDate ?? null,
+      poster_path: season.posterPath ?? null,
+    };
+    db.query('UPDATE seasons SET name = $name, overview = $overview, air_date = $air_date, poster_path = $poster_path WHERE id = $id').run({
+      $id: existing.id,
+      $name: next.name,
+      $overview: next.overview,
+      $air_date: next.air_date,
+      $poster_path: next.poster_path,
+    });
+    return { ...existing, ...next };
+  }
 
   const id = crypto.randomUUID();
   db.query(
