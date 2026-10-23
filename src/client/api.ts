@@ -448,6 +448,23 @@ export const downloadSubtitle = (input: SubtitleDownloadInput): Promise<{ url: s
     body: JSON.stringify(input),
   }).then((r) => json<{ url: string; remaining?: number }>(r));
 
+/** Pedido de legenda para o player: a mesma escolha de download, ou a legenda que o Internet Archive hospeda. */
+export type SubtitleVttInput = SubtitleDownloadInput | { archiveId: string };
+
+/** Texto WebVTT pronto para o `<track>`. Erro vem com mensagem fixa do servidor (nunca HTML da fonte). */
+export const fetchSubtitleVtt = (input: SubtitleVttInput): Promise<string> =>
+  fetch('/api/subtitles/vtt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then(async (r) => {
+    if (!r.ok) {
+      const body = (await r.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error ?? `erro ${r.status}`);
+    }
+    return r.text();
+  });
+
 export const exportBackup = (): Promise<unknown> => fetch('/api/backup').then((r) => json<unknown>(r));
 
 export interface ImportBackupResponse {
