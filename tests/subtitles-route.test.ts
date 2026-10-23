@@ -1,3 +1,6 @@
+import { setHostResolver } from '../src/server/subtitles/load.ts';
+// Nomes de teste resolvem para um IP público de documentação: nada sai para a rede.
+setHostResolver(async () => ['203.0.113.10']);
 import { afterEach, describe, expect, test } from 'bun:test';
 import { subtitlesRoutes } from '../src/server/routes/subtitles.ts';
 import { isFetchableSubtitleUrl, searchAllSubtitles } from '../src/server/providers/subtitles/index.ts';

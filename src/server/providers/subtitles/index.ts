@@ -1,8 +1,10 @@
 import { config } from '../../config.ts';
 import { tmdbExternalIds } from '../tmdb.ts';
+import { archiveMovieDetails } from '../archive.ts';
+import { isFetchableSubtitleUrl } from '../../subtitles/url-guard.ts';
 import { searchSubtitles as searchOpenSubtitlesRest, requestSubtitleDownload, openSubtitlesEnabled } from '../opensubtitles.ts';
 import { canonicalLanguage, languageAccepted, languageRank, normalizeLanguage } from './languages.ts';
-import { addonContentId, fetchAddonSubtitles, fetchManifest, supportsSubtitles } from './stremio-addon.ts';
+import { type AddonSubtitle, addonContentId, fetchAddonSubtitles, fetchManifest, supportsSubtitles } from './stremio-addon.ts';
 import type { MediaType } from '../../types.ts';
 
 /**
@@ -249,25 +251,17 @@ export type SubtitleDownloadResolution =
   | { kind: 'invalid' };
 
 /**
- * Resolve o download. Para addon, devolve uma URL **do próprio app** que faz o proxy do arquivo.
- *
- * O cliente nunca manda a URL de destino: ele manda a fonte e o id, e o servidor reencontra a
- * legenda numa busca cacheada (`id` só escolhe uma entrada da listagem que o servidor já tem).
+ * Acha a legenda na lista atual do addon. O servidor reencontra a URL pela fonte e pelo id, e nunca aceita
+ * uma URL vinda do cliente.
  */
-export const resolveSubtitleDownload = async (payload: SubtitleDownloadPayload): Promise<SubtitleDownloadResolution> => {
-  if (payload.fileId !== undefined) {
-    if (!Number.isInteger(payload.fileId)) return { kind: 'invalid' };
-    if (!openSubtitlesEnabled()) return { kind: 'invalid' };
-    const { url, remaining } = await requestSubtitleDownload(payload.fileId);
-    return { kind: 'link', url, remaining };
-  }
-
-  if (!payload.source || !payload.id) return { kind: 'invalid' };
-
+const findAddonSubtitle = async (
+  payload: SubtitleDownloadPayload,
+): Promise<{ baseUrl: string; imdbId: string; type: 'movie' | 'series'; match: AddonSubtitle } | null> => {
+  if (!payload.source || !payload.id) return null;
   // Aceita o id do IMDb direto (mais barato) ou a dupla tmdbId+mediaType, que é o que a interface
   // tem em mãos. Antes só o primeiro caminho existia, e por isso o painel nunca conseguia baixar.
   const imdbId = await resolveImdbId({ imdbId: payload.imdbId, tmdbId: payload.tmdbId, mediaType: payload.mediaType });
-  if (!imdbId) return { kind: 'not_found' };
+  if (!imdbId) return null;
 
   const type = payload.mediaType === 'tv' ? 'series' : 'movie';
   const contentId = addonContentId(imdbId, payload.season, payload.episode);
@@ -283,40 +277,56 @@ export const resolveSubtitleDownload = async (payload: SubtitleDownloadPayload):
 
     const found = await fetchAddonSubtitles(baseUrl, type, contentId).catch(() => []);
     const match = found.find((s) => s.id === payload.id);
-    if (!match) continue;
-
-    const params = new URLSearchParams({ source: baseUrl, id: match.id, imdbId, type });
-    if (payload.season && payload.episode) {
-      params.set('season', String(payload.season));
-      params.set('episode', String(payload.episode));
-    }
-    return { kind: 'proxy', url: `/api/subtitles/file?${params}` };
+    if (match) return { baseUrl, imdbId, type, match };
   }
-
-  return { kind: 'not_found' };
+  return null;
 };
-
-const PRIVATE_HOST = /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$|0\.0\.0\.0$)/i;
 
 /**
- * Só deixamos o servidor buscar um arquivo de legenda em `http(s)`, e nunca de um host privado.
+ * Resolve o download. Para addon, devolve uma URL **do próprio app** que faz o proxy do arquivo.
  *
- * A URL vem do **addon**, que é código de terceiro: sem esta checagem, um addon configurado pode
- * devolver `file:///…` ou `http://127.0.0.1:<porta>` e transformar o proxy numa leitura de arquivo
- * local / de serviço interno. `redirect: 'manual'` fecha o desvio por redirecionamento, e a URL
- * final é conferida de novo.
+ * O cliente nunca manda a URL de destino: ele manda a fonte e o id, e o servidor reencontra a
+ * legenda numa busca cacheada (`id` só escolhe uma entrada da listagem que o servidor já tem).
  */
-export const isFetchableSubtitleUrl = (raw: string): boolean => {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    return false;
+export const resolveSubtitleDownload = async (payload: SubtitleDownloadPayload): Promise<SubtitleDownloadResolution> => {
+  if (payload.fileId !== undefined) {
+    if (!Number.isInteger(payload.fileId)) return { kind: 'invalid' };
+    if (!openSubtitlesEnabled()) return { kind: 'invalid' };
+    const { url, remaining } = await requestSubtitleDownload(payload.fileId);
+    return { kind: 'link', url, remaining };
   }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
-  if (PRIVATE_HOST.test(url.hostname.toLowerCase())) return false;
-  return true;
+
+  if (!payload.source || !payload.id) return { kind: 'invalid' };
+  const found = await findAddonSubtitle(payload);
+  if (!found) return { kind: 'not_found' };
+
+  const params = new URLSearchParams({ source: found.baseUrl, id: found.match.id, imdbId: found.imdbId, type: found.type });
+  if (payload.season && payload.episode) {
+    params.set('season', String(payload.season));
+    params.set('episode', String(payload.episode));
+  }
+  return { kind: 'proxy', url: `/api/subtitles/file?${params}` };
 };
+
+/** Mesmo caminho de `resolveSubtitleDownload`, mas devolve a URL do arquivo para o servidor baixar e converter. */
+export const resolveSubtitleFile = async (
+  payload: SubtitleDownloadPayload,
+): Promise<{ kind: 'file'; url: string } | { kind: 'not_found' } | { kind: 'invalid' }> => {
+  if (payload.fileId !== undefined) {
+    if (!Number.isInteger(payload.fileId) || !openSubtitlesEnabled()) return { kind: 'invalid' };
+    const { url } = await requestSubtitleDownload(payload.fileId);
+    return { kind: 'file', url };
+  }
+  if (!payload.source || !payload.id) return { kind: 'invalid' };
+  const found = await findAddonSubtitle(payload);
+  return found ? { kind: 'file', url: found.match.url } : { kind: 'not_found' };
+};
+
+/** Legenda que o próprio Internet Archive hospeda para o item (cache do detalhe). Null quando o item não tem. */
+export const resolveArchiveSubtitleUrl = async (identifier: string): Promise<string | null> =>
+  (await archiveMovieDetails(identifier))?.subtitleUrl ?? null;
+
+export { isFetchableSubtitleUrl };
 
 export type AddonFileResolution = { ok: true; url: string } | { ok: false; reason: 'not_found' | 'untrusted_url' | 'source_error' };
 

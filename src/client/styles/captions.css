@@ -1,0 +1,172 @@
+/* Legendas do player: texto sobre o vídeo (::cue, estilo por variáveis), botão CC e menu de escolha. */
+
+/* Padrão de alto contraste: branco sobre fundo preto em 90%. As variáveis vêm de player-captions.ts. */
+video::cue {
+  color: var(--nw-cue-color, #ffffff);
+  background-color: rgba(0, 0, 0, var(--nw-cue-bg, 0.9));
+  font-size: calc(var(--nw-cue-scale, 1) * 1.15rem);
+  line-height: 1.3;
+}
+
+.player-captions {
+  position: relative;
+  display: inline-flex;
+}
+
+.watch-stage > .player-captions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+}
+
+.player-captions .captions-btn {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.watch-stage .player-captions .captions-btn {
+  background: rgba(0, 0, 0, 0.55);
+  padding: 0 10px;
+}
+
+.player-captions .captions-btn[data-active="true"] {
+  color: var(--accent);
+}
+
+.player-captions .captions-popup {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 6;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(14, 16, 26, 0.97);
+  box-shadow: var(--shadow-pop);
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+}
+
+/* No palco da tela de reprodução o menu abre para baixo: o botão está no topo do vídeo. */
+.watch-stage .player-captions .captions-popup {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+
+.player-captions .captions-popup[hidden] {
+  display: none;
+}
+
+.player-captions .captions-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.player-captions .captions-item:hover,
+.player-captions .captions-item:focus-visible {
+  background: var(--surface-hover);
+}
+
+.player-captions .captions-item:focus-visible,
+.player-captions .captions-chip:focus-visible,
+.player-captions .captions-btn:focus-visible,
+.player-captions select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.player-captions .captions-item[disabled] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.player-captions .captions-item small {
+  display: block;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.player-captions .captions-mark {
+  width: 14px;
+  flex: none;
+  color: var(--accent);
+}
+
+.player-captions .captions-hint {
+  margin: 8px 4px 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.player-captions .captions-drop {
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: center;
+}
+
+.player-captions .captions-offset,
+.player-captions .captions-style {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12px;
+}
+
+.player-captions .captions-chip {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.player-captions .captions-style label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.player-captions select {
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font: inherit;
+}
+
+@media (pointer: coarse) {
+  .player-captions .captions-item,
+  .player-captions .captions-chip,
+  .player-captions select {
+    min-height: 44px;
+  }
+}
