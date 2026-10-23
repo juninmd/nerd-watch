@@ -19,7 +19,6 @@ const staticActions = (): PaletteEntry[] => [
   { id: 'go-lists', group: 'Ações', title: 'Ir para as Listas', run: () => navigate('/lists') },
   { id: 'go-stats', group: 'Ações', title: 'Ir para as Estatísticas', keys: 'g e', run: () => navigate('/estatisticas') },
   { id: 'go-agenda', group: 'Ações', title: 'Ir para a Agenda', keys: 'g a', run: () => navigate('/agenda') },
-  { id: 'go-stats', group: 'Ações', title: 'Ir para as Estatísticas', keys: 'g e', run: () => navigate('/estatisticas') },
   { id: 'go-connections', group: 'Ações', title: 'Ir para as Conexões', keys: 'g c', run: () => navigate('/connections') },
   { id: 'go-pd', group: 'Ações', title: 'Explorar o domínio público', run: () => navigate('/public-domain') },
   { id: 'pick', group: 'Ações', title: 'O que assistir hoje (sorteio)', run: () => openPickDialog() },
