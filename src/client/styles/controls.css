@@ -27,6 +27,8 @@
 .input-pill {
   border-radius: 999px;
   width: auto;
+  /* width:auto deixa o select do tamanho da opção mais longa; sem o teto ele estoura telas de 390px. */
+  max-width: 100%;
 }
 
 .input.grow {
