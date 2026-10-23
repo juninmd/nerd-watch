@@ -12,11 +12,12 @@
 
   --text: #f1f2f8;
   --text-dim: #9aa0b8;
-  --text-faint: #656b85;
+  --text-faint: #8a90aa;
 
   --accent: #ff3d6e;
   --accent-2: #7c5cff;
-  --gradient: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  /* Mais fundo que --accent/--accent-2: texto branco sobre o gradiente precisa de 4.5:1 (ver tests/a11y-contrast.test.ts). */
+  --gradient: linear-gradient(135deg, #d92a5c 0%, #6d4ef5 100%);
   --gradient-soft: linear-gradient(135deg, rgba(255, 61, 110, 0.18), rgba(124, 92, 255, 0.18));
 
   --success: #34d399;

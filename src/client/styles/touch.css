@@ -1,0 +1,19 @@
+/* Alvos de toque de 44px (WCAG 2.5.5) só em telas de toque: o desktop (ponteiro fino) mantém o tamanho atual. */
+@media (pointer: coarse) {
+  .btn,
+  .chip,
+  .pill,
+  .input,
+  .input-pill,
+  input[type="search"],
+  select,
+  summary {
+    min-height: 44px;
+  }
+
+  .section-head a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

@@ -67,6 +67,8 @@ export const openCommandPalette = (): void => {
   dialog = document.createElement('dialog');
   dialog.className = 'palette';
   dialog.setAttribute('closedby', 'any');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-label', 'Paleta de comandos');
   dialog.innerHTML = `
     <div class="pal-in">${icon('search')}
@@ -75,9 +77,14 @@ export const openCommandPalette = (): void => {
       <kbd>Esc</kbd></div>
     <div id="pal-list" class="pal-list" role="listbox" aria-label="Resultados"></div>
     <div class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span></div>`;
+  // Quem abriu (botão, atalho, link) recebe o foco de volta ao fechar; sem isso o foco cai no <body>.
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   document.body.appendChild(dialog);
   const d = dialog;
-  d.addEventListener('close', () => d.remove());
+  d.addEventListener('close', () => {
+    d.remove();
+    if (opener?.isConnected) opener.focus();
+  });
   // Fallback para navegadores sem `closedby="any"`: clique no backdrop fecha.
   d.addEventListener('click', (e) => {
     if (e.target === d) d.close();

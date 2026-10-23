@@ -1,4 +1,5 @@
 import { parseAccessToken } from './access.ts';
+import { parseHttpUrl } from './notify/url.ts';
 
 interface TelegramRuntimeConfig {
   botToken?: string;
@@ -74,8 +75,30 @@ const uploadLimitEnv = (raw: string | undefined, fallback: number): number => {
   return parsed;
 };
 
+/** Antecedência do aviso de lançamento, em dias (0 a 7). Fora disso (ou lixo) volta ao padrão 0: nunca vira NaN. */
+export const leadDaysEnv = (raw: string | undefined): number => {
+  if (raw === undefined || raw.trim() === '') return 0;
+  const parsed = Number(raw.trim());
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 7 ? parsed : 0;
+};
+/**
+ * Interface em que o servidor escuta. O padrão é loopback; só o container Docker define `0.0.0.0`, porque o
+ * port mapping chega pela interface do container. A barreira de Host/Origin (`security.ts`) continua valendo.
+ */
+export const listenHost = (raw: string | undefined): string => raw?.trim() || '127.0.0.1';
+
 export const config = {
+  host: listenHost(process.env.HOST),
   port: Number(process.env.PORT ?? 7799),
+  /**
+   * Avisos de lançamento (ver `notify/`). Os destinos vêm SÓ do ambiente, nunca de request: a URL do ntfy/webhook
+   * costuma carregar um token. Sem nenhuma URL válida o agendador nem sobe.
+   */
+  notify: {
+    webhookUrl: parseHttpUrl(process.env.NOTIFY_WEBHOOK_URL),
+    ntfyUrl: parseHttpUrl(process.env.NOTIFY_NTFY_URL),
+    leadDays: leadDaysEnv(process.env.NOTIFY_LEAD_DAYS),
+  },
   dbPath: process.env.DB_PATH ?? 'data/nerd-watch.db',
   tmdb: {
     apiKey: process.env.TMDB_API_KEY?.trim() || undefined,

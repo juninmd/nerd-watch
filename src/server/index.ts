@@ -10,7 +10,7 @@ import { archiveRoutes } from './routes/archive.ts';
 import { tvmazeRoutes } from './routes/tvmaze.ts';
 import { anilistRoutes } from './routes/anilist.ts';
 import { libraryRoutes } from './routes/library.ts';
-import { calendarRoutes } from './routes/calendar.ts';
+import { calendarIcsRoutes, calendarRoutes } from './routes/calendar.ts';
 import { subtitlesRoutes } from './routes/subtitles.ts';
 import { torrentRoutes } from './routes/torrent.ts';
 import { backupRoutes } from './routes/backup.ts';
@@ -22,6 +22,9 @@ import { sourcesRoutes } from './routes/sources.ts';
 import { playbackRoutes } from './routes/playback.ts';
 import { traktRoutes } from './routes/trakt.ts';
 import { startTorrentSweeper } from './torrent/engine.ts';
+import { getDb } from './db.ts';
+import { buildSinks } from './notify/sinks.ts';
+import { startNotifyScheduler } from './notify/scheduler.ts';
 
 const app = new Hono();
 const remoteAccess = config.access.token !== undefined;
@@ -66,6 +69,7 @@ app.route('/api/tvmaze', tvmazeRoutes);
 app.route('/api/anilist', anilistRoutes);
 app.route('/api/library', libraryRoutes);
 app.route('/api/calendar', calendarRoutes);
+app.route('/api', calendarIcsRoutes);
 app.route('/api/subtitles', subtitlesRoutes);
 app.route('/api/torrent', torrentRoutes);
 app.route('/api/backup', backupRoutes);
@@ -80,7 +84,7 @@ app.use('/*', serveStatic({ root: './public' }));
 
 export default {
   port: config.port,
-  hostname: '127.0.0.1',
+  hostname: config.host,
   fetch: app.fetch,
   // O padrão do Bun (10s) derruba o streaming de torrent antes do primeiro pedaço chegar de um peer lento.
   idleTimeout: 255,
@@ -92,10 +96,26 @@ startTorrentSweeper();
 
 // Sem ACCESS_TOKEN a saída de boot não muda. Com ele, avisa que o HTTPS é responsabilidade do proxy.
 if (remoteAccess) console.log('acesso remoto ativo (ACCESS_TOKEN): exponha só por HTTPS, via proxy reverso (ver README)');
+// Avisos de lançamento: só sobe com um destino configurado por env (nunca por request).
+const notifySinks = buildSinks({ webhookUrl: config.notify.webhookUrl, ntfyUrl: config.notify.ntfyUrl });
+if (notifySinks.length > 0) {
+  void getDb()
+    .then((db) =>
+      startNotifyScheduler({
+        db,
+        sinks: notifySinks,
+        leadDays: config.notify.leadDays,
+        now: () => new Date(),
+        log: (line) => console.warn(line),
+      }),
+    )
+    .catch((err: unknown) => console.warn('[notify] agendador não subiu:', err instanceof Error ? err.name : 'erro'));
+}
 
 console.log(
   `nerd-watch em http://127.0.0.1:${config.port} (TMDB ${tmdbEnabled() ? 'ativo' : 'sem chave — só domínio público'}, ` +
     `legendas ${openSubtitlesEnabled() ? 'com chave OpenSubtitles' : 'via addons do Stremio (sem chave)'}, ` +
     `torrent ${torrentEnabled() ? 'ativo' : 'desligado'}, ` +
-    `bot do Telegram ${telegramBotEnabled() ? 'ativo' : 'desligado — sem TELEGRAM_BOT_TOKEN'})`,
+    `bot do Telegram ${telegramBotEnabled() ? 'ativo' : 'desligado — sem TELEGRAM_BOT_TOKEN'}, ` +
+    `avisos de lançamento ${notifySinks.length > 0 ? notifySinks.map((s) => s.name).join(' + ') : 'desligados'})`,
 );
