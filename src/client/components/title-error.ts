@@ -12,7 +12,7 @@ export const renderTitleError = (host: HTMLElement, retry: () => void): void => 
   host.innerHTML = `
     <div class="empty-state" role="alert">
       <div class="big">${icon('alert')}</div>
-      <p>não foi possível carregar este título</p>
+      <h1 class="view-title">não foi possível carregar este título</h1>
       <div class="chip-row title-error-actions">
         <button type="button" class="btn btn-ghost btn-sm" data-back>voltar</button>
         <button type="button" class="btn btn-primary btn-sm" data-retry>tentar de novo</button>
