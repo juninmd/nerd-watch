@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS titles (
   release_date TEXT,
   vote_average REAL,
   created_at TEXT NOT NULL,
+  metadata_status TEXT,
+  metadata_refreshed_at TEXT,
   UNIQUE (source, source_id)
 );
 
@@ -228,6 +230,19 @@ export const migrateChannelModes = (db: Database): void => {
   db.exec('PRAGMA foreign_keys = ON;');
 };
 
+/**
+ * `titles` ganhou o status da série na TMDB e a data do último refresh de metadados (ver metadata/). Ambas são
+ * nulas e `ADD COLUMN` basta. Se a tabela ainda não existe, não faz nada: o CREATE de MIGRATIONS já traz as colunas.
+ * Deve rodar depois de `migrateAddCatalogSources` (que recria `titles` com `SELECT *`).
+ */
+export const migrateAddTitleMetadataRefresh = (db: Database): void => {
+  const hasTable = db.query<{ n: number }, []>("SELECT COUNT(*) as n FROM sqlite_master WHERE type = 'table' AND name = 'titles'").get();
+  if (!hasTable || hasTable.n === 0) return;
+  const columns = db.query<{ name: string }, []>('PRAGMA table_info(titles)').all().map((c) => c.name);
+  if (!columns.includes('metadata_status')) db.exec('ALTER TABLE titles ADD COLUMN metadata_status TEXT;');
+  if (!columns.includes('metadata_refreshed_at')) db.exec('ALTER TABLE titles ADD COLUMN metadata_refreshed_at TEXT;');
+};
+
 /** `telegram_items.file_ref` foi adicionada depois; `ADD COLUMN` simples resolve (sem a dança de CHECK). */
 export const migrateAddTelegramItemFileRef = (db: Database): void => {
   const hasTable = db.query<{ n: number }, []>("SELECT COUNT(*) as n FROM sqlite_master WHERE type = 'table' AND name = 'telegram_items'").get();
@@ -251,6 +266,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   migrateAddTelegramItemFileRef(db);
   migrateChannelModes(db);
   migrateAddCatalogSources(db);
+  migrateAddTitleMetadataRefresh(db);
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
   migrateAddRewatchCount(db);

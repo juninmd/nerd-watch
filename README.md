@@ -310,8 +310,13 @@ Catálogos e sincronização: [TVmaze](docs/providers/tvmaze.md), [AniList](docs
 
 - **Sem empacotamento desktop** (Tauri) nesta primeira versão — roda como app web local. Fica como
   próximo passo se fizer sentido.
-- **Sem cache de metadados da TMDB** — cada visita a um título busca a temporada/episódio ao vivo (fica
-  cacheado no SQLite conforme você visita, mas não há refresh automático).
+- **Metadados da TMDB atualizados em background, não em tempo real.** Só entram no refresh automático os
+  títulos em "Quero ver" ou "Assistindo": série em exibição a cada 24 h, série encerrada a cada 30 dias, filme só
+  até lançar. Cada rodada (10 min) atualiza no máximo 5 títulos e para ao primeiro erro 429/5xx da TMDB. Sem
+  `TMDB_API_KEY` o refresh não roda. O botão "Atualizar metadados" na página do título força uma atualização
+  (uma a cada 60 s por título, mesmo se a tentativa falhar). A atualização busca direto na TMDB, mas a lista de
+  temporadas que a página mostra ainda vem do cache em memória (até 60 min); a Agenda já usa o dado novo.
+  Status, nota, anotações e progresso nunca são alterados pelo refresh.
 - **Domínio público limitado à coleção `feature_films`** da Internet Archive — é a curadoria oficial
   deles para conteúdo livre; dá para ampliar depois se quiser mais fontes.
 - **O torrent começa pelo derivado mais leve** (`_512kb`/`small`) para o vídeo abrir rápido, não pela

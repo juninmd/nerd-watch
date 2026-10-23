@@ -12,7 +12,8 @@ const JOIN_SELECT = `
     t.id as t_id, t.source as t_source, t.source_id as t_source_id, t.media_type as t_media_type,
     t.title as t_title, t.original_title as t_original_title, t.overview as t_overview,
     t.poster_path as t_poster_path, t.backdrop_path as t_backdrop_path,
-    t.release_date as t_release_date, t.vote_average as t_vote_average, t.created_at as t_created_at
+    t.release_date as t_release_date, t.vote_average as t_vote_average, t.created_at as t_created_at,
+    t.metadata_status as t_metadata_status, t.metadata_refreshed_at as t_metadata_refreshed_at
   FROM library_entries le JOIN titles t ON t.id = le.title_id
 `;
 
@@ -39,6 +40,8 @@ interface JoinedRow {
   t_release_date: string | null;
   t_vote_average: number | null;
   t_created_at: string;
+  t_metadata_status: string | null;
+  t_metadata_refreshed_at: string | null;
 }
 
 const toLibraryItem = (row: JoinedRow): LibraryItem => ({
@@ -65,6 +68,8 @@ const toLibraryItem = (row: JoinedRow): LibraryItem => ({
     release_date: row.t_release_date,
     vote_average: row.t_vote_average,
     created_at: row.t_created_at,
+    metadata_status: row.t_metadata_status,
+    metadata_refreshed_at: row.t_metadata_refreshed_at,
   },
 });
 
@@ -80,6 +85,20 @@ export const getLibraryEntriesByTitles = (db: Database, titleIds: string[]): Lib
   }
   return rows;
 };
+
+/**
+ * Séries/filmes TMDB que você acompanha (quero ver / assistindo): o alvo do refresh automático. O limite protege
+ * a consulta; a ordem põe o refresh mais antigo (ou nunca feito) primeiro, então o teto não esconde títulos vencidos.
+ */
+export const listFollowedTmdbTitles = (db: Database, limit: number): TitleRow[] =>
+  db
+    .query<TitleRow, [number]>(
+      `SELECT t.* FROM library_entries le JOIN titles t ON t.id = le.title_id
+       WHERE le.watch_status IN ('want', 'watching') AND t.source = 'tmdb'
+       ORDER BY t.metadata_refreshed_at IS NOT NULL, t.metadata_refreshed_at ASC
+       LIMIT ?`,
+    )
+    .all(limit);
 
 /** Títulos marcados como assistidos (origem e id, para a exportação decidir o que falta no Trakt). */
 export const listWatchedTitles = (db: Database): Array<Pick<TitleRow, 'source' | 'source_id' | 'media_type'>> =>
