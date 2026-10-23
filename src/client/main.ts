@@ -16,7 +16,13 @@ import { renderSearch } from './views/search.ts';
 import { renderTelegramChannel } from './views/telegram-channel.ts';
 import { renderTelegramChannels } from './views/telegram-channels.ts';
 import { renderTitleDetail } from './views/media-detail.ts';
+import { withLoginRedirect } from './auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
+
+// Sem ACCESS_TOKEN o servidor nunca responde 401, então este wrapper não muda nada no modo local.
+globalThis.fetch = withLoginRedirect(globalThis.fetch.bind(globalThis), location.href, (href) =>
+  location.replace(href),
+) as typeof fetch;
 
 const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
   { path: '/', label: 'Início', icon: 'home' },
