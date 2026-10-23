@@ -3,6 +3,7 @@ import { StringSession } from 'teleproto/sessions';
 import { config, telegramPersonalEnabled } from '../../config.ts';
 import { updateEnvVar } from '../../env-file.ts';
 import { resolvePeer } from './peer.ts';
+import { type TelegramPersonalItem, toItem } from './personal-item.ts';
 
 /**
  * Conta pessoal via MTProto (`teleproto`, fork mantido do GramJS): único modo estruturalmente capaz de
@@ -100,26 +101,7 @@ const getClient = async (): Promise<TelegramClient> => {
   return clientPromise;
 };
 
-export interface TelegramPersonalItem {
-  messageId: string;
-  caption: string | null;
-  durationSeconds: number | null;
-  postedAt: string | null;
-}
-
-const toItem = (msg: Api.Message): TelegramPersonalItem | null => {
-  if (!(msg.media instanceof Api.MessageMediaDocument) || !(msg.media.document instanceof Api.Document)) return null;
-  const doc = msg.media.document;
-  const isVideo = doc.mimeType?.startsWith('video/') || doc.attributes.some((a) => a instanceof Api.DocumentAttributeVideo);
-  if (!isVideo) return null;
-  const videoAttr = doc.attributes.find((a): a is Api.DocumentAttributeVideo => a instanceof Api.DocumentAttributeVideo);
-  return {
-    messageId: String(msg.id),
-    caption: msg.message || null,
-    durationSeconds: videoAttr ? Math.round(videoAttr.duration) : null,
-    postedAt: new Date(msg.date * 1000).toISOString(),
-  };
-};
+export type { TelegramPersonalItem } from './personal-item.ts';
 
 /** Máximo que o Telegram devolve por chamada de `getMessages`. */
 export const PERSONAL_PAGE_SIZE = 100;

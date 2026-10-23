@@ -23,6 +23,7 @@ import { listPersonalChannels } from '../providers/telegram/personal-channels.ts
 import { TelegramPersonalNotConfiguredError, fetchPersonalChannelItems, streamPersonalItem, telegramPersonalEnabled } from '../providers/telegram/personal.ts';
 import { parseTelegramRef } from '../providers/telegram/ref.ts';
 import { fetchPersonalVideoPage } from '../providers/telegram/personal.ts';
+import { itemMediaDto } from '../telegram-item-dto.ts';
 import { nextCursor, publicHistoryExhausted } from '../telegram-history.ts';
 import { telegramHistoryRoutes } from './telegram-history.ts';
 import { getSource } from '../providers/sources/registry.ts';
@@ -65,6 +66,7 @@ telegramRoutes.get('/recent', async (c) => {
       durationSeconds: i.duration_seconds,
       thumbnailUrl: i.thumbnail_url,
       postedAt: i.posted_at,
+      ...itemMediaDto(i),
     })),
   });
 });
@@ -160,6 +162,7 @@ telegramRoutes.get('/channels/:id', async (c) => {
       durationSeconds: i.duration_seconds,
       thumbnailUrl: i.thumbnail_url,
       postedAt: i.posted_at,
+      ...itemMediaDto(i),
       embedUrl: itemEmbedUrl(channel, i.file_ref),
     })),
   });
@@ -263,6 +266,10 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
               caption: i.caption,
               durationSeconds: i.durationSeconds,
               postedAt: i.postedAt,
+              width: i.width,
+              height: i.height,
+              supportsStreaming: i.supportsStreaming,
+              fileName: i.fileName,
             })),
           );
     await syncChannelInfo(db, channel);

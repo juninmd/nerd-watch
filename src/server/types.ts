@@ -70,6 +70,11 @@ export interface TelegramItemRow {
   thumbnail_url: string | null;
   posted_at: string | null;
   file_ref: string | null;
+  width: number | null;
+  height: number | null;
+  /** 1 = o Telegram marcou o vídeo como servível em streaming; 0 = não; null = sem atributo de vídeo (ex.: modo público). */
+  supports_streaming: number | null;
+  file_name: string | null;
 }
 
 export interface SearchResult {
