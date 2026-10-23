@@ -145,8 +145,10 @@
   cursor: pointer;
 }
 
-.next-item:hover {
-  background: var(--surface-hover);
+@media (hover: hover) {
+  .next-item:hover {
+    background: var(--surface-hover);
+  }
 }
 
 .next-thumb {
