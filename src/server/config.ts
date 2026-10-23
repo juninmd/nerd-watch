@@ -72,7 +72,14 @@ const uploadLimitEnv = (raw: string | undefined, fallback: number): number => {
   return parsed;
 };
 
+/**
+ * Interface em que o servidor escuta. O padrão é loopback; só o container Docker define `0.0.0.0`, porque o
+ * port mapping chega pela interface do container. A barreira de Host/Origin (`security.ts`) continua valendo.
+ */
+export const listenHost = (raw: string | undefined): string => raw?.trim() || '127.0.0.1';
+
 export const config = {
+  host: listenHost(process.env.HOST),
   port: Number(process.env.PORT ?? 7799),
   dbPath: process.env.DB_PATH ?? 'data/nerd-watch.db',
   tmdb: {

@@ -90,6 +90,44 @@ https://www.themoviedb.org/settings/api.
 bun run seed     # popula data/nerd-watch.db com um catálogo fictício, só para ver a interface
 ```
 
+### Docker
+
+```bash
+docker compose up -d --build     # http://localhost:7799
+docker compose logs -f           # acompanha o boot
+docker compose down              # para; os dados ficam no volume
+```
+
+- **Dados:** o SQLite e os torrents ficam no volume nomeado `nerd-watch-data` (`/app/data` dentro do
+  container). `docker compose down -v` apaga tudo.
+- **Segredos:** o compose lê `.env` se ele existir (`env_file` opcional), mas a imagem nunca inclui o `.env`
+  (ver `.dockerignore`). Atenção: credenciais salvas pela própria UI (Telegram, Drive) são gravadas em
+  `/app/.env` **dentro** do container; elas somem se o container for recriado. Para mantê-las, grave no
+  `.env` do host e recrie o container com `docker compose up -d`.
+- **Rede (modelo de segurança):** o container escuta em `0.0.0.0` só internamente (`HOST=0.0.0.0`), porque
+  o port mapping chega pela interface do container. No host a porta é publicada como `127.0.0.1:7799`, então
+  só a sua máquina alcança o app. Mesmo se você publicar em outra interface, o servidor recusa `Host` que
+  não seja loopback (anti DNS rebinding) e `Origin` de outra origem em métodos que mudam estado (anti CSRF).
+  Não remova o `127.0.0.1:` do `ports` sem entender isso.
+- **Porta:** se o `.env` define `PORT`, ajuste o mapeamento do compose para a mesma porta.
+- **Healthcheck:** a imagem checa `GET /api/health` a cada 30s; `docker compose ps` mostra `healthy`.
+- **Usuário:** o processo roda como usuário `app` (não-root); só `/app/data` é gravável.
+- Requer Docker Engine com Compose v2.24+ (para `env_file` com `required: false`).
+
+### Instalar como app (PWA)
+
+No Chrome/Edge, abra `http://localhost:7799` e use **Instalar nerd-watch** na barra de endereço. O app
+abre em janela própria, sem a barra do navegador.
+
+- O service worker (`/sw.js`) guarda **só a casca** (HTML, JS, CSS e ícones). Ele é registrado apenas em
+  contexto seguro (`localhost`, ou https), que é onde o browser o aceita.
+- Estratégia rede primeiro: com internet, a casca vem sempre atualizada; sem internet, a última versão
+  baixada abre. O cache é `nerd-watch-shell-<versão>`, e versões antigas são apagadas no `activate`.
+- **Nunca** entram no cache: `/api/*`, vídeo/áudio/legenda e qualquer requisição com `Range`. Lista, progresso,
+  catálogo e reprodução continuam exigindo o servidor no ar; o offline vale só para a interface.
+- Ícone: `src/client/pwa/icon.svg` (SVG, sem PNG). Alguns sistemas (iOS, por exemplo) pedem um
+  `apple-touch-icon` em PNG, que ainda não existe aqui.
+
 ### Como roda
 
 ```
