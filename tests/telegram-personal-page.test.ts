@@ -92,7 +92,16 @@ describe('fetchPersonalVideoPage', () => {
   test('fetchPersonalChannelItems segue devolvendo só a lista', async () => {
     fakeClient([video(3, 'Legenda')]);
     expect(await fetchPersonalChannelItems('cine_ch')).toEqual([
-      { messageId: '3', caption: 'Legenda', durationSeconds: null, postedAt: new Date((1_790_000_000 + 3) * 1000).toISOString() },
+      {
+        messageId: '3',
+        caption: 'Legenda',
+        durationSeconds: null,
+        postedAt: new Date((1_790_000_000 + 3) * 1000).toISOString(),
+        width: null,
+        height: null,
+        supportsStreaming: null,
+        fileName: null,
+      },
     ]);
   });
 });

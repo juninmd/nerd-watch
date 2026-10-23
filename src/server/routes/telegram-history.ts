@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { telegramPersonalEnabled } from '../config.ts';
 import { getDb } from '../db.ts';
 import { PrivateChannelNotFoundError } from '../providers/telegram/peer.ts';
+import { TelegramFloodWaitError, floodWaitResponse } from '../providers/telegram/flood-wait.ts';
 import { TelegramPersonalNotConfiguredError } from '../providers/telegram/personal.ts';
 import { TelegramChannelNotFoundError } from '../providers/telegram/public.ts';
 import { getTelegramChannel } from '../repo/telegram.ts';
@@ -29,6 +30,7 @@ telegramHistoryRoutes.post('/:id/load-more', async (c) => {
     const outcome = await loadMoreHistory(db, channel);
     return outcome.ok ? c.json(outcome.value) : c.json({ error: outcome.error }, outcome.status);
   } catch (err) {
+    if (err instanceof TelegramFloodWaitError) return floodWaitResponse(c, err);
     const { error, status } = failure(err);
     return c.json({ error }, status);
   }
@@ -48,6 +50,7 @@ telegramHistoryRoutes.post('/:id/search', async (c) => {
     const outcome = await searchHistory(db, channel, query);
     return outcome.ok ? c.json(outcome.value) : c.json({ error: outcome.error }, outcome.status);
   } catch (err) {
+    if (err instanceof TelegramFloodWaitError) return floodWaitResponse(c, err);
     const { error, status } = failure(err);
     return c.json({ error }, status);
   }

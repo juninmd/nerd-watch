@@ -80,6 +80,10 @@ CREATE TABLE IF NOT EXISTS telegram_items (
   thumbnail_url TEXT,
   posted_at TEXT,
   file_ref TEXT,
+  width INTEGER,
+  height INTEGER,
+  supports_streaming INTEGER,
+  file_name TEXT,
   UNIQUE (channel_id, message_id)
 );
 
@@ -252,6 +256,23 @@ export const migrateAddTelegramItemFileRef = (db: Database): void => {
   db.exec('ALTER TABLE telegram_items ADD COLUMN file_ref TEXT;');
 };
 
+const TELEGRAM_ITEM_MEDIA_COLUMNS: ReadonlyArray<[name: string, type: string]> = [
+  ['width', 'INTEGER'],
+  ['height', 'INTEGER'],
+  ['supports_streaming', 'INTEGER'],
+  ['file_name', 'TEXT'],
+];
+
+/** Atributos de vídeo do MTProto (largura, altura, streaming, nome do arquivo). Um `ADD COLUMN` por coluna que falta: idempotente. */
+export const migrateAddTelegramItemMediaAttrs = (db: Database): void => {
+  const hasTable = db.query<{ n: number }, []>("SELECT COUNT(*) as n FROM sqlite_master WHERE type = 'table' AND name = 'telegram_items'").get();
+  if (!hasTable || hasTable.n === 0) return;
+  const existing = new Set(db.query<{ name: string }, []>('PRAGMA table_info(telegram_items)').all().map((c) => c.name));
+  for (const [name, type] of TELEGRAM_ITEM_MEDIA_COLUMNS) {
+    if (!existing.has(name)) db.exec(`ALTER TABLE telegram_items ADD COLUMN ${name} ${type};`);
+  }
+};
+
 /** `library_entries.rewatch_count` (quantas revisões). Roda depois de MIGRATIONS: a tabela já existe em qualquer banco. */
 export const migrateAddRewatchCount = (db: Database): void => {
   const columns = db.query<{ name: string }, []>('PRAGMA table_info(library_entries)').all();
@@ -264,6 +285,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   db.exec('PRAGMA journal_mode = WAL;');
   migrateAddTelegramSource(db);
   migrateAddTelegramItemFileRef(db);
+  migrateAddTelegramItemMediaAttrs(db);
   migrateChannelModes(db);
   migrateAddCatalogSources(db);
   migrateAddTitleMetadataRefresh(db);

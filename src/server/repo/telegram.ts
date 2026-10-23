@@ -134,15 +134,20 @@ export interface NewTelegramItem {
   postedAt?: string | null;
   /** Referência específica do provider pra resolver o arquivo depois (ex: `file_id` da Bot API). Nulo no modo público, que resolve por scraping. */
   fileRef?: string | null;
+  width?: number | null;
+  height?: number | null;
+  supportsStreaming?: boolean | null;
+  fileName?: string | null;
 }
 
 export const upsertTelegramItems = (db: Database, channelId: string, items: NewTelegramItem[]): TelegramItemRow[] => {
   const insert = db.query(
-    `INSERT INTO telegram_items (id, channel_id, message_id, caption, duration_seconds, thumbnail_url, posted_at, file_ref)
-     VALUES ($id, $channelId, $messageId, $caption, $durationSeconds, $thumbnailUrl, $postedAt, $fileRef)
+    `INSERT INTO telegram_items (id, channel_id, message_id, caption, duration_seconds, thumbnail_url, posted_at, file_ref, width, height, supports_streaming, file_name)
+     VALUES ($id, $channelId, $messageId, $caption, $durationSeconds, $thumbnailUrl, $postedAt, $fileRef, $width, $height, $supportsStreaming, $fileName)
      ON CONFLICT (channel_id, message_id) DO UPDATE SET
        caption = excluded.caption, duration_seconds = excluded.duration_seconds,
-       thumbnail_url = excluded.thumbnail_url, posted_at = excluded.posted_at, file_ref = excluded.file_ref`,
+       thumbnail_url = excluded.thumbnail_url, posted_at = excluded.posted_at, file_ref = excluded.file_ref,
+       width = excluded.width, height = excluded.height, supports_streaming = excluded.supports_streaming, file_name = excluded.file_name`,
   );
   const tx = db.transaction((rows: NewTelegramItem[]) => {
     for (const item of rows) {
@@ -155,6 +160,10 @@ export const upsertTelegramItems = (db: Database, channelId: string, items: NewT
         $thumbnailUrl: item.thumbnailUrl ?? null,
         $postedAt: item.postedAt ?? null,
         $fileRef: item.fileRef ?? null,
+        $width: item.width ?? null,
+        $height: item.height ?? null,
+        $supportsStreaming: item.supportsStreaming == null ? null : item.supportsStreaming ? 1 : 0,
+        $fileName: item.fileName ?? null,
       });
     }
   });

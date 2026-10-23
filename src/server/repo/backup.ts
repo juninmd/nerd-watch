@@ -140,11 +140,12 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
        mode = excluded.mode, handle = excluded.handle, cursor = excluded.cursor, created_at = excluded.created_at`,
   );
   const insertTelegramItem = db.query(
-    `INSERT INTO telegram_items (id, channel_id, message_id, caption, duration_seconds, thumbnail_url, posted_at, file_ref)
-     VALUES ($id, $channel_id, $message_id, $caption, $duration_seconds, $thumbnail_url, $posted_at, $file_ref)
+    `INSERT INTO telegram_items (id, channel_id, message_id, caption, duration_seconds, thumbnail_url, posted_at, file_ref, width, height, supports_streaming, file_name)
+     VALUES ($id, $channel_id, $message_id, $caption, $duration_seconds, $thumbnail_url, $posted_at, $file_ref, $width, $height, $supports_streaming, $file_name)
      ON CONFLICT (channel_id, message_id) DO UPDATE SET
        caption = excluded.caption, duration_seconds = excluded.duration_seconds,
-       thumbnail_url = excluded.thumbnail_url, posted_at = excluded.posted_at, file_ref = excluded.file_ref`,
+       thumbnail_url = excluded.thumbnail_url, posted_at = excluded.posted_at, file_ref = excluded.file_ref,
+       width = excluded.width, height = excluded.height, supports_streaming = excluded.supports_streaming, file_name = excluded.file_name`,
   );
 
   const tx = db.transaction((data: BackupData) => {
@@ -229,6 +230,11 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
           $thumbnail_url: i.thumbnail_url,
           $posted_at: i.posted_at,
           $file_ref: i.file_ref,
+          // Backups anteriores às colunas de mídia não as trazem: ficam nulas até o canal ser atualizado.
+          $width: i.width ?? null,
+          $height: i.height ?? null,
+          $supports_streaming: i.supports_streaming ?? null,
+          $file_name: i.file_name ?? null,
         });
       }
     }

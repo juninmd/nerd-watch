@@ -3,6 +3,8 @@ import { StringSession } from 'teleproto/sessions';
 import { config, telegramPersonalEnabled } from '../../config.ts';
 import { updateEnvVar } from '../../env-file.ts';
 import { resolvePeer } from './peer.ts';
+import { type TelegramPersonalItem, toItem } from './personal-item.ts';
+import { withFloodWait } from './flood-wait.ts';
 
 /**
  * Conta pessoal via MTProto (`teleproto`, fork mantido do GramJS): único modo estruturalmente capaz de
@@ -22,6 +24,9 @@ export class TelegramPersonalNotConfiguredError extends Error {
 
 let clientPromise: Promise<TelegramClient> | null = null;
 
+/** floodSleepThreshold 0: sem isso o teleproto dorme sozinho até 60 s em FLOOD_WAIT, fora do nosso teto e do sleep injetável. */
+export const PERSONAL_CLIENT_OPTIONS = { connectionRetries: 5, floodSleepThreshold: 0 } as const;
+
 /** Erros do Telegram que significam "essa session não vale mais" (ex.: encerrada em Ajustes → Dispositivos). */
 const DEAD_SESSION_ERRORS = new Set(['AUTH_KEY_UNREGISTERED', 'SESSION_REVOKED', 'SESSION_EXPIRED', 'USER_DEACTIVATED', 'USER_DEACTIVATED_BAN', 'AUTH_KEY_DUPLICATED']);
 
@@ -40,7 +45,7 @@ const dropSession = async (): Promise<void> => {
 export const withLiveSession = async <T>(fn: (client: TelegramClient) => Promise<T>): Promise<T> => {
   const client = await getClient();
   try {
-    return await fn(client);
+    return await withFloodWait(() => fn(client));
   } catch (err) {
     if (!isDeadSessionError(err)) throw err;
     await dropSession();
@@ -86,9 +91,7 @@ const getClient = async (): Promise<TelegramClient> => {
   if (!telegramPersonalEnabled()) throw new TelegramPersonalNotConfiguredError();
   if (!clientPromise) {
     // biome-ignore lint/style/noNonNullAssertion: telegramPersonalEnabled() já garante os 3 campos presentes
-    const client = new TelegramClient(new StringSession(config.telegram.session!), config.telegram.apiId!, config.telegram.apiHash!, {
-      connectionRetries: 5,
-    });
+    const client = new TelegramClient(new StringSession(config.telegram.session!), config.telegram.apiId!, config.telegram.apiHash!, PERSONAL_CLIENT_OPTIONS);
     clientPromise = client.connect().then(
       () => client,
       (err) => {
@@ -100,26 +103,7 @@ const getClient = async (): Promise<TelegramClient> => {
   return clientPromise;
 };
 
-export interface TelegramPersonalItem {
-  messageId: string;
-  caption: string | null;
-  durationSeconds: number | null;
-  postedAt: string | null;
-}
-
-const toItem = (msg: Api.Message): TelegramPersonalItem | null => {
-  if (!(msg.media instanceof Api.MessageMediaDocument) || !(msg.media.document instanceof Api.Document)) return null;
-  const doc = msg.media.document;
-  const isVideo = doc.mimeType?.startsWith('video/') || doc.attributes.some((a) => a instanceof Api.DocumentAttributeVideo);
-  if (!isVideo) return null;
-  const videoAttr = doc.attributes.find((a): a is Api.DocumentAttributeVideo => a instanceof Api.DocumentAttributeVideo);
-  return {
-    messageId: String(msg.id),
-    caption: msg.message || null,
-    durationSeconds: videoAttr ? Math.round(videoAttr.duration) : null,
-    postedAt: new Date(msg.date * 1000).toISOString(),
-  };
-};
+export type { TelegramPersonalItem } from './personal-item.ts';
 
 /** Máximo que o Telegram devolve por chamada de `getMessages`. */
 export const PERSONAL_PAGE_SIZE = 100;
