@@ -1,4 +1,5 @@
 import { type CalendarEntryDto, type CatalogSource, getCalendar, health, listLibrary, listUpNext, searchArchive } from '../api.ts';
+import { watchPath } from '../telegram-items.ts';
 import { escapeHtml, renderCard } from '../components/card.ts';
 import { continueWatchingCards, refreshResumeCards } from '../components/continue-watching.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
@@ -103,7 +104,13 @@ export const renderDiscover = (host: HTMLElement): void => {
             title: item.title.title,
             posterUrl: item.title.posterUrl,
             meta: `T${item.seasonNumber} · Ep ${item.episodeNumber}${item.episodeName ? ` — ${item.episodeName}` : ''}`,
-            onClick: () => navigate(titlePath(item.title.source as CatalogSource, item.title.mediaType, item.title.sourceId)),
+            // Com vídeo de canal vinculado, o card leva direto a ele (o vídeo é o que se assiste de fato).
+            onClick: () =>
+              navigate(
+                item.channelVideo
+                  ? watchPath(item.channelVideo.channelId, item.channelVideo.messageId)
+                  : titlePath(item.title.source as CatalogSource, item.title.mediaType, item.title.sourceId),
+              ),
           }),
         );
       }

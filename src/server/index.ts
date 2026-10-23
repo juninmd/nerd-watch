@@ -12,6 +12,8 @@ import { anilistRoutes } from './routes/anilist.ts';
 import { libraryRoutes } from './routes/library.ts';
 import { libraryIoRoutes } from './routes/library-io.ts';
 import { libraryRefreshRoutes } from './routes/library-refresh.ts';
+import { listsRoutes } from './routes/lists.ts';
+import { savedViewsRoutes } from './routes/saved-views.ts';
 import { statsRoutes } from './routes/stats.ts';
 import { startMetadataRefreshJob } from './metadata/refresh-service.ts';
 import { calendarIcsRoutes, calendarRoutes } from './routes/calendar.ts';
@@ -44,7 +46,7 @@ app.use('*', async (c, next) => {
         'Access-Control-Allow-Origin': origin || '*',
         'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Max-Age': '86400',
+        'Access-Control-Max-Age': 86400,
       },
     });
   }
@@ -74,6 +76,8 @@ app.route('/api/anilist', anilistRoutes);
 app.route('/api/library', libraryRoutes);
 app.route('/api/library', libraryIoRoutes);
 app.route('/api/library', libraryRefreshRoutes);
+app.route('/api/lists', listsRoutes);
+app.route('/api/views', savedViewsRoutes);
 app.route('/api/calendar', calendarRoutes);
 app.route('/api', calendarIcsRoutes);
 app.route('/api/subtitles', subtitlesRoutes);

@@ -1,5 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import type { TelegramChannelMode, TelegramChannelRow, TelegramItemRow, TitleRow } from '../types.ts';
+import { refreshChannelLinks } from './telegram-links.ts';
 import { upsertTitle } from './titles.ts';
 
 export type TelegramChannel = TelegramChannelRow & { title: TitleRow };
@@ -173,6 +174,8 @@ export const upsertTelegramItems = (db: Database, channelId: string, items: NewT
     }
   });
   tx(items);
+  // Só os recém-gravados: a importação de páginas antigas não reprocessa o canal inteiro.
+  refreshChannelLinks(db, channelId, items.map((i) => i.messageId));
   return listTelegramItems(db, channelId);
 };
 

@@ -1,4 +1,5 @@
 import { listLibrary, listTelegramChannels } from '../api.ts';
+import { listSavedViews } from '../views-api.ts';
 import { icon } from '../icons.ts';
 import { filterEntries, type PaletteEntry } from '../palette-search.ts';
 import { openPickDialog } from './pick-dialog.ts';
@@ -15,6 +16,7 @@ const staticActions = (): PaletteEntry[] => [
   { id: 'go-home', group: 'Ações', title: 'Ir para o Início', keys: 'g h', run: () => navigate('/') },
   { id: 'go-library', group: 'Ações', title: 'Ir para a Biblioteca', keys: 'g b', run: () => navigate('/library') },
   { id: 'go-telegram', group: 'Ações', title: 'Ir para o Telegram', keys: 'g t', run: () => navigate('/telegram') },
+  { id: 'go-lists', group: 'Ações', title: 'Ir para as Listas', run: () => navigate('/lists') },
   { id: 'go-agenda', group: 'Ações', title: 'Ir para a Agenda', keys: 'g a', run: () => navigate('/agenda') },
   { id: 'go-stats', group: 'Ações', title: 'Ir para as Estatísticas', keys: 'g e', run: () => navigate('/estatisticas') },
   { id: 'go-connections', group: 'Ações', title: 'Ir para as Conexões', keys: 'g c', run: () => navigate('/connections') },
@@ -32,7 +34,18 @@ const TTL_MS = 30_000;
 const loadDataEntries = (): Promise<PaletteEntry[]> => {
   if (dataPromise && Date.now() - loadedAt < TTL_MS) return dataPromise;
   loadedAt = Date.now();
-  dataPromise = Promise.allSettled([listLibrary(), listTelegramChannels()]).then(([lib, ch]) => {
+  dataPromise = Promise.allSettled([listLibrary(), listTelegramChannels(), listSavedViews()]).then(([lib, ch, sv]) => {
+    // Visões salvas viram ações: Ctrl K + nome aplica a visão na biblioteca de uma vez.
+    const views: PaletteEntry[] =
+      sv.status === 'fulfilled'
+        ? sv.value.items.map((v) => ({
+            id: `view:${v.id}`,
+            group: 'Ações',
+            title: `Visão: ${v.name}`,
+            sub: 'biblioteca',
+            run: () => navigate(`/library?view=${encodeURIComponent(v.id)}`),
+          }))
+        : [];
     const titles: PaletteEntry[] =
       lib.status === 'fulfilled'
         ? lib.value.items.map((it) => ({
@@ -53,7 +66,7 @@ const loadDataEntries = (): Promise<PaletteEntry[]> => {
             run: () => navigate(`/telegram/${c.titleId}`),
           }))
         : [];
-    return [...titles, ...channels];
+    return [...titles, ...channels, ...views];
   });
   return dataPromise;
 };

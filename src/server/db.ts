@@ -2,7 +2,9 @@ import { Database } from 'bun:sqlite';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { config } from './config.ts';
+import { migrateAddTelegramItemLink } from './db-migrations-telegram-links.ts';
 import { LIBRARY_HISTORY_KINDS, TELEGRAM_CHANNEL_MODES } from './types.ts';
+import { LISTS_SCHEMA } from './schema-lists.ts';
 
 let instance: Database | undefined;
 
@@ -60,7 +62,8 @@ CREATE TABLE IF NOT EXISTS library_entries (
   current_season INTEGER,
   current_episode INTEGER,
   added_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  rewatch_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS telegram_channels (
@@ -87,7 +90,6 @@ CREATE TABLE IF NOT EXISTS telegram_items (
   UNIQUE (channel_id, message_id)
 );
 
-/* Progresso de reprodução por vídeo (chave = a mesma do cliente). Criada com IF NOT EXISTS: idempotente. */
 CREATE TABLE IF NOT EXISTS playback_positions (
   key TEXT PRIMARY KEY,
   seconds REAL NOT NULL,
@@ -99,15 +101,12 @@ CREATE TABLE IF NOT EXISTS playback_positions (
 
 CREATE INDEX IF NOT EXISTS idx_playback_at ON playback_positions(at);
 
--- Origem (magnet normalizado) de cada torrent do provider genérico: o engine esquece o torrent quando
--- fica ocioso, então é daqui que ele é re-adicionado depois de um restart. Idempotente por CREATE IF NOT EXISTS.
 CREATE TABLE IF NOT EXISTS torrent_sources (
   infohash TEXT PRIMARY KEY,
   magnet TEXT NOT NULL,
   added_at TEXT NOT NULL
 );
 
--- Histórico da lista por título (sobrevive à remoção da entrada). Só cresce: o import reaproveita os ids do backup.
 CREATE TABLE IF NOT EXISTS library_history (
   id TEXT PRIMARY KEY,
   title_id TEXT NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
@@ -117,9 +116,7 @@ CREATE TABLE IF NOT EXISTS library_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_library_history_title ON library_history(title_id, at);
--- Estatísticas leem eventos por intervalo de data (todos os títulos): o índice por título não ajuda nisso.
 CREATE INDEX IF NOT EXISTS idx_library_history_at ON library_history(at);
--- Avisos de lançamento já entregues (chave = título + episódio/data). Sem isso, um restart repetiria os avisos.
 CREATE TABLE IF NOT EXISTS notifications_sent (
   key TEXT PRIMARY KEY,
   sent_at TEXT NOT NULL
@@ -130,7 +127,7 @@ CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_seasons_title ON seasons(title_id);
 CREATE INDEX IF NOT EXISTS idx_telegram_items_channel ON telegram_items(channel_id);
 CREATE INDEX IF NOT EXISTS idx_library_status ON library_entries(watch_status);
-`;
+${LISTS_SCHEMA}`;
 
 /**
  * `titles.source` já existia com CHECK sem 'telegram'; SQLite não faz ALTER de CHECK, então recriamos a
@@ -276,16 +273,8 @@ export const migrateAddTelegramItemMediaAttrs = (db: Database): void => {
 };
 
 /**
- * `titles.genres` (JSON array de strings) e `titles.runtime_minutes` (filme; em série, duração típica do episódio).
- * Nulas até o primeiro fetch do catálogo que as traga. `ADD COLUMN` por coluna que falta: idempotente.
+ * `library_entries.rewatch_count` (quantas revisões). Roda depois de MIGRATIONS: a tabela já existe em qualquer banco.
  */
-export const migrateAddTitleStats = (db: Database): void => {
-  const columns = new Set(db.query<{ name: string }, []>('PRAGMA table_info(titles)').all().map((c) => c.name));
-  if (!columns.has('genres')) db.exec('ALTER TABLE titles ADD COLUMN genres TEXT;');
-  if (!columns.has('runtime_minutes')) db.exec('ALTER TABLE titles ADD COLUMN runtime_minutes INTEGER;');
-};
-
-/** `library_entries.rewatch_count` (quantas revisões). Roda depois de MIGRATIONS: a tabela já existe em qualquer banco. */
 export const migrateAddRewatchCount = (db: Database): void => {
   const columns = db.query<{ name: string }, []>('PRAGMA table_info(library_entries)').all();
   if (columns.some((c) => c.name === 'rewatch_count')) return;
@@ -304,7 +293,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
   migrateAddRewatchCount(db);
-  migrateAddTitleStats(db);
+  migrateAddTelegramItemLink(db);
   return db;
 };
 

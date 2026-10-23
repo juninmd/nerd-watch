@@ -96,6 +96,14 @@ export interface TelegramItemRow {
   /** 1 = o Telegram marcou o vídeo como servível em streaming; 0 = não; null = sem atributo de vídeo (ex.: modo público). */
   supports_streaming: number | null;
   file_name: string | null;
+  /** Vínculo com a biblioteca (ver db-migrations-telegram-links.ts). Tudo nulo = sem vínculo. */
+  title_id: string | null;
+  season_number: number | null;
+  episode_number: number | null;
+  episode_end: number | null;
+  link_status: 'suggested' | 'linked' | null;
+  link_source: 'auto' | 'manual' | null;
+  link_confidence: number | null;
 }
 
 export interface SearchResult {

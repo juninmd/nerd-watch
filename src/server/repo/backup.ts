@@ -10,8 +10,12 @@ import {
   type TitleRow,
 } from '../types.ts';
 import { InvalidPlaybackError, PLAYBACK_MAX_ROWS, type PlaybackEntry, listPlaybackEntries, parsePlaybackEntry, upsertPlaybackEntry } from './playback.ts';
+import { type ListItemRow, type ListsBackupFields, importListsBackup, validateListsBackup } from './backup-lists.ts';
+import type { ListRow } from './lists.ts';
+import type { SavedViewRow } from './saved-views.ts';
+import { ValidationError } from '../validation-error.ts';
 
-export interface BackupData {
+export interface BackupData extends ListsBackupFields {
   version: 1;
   exportedAt: string;
   titles: TitleRow[];
@@ -38,6 +42,9 @@ export const exportBackup = (db: Database): BackupData => ({
   telegramItems: db.query<TelegramItemRow, []>('SELECT * FROM telegram_items').all(),
   playbackPositions: listPlaybackEntries(db, PLAYBACK_MAX_ROWS, 0),
   libraryHistory: db.query<LibraryHistoryRow, []>('SELECT * FROM library_history').all(),
+  lists: db.query<ListRow, []>('SELECT * FROM lists').all(),
+  listItems: db.query<ListItemRow, []>('SELECT list_id, title_id, position, added_at FROM list_items').all(),
+  savedViews: db.query<SavedViewRow, []>('SELECT * FROM saved_views').all(),
 });
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -80,6 +87,12 @@ export const validateBackup = (data: unknown): BackupData => {
       }
     }
   }
+  try {
+    validateListsBackup(data);
+  } catch (err) {
+    if (err instanceof ValidationError) throw new InvalidBackupError(`listas: ${err.message}`);
+    throw err;
+  }
   return data as unknown as BackupData;
 };
 
@@ -89,6 +102,8 @@ export interface ImportCounts {
   episodes: number;
   libraryEntries: number;
   libraryHistory: number;
+  lists: number;
+  savedViews: number;
 }
 
 /** Restaura o dump preservando os IDs originais. `ON CONFLICT DO UPDATE` (não `OR REPLACE`) porque `OR REPLACE`
@@ -238,6 +253,8 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
         });
       }
     }
+    // Depois dos títulos (FK de list_items). Backup sem os campos novos simplesmente não traz linhas.
+    importListsBackup(db, data);
     // LWW: reimportar um backup antigo não regride uma posição mais nova que já está no banco.
     if (data.playbackPositions) {
       for (const p of data.playbackPositions) upsertPlaybackEntry(db, parsePlaybackEntry(p.key, p));
@@ -251,5 +268,7 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
     episodes: backup.episodes.length,
     libraryEntries: backup.libraryEntries.length,
     libraryHistory: backup.libraryHistory?.length ?? 0,
+    lists: backup.lists?.length ?? 0,
+    savedViews: backup.savedViews?.length ?? 0,
   };
 };

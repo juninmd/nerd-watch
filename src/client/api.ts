@@ -242,6 +242,8 @@ export interface UpNextItemDto {
   episodeName: string;
   runtime: number | null;
   activityAt: string;
+  /** Vídeo de canal vinculado a este episódio: o card leva para ele, não para a série. */
+  channelVideo: { channelId: string; messageId: string } | null;
 }
 
 export const listUpNext = (limit = 12): Promise<{ items: UpNextItemDto[] }> =>
@@ -557,6 +559,20 @@ export interface TelegramItemDto {
   postedAt: string | null;
   /** Iframe de embed quando a fonte só toca assim (YouTube). Ausente: o player do app. */
   embedUrl?: string;
+  /** Episódio da biblioteca ao qual o vídeo está vinculado (sugerido ou confirmado). */
+  link?: TelegramItemLinkDto | null;
+}
+
+export interface TelegramItemLinkDto {
+  titleId: string;
+  title: string | null;
+  posterUrl: string | null;
+  seasonNumber: number;
+  episodeNumber: number;
+  episodeEnd: number | null;
+  status: 'suggested' | 'linked';
+  source: 'auto' | 'manual';
+  confidence: number | null;
 }
 
 export interface TelegramChannelDetailDto extends TelegramChannelDto {
@@ -681,3 +697,28 @@ export const listRecentTelegramItems = (limit = 12): Promise<{ items: TelegramRe
 /** Completa nome, foto e descrição dos canais adicionados só pelo @. */
 export const refreshTelegramChannelInfo = (): Promise<{ checked: number; updated: number }> =>
   fetch('/api/telegram/channels/refresh-info', { method: 'POST' }).then((r) => json<{ checked: number; updated: number }>(r));
+
+/** Vínculo de um vídeo do canal com um episódio da biblioteca: sugestão para confirmar, ou confirmado. */
+const postLink = (channelId: string, path: string, method: 'POST' | 'DELETE', body?: unknown) =>
+  fetch(`/api/telegram/channels/${channelId}/${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }).then((r) => json<unknown>(r));
+
+export const linkTelegramItem = (
+  channelId: string,
+  messageId: string,
+  link: { titleId: string; seasonNumber: number; episodeNumber: number },
+): Promise<{ link: TelegramItemLinkDto | null }> =>
+  postLink(channelId, `items/${encodeURIComponent(messageId)}/link`, 'POST', link) as Promise<{ link: TelegramItemLinkDto | null }>;
+
+/** "Sem vínculo": o automático respeita essa decisão e não volta a sugerir o vídeo. */
+export const unlinkTelegramItem = (channelId: string, messageId: string): Promise<{ link: null }> =>
+  postLink(channelId, `items/${encodeURIComponent(messageId)}/link`, 'DELETE') as Promise<{ link: null }>;
+
+export const refreshTelegramLinks = (channelId: string): Promise<{ linked: number; suggested: number; unlinked: number }> =>
+  postLink(channelId, 'links/refresh', 'POST') as Promise<{ linked: number; suggested: number; unlinked: number }>;
+
+export const acceptTelegramSuggestions = (channelId: string): Promise<{ accepted: number }> =>
+  postLink(channelId, 'links/accept-suggestions', 'POST') as Promise<{ accepted: number }>;

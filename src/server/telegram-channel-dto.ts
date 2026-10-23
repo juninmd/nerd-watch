@@ -1,6 +1,9 @@
+import { posterUrl } from './routes/library.ts';
 import { getSource } from './providers/sources/registry.ts';
 import { isPrivateHandle } from './providers/telegram/ref.ts';
 import { HISTORY_END } from './repo/telegram.ts';
+import { type LinkedTitleInfo, itemLinkFromRow } from './repo/telegram-links.ts';
+import type { TelegramItemRow } from './types.ts';
 import { hasHistory } from './telegram-history.ts';
 import type { TelegramChannel } from './repo/telegram.ts';
 
@@ -28,3 +31,11 @@ export const toChannelResponse =(channel: TelegramChannel, itemCount: number) =>
   /** Ainda há vídeos mais antigos no Telegram para carregar (o bot e as fontes de arquivo não têm). */
   canLoadMore: hasHistory(channel.mode) && channel.cursor !== HISTORY_END,
 });
+
+/** Vínculo do vídeo com o título da biblioteca (nome e pôster para a lista do canal); nulo sem vínculo. */
+export const itemLinkDto = (row: TelegramItemRow, titles: Map<string, LinkedTitleInfo>) => {
+  const link = itemLinkFromRow(row);
+  if (!link) return null;
+  const title = titles.get(link.titleId);
+  return { ...link, title: title?.title ?? null, posterUrl: title ? posterUrl(title.source, title.posterPath) : null };
+};

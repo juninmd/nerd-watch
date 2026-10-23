@@ -107,6 +107,7 @@ const fakeServer = () => {
       if (failWith) throw failWith;
       beforePut?.();
       rows.set(key, { key, seconds: p.seconds, duration: p.duration, at: p.at, done: p.done === true, meta: p.meta ?? null });
+      return null;
     },
     async remove(key, opts) {
       calls.push(`DELETE ${key}`);
