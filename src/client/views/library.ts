@@ -2,6 +2,7 @@ import type { WatchStatus } from '../../server/types.ts';
 import { bulkLibrary, listLibrary, type LibraryItemDto } from '../api.ts';
 import { renderCard } from '../components/card.ts';
 import { icon } from '../icons.ts';
+import { openPickDialog } from '../components/pick-dialog.ts';
 import { countByStatus, filterBySource, filterByStatus, type SourceFilter, type StatusFilter } from '../library-filter.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
@@ -64,6 +65,7 @@ export const renderLibrary = (host: HTMLElement): void => {
       <div class="chip-row" id="lib-tabs" role="group" aria-label="Filtrar por status"></div>
       <select class="select input-pill" id="lib-source" aria-label="Filtrar por origem">${SOURCES.map((s) => `<option value="${s.value}">${s.label}</option>`).join('')}</select>
       <span class="toolbar-spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="lib-pick" type="button">🎲 o que assistir hoje</button>
       <button class="btn btn-ghost btn-sm" id="lib-layout" type="button"></button>
       <button class="btn btn-ghost btn-sm" id="lib-select" type="button" aria-pressed="false">${icon('select', 'sm')} selecionar</button>
     </div>
@@ -174,6 +176,8 @@ export const renderLibrary = (host: HTMLElement): void => {
     resetSelection();
     renderList();
   });
+
+  (host.querySelector('#lib-pick') as HTMLButtonElement).addEventListener('click', () => openPickDialog());
 
   layoutBtn.addEventListener('click', () => {
     layout = layout === 'grid' ? 'list' : 'grid';

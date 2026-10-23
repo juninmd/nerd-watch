@@ -1,4 +1,4 @@
-import { type CalendarEntryDto, type CatalogSource, getCalendar, health, listLibrary, searchArchive } from '../api.ts';
+import { type CalendarEntryDto, type CatalogSource, getCalendar, health, listLibrary, listUpNext, searchArchive } from '../api.ts';
 import { escapeHtml, renderCard } from '../components/card.ts';
 import { continueWatchingCards, refreshResumeCards } from '../components/continue-watching.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
@@ -43,8 +43,14 @@ export const renderDiscover = (host: HTMLElement): void => {
   const todayIso = localIsoDate(today);
   const tomorrowIso = localIsoDate(addDays(today, 1));
 
-  Promise.all([health(), listLibrary('watching'), searchArchive('').catch(() => ({ results: [] })), getCalendar(2).catch(() => ({ entries: [] as CalendarEntryDto[] }))])
-    .then(([h, watching, archive, calendar]) => {
+  Promise.all([
+    health(),
+    listLibrary('watching'),
+    searchArchive('').catch(() => ({ results: [] })),
+    getCalendar(2).catch(() => ({ entries: [] as CalendarEntryDto[] })),
+    listUpNext().catch(() => ({ items: [] })),
+  ])
+    .then(([h, watching, archive, calendar, upNext]) => {
       const banner = h.tmdbEnabled
         ? ''
         : `<div class="banner warn">${icon('alert')}<span>Catálogo TMDB desligado — veja como ligar em <a href="#/connections">Conexões</a>. Domínio público, Telegram e sua biblioteca funcionam normalmente.</span></div>`;
@@ -54,6 +60,7 @@ export const renderDiscover = (host: HTMLElement): void => {
         <p class="view-subtitle">O que você está assistindo, o que sai hoje e amanhã, o que chegou nos seus canais e clássicos de domínio público.</p></header>
         ${banner}
         <div class="section">${sectionHead('play', 'Continuar assistindo', { href: '#/library', label: 'ver biblioteca' })}<div class="rail" id="watching-rail"></div></div>
+        <div class="section" id="up-next-section">${sectionHead('play', 'Próximos episódios')}<div class="rail" id="up-next-rail"></div></div>
         <div class="section">${sectionHead('calendar', 'Hoje e amanhã', { href: '#/agenda', label: 'ver agenda' })}<div id="upcoming"></div></div>
         <div class="section">${sectionHead('send', 'Novo nos canais', { href: '#/telegram', label: 'ver canais' })}<div id="feed"></div></div>
         <div class="section">${sectionHead('film', 'Domínio público', { href: '#/public-domain', label: 'ver tudo' })}<div class="rail" id="archive-rail"></div></div>
@@ -83,6 +90,20 @@ export const renderDiscover = (host: HTMLElement): void => {
             meta: item.currentSeason ? `T${item.currentSeason} · Ep ${item.currentEpisode}` : undefined,
             status: item.watchStatus,
             onClick: () => navigate(libraryItemPath(item)),
+          }),
+        );
+      }
+
+      // Sem série em andamento com episódio seguinte, a seção some em vez de mostrar um trilho vazio.
+      const upNextRail = host.querySelector('#up-next-rail') as HTMLElement;
+      if (upNext.items.length === 0) host.querySelector('#up-next-section')?.remove();
+      for (const item of upNext.items) {
+        upNextRail.appendChild(
+          renderCard({
+            title: item.title.title,
+            posterUrl: item.title.posterUrl,
+            meta: `T${item.seasonNumber} · Ep ${item.episodeNumber}${item.episodeName ? ` — ${item.episodeName}` : ''}`,
+            onClick: () => navigate(titlePath(item.title.source as CatalogSource, item.title.mediaType, item.title.sourceId)),
           }),
         );
       }

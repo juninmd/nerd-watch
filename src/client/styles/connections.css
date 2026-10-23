@@ -105,6 +105,25 @@
   margin-top: 18px;
 }
 
+/* Relatório de importação: resumo, nota e lista de linhas com erro (rolável se for grande). */
+.conn-report {
+  margin-top: 14px;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.conn-report p {
+  margin: 0 0 8px;
+}
+
+.conn-report-list {
+  margin: 0;
+  padding-left: 20px;
+  max-height: 240px;
+  overflow: auto;
+}
+
 .conn-form {
   display: grid;
   gap: 12px;

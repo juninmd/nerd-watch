@@ -2,11 +2,12 @@ import { Database } from 'bun:sqlite';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { config } from './config.ts';
-import { TELEGRAM_CHANNEL_MODES } from './types.ts';
+import { LIBRARY_HISTORY_KINDS, TELEGRAM_CHANNEL_MODES } from './types.ts';
 
 let instance: Database | undefined;
 
 const MODES_SQL = TELEGRAM_CHANNEL_MODES.map((m) => `'${m}'`).join(', ');
+const HISTORY_KINDS_SQL = LIBRARY_HISTORY_KINDS.map((k) => `'${k}'`).join(', ');
 
 const MIGRATIONS = `
 CREATE TABLE IF NOT EXISTS titles (
@@ -22,6 +23,8 @@ CREATE TABLE IF NOT EXISTS titles (
   release_date TEXT,
   vote_average REAL,
   created_at TEXT NOT NULL,
+  metadata_status TEXT,
+  metadata_refreshed_at TEXT,
   UNIQUE (source, source_id)
 );
 
@@ -102,6 +105,22 @@ CREATE TABLE IF NOT EXISTS torrent_sources (
   infohash TEXT PRIMARY KEY,
   magnet TEXT NOT NULL,
   added_at TEXT NOT NULL
+);
+
+-- Histórico da lista por título (sobrevive à remoção da entrada). Só cresce: o import reaproveita os ids do backup.
+CREATE TABLE IF NOT EXISTS library_history (
+  id TEXT PRIMARY KEY,
+  title_id TEXT NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN (${HISTORY_KINDS_SQL})),
+  at TEXT NOT NULL,
+  detail TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_library_history_title ON library_history(title_id, at);
+-- Avisos de lançamento já entregues (chave = título + episódio/data). Sem isso, um restart repetiria os avisos.
+CREATE TABLE IF NOT EXISTS notifications_sent (
+  key TEXT PRIMARY KEY,
+  sent_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_episodes_season ON episodes(season_id);
@@ -215,6 +234,19 @@ export const migrateChannelModes = (db: Database): void => {
   db.exec('PRAGMA foreign_keys = ON;');
 };
 
+/**
+ * `titles` ganhou o status da série na TMDB e a data do último refresh de metadados (ver metadata/). Ambas são
+ * nulas e `ADD COLUMN` basta. Se a tabela ainda não existe, não faz nada: o CREATE de MIGRATIONS já traz as colunas.
+ * Deve rodar depois de `migrateAddCatalogSources` (que recria `titles` com `SELECT *`).
+ */
+export const migrateAddTitleMetadataRefresh = (db: Database): void => {
+  const hasTable = db.query<{ n: number }, []>("SELECT COUNT(*) as n FROM sqlite_master WHERE type = 'table' AND name = 'titles'").get();
+  if (!hasTable || hasTable.n === 0) return;
+  const columns = db.query<{ name: string }, []>('PRAGMA table_info(titles)').all().map((c) => c.name);
+  if (!columns.includes('metadata_status')) db.exec('ALTER TABLE titles ADD COLUMN metadata_status TEXT;');
+  if (!columns.includes('metadata_refreshed_at')) db.exec('ALTER TABLE titles ADD COLUMN metadata_refreshed_at TEXT;');
+};
+
 /** `telegram_items.file_ref` foi adicionada depois; `ADD COLUMN` simples resolve (sem a dança de CHECK). */
 export const migrateAddTelegramItemFileRef = (db: Database): void => {
   const hasTable = db.query<{ n: number }, []>("SELECT COUNT(*) as n FROM sqlite_master WHERE type = 'table' AND name = 'telegram_items'").get();
@@ -241,6 +273,13 @@ export const migrateAddTelegramItemMediaAttrs = (db: Database): void => {
   }
 };
 
+/** `library_entries.rewatch_count` (quantas revisões). Roda depois de MIGRATIONS: a tabela já existe em qualquer banco. */
+export const migrateAddRewatchCount = (db: Database): void => {
+  const columns = db.query<{ name: string }, []>('PRAGMA table_info(library_entries)').all();
+  if (columns.some((c) => c.name === 'rewatch_count')) return;
+  db.exec('ALTER TABLE library_entries ADD COLUMN rewatch_count INTEGER NOT NULL DEFAULT 0;');
+};
+
 export const openDb = (path: string = config.dbPath): Database => {
   const db = new Database(path, { create: true });
   db.exec('PRAGMA journal_mode = WAL;');
@@ -249,8 +288,10 @@ export const openDb = (path: string = config.dbPath): Database => {
   migrateAddTelegramItemMediaAttrs(db);
   migrateChannelModes(db);
   migrateAddCatalogSources(db);
+  migrateAddTitleMetadataRefresh(db);
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
+  migrateAddRewatchCount(db);
   return db;
 };
 

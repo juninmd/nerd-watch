@@ -10,7 +10,8 @@ const JOIN_SELECT = `
     t.id as t_id, t.source as t_source, t.source_id as t_source_id, t.media_type as t_media_type,
     t.title as t_title, t.original_title as t_original_title, t.overview as t_overview,
     t.poster_path as t_poster_path, t.backdrop_path as t_backdrop_path,
-    t.release_date as t_release_date, t.vote_average as t_vote_average, t.created_at as t_created_at
+    t.release_date as t_release_date, t.vote_average as t_vote_average, t.created_at as t_created_at,
+    t.metadata_status as t_metadata_status, t.metadata_refreshed_at as t_metadata_refreshed_at
   FROM telegram_channels c JOIN titles t ON t.id = c.id
 `;
 
@@ -32,6 +33,8 @@ interface JoinedRow {
   t_release_date: string | null;
   t_vote_average: number | null;
   t_created_at: string;
+  t_metadata_status: string | null;
+  t_metadata_refreshed_at: string | null;
 }
 
 const toChannel = (row: JoinedRow): TelegramChannel => ({
@@ -53,6 +56,8 @@ const toChannel = (row: JoinedRow): TelegramChannel => ({
     release_date: row.t_release_date,
     vote_average: row.t_vote_average,
     created_at: row.t_created_at,
+    metadata_status: row.t_metadata_status,
+    metadata_refreshed_at: row.t_metadata_refreshed_at,
   },
 });
 

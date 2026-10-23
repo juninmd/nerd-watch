@@ -1,6 +1,7 @@
 import { listLibrary, listTelegramChannels } from '../api.ts';
 import { icon } from '../icons.ts';
 import { filterEntries, type PaletteEntry } from '../palette-search.ts';
+import { openPickDialog } from './pick-dialog.ts';
 import { navigate } from '../router.ts';
 import { handleLabel } from '../source-modes.ts';
 import { libraryItemPath } from '../title-link.ts';
@@ -17,6 +18,7 @@ const staticActions = (): PaletteEntry[] => [
   { id: 'go-agenda', group: 'Ações', title: 'Ir para a Agenda', keys: 'g a', run: () => navigate('/agenda') },
   { id: 'go-connections', group: 'Ações', title: 'Ir para as Conexões', keys: 'g c', run: () => navigate('/connections') },
   { id: 'go-pd', group: 'Ações', title: 'Explorar o domínio público', run: () => navigate('/public-domain') },
+  { id: 'pick', group: 'Ações', title: 'O que assistir hoje (sorteio)', run: () => openPickDialog() },
   { id: 'telegram-import', group: 'Ações', title: 'Importar meus canais do Telegram', run: () => navigate('/telegram?import=1') },
   { id: 'backup', group: 'Ações', title: 'Exportar ou importar backup', run: () => navigate('/connections?focus=backup') },
 ];
@@ -67,6 +69,8 @@ export const openCommandPalette = (): void => {
   dialog = document.createElement('dialog');
   dialog.className = 'palette';
   dialog.setAttribute('closedby', 'any');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-label', 'Paleta de comandos');
   dialog.innerHTML = `
     <div class="pal-in">${icon('search')}
@@ -75,9 +79,14 @@ export const openCommandPalette = (): void => {
       <kbd>Esc</kbd></div>
     <div id="pal-list" class="pal-list" role="listbox" aria-label="Resultados"></div>
     <div class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span></div>`;
+  // Quem abriu (botão, atalho, link) recebe o foco de volta ao fechar; sem isso o foco cai no <body>.
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   document.body.appendChild(dialog);
   const d = dialog;
-  d.addEventListener('close', () => d.remove());
+  d.addEventListener('close', () => {
+    d.remove();
+    if (opener?.isConnected) opener.focus();
+  });
   // Fallback para navegadores sem `closedby="any"`: clique no backdrop fecha.
   d.addEventListener('click', (e) => {
     if (e.target === d) d.close();

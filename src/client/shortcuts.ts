@@ -12,6 +12,14 @@ const ROWS: Array<[string, string]> = [
   ['g  a', 'Agenda'],
   ['g  c', 'Conexões'],
   ['s', 'alternar spoilers'],
+  ['espaço  k', 'player: reproduzir / pausar'],
+  ['j  l', 'player: voltar / avançar 10 s'],
+  ['←  →', 'player: voltar / avançar 5 s'],
+  ['↑  ↓', 'player: volume'],
+  ['0 … 9', 'player: ir para 0% … 90%'],
+  ['m  f  c', 'player: mudo, tela cheia, legendas'],
+  ['&lt;  &gt;', 'player: velocidade menor / maior'],
+  ['n', 'player: próximo vídeo'],
   ['?', 'esta ajuda'],
 ];
 

@@ -47,7 +47,8 @@ const endOf = (xml: string, token: string, from: number): number => {
   return at + token.length;
 };
 
-export const parseXml = (xml: string): XmlNode => {
+/** `maxNodes` existe para documentos legítimos maiores que o padrão (ex.: lista do MyAnimeList); o teto continua finito. */
+export const parseXml = (xml: string, maxNodes = MAX_NODES): XmlNode => {
   const doc: XmlNode = { name: '#document', text: '', children: [] };
   const stack: XmlNode[] = [doc];
   let nodes = 0;
@@ -86,7 +87,7 @@ export const parseXml = (xml: string): XmlNode => {
       const rawName = (selfClosing ? inner.slice(0, -1) : inner).trim().split(/[\s/]/)[0] ?? '';
       if (!NAME_RE.test(rawName)) throw new XmlError('nome de tag inválido');
       const node: XmlNode = { name: localName(rawName), text: '', children: [] };
-      if (++nodes > MAX_NODES) throw new XmlError('XML grande demais');
+      if (++nodes > maxNodes) throw new XmlError('XML grande demais');
       (stack.at(-1) as XmlNode).children.push(node);
       if (!selfClosing) {
         stack.push(node);

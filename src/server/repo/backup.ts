@@ -1,5 +1,14 @@
 import type { Database } from 'bun:sqlite';
-import type { EpisodeRow, LibraryEntryRow, SeasonRow, TelegramChannelRow, TelegramItemRow, TitleRow } from '../types.ts';
+import {
+  LIBRARY_HISTORY_KINDS,
+  type EpisodeRow,
+  type LibraryEntryRow,
+  type LibraryHistoryRow,
+  type SeasonRow,
+  type TelegramChannelRow,
+  type TelegramItemRow,
+  type TitleRow,
+} from '../types.ts';
 import { InvalidPlaybackError, PLAYBACK_MAX_ROWS, type PlaybackEntry, listPlaybackEntries, parsePlaybackEntry, upsertPlaybackEntry } from './playback.ts';
 
 export interface BackupData {
@@ -11,8 +20,9 @@ export interface BackupData {
   libraryEntries: LibraryEntryRow[];
   telegramChannels?: TelegramChannelRow[];
   telegramItems?: TelegramItemRow[];
-  /** Opcional: backups anteriores a esta tabela não têm o campo. */
+  /** Opcional: backups anteriores a esta tabela não têm o campo (e as entradas, o `rewatch_count`). */
   playbackPositions?: PlaybackEntry[];
+  libraryHistory?: LibraryHistoryRow[];
 }
 
 export class InvalidBackupError extends Error {}
@@ -27,6 +37,7 @@ export const exportBackup = (db: Database): BackupData => ({
   telegramChannels: db.query<TelegramChannelRow, []>('SELECT * FROM telegram_channels').all(),
   telegramItems: db.query<TelegramItemRow, []>('SELECT * FROM telegram_items').all(),
   playbackPositions: listPlaybackEntries(db, PLAYBACK_MAX_ROWS, 0),
+  libraryHistory: db.query<LibraryHistoryRow, []>('SELECT * FROM library_history').all(),
 });
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -41,6 +52,21 @@ export const validateBackup = (data: unknown): BackupData => {
   }
   if (data.telegramItems !== undefined && !Array.isArray(data.telegramItems)) {
     throw new InvalidBackupError('campo "telegramItems" inválido');
+  }
+  for (const entry of data.libraryEntries as unknown[]) {
+    const count = (entry as { rewatch_count?: unknown } | null)?.rewatch_count;
+    if (count !== undefined && (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0)) {
+      throw new InvalidBackupError('libraryEntries: rewatch_count deve ser um inteiro não negativo');
+    }
+  }
+  if (data.libraryHistory !== undefined) {
+    if (!Array.isArray(data.libraryHistory)) throw new InvalidBackupError('campo "libraryHistory" inválido');
+    for (const row of data.libraryHistory as unknown[]) {
+      const kind = (row as { kind?: unknown } | null)?.kind;
+      if (typeof kind !== 'string' || !(LIBRARY_HISTORY_KINDS as readonly string[]).includes(kind)) {
+        throw new InvalidBackupError('libraryHistory: tipo de evento desconhecido');
+      }
+    }
   }
   if (data.playbackPositions !== undefined) {
     if (!Array.isArray(data.playbackPositions)) throw new InvalidBackupError('campo "playbackPositions" inválido');
@@ -62,6 +88,7 @@ export interface ImportCounts {
   seasons: number;
   episodes: number;
   libraryEntries: number;
+  libraryHistory: number;
 }
 
 /** Restaura o dump preservando os IDs originais. `ON CONFLICT DO UPDATE` (não `OR REPLACE`) porque `OR REPLACE`
@@ -92,12 +119,18 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
        overview = excluded.overview, air_date = excluded.air_date, runtime = excluded.runtime, still_path = excluded.still_path`,
   );
   const insertLibraryEntry = db.query(
-    `INSERT INTO library_entries (id, title_id, watch_status, rating, notes, current_season, current_episode, added_at, updated_at)
-     VALUES ($id, $title_id, $watch_status, $rating, $notes, $current_season, $current_episode, $added_at, $updated_at)
+    `INSERT INTO library_entries (id, title_id, watch_status, rating, notes, current_season, current_episode, rewatch_count, added_at, updated_at)
+     VALUES ($id, $title_id, $watch_status, $rating, $notes, $current_season, $current_episode, $rewatch_count, $added_at, $updated_at)
      ON CONFLICT (id) DO UPDATE SET
        title_id = excluded.title_id, watch_status = excluded.watch_status, rating = excluded.rating, notes = excluded.notes,
-       current_season = excluded.current_season, current_episode = excluded.current_episode,
+       current_season = excluded.current_season, current_episode = excluded.current_episode, rewatch_count = excluded.rewatch_count,
        added_at = excluded.added_at, updated_at = excluded.updated_at`,
+  );
+  // Histórico é só de acréscimo: reimportar o mesmo evento (mesmo id) não duplica.
+  const insertLibraryHistory = db.query(
+    `INSERT INTO library_history (id, title_id, kind, at, detail)
+     VALUES ($id, $title_id, $kind, $at, $detail)
+     ON CONFLICT (id) DO NOTHING`,
   );
 
   const insertTelegramChannel = db.query(
@@ -164,9 +197,16 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
         $notes: l.notes,
         $current_season: l.current_season,
         $current_episode: l.current_episode,
+        // Backups antigos não têm o contador: entram com 0, como uma entrada nova.
+        $rewatch_count: l.rewatch_count ?? 0,
         $added_at: l.added_at,
         $updated_at: l.updated_at,
       });
+    }
+    if (data.libraryHistory) {
+      for (const h of data.libraryHistory) {
+        insertLibraryHistory.run({ $id: h.id, $title_id: h.title_id, $kind: h.kind, $at: h.at, $detail: h.detail });
+      }
     }
     if (data.telegramChannels) {
       for (const c of data.telegramChannels) {
@@ -210,5 +250,6 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
     seasons: backup.seasons.length,
     episodes: backup.episodes.length,
     libraryEntries: backup.libraryEntries.length,
+    libraryHistory: backup.libraryHistory?.length ?? 0,
   };
 };

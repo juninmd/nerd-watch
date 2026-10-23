@@ -24,7 +24,6 @@ import { MODE_INFO } from '../source-modes.ts';
 import { itemDescription, orderItems, pickNextChannel, toDockItem, watchPath } from '../telegram-items.ts';
 import { formatDuration } from '../time-format.ts';
 
-const SEEK_SECONDS = 10;
 const NEXT_CHANNEL_COUNTDOWN = 8;
 
 const nextRow = (item: DockItem, i: number): string => {
@@ -43,43 +42,6 @@ const channelRow = (ch: TelegramChannelDto): string => `
     <span class="next-thumb"${ch.posterUrl ? ` style="background-image:url('${escapeHtml(ch.posterUrl)}')"` : ''}>${ch.posterUrl ? '' : icon('send')}</span>
     <span class="next-text"><b>${escapeHtml(ch.title)}</b><small>${ch.itemCount} vídeo${ch.itemCount === 1 ? '' : 's'}</small></span>
   </button>`;
-
-const togglePlay = (v: HTMLVideoElement): void => {
-  if (v.paused) void v.play();
-  else v.pause();
-};
-
-/** Teclas no estilo do YouTube; ignoradas quando o foco já está em algo que as trata (vídeo, campo, botão, link). */
-const onKey = (e: KeyboardEvent): void => {
-  const v = getVideo();
-  if (!v || e.ctrlKey || e.metaKey || e.altKey) return;
-  if ((e.target as HTMLElement).closest('video, input, textarea, select, button, a, [role="slider"]')) return;
-  const actions: Record<string, () => void> = {
-    ' ': () => togglePlay(v),
-    k: () => togglePlay(v),
-    j: () => {
-      v.currentTime = Math.max(0, v.currentTime - SEEK_SECONDS);
-    },
-    l: () => {
-      v.currentTime = Math.min(v.duration || Number.POSITIVE_INFINITY, v.currentTime + SEEK_SECONDS);
-    },
-    m: () => {
-      v.muted = !v.muted;
-    },
-    f: () => {
-      if (document.fullscreenElement) void document.exitFullscreen();
-      else void v.requestFullscreen?.();
-    },
-    n: () => {
-      const now = getNowPlaying();
-      if (now) playIndex(now.index + 1);
-    },
-  };
-  const action = actions[e.key.toLowerCase()];
-  if (!action) return;
-  e.preventDefault();
-  action();
-};
 
 const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: TelegramChannelDto[], messageId: string): void => {
   let order: QueueOrder = getQueueOrder();
@@ -274,14 +236,12 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
       unsubscribe();
       unsubscribeEnded();
       hideEnd();
-      document.removeEventListener('keydown', onKey);
       getVideo()?.removeEventListener('loadedmetadata', fitStage);
       getVideo()?.removeEventListener('play', hideEnd);
       return;
     }
     paint();
   });
-  document.addEventListener('keydown', onKey);
   paint();
 };
 

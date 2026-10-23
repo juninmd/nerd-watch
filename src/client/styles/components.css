@@ -243,6 +243,22 @@
   animation: toast-in 0.25s var(--ease);
 }
 
+.toast-action {
+  margin-left: 14px;
+  padding: 2px 10px;
+  border: 1px solid var(--accent-2);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toast-action:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
 @keyframes toast-in {
   from {
     transform: translateY(12px);

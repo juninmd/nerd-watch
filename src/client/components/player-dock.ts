@@ -1,11 +1,18 @@
-import { icon } from '../icons.ts';
 import { type ResumeMeta, resumePoint, type StoredPosition } from '../playback-store.ts';
-import { playbackSync, storage } from '../playback-service.ts';
-import { navigate } from '../router.ts';
+import { playbackSync } from '../playback-service.ts';
+import { isAutoplayBlocked } from '../player-session.ts';
 import { showToast } from '../state.ts';
 import { formatDuration } from '../time-format.ts';
+import { createOverlayController } from './player-overlay-controller.ts';
+import { getStoredSpeed } from './player-prefs.ts';
+import { setMediaMetadata } from './player-media.ts';
 import { onPlayError } from './player-error.ts';
+import { paintControls, paintProgress, paintSpeed } from './player-dock-view.ts';
+import { DOCK_MARKUP } from './player-dock-markup.ts';
+import { wirePlayerDock } from './player-dock-wiring.ts';
 import { clearVideo, playerKindOf } from './watch-embed.ts';
+
+export { getAutoplay, getQueueOrder, type QueueOrder, setAutoplay, setQueueOrder } from './player-prefs.ts';
 
 export interface DockItem {
   /** Identifica o vídeo para guardar a posição (`<canal>:<mensagem>`). */
@@ -30,30 +37,49 @@ export interface DockItem {
  */
 type Mode = 'hidden' | 'page' | 'dock';
 
-const SAVE_EVERY_MS = 5_000;
-const AUTOPLAY_KEY = 'nw.player.autoplay';
-
 const store = playbackSync.store;
 
 export const savedPosition = (key: string): StoredPosition | undefined => store.get(key);
 export const continueWatching = (limit?: number) => store.inProgress(limit);
 
 const metaOf = (item: DockItem): ResumeMeta => ({ title: item.title, subtitle: item.subtitle, poster: item.poster, channelId: item.channelId, messageId: item.messageId, route: item.route });
-/** Ordem em que o canal é listado e enfileirado: do mais recente ao mais antigo (padrão) ou o contrário. */
-export type QueueOrder = 'newest' | 'oldest';
-const ORDER_KEY = 'nw.player.order';
-export const getQueueOrder = (): QueueOrder => (storage.getItem(ORDER_KEY) === 'oldest' ? 'oldest' : 'newest');
-export const setQueueOrder = (order: QueueOrder): void => storage.setItem(ORDER_KEY, order);
-export const getAutoplay = (): boolean => storage.getItem(AUTOPLAY_KEY) !== '0';
-export const setAutoplay = (on: boolean): void => storage.setItem(AUTOPLAY_KEY, on ? '1' : '0');
 
 let dock: HTMLElement | null = null;
 let video: HTMLVideoElement | null = null;
 let queue: DockItem[] = [];
 let index = 0;
 let mode: Mode = 'hidden';
-let lastSave = 0;
 const listeners = new Set<() => void>();
+
+/** Toque para reproduzir (autoplay bloqueado) e contagem do próximo vídeo: ficam no palco ou na barra, conforme o modo. */
+const overlays = createOverlayController({
+  host: () => (mode === 'dock' ? dock : mode === 'page' ? (video?.parentElement ?? null) : null),
+  onNext: () => step(1),
+  onTap: () => attemptPlay(),
+});
+
+/**
+ * `play()` pode ser recusado pelo navegador (autoplay com som sem gesto). A recusa vira um pedido de toque, não um
+ * erro engolido. AbortError (outro `src` entrou no meio) e NotSupportedError (o evento `error` do vídeo já avisa) não
+ * pedem nada.
+ */
+const attemptPlay = (): void => {
+  video?.play().catch((err: unknown) => {
+    if (isAutoplayBlocked(err)) overlays.askTap();
+    syncControls();
+  });
+};
+
+/** Teclas valem com o foco no player, ou na tela de reprodução sem foco em campo. Outras telas seguem normais. */
+const keyboardActive = (): boolean => {
+  const el = video;
+  const item = current();
+  if (!el || !item || playerKindOf(item) === 'embed') return false;
+  const shell = mode === 'dock' ? dock : el.parentElement;
+  const focus = document.activeElement;
+  if (focus && shell?.contains(focus)) return true;
+  return mode === 'page' && (!focus || focus === document.body) && location.hash.startsWith('#/watch/');
+};
 
 const emit = (): void => {
   for (const fn of listeners) fn();
@@ -90,20 +116,13 @@ const persist = (): void => {
 };
 
 const syncControls = (): void => {
-  if (!video || !dock) return;
-  const playing = !video.paused && !video.ended;
-  const toggle = q<HTMLButtonElement>('[data-act="toggle"]');
-  toggle.innerHTML = icon(playing ? 'pause' : 'play');
-  toggle.setAttribute('aria-label', playing ? 'Pausar' : 'Reproduzir');
-  q<HTMLButtonElement>('[data-act="prev"]').disabled = index <= 0;
-  q<HTMLButtonElement>('[data-act="next"]').disabled = index >= queue.length - 1;
+  if (video && dock) paintControls(dock, video, index > 0, index < queue.length - 1);
 };
-
 const syncProgress = (): void => {
-  if (!video || !dock) return;
-  const d = Number.isFinite(video.duration) ? video.duration : 0;
-  q<HTMLInputElement>('.dock-seek').value = d ? String(Math.round((video.currentTime / d) * 1000)) : '0';
-  q('.dock-time').textContent = `${formatDuration(Math.floor(video.currentTime)) ?? '0:00'}${d ? ` / ${formatDuration(Math.floor(d))}` : ''}`;
+  if (video && dock) paintProgress(dock, video);
+};
+const syncSpeed = (): void => {
+  if (video && dock) paintSpeed(dock, video);
 };
 
 const setMode = (next: Mode, stage?: HTMLElement): void => {
@@ -122,6 +141,7 @@ const setMode = (next: Mode, stage?: HTMLElement): void => {
     syncControls();
     syncProgress();
   }
+  overlays.repaint();
 };
 
 const load = (i: number): void => {
@@ -130,9 +150,15 @@ const load = (i: number): void => {
   if (!item || !dock || !el) return;
   persist();
   index = i;
+  overlays.clear();
   const resumeAt = resumePoint(store.get(item.key));
+  // Trocar o src volta a taxa para a padrão do elemento: a preferência vira a padrão antes, e é reaplicada depois.
+  const rate = getStoredSpeed();
+  el.defaultPlaybackRate = rate;
   el.poster = item.poster ?? '';
-  if (playerKindOf(item) === 'embed') clearVideo(el); else el.src = item.src;
+  if (playerKindOf(item) === 'embed') clearVideo(el);
+  else el.src = item.src;
+  el.playbackRate = rate;
   el.addEventListener(
     'loadedmetadata',
     () => {
@@ -140,20 +166,21 @@ const load = (i: number): void => {
     },
     { once: true },
   );
-  el.play().catch(() => syncControls());
+  attemptPlay();
   q('.dock-title').textContent = item.title;
   q('.dock-sub').textContent = resumeAt !== null ? `${item.subtitle} · retomando de ${formatDuration(resumeAt)}` : item.subtitle;
   syncControls();
   syncProgress();
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({ title: item.title, artist: item.subtitle, artwork: item.poster ? [{ src: item.poster }] : [] });
-  }
+  setMediaMetadata(item);
   emit();
 };
 
 /** Encerra o vídeo e guarda a posição. */
 export const stopPlayer = (): void => {
   persist();
+  overlays.clear();
+  // O reset do load() não pode gravar a taxa padrão por cima da escolha do usuário.
+  if (video) video.defaultPlaybackRate = video.playbackRate;
   video?.pause();
   video?.removeAttribute('src');
   video?.load();
@@ -210,83 +237,24 @@ const onVideoError = (): void => {
 
 /** Monta o player global uma vez no shell; ele sobrevive à troca de telas. */
 export const mountPlayerDock = (host: HTMLElement): void => {
-  host.innerHTML = `
-    <section class="dock" aria-label="Player de vídeo" hidden>
-      <div class="dock-video"><video playsinline></video></div>
-      <div class="dock-info" aria-live="polite"><button class="dock-title" type="button"></button><small class="dock-sub"></small></div>
-      <div class="dock-controls">
-        <button type="button" data-act="prev" aria-label="Vídeo anterior">${icon('skipPrev')}</button>
-        <button type="button" data-act="toggle" aria-label="Pausar">${icon('pause')}</button>
-        <button type="button" data-act="next" aria-label="Próximo vídeo">${icon('skipNext')}</button>
-      </div>
-      <input class="dock-seek" type="range" min="0" max="1000" value="0" aria-label="Posição do vídeo" />
-      <span class="dock-time" aria-hidden="true"></span>
-      <div class="dock-end">
-        <button type="button" data-act="expand" aria-label="Abrir em tela cheia">${icon('expand')}</button>
-        <button type="button" data-act="close" aria-label="Fechar player">${icon('x')}</button>
-      </div>
-    </section>`;
+  host.innerHTML = DOCK_MARKUP;
   dock = host.querySelector('.dock') as HTMLElement;
-  const el = dock.querySelector('video') as HTMLVideoElement;
-  video = el;
-
-  el.addEventListener('timeupdate', () => {
-    syncProgress();
-    if (Date.now() - lastSave > SAVE_EVERY_MS) {
-      lastSave = Date.now();
-      persist();
-    }
+  video = dock.querySelector('video') as HTMLVideoElement;
+  wirePlayerDock(dock, video, {
+    item: current,
+    nextTitle: () => (index < queue.length - 1 ? (queue[index + 1]?.title ?? '') : null),
+    queueEnded: () => {
+      for (const fn of endedListeners) fn();
+    },
+    overlays,
+    persist,
+    attemptPlay,
+    syncControls,
+    syncProgress,
+    syncSpeed,
+    step,
+    stop: stopPlayer,
+    keyboardActive,
+    onError: onVideoError,
   });
-  el.addEventListener('play', syncControls);
-  el.addEventListener('pause', () => {
-    persist();
-    void playbackSync.flush();
-    syncControls();
-  });
-  el.addEventListener('ended', () => {
-    persist();
-    void playbackSync.flush();
-    if (index < queue.length - 1) {
-      if (getAutoplay()) step(1);
-      else syncControls();
-      return;
-    }
-    // Acabou o último vídeo da fila: a tela de reprodução pode sugerir o próximo canal.
-    syncControls();
-    for (const fn of endedListeners) fn();
-  });
-  el.addEventListener('error', onVideoError);
-
-  dock.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
-    const item = current();
-    if (act === 'toggle') {
-      if (el.paused) void el.play();
-      else el.pause();
-    } else if (act === 'prev') step(-1);
-    else if (act === 'next') step(1);
-    else if (act === 'close') stopPlayer();
-    else if ((act === 'expand' || target.closest('.dock-title')) && item) navigate(item.route);
-  });
-  q<HTMLInputElement>('.dock-seek').addEventListener('input', (e) => {
-    const d = el.duration;
-    if (d && Number.isFinite(d)) el.currentTime = (Number((e.target as HTMLInputElement).value) / 1000) * d;
-  });
-  window.addEventListener('pagehide', () => {
-    persist();
-    playbackSync.flushKeepalive();
-  });
-  // Puxa o progresso de outros aparelhos ao abrir e ao voltar para a aba.
-  void playbackSync.pull();
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void playbackSync.pull();
-  });
-
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('play', () => void el.play());
-    navigator.mediaSession.setActionHandler('pause', () => el.pause());
-    navigator.mediaSession.setActionHandler('previoustrack', () => step(-1));
-    navigator.mediaSession.setActionHandler('nexttrack', () => step(1));
-  }
 };
