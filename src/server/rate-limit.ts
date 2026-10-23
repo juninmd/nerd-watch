@@ -13,6 +13,8 @@ export class RateLimitExceededError extends Error {
 export interface RateLimiter {
   /** Registra uma chamada ou lança `RateLimitExceededError` se a janela já estiver cheia. */
   acquire(): void;
+  /** Consulta sem consumir vaga: `true` se a próxima `acquire()` falharia agora. */
+  isFull(): boolean;
   /** Só para testes: esvazia a janela. */
   reset(): void;
 }
@@ -25,6 +27,11 @@ export const createRateLimiter = (service: string, max: number, windowMs: number
       stamps = stamps.filter((s) => t - s < windowMs);
       if (stamps.length >= max) throw new RateLimitExceededError(service);
       stamps.push(t);
+    },
+    isFull() {
+      const t = now();
+      stamps = stamps.filter((s) => t - s < windowMs);
+      return stamps.length >= max;
     },
     reset() {
       stamps = [];

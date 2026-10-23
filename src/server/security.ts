@@ -23,7 +23,16 @@ export const originAllowed = (origin: string, host = ''): boolean => {
   return !host || origin.slice('http://'.length).toLowerCase() === host.toLowerCase();
 };
 
-export const requestAllowed = (method: string, host: string, origin: string): boolean => {
+/**
+ * Com `ACCESS_TOKEN` o app pode ser alcançado por outro nome ou IP, então o `Host` não tem como ser só loopback.
+ * A barreira passa a ser o token (rebinding não carrega o cookie nem o Bearer), e o CSRF segue barrado pela
+ * igualdade Origin == Host. Sem Host não há como provar a origem, então escrita com Origin também é recusada.
+ */
+const sameOriginAs = (origin: string, host: string): boolean =>
+  host !== '' && /^https?:\/\//i.test(origin) && origin.replace(/^https?:\/\//i, '').toLowerCase() === host.toLowerCase();
+
+export const requestAllowed = (method: string, host: string, origin: string, remote = false): boolean => {
+  if (remote) return SAFE_METHODS.has(method) || !origin || sameOriginAs(origin, host);
   if (!hostAllowed(host)) return false;
   if (SAFE_METHODS.has(method)) return true;
   return originAllowed(origin, host);

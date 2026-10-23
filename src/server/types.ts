@@ -53,8 +53,20 @@ export interface LibraryEntryRow {
   notes: string | null;
   current_season: number | null;
   current_episode: number | null;
+  rewatch_count: number;
   added_at: string;
   updated_at: string;
+}
+
+export const LIBRARY_HISTORY_KINDS = ['added', 'started', 'finished', 'dropped', 'rewatch_started', 'status_changed', 'progress'] as const;
+export type LibraryHistoryKind = (typeof LIBRARY_HISTORY_KINDS)[number];
+
+export interface LibraryHistoryRow {
+  id: string;
+  title_id: string;
+  kind: LibraryHistoryKind;
+  at: string;
+  detail: string | null;
 }
 
 export interface TelegramChannelRow {
