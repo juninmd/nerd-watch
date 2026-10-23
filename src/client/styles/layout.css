@@ -86,9 +86,11 @@ kbd {
   transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
 
-.navlink:hover {
-  background: var(--surface-hover);
-  color: var(--text);
+@media (hover: hover) {
+  .navlink:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
 }
 
 .navlink.active {
@@ -133,9 +135,11 @@ kbd {
   transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
 }
 
-.cmd:hover {
-  border-color: var(--accent-2);
-  color: var(--text-dim);
+@media (hover: hover) {
+  .cmd:hover {
+    border-color: var(--accent-2);
+    color: var(--text-dim);
+  }
 }
 
 .cmd-text {

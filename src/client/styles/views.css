@@ -145,8 +145,10 @@
   transition: border-color 0.15s var(--ease);
 }
 
-.episode-row:hover {
-  border-color: var(--border);
+@media (hover: hover) {
+  .episode-row:hover {
+    border-color: var(--border);
+  }
 }
 
 .episode-row .still {
