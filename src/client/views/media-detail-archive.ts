@@ -3,6 +3,7 @@ import { renderInlinePlayer } from '../components/inline-player.ts';
 import { parkPlayer, stopIfOnPage } from '../components/player-dock.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderSubtitlesPanel } from '../components/subtitles.ts';
+import { renderTitleError } from '../components/title-error.ts';
 import { renderTorrentPanel } from '../components/torrent-player.ts';
 import { escapeHtml } from '../components/card.ts';
 import { titlePath } from '../title-link.ts';
@@ -143,9 +144,7 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
         const torrentHost = host.querySelector('#torrent-panel') as HTMLElement | null;
         torrentHost?.appendChild(renderTorrentPanel({ identifier: d.identifier, title: d.title, posterUrl: d.posterUrl }));
       })
-      .catch(() => {
-        host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar este título</div>`;
-      });
+      .catch(() => renderTitleError(host, load));
   };
 
   load();

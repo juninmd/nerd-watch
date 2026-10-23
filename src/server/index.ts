@@ -9,7 +9,7 @@ import { archiveRoutes } from './routes/archive.ts';
 import { tvmazeRoutes } from './routes/tvmaze.ts';
 import { anilistRoutes } from './routes/anilist.ts';
 import { libraryRoutes } from './routes/library.ts';
-import { calendarRoutes } from './routes/calendar.ts';
+import { calendarIcsRoutes, calendarRoutes } from './routes/calendar.ts';
 import { subtitlesRoutes } from './routes/subtitles.ts';
 import { torrentRoutes } from './routes/torrent.ts';
 import { backupRoutes } from './routes/backup.ts';
@@ -61,6 +61,7 @@ app.route('/api/tvmaze', tvmazeRoutes);
 app.route('/api/anilist', anilistRoutes);
 app.route('/api/library', libraryRoutes);
 app.route('/api/calendar', calendarRoutes);
+app.route('/api', calendarIcsRoutes);
 app.route('/api/subtitles', subtitlesRoutes);
 app.route('/api/torrent', torrentRoutes);
 app.route('/api/backup', backupRoutes);
@@ -75,7 +76,7 @@ app.use('/*', serveStatic({ root: './public' }));
 
 export default {
   port: config.port,
-  hostname: '127.0.0.1',
+  hostname: config.host,
   fetch: app.fetch,
   // O padrão do Bun (10s) derruba o streaming de torrent antes do primeiro pedaço chegar de um peer lento.
   idleTimeout: 255,

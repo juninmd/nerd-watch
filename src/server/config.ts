@@ -80,8 +80,14 @@ export const leadDaysEnv = (raw: string | undefined): number => {
   const parsed = Number(raw.trim());
   return Number.isInteger(parsed) && parsed >= 0 && parsed <= 7 ? parsed : 0;
 };
+/**
+ * Interface em que o servidor escuta. O padrão é loopback; só o container Docker define `0.0.0.0`, porque o
+ * port mapping chega pela interface do container. A barreira de Host/Origin (`security.ts`) continua valendo.
+ */
+export const listenHost = (raw: string | undefined): string => raw?.trim() || '127.0.0.1';
 
 export const config = {
+  host: listenHost(process.env.HOST),
   port: Number(process.env.PORT ?? 7799),
   /**
    * Avisos de lançamento (ver `notify/`). Os destinos vêm SÓ do ambiente, nunca de request: a URL do ntfy/webhook
