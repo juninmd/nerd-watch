@@ -1,3 +1,4 @@
+import { icon } from '../icons.ts';
 import { navigate } from '../router.ts';
 
 const LOADING = '<div class="skeleton" style="height:320px;border-radius:20px"></div>';
@@ -10,7 +11,7 @@ const LOADING = '<div class="skeleton" style="height:320px;border-radius:20px"><
 export const renderTitleError = (host: HTMLElement, retry: () => void): void => {
   host.innerHTML = `
     <div class="empty-state" role="alert">
-      <div class="big" aria-hidden="true">⚠️</div>
+      <div class="big">${icon('alert')}</div>
       <p>não foi possível carregar este título</p>
       <div class="chip-row title-error-actions">
         <button type="button" class="btn btn-ghost btn-sm" data-back>voltar</button>

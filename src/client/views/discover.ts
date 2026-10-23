@@ -141,6 +141,6 @@ export const renderDiscover = (host: HTMLElement): void => {
       }
     })
     .catch(() => {
-      host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar o início agora</div>`;
+      host.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar o início agora</div>`;
     });
 };

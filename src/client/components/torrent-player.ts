@@ -1,4 +1,5 @@
 import { closeTorrent, getTorrentStatus, health, openTorrent, type TorrentOpenResponse } from '../api.ts';
+import { icon } from '../icons.ts';
 import { titlePath } from '../title-link.ts';
 import { escapeHtml } from './card.ts';
 import { renderInlinePlayer } from './inline-player.ts';
@@ -77,7 +78,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
     wrap.innerHTML = `
       ${message ? `<p class="hint" style="margin:0 0 8px">${escapeHtml(message)}</p>` : ''}
       <button class="btn btn-primary btn-sm" id="torrent-start" type="button" style="width:100%;justify-content:center">
-        🧲 assistir via torrent (P2P)
+        ${icon('download', 'sm')} assistir via torrent (P2P)
       </button>
       <p class="hint" style="margin:8px 0 0">
         Conecta direto nos peers que hospedam o torrent oficial da Internet Archive —
@@ -106,7 +107,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
       <div id="torrent-player" style="margin-bottom:8px"></div>
       <div class="torrent-stats" id="torrent-stats" style="margin-bottom:8px">conectando aos peers...</div>
       <button class="btn btn-ghost btn-sm" id="torrent-stop" type="button" style="width:100%;justify-content:center">
-        ⏹ parar e liberar o torrent
+        ${icon('stop', 'sm')} parar e liberar o torrent
       </button>
     `;
 
