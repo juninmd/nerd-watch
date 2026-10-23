@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getDb } from '../db.ts';
 import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
+import { InvalidProgressError, markProgressThrough, ProgressNotFoundError } from '../repo/library-progress.ts';
 import { listUpNext } from '../repo/up-next.ts';
 import { upsertTitle } from '../repo/titles.ts';
 import { httpsUrlOrNull } from '../catalog-text.ts';
@@ -69,6 +70,37 @@ libraryRoutes.get('/up-next', async (c) => {
       activityAt: r.activityAt,
     })),
   });
+});
+
+const isSeasonNumber = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 999;
+const isEpisodeNumber = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 9999;
+
+interface MarkProgressBody {
+  seasonNumber?: unknown;
+  episodeNumber?: unknown;
+}
+
+/**
+ * Marca "onde parei" num episódio e todos os anteriores ficam vistos (um único marcador por série).
+ * `changed: false` = nada gravado (já estava ali); o cliente só guarda o desfazer quando `changed` é true.
+ */
+libraryRoutes.post('/:titleId/progress', async (c) => {
+  const body = await c.req.json<MarkProgressBody>().catch(() => null);
+  if (!body || !isSeasonNumber(body.seasonNumber) || !isEpisodeNumber(body.episodeNumber)) {
+    return c.json({ error: 'seasonNumber (inteiro 0-999) e episodeNumber (inteiro 1-9999) são obrigatórios' }, 400);
+  }
+  try {
+    const result = markProgressThrough(await getDb(), c.req.param('titleId'), body.seasonNumber, body.episodeNumber);
+    return c.json({
+      changed: result.changed,
+      previous: result.previous,
+      item: toResponse(result.item),
+    });
+  } catch (err) {
+    if (err instanceof ProgressNotFoundError) return c.json({ error: err.message }, 404);
+    if (err instanceof InvalidProgressError) return c.json({ error: err.message }, 400);
+    throw err;
+  }
 });
 
 interface AddLibraryBody {

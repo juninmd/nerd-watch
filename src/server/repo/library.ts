@@ -129,11 +129,14 @@ export const upsertLibraryEntry = (db: Database, titleId: string, patch: Library
       $updatedAt: now,
     });
   }
-  const row = db
-    .query<JoinedRow, [string]>(`${JOIN_SELECT} WHERE le.title_id = ?`)
-    .get(titleId);
-  if (!row) throw new Error('falha ao gravar item na lista');
-  return toLibraryItem(row);
+  const item = getLibraryItemByTitle(db, titleId);
+  if (!item) throw new Error('falha ao gravar item na lista');
+  return item;
+};
+
+export const getLibraryItemByTitle = (db: Database, titleId: string): LibraryItem | null => {
+  const row = db.query<JoinedRow, [string]>(`${JOIN_SELECT} WHERE le.title_id = ?`).get(titleId);
+  return row ? toLibraryItem(row) : null;
 };
 
 export const removeLibraryEntry = (db: Database, id: string): void => {

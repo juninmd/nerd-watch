@@ -257,6 +257,19 @@ export const patchLibrary = (titleId: string, patch: PatchLibraryInput): Promise
     (r) => json<LibraryItemDto>(r),
   );
 
+export interface MarkThroughResult {
+  changed: boolean;
+  previous: { watchStatus: WatchStatus; currentSeason: number | null; currentEpisode: number | null } | null;
+  item: LibraryItemDto;
+}
+
+export const markProgressThrough = (titleId: string, seasonNumber: number, episodeNumber: number): Promise<MarkThroughResult> =>
+  fetch(`/api/library/${titleId}/progress`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seasonNumber, episodeNumber }),
+  }).then((r) => json<MarkThroughResult>(r));
+
 export const removeFromLibrary = (entryId: string): Promise<void> =>
   fetch(`/api/library/${entryId}`, { method: 'DELETE' }).then((res) => {
     if (!res.ok) throw new Error('falha ao remover');
