@@ -6,12 +6,14 @@ import { importLibraryCsv, type LibraryImportReport } from '../providers/library
 import { importMalAnimeList, type MalImportReport } from '../providers/library-io/import-mal.ts';
 import { exportLibraryCsv } from '../providers/library-io/library-csv.ts';
 import { listLibrary } from '../repo/library.ts';
+import { listNamesByTitle } from '../repo/lists.ts';
 
 /** CSV e MAL da biblioteca. Montado em /api/library junto com as rotas de lista. */
 export const libraryIoRoutes = new Hono();
 
 libraryIoRoutes.get('/export.csv', async (c) => {
-  const csv = exportLibraryCsv(listLibrary(await getDb()));
+  const db = await getDb();
+  const csv = exportLibraryCsv(listLibrary(db), listNamesByTitle(db));
   return c.body(csv, 200, {
     'Content-Type': 'text/csv; charset=utf-8',
     'Content-Disposition': 'attachment; filename="nerd-watch-biblioteca.csv"',

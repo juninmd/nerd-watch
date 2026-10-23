@@ -18,7 +18,7 @@ describe('GET /api/library/export.csv', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('text/csv; charset=utf-8');
     expect(res.headers.get('content-disposition')).toMatch(/^attachment; filename="nerd-watch-biblioteca\.csv"$/);
-    expect((await res.text()).startsWith(`﻿${HEADER}\r\n`)).toBe(true);
+    expect((await res.text()).startsWith(`﻿${HEADER},lists\r\n`)).toBe(true);
   });
 });
 

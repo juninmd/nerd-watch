@@ -42,7 +42,8 @@ const titleCount = (db: Database): number => db.query<{ n: number }, []>('SELECT
 describe('exportLibraryCsv: formato', () => {
   test('cabeçalho com as colunas pedidas e BOM no início', () => {
     expect(exportLibraryCsv([])).toBe(`﻿${LIBRARY_CSV_COLUMNS.join(',')}\r\n`);
-    expect(LIBRARY_CSV_COLUMNS.join(',')).toBe(HEADER);
+    // A importação aceita o cabeçalho antigo (sem "lists"); a exportação acrescenta a coluna no fim.
+    expect(LIBRARY_CSV_COLUMNS.join(',')).toBe(`${HEADER},lists`);
   });
 
   test('tmdb_id só sai para títulos da TMDB; outras origens ficam vazias', () => {

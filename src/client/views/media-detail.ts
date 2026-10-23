@@ -1,5 +1,6 @@
 import { type CatalogSource, getTmdbTitle } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
+import { renderAddToList } from '../components/add-to-list.ts';
 import { icon } from '../icons.ts';
 import { renderRefreshMetadata } from '../components/refresh-metadata.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
@@ -82,6 +83,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
               <div class="side-card">
                 <h3>Sua lista</h3>
                 <div id="status-actions"></div>
+                <div id="add-to-list" style="margin-top:12px"></div>
                 <div id="refresh-metadata" style="margin-top:12px"></div>
               </div>
               <div class="side-card">
@@ -113,6 +115,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
           }),
         );
 
+        (host.querySelector('#add-to-list') as HTMLElement).appendChild(renderAddToList(d.titleId));
         (host.querySelector('#refresh-metadata') as HTMLElement).appendChild(renderRefreshMetadata(d.titleId, () => load()));
 
         if (mediaType === 'tv') {

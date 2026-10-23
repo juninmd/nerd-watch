@@ -37,7 +37,7 @@ describe('POST /api/backup/import', () => {
     const res = await backupRoutes.request('/import', { method: 'POST', body: JSON.stringify(dump) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.imported).toEqual({ titles: 1, seasons: 0, episodes: 0, libraryEntries: 1, libraryHistory: 1 });
+    expect(body.imported).toEqual({ titles: 1, seasons: 0, episodes: 0, libraryEntries: 1, libraryHistory: 1, lists: 0, savedViews: 0 });
 
     const dbB = await getDb();
     const restored = dbB.query('SELECT * FROM titles WHERE id = ?').get(title.id);
