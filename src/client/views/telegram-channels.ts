@@ -1,5 +1,6 @@
 import { addTelegramChannel, bulkDeleteTelegramChannels, listTelegramChannels, refreshTelegramChannelInfo, type TelegramChannelDto, type TelegramChannelMode } from '../api.ts';
 import { renderCard } from '../components/card.ts';
+import { icon } from '../icons.ts';
 import { addSourceChannel, listSources, type SourceDto } from '../source-api.ts';
 import { handleLabel, isTelegramMode, originLabel } from '../source-modes.ts';
 import { renderTelegramFeed } from '../components/telegram-feed.ts';
@@ -12,7 +13,7 @@ const INFO_BACKFILL_KEY = 'nw.telegram.infoBackfill';
 export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParams): void => {
   host.innerHTML = `
     <header class="view-head">
-      <h1 class="view-title">📺 Canais e pastas</h1>
+      <h1 class="view-title">Canais e pastas</h1>
       <p class="view-subtitle">
         Adicione um canal do Telegram pelo @usuário, importe os canais da sua conta pessoal ou aponte uma fonte de vídeos
         (Google Drive, pasta local, WebDAV, Jellyfin, YouTube…; configure em <a href="#/connections">Conexões</a>) pra maratonar tudo aqui dentro.
@@ -35,12 +36,12 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
       <div id="tg-feed"></div>
     </div>
     <div class="toolbar" id="tg-toolbar">
-      <button class="btn btn-ghost btn-sm" id="tg-my-channels" type="button">✈️ meus canais</button>
-      <button class="btn btn-ghost btn-sm" id="tg-select-toggle" type="button" aria-pressed="false">☑️ selecionar</button>
+      <button class="btn btn-ghost btn-sm" id="tg-my-channels" type="button">${icon('send', 'sm')} meus canais</button>
+      <button class="btn btn-ghost btn-sm" id="tg-select-toggle" type="button" aria-pressed="false">${icon('select', 'sm')} selecionar</button>
       <span class="toolbar-selection" id="tg-selection" hidden>
         <span id="tg-sel-count" role="status"></span>
         <button class="btn btn-ghost btn-sm" id="tg-sel-all" type="button">todos</button>
-        <button class="btn btn-danger btn-sm" id="tg-sel-delete" type="button" disabled>🗑️ remover</button>
+        <button class="btn btn-danger btn-sm" id="tg-sel-delete" type="button" disabled>${icon('trash', 'sm')} remover</button>
       </span>
     </div>
     <div id="tg-grid"><div class="grid">${Array.from({ length: 6 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div></div>
@@ -64,7 +65,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
 
   const syncSelectionBar = () => {
     selectToggle.setAttribute('aria-pressed', String(selecting));
-    selectToggle.textContent = selecting ? '✕ cancelar seleção' : '☑️ selecionar';
+    selectToggle.innerHTML = selecting ? `${icon('x', 'sm')} cancelar seleção` : `${icon('select', 'sm')} selecionar`;
     selectionBar.hidden = !selecting;
     selCount.textContent = `${picked.size} de ${channels.length} selecionado${picked.size === 1 ? '' : 's'}`;
     selAll.textContent = picked.size === channels.length ? 'nenhum' : 'todos';
@@ -75,7 +76,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
   const renderChannels = (focusIndex?: number) => {
     syncSelectionBar();
     if (channels.length === 0) {
-      grid.innerHTML = `<div class="empty-state"><div class="big">✈️</div>nenhum canal adicionado ainda<br /><small>adicione um @usuário ou link acima, ou use "meus canais"</small></div>`;
+      grid.innerHTML = `<div class="empty-state"><div class="big">${icon('send')}</div>nenhum canal adicionado ainda<br /><small>adicione um @usuário ou link acima, ou use "meus canais"</small></div>`;
       return;
     }
     const g = document.createElement('div');
@@ -129,7 +130,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
         backfillInfo();
       })
       .catch(() => {
-        grid.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar os canais</div>`;
+        grid.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar os canais</div>`;
       });
   };
 

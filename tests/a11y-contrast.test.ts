@@ -45,6 +45,15 @@ describe('contraste dos tokens de texto', () => {
   }
 });
 
+describe('contraste dos rótulos de dia da agenda (12px, caixa-alta, em negrito)', () => {
+  test('o violeta do cabeçalho de dia tem 4.5:1 em todas as superfícies', () => {
+    const views = readFileSync(join(import.meta.dir, '../src/client/styles/views.css'), 'utf8');
+    const m = views.match(/\.calendar-day-label\s*\{[^}]*?color:\s*(#[0-9a-fA-F]{6})\s*;/);
+    if (!m?.[1]) throw new Error('.calendar-day-label sem cor hexadecimal em views.css');
+    for (const bg of surfaces) expect(contrastRatio(m[1], bg)).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+});
+
 describe('contraste do texto branco sobre o gradiente primário', () => {
   test('botões e chips ativos: branco em cada parada do gradiente tem 4.5:1', () => {
     const stops = gradientStops();

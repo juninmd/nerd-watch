@@ -27,6 +27,8 @@
 .input-pill {
   border-radius: 999px;
   width: auto;
+  /* width:auto deixa o select do tamanho da opção mais longa; sem o teto ele estoura telas de 390px. */
+  max-width: 100%;
 }
 
 .input.grow {
@@ -52,8 +54,10 @@
   border: 1px solid rgba(248, 113, 113, 0.35);
 }
 
-.btn-danger:not(:disabled):hover {
-  background: rgba(248, 113, 113, 0.2);
+@media (hover: hover) {
+  .btn-danger:not(:disabled):hover {
+    background: rgba(248, 113, 113, 0.2);
+  }
 }
 
 .view-head {
@@ -193,8 +197,10 @@ input[type="checkbox"] {
   border-bottom: none;
 }
 
-.check-row:hover:not(.is-disabled) {
-  background: var(--surface-hover);
+@media (hover: hover) {
+  .check-row:hover:not(.is-disabled) {
+    background: var(--surface-hover);
+  }
 }
 
 .check-row.is-disabled {
