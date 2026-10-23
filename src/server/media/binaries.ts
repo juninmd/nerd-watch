@@ -32,17 +32,26 @@ export const binaryStatus = (
   which: (bin: string) => string | null = (bin) => Bun.which(bin),
 ): BinaryStatus => {
   if (settings.mode === 'false') return { ok: false, reason: 'conversão desligada (TRANSCODE_ENABLED=false)' };
-  let ffmpeg = locate(settings.ffmpegPath, 'ffmpeg', which);
-  let ffprobe = locate(settings.ffprobePath, 'ffprobe', which);
-  if (!ffmpeg) {
-    ffmpeg = settings.ffmpegPath;
-    if (!isTrustedPath(ffmpeg)) return { ok: false, reason: 'FFmpeg path não confiável: deve estar em /usr/local/bin' };
-    if (!existsSync(ffmpeg)) return { ok: false, reason: 'ffmpeg não encontrado' };
+  const ffmpeg = resolveBin('ffmpeg', settings.ffmpegPath, which);
+  if (!ffmpeg.ok) return ffmpeg;
+  const ffprobe = resolveBin('ffprobe', settings.ffprobePath, which);
+  if (!ffprobe.ok) return ffprobe;
+  return { ok: true, bins: { ffmpeg: ffmpeg.path, ffprobe: ffprobe.path } };
+};
+
+type ResolvedBin = { ok: true; path: string } | { ok: false; reason: string };
+
+/** Sem caminho explícito e fora do PATH, a razão ainda diz como ativar; nunca lança com caminho ausente. */
+const resolveBin = (
+  name: string,
+  explicit: string | undefined,
+  which: (bin: string) => string | null,
+): ResolvedBin => {
+  const found = locate(explicit, name, which);
+  if (found) return { ok: true, path: found };
+  if (!explicit) return { ok: false, reason: `${name} não encontrado: ${HOW_TO_ENABLE}` };
+  if (!isTrustedPath(explicit)) {
+    return { ok: false, reason: `${name} path não confiável: deve estar em /usr/local/bin; ${HOW_TO_ENABLE}` };
   }
-  if (!ffprobe) {
-    ffprobe = settings.ffprobePath;
-    if (!isTrustedPath(ffprobe)) return { ok: false, reason: 'FFprobe path não confiável: deve estar em /usr/local/bin' };
-    if (!existsSync(ffprobe)) return { ok: false, reason: 'ffprobe não encontrado' };
-  }
-  return { ok: true, bins: { ffmpeg, ffprobe } };
+  return { ok: false, reason: `${name} não encontrado em ${explicit}: ${HOW_TO_ENABLE}` };
 };

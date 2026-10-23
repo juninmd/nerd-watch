@@ -146,6 +146,12 @@ describe('binaryStatus: ffmpeg opcional', () => {
     expect(status.ok).toBe(false);
   });
 
+  test('sem ffmpeg no PATH e sem FFMPEG_PATH: devolve a razão, não lança', () => {
+    const status = binaryStatus(settings({ ffmpegPath: undefined, ffprobePath: undefined }), () => null);
+    expect(status.ok).toBe(false);
+    if (!status.ok) expect(status.reason).toContain('FFMPEG_PATH');
+  });
+
   test('FFMPEG_PATH apontando para arquivo inexistente não cai no PATH silenciosamente', () => {
     const status = binaryStatus(settings({ ffmpegPath: path.resolve('/definitely/not/here/ffmpeg') }), found);
     expect(status.ok).toBe(false);
