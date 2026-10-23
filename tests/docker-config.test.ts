@@ -22,6 +22,12 @@ describe('Docker packaging', () => {
     expect(dockerfile).toMatch(/^ENV [\s\S]*?HOST=0\.0\.0\.0/m);
   });
 
+  test('a imagem instala o ffmpeg pelo apt (conversão de formatos), sem baixar binário de fora', async () => {
+    const dockerfile = await read('Dockerfile');
+    expect(dockerfile).toMatch(/apt-get install -y --no-install-recommends ffmpeg/);
+    expect(dockerfile).not.toMatch(/curl[^\n]*ffmpeg|wget[^\n]*ffmpeg/);
+  });
+
   test('o HEALTHCHECK usa o endpoint de saúde que já existe', async () => {
     expect(await read('Dockerfile')).toMatch(/HEALTHCHECK[\s\S]*\/api\/health/);
   });

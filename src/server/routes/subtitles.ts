@@ -1,10 +1,15 @@
 import { Hono } from 'hono';
 import { config } from '../config.ts';
 import { OpenSubtitlesNotConfiguredError, OpenSubtitlesRequestError, openSubtitlesEnabled } from '../providers/opensubtitles.ts';
-import { isFetchableSubtitleUrl, resolveAddonFileUrl, resolveSubtitleDownload, searchAllSubtitles } from '../providers/subtitles/index.ts';
+import { resolveAddonFileUrl, resolveSubtitleDownload, searchAllSubtitles } from '../providers/subtitles/index.ts';
+import { fetchSubtitleBytes } from '../subtitles/load.ts';
 import type { MediaType } from '../types.ts';
+import { subtitleFailureText, subtitleVttHandler } from './subtitles-vtt.ts';
 
 export const subtitlesRoutes = new Hono();
+
+/** Legenda já convertida para WebVTT, pronta para o `<track>` do player. */
+subtitlesRoutes.post('/vtt', subtitleVttHandler);
 
 /** Id do IMDb é `tt` + dígitos. Validar aqui evita que um valor cru chegue ao nome do arquivo. */
 const IMDB_ID_RE = /^tt\d{7,10}$/;
@@ -120,24 +125,19 @@ subtitlesRoutes.get('/file', async (c) => {
     return c.json({ error: 'a fonte de legendas não respondeu' }, 502);
   }
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(resolved.url, { signal: AbortSignal.timeout(30_000) });
-  } catch {
-    return c.json({ error: 'não foi possível baixar a legenda da fonte' }, 502);
-  }
-  // Redirecionamento poderia levar a um host privado; a URL FINAL é o que vale.
-  if (!isFetchableSubtitleUrl(upstream.url || resolved.url)) return c.json({ error: 'a fonte devolveu um endereço não permitido' }, 502);
-  if (!upstream.ok) return c.json({ error: `a fonte respondeu ${upstream.status}` }, 502);
+  // Redirecionamento é seguido com checagem de host em cada salto (ver fetchSubtitleBytes).
+  const got = await fetchSubtitleBytes(resolved.url);
+  if (!got.ok) return c.json({ error: subtitleFailureText(got.reason) }, 502);
 
   // `imdbId` já foi validado contra `IMDB_ID_RE`, então isto não é texto livre do cliente.
   const filename = `${imdbId}${season && episode ? `.S${season}E${episode}` : ''}.srt`;
-  return new Response(upstream.body, {
+  return new Response(got.bytes.slice(), {
     status: 200,
     headers: {
-      'Content-Type': upstream.headers.get('content-type') ?? 'text/plain; charset=utf-8',
+      'Content-Type': 'application/octet-stream',
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 });

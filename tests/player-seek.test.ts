@@ -8,6 +8,7 @@ import {
   nextSpeed,
   parseSpeed,
   percentTarget,
+  progressFraction,
   registerTap,
   seekTarget,
   volumeTarget,
@@ -131,5 +132,26 @@ describe('registerTap (duplo toque no touch)', () => {
   test('largura zero ou coordenada inválida são ignoradas (sem divisão quebrada)', () => {
     expect(registerTap(null, 0, 10, 0)).toEqual({ seek: null, memory: null });
     expect(registerTap(null, 0, Number.NaN, 400)).toEqual({ seek: null, memory: null });
+  });
+});
+
+describe('progressFraction (barra de progresso e de buffer)', () => {
+  test('dá a fração da duração', () => {
+    expect(progressFraction(30, 120)).toBe(0.25);
+  });
+
+  test('limita a 0–1 mesmo com posição fora do vídeo', () => {
+    expect(progressFraction(-5, 100)).toBe(0);
+    expect(progressFraction(150, 100)).toBe(1);
+  });
+
+  test('sem duração finita (metadados ausentes ou ao vivo) a barra fica vazia', () => {
+    expect(progressFraction(10, Number.NaN)).toBe(0);
+    expect(progressFraction(10, Number.POSITIVE_INFINITY)).toBe(0);
+    expect(progressFraction(10, 0)).toBe(0);
+  });
+
+  test('posição inválida não vira NaN na barra', () => {
+    expect(progressFraction(Number.NaN, 100)).toBe(0);
   });
 });

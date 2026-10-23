@@ -7,6 +7,8 @@ export interface PlayerKeyContext {
   active(): boolean;
   togglePlay(): void;
   next(): void;
+  /** Tecla "c": liga ou desliga a legenda (escolha e busca ficam com o controlador de legendas). */
+  toggleCaptions(): void;
 }
 
 /** Janela em que a tecla "c" logo depois de "g" é o atalho "g c" (Conexões), não legendas. Mesmo tempo de shortcuts.ts. */
@@ -17,19 +19,10 @@ export const seekVideo = (v: HTMLVideoElement, seconds: number): void => {
   if (t !== null) v.currentTime = t;
 };
 
+/** Tela cheia no palco inteiro quando existe: é ele que carrega a barra de controles própria. */
 const toggleFullscreen = (v: HTMLVideoElement): void => {
   if (document.fullscreenElement) void document.exitFullscreen();
-  else void v.requestFullscreen?.();
-};
-
-/** Legendas: liga a primeira faixa, ou desliga todas. Sem `<track>` no vídeo, não faz nada. */
-const toggleCaptions = (v: HTMLVideoElement): void => {
-  const tracks = Array.from(v.textTracks);
-  if (tracks.length === 0) return;
-  const on = tracks.some((t) => t.mode === 'showing');
-  tracks.forEach((t, i) => {
-    t.mode = !on && i === 0 ? 'showing' : 'disabled';
-  });
+  else void (v.closest<HTMLElement>('.watch-stage') ?? v).requestFullscreen?.();
 };
 
 const run = (v: HTMLVideoElement, action: PlayerAction, ctx: PlayerKeyContext): void => {
@@ -58,7 +51,7 @@ const run = (v: HTMLVideoElement, action: PlayerAction, ctx: PlayerKeyContext): 
       toggleFullscreen(v);
       break;
     case 'captions':
-      toggleCaptions(v);
+      ctx.toggleCaptions();
       break;
     // A troca de velocidade passa pelo evento `ratechange`, que é quem grava a preferência.
     case 'speedBy':

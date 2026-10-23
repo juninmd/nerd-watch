@@ -7,10 +7,14 @@ import { createOverlayController } from './player-overlay-controller.ts';
 import { getStoredSpeed } from './player-prefs.ts';
 import { setMediaMetadata } from './player-media.ts';
 import { onPlayError } from './player-error.ts';
+import { handleUnplayable, prepareForItem } from '../media-fallback.ts';
 import { paintControls, paintProgress, paintSpeed } from './player-dock-view.ts';
 import { DOCK_MARKUP } from './player-dock-markup.ts';
 import { wirePlayerDock } from './player-dock-wiring.ts';
+import { mountPageControls, type PageControls } from './player-page-controls.ts';
 import { clearVideo, playerKindOf } from './watch-embed.ts';
+import { type Captions, mountCaptions } from './player-captions.ts';
+import type { CaptionContext } from '../player-captions-model.ts';
 
 export { getAutoplay, getQueueOrder, type QueueOrder, setAutoplay, setQueueOrder } from './player-prefs.ts';
 
@@ -28,6 +32,8 @@ export interface DockItem {
   route: string;
   /** Iframe de embed (YouTube, ou PeerTube sem arquivo direto): não passa pelo `<video>`. */
   embedUrl?: string | null;
+  /** Onde buscar legenda para este vídeo (sem ele, o menu só aceita arquivo escolhido pelo usuário). */
+  captions?: CaptionContext | null;
 }
 
 /**
@@ -46,9 +52,11 @@ const metaOf = (item: DockItem): ResumeMeta => ({ title: item.title, subtitle: i
 
 let dock: HTMLElement | null = null;
 let video: HTMLVideoElement | null = null;
+let captions: Captions | null = null;
 let queue: DockItem[] = [];
 let index = 0;
 let mode: Mode = 'hidden';
+let pageControls: PageControls | null = null;
 const listeners = new Set<() => void>();
 
 /** Toque para reproduzir (autoplay bloqueado) e contagem do próximo vídeo: ficam no palco ou na barra, conforme o modo. */
@@ -117,23 +125,36 @@ const persist = (): void => {
 
 const syncControls = (): void => {
   if (video && dock) paintControls(dock, video, index > 0, index < queue.length - 1);
+  pageControls?.repaint();
 };
 const syncProgress = (): void => {
   if (video && dock) paintProgress(dock, video);
+  pageControls?.repaint();
 };
 const syncSpeed = (): void => {
   if (video && dock) paintSpeed(dock, video);
+  pageControls?.repaint();
+};
+
+const unmountPageControls = (): void => {
+  pageControls?.destroy();
+  pageControls = null;
 };
 
 const setMode = (next: Mode, stage?: HTMLElement): void => {
   if (!dock || !video) return;
   mode = next;
+  unmountPageControls();
   if (next === 'page' && stage) {
     stage.appendChild(video);
-    video.controls = true;
+    pageControls = mountPageControls(stage, video, {
+      canPrev: () => index > 0,
+      canNext: () => index < queue.length - 1,
+      togglePlay: () => (video?.paused ? attemptPlay() : video?.pause()),
+      step: (delta) => step(delta),
+    });
   } else {
     q('.dock-video').appendChild(video);
-    video.controls = false;
   }
   dock.hidden = next !== 'dock';
   document.body.classList.toggle('has-dock', next === 'dock');
@@ -142,6 +163,7 @@ const setMode = (next: Mode, stage?: HTMLElement): void => {
     syncProgress();
   }
   overlays.repaint();
+  captions?.repaint();
 };
 
 const load = (i: number): void => {
@@ -151,6 +173,7 @@ const load = (i: number): void => {
   persist();
   index = i;
   overlays.clear();
+  captions?.load(playerKindOf(item) === 'embed' ? null : (item.captions ?? null));
   const resumeAt = resumePoint(store.get(item.key));
   // Trocar o src volta a taxa para a padrão do elemento: a preferência vira a padrão antes, e é reaplicada depois.
   const rate = getStoredSpeed();
@@ -167,6 +190,7 @@ const load = (i: number): void => {
     { once: true },
   );
   attemptPlay();
+  if (playerKindOf(item) !== 'embed') void prepareForItem(item, el, { resumeAt, isCurrent: () => current() === item, onMessage: showToast });
   q('.dock-title').textContent = item.title;
   q('.dock-sub').textContent = resumeAt !== null ? `${item.subtitle} · retomando de ${formatDuration(resumeAt)}` : item.subtitle;
   syncControls();
@@ -179,6 +203,7 @@ const load = (i: number): void => {
 export const stopPlayer = (): void => {
   persist();
   overlays.clear();
+  captions?.clear();
   // O reset do load() não pode gravar a taxa padrão por cima da escolha do usuário.
   if (video) video.defaultPlaybackRate = video.playbackRate;
   video?.pause();
@@ -192,6 +217,7 @@ export const stopPlayer = (): void => {
 
 /** Antes de trocar a tela: tira o `<video>` da view que vai ser descartada (um nó fora do documento pausaria). */
 export const parkPlayer = (): void => {
+  unmountPageControls();
   if (mode === 'page' && dock && video) q('.dock-video').appendChild(video);
 };
 
@@ -228,10 +254,17 @@ const step = (delta: number): void => playIndex(index + delta);
 
 const onVideoError = (): void => {
   const item = current();
-  if (!item) return;
-  onPlayError(item.src, {
-    onEmbed: (url) => { item.embedUrl = url; if (current() === item) load(index); },
+  if (!item || !video) return;
+  const handlers = {
+    onEmbed: (url: string) => {
+      item.embedUrl = url;
+      if (current() === item) load(index);
+    },
     onMessage: showToast,
+  };
+  const opts = { resumeAt: resumePoint(store.get(item.key)), isCurrent: () => current() === item, onMessage: showToast };
+  void handleUnplayable(item, video, opts).then((handled) => {
+    if (!handled) onPlayError(item.src, handlers);
   });
 };
 
@@ -240,7 +273,13 @@ export const mountPlayerDock = (host: HTMLElement): void => {
   host.innerHTML = DOCK_MARKUP;
   dock = host.querySelector('.dock') as HTMLElement;
   video = dock.querySelector('video') as HTMLVideoElement;
+  // Legendas: na barra fixa o menu fica nos controles; no palco da tela de reprodução, sobre o vídeo.
+  captions = mountCaptions({
+    video: () => video,
+    host: () => (mode === 'dock' ? q('.dock-controls') : mode === 'page' ? (video?.parentElement ?? null) : null),
+  });
   wirePlayerDock(dock, video, {
+    toggleCaptions: () => captions?.toggle(),
     item: current,
     nextTitle: () => (index < queue.length - 1 ? (queue[index + 1]?.title ?? '') : null),
     queueEnded: () => {

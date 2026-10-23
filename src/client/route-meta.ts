@@ -5,6 +5,7 @@ const EXACT_LABELS: Record<string, string> = {
   '/my-list': 'Biblioteca',
   '/agenda': 'Agenda',
   '/calendar': 'Agenda',
+  '/stats': 'Estatísticas',
   '/telegram': 'Canais',
   '/connections': 'Conexões',
   '/public-domain': 'Domínio público',

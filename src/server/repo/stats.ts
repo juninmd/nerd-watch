@@ -1,120 +1,120 @@
 import type { Database } from 'bun:sqlite';
-import { decodeGenres } from '../stats/catalog-fields.ts';
-import type { HistoryEvent, ScopeTitle } from '../stats/period.ts';
-import { type Duration, UNKNOWN_DURATION } from '../stats/measures.ts';
-import { yearWindowUtc } from '../stats/time.ts';
-import type { LibraryHistoryKind, WatchStatus } from '../types.ts';
+import { todayIso } from '../date.ts';
+import type { MediaType, TitleSource, WatchStatus } from '../types.ts';
 
-/**
- * Consultas das estatísticas. Quatro leituras no total, todas limitadas (sem N+1):
- *   1. contagem por status (`idx_library_status`, covering: só lê o índice);
- *   2. títulos em escopo: biblioteca assistida/quero ver (`idx_library_status`) UNION títulos com exibições no
- *      ano (`idx_library_history_at`); o UNION já tira duplicatas;
- *   3. episódios das séries do escopo, agregados por título (`idx_seasons_title`, `idx_episodes_season`);
- *   4. eventos do histórico no intervalo do ano (`idx_library_history_at`).
- * Os planos estão em tests/stats-repo.test.ts (EXPLAIN QUERY PLAN).
- */
+export const ACTIVITY_DAYS = 365;
+const DAY_MS = 86_400_000;
 
-export const SCOPE_CTE = `
-WITH scope AS (
-  SELECT t.id AS id, t.media_type AS media_type, t.genres AS genres, le.rating AS rating, le.watch_status AS watch_status,
-    t.runtime_minutes AS runtime_minutes
-  FROM library_entries le JOIN titles t ON t.id = le.title_id
-  WHERE le.watch_status IN ('watched', 'want')
-  UNION
-  SELECT t.id, t.media_type, t.genres, le.rating, le.watch_status, t.runtime_minutes
-  FROM titles t LEFT JOIN library_entries le ON le.title_id = t.id
-  WHERE t.id IN (
-    SELECT h.title_id FROM library_history h
-    WHERE h.at >= $from AND h.at < $to AND h.kind IN ('finished', 'rewatch_started')
-  )
-)`;
-
-/** Exposta para o teste de EXPLAIN QUERY PLAN: o plano que importa é o desta consulta. */
-export const EVENTS_SQL = 'SELECT title_id, kind, at FROM library_history WHERE at >= ? AND at < ?';
-
-type WindowParams = { [name: string]: string };
-
-interface ScopeRow {
-  id: string;
-  media_type: 'movie' | 'tv';
-  genres: string | null;
-  rating: number | null;
-  watch_status: WatchStatus | null;
-  runtime_minutes: number | null;
+export interface TopRatedRow {
+  titleId: string;
+  source: TitleSource;
+  sourceId: string;
+  mediaType: MediaType;
+  title: string;
+  posterPath: string | null;
+  rating: number;
 }
 
-interface EpisodeAggRow {
-  title_id: string;
+export interface LibraryStats {
   total: number;
-  known: number;
-  minutes: number;
+  byStatus: Record<WatchStatus, number>;
+  byType: Record<MediaType, number>;
+  /** Índice = nota (0 a 10), valor = quantos títulos. */
+  ratings: number[];
+  averageRating: number | null;
+  /** Dias com atividade (histórico da biblioteca) nos últimos `ACTIVITY_DAYS`, só os que têm pelo menos um evento. */
+  activity: Array<{ date: string; count: number }>;
+  streak: { current: number; longest: number };
+  /** Títulos concluídos por mês, os 12 últimos meses terminando no atual (`YYYY-MM`). */
+  finishedByMonth: Array<{ month: string; count: number }>;
+  topRated: TopRatedRow[];
 }
 
-/** Duração de um título para o tempo assistido: filme = runtime; série = soma dos episódios conhecidos. */
-export const durationOf = (
-  row: { media_type: 'movie' | 'tv'; runtime_minutes: number | null },
-  agg: EpisodeAggRow | undefined,
-): Duration => {
-  if (row.media_type === 'movie') return { minutes: row.runtime_minutes, episodesWithoutRuntime: 0 };
-  if (!agg || agg.total === 0) return UNKNOWN_DURATION;
-  const missing = agg.total - agg.known;
-  return { minutes: agg.known > 0 ? agg.minutes : null, episodesWithoutRuntime: missing };
+const shiftDays = (iso: string, days: number): string =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+
+/** Sequências de dias consecutivos com atividade. A atual ainda vale se o último dia ativo foi ontem (o dia de hoje não acabou). */
+export const computeStreaks = (activeDates: string[], today: string): { current: number; longest: number } => {
+  const days = [...new Set(activeDates)].sort();
+  let longest = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const d of days) {
+    run = prev !== null && shiftDays(prev, 1) === d ? run + 1 : 1;
+    longest = Math.max(longest, run);
+    prev = d;
+  }
+  const alive = prev === today || prev === shiftDays(today, -1);
+  return { current: alive ? run : 0, longest };
 };
 
-export interface StatsInputs {
-  /** Instante (ISO UTC) do evento mais antigo do histórico; `null` sem histórico. Alimenta o seletor de ano. */
-  firstEventAt: string | null;
-  statusCounts: Partial<Record<WatchStatus, number>>;
-  watched: Duration[];
-  wanted: Duration[];
-  periodEvents: HistoryEvent[];
-  periodTitles: Map<string, ScopeTitle>;
-}
+const lastMonths = (today: string, n: number): string[] => {
+  const [y, m] = today.split('-').map(Number) as [number, number];
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(Date.UTC(y, m - 1 - (n - 1 - i), 1));
+    return d.toISOString().slice(0, 7);
+  });
+};
 
-/** Lê tudo que o `/api/stats` precisa para um ano. Sem N+1: uma consulta por tipo de dado, não por título. */
-export const loadStatsInputs = (db: Database, year: number): StatsInputs => {
-  const { from, to } = yearWindowUtc(year);
-
-  const statusCounts: Partial<Record<WatchStatus, number>> = {};
-  for (const row of db
-    .query<{ watch_status: WatchStatus; n: number }, []>(
-      'SELECT watch_status, COUNT(*) AS n FROM library_entries GROUP BY watch_status',
-    )
-    .all()) {
-    statusCounts[row.watch_status] = row.n;
+export const getLibraryStats = (db: Database, today: string = todayIso()): LibraryStats => {
+  const byStatus: Record<WatchStatus, number> = { want: 0, watching: 0, watched: 0, dropped: 0 };
+  for (const r of db.query('SELECT watch_status s, COUNT(*) n FROM library_entries GROUP BY watch_status').all() as Array<{ s: WatchStatus; n: number }>) {
+    byStatus[r.s] = r.n;
   }
 
-  const bounds = { $from: from, $to: to };
-  const scopeRows = db.query<ScopeRow, WindowParams>(`${SCOPE_CTE} SELECT * FROM scope`).all(bounds);
-  const episodeRows = db
-    .query<EpisodeAggRow, WindowParams>(
-      `${SCOPE_CTE}
-       SELECT s.title_id AS title_id, COUNT(e.id) AS total, COUNT(e.runtime) AS known, COALESCE(SUM(e.runtime), 0) AS minutes
-       FROM seasons s JOIN episodes e ON e.season_id = s.id
-       WHERE s.title_id IN (SELECT id FROM scope WHERE media_type = 'tv')
-       GROUP BY s.title_id`,
-    )
-    .all(bounds);
-  const episodeByTitle = new Map(episodeRows.map((r) => [r.title_id, r]));
-
-  const watched: Duration[] = [];
-  const wanted: Duration[] = [];
-  const periodTitles = new Map<string, ScopeTitle>();
-  for (const row of scopeRows) {
-    const duration = durationOf(row, episodeByTitle.get(row.id));
-    if (row.watch_status === 'watched') watched.push(duration);
-    if (row.watch_status === 'want') wanted.push(duration);
-    periodTitles.set(row.id, { genres: decodeGenres(row.genres), rating: row.rating, duration });
+  const byType: Record<MediaType, number> = { movie: 0, tv: 0 };
+  for (const r of db
+    .query('SELECT t.media_type m, COUNT(*) n FROM library_entries le JOIN titles t ON t.id = le.title_id GROUP BY t.media_type')
+    .all() as Array<{ m: MediaType; n: number }>) {
+    byType[r.m] = r.n;
   }
 
-  const periodEvents = db
-    .query<{ title_id: string; kind: LibraryHistoryKind; at: string }, [string, string]>(EVENTS_SQL)
-    .all(from, to)
-    .map((r) => ({ titleId: r.title_id, kind: r.kind, at: r.at }));
+  const ratings = Array.from({ length: 11 }, () => 0);
+  let sum = 0;
+  let rated = 0;
+  for (const r of db.query('SELECT rating r, COUNT(*) n FROM library_entries WHERE rating IS NOT NULL GROUP BY rating').all() as Array<{ r: number; n: number }>) {
+    if (r.r < 0 || r.r > 10) continue;
+    ratings[r.r] = r.n;
+    sum += r.r * r.n;
+    rated += r.n;
+  }
 
-  const firstEventAt =
-    db.query<{ first: string | null }, []>('SELECT MIN(at) AS first FROM library_history').get()?.first ?? null;
+  const since = shiftDays(today, -(ACTIVITY_DAYS - 1));
+  const activity = (
+    db
+      .query('SELECT substr(at, 1, 10) d, COUNT(*) n FROM library_history WHERE substr(at, 1, 10) >= $since AND substr(at, 1, 10) <= $today GROUP BY d ORDER BY d')
+      .all({ $since: since, $today: today }) as Array<{ d: string; n: number }>
+  ).map((r) => ({ date: r.d, count: r.n }));
+  const allActive = (db.query('SELECT DISTINCT substr(at, 1, 10) d FROM library_history').all() as Array<{ d: string }>).map((r) => r.d);
 
-  return { firstEventAt, statusCounts, watched, wanted, periodEvents, periodTitles };
+  const months = lastMonths(today, 12);
+  const finished = new Map(
+    (
+      db
+        .query("SELECT substr(at, 1, 7) m, COUNT(*) n FROM library_history WHERE kind = 'finished' AND substr(at, 1, 7) >= $from GROUP BY m")
+        .all({ $from: months[0] ?? today }) as Array<{ m: string; n: number }>
+    ).map((r) => [r.m, r.n]),
+  );
+
+  const topRated = (
+    db
+      .query(
+        `SELECT t.id, t.source, t.source_id, t.media_type, t.title, t.poster_path, le.rating
+         FROM library_entries le JOIN titles t ON t.id = le.title_id
+         WHERE le.rating IS NOT NULL ORDER BY le.rating DESC, le.updated_at DESC LIMIT 6`,
+      )
+      .all() as Array<{ id: string; source: TitleSource; source_id: string; media_type: MediaType; title: string; poster_path: string | null; rating: number }>
+  ).map((r) => ({ titleId: r.id, source: r.source, sourceId: r.source_id, mediaType: r.media_type, title: r.title, posterPath: r.poster_path, rating: r.rating }));
+
+  return {
+    total: byStatus.want + byStatus.watching + byStatus.watched + byStatus.dropped,
+    byStatus,
+    byType,
+    ratings,
+    averageRating: rated > 0 ? Math.round((sum / rated) * 10) / 10 : null,
+    activity,
+    streak: computeStreaks(allActive, today),
+    finishedByMonth: months.map((month) => ({ month, count: finished.get(month) ?? 0 })),
+    topRated,
+  };
 };

@@ -26,6 +26,7 @@ export interface DockWiring {
   queueEnded(): void;
   keyboardActive(): boolean;
   onError(): void;
+  toggleCaptions(): void;
 }
 
 /** Liga os eventos do `<video>` e da barra fixa. Uma vez só: o elemento e a barra vivem a sessão toda. */
@@ -73,6 +74,7 @@ export const wirePlayerDock = (dock: HTMLElement, el: HTMLVideoElement, api: Doc
     active: api.keyboardActive,
     togglePlay: () => (el.paused ? api.attemptPlay() : el.pause()),
     next: () => api.step(1),
+    toggleCaptions: () => api.toggleCaptions(),
   });
 
   dock.addEventListener('click', (e) => {

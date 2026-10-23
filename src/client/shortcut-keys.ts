@@ -1,5 +1,5 @@
 /** Destinos do atalho "g + letra" (estilo GitHub). A paleta de comandos mostra as mesmas teclas. */
-export const GO_KEYS: Record<string, string> = { h: '/', b: '/library', t: '/telegram', a: '/agenda', c: '/connections', e: '/estatisticas' };
+export const GO_KEYS: Record<string, string> = { h: '/', b: '/library', t: '/telegram', a: '/agenda', e: '/stats', c: '/connections' };
 
 export type KeyOutcome =
   | { kind: 'palette' }

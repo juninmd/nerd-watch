@@ -29,6 +29,9 @@ Defina `LOCAL_MEDIA_DIRS` no `.env` e reinicie o app (a tela de Conexões só mo
 - **Reprodução:** o servidor lê o arquivo do disco em stream e atende `Range` (`bytes=a-b`, `bytes=a-`, `bytes=-n`) com 206 e `Content-Range`. Faixa fora do arquivo, múltiplas faixas ou formato inválido resultam em 416.
 - **Miniatura:** sem ffmpeg. Usa um arquivo ao lado do vídeo com o mesmo nome (`Ep 01.jpg`, `.jpeg` ou `.png`), ou `poster.jpg|png`, `folder.jpg|png` da mesma pasta. Sem sidecar, não há miniatura.
 
+- **Formatos fora de MP4/M4V/WebM:** com ffmpeg disponível, o arquivo é copiado para MP4 (remux) ou transcodificado
+  para H.264 em stream. Sem ffmpeg, o item aparece mas não toca, e a tela diz por quê. Ver [transcoding.md](../transcoding.md).
+
 ## Segurança
 
 - Symlinks e junctions dentro de uma pasta **não são seguidos** na listagem.

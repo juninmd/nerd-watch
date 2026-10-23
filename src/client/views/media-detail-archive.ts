@@ -111,6 +111,11 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
                 messageId: d.identifier,
                 durationSeconds: null,
                 route: titlePath('archive', '_', d.identifier),
+                captions: {
+                  query: `${d.title} ${d.year ?? ''}`.trim(),
+                  archiveId: d.identifier,
+                  archiveHasSubtitle: Boolean(d.subtitleUrl),
+                },
               },
               minimizable: true,
               onUnsupported: () => {

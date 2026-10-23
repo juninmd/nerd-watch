@@ -28,6 +28,8 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 📊 **Estatísticas** | `/estatisticas` (atalho `g e`): conclusões, tempo assistido estimado, gêneros, notas, dia da semana e maior sequência de dias por ano, mais a fila "quero ver" com data de término no ritmo escolhido. Tempo usa a duração do catálogo (TMDB, TVmaze, AniList); o que não tem duração fica de fora e é contado. Datas seguem o fuso do navegador. **Compartilhar ano** gera um PNG no próprio navegador, só com totais. API: `GET /api/stats?year=&tz=&hpd=` |
 | 🔔 **Avisos de lançamento** | um aviso por lançamento da sua lista, por webhook ou [ntfy](docs/providers/notifications.md) (configurado no `.env`, desligado por padrão); antecedência de 0 a 7 dias |
 | 📅 **Assinar a agenda** | feed `.ics` em `/api/calendar.ics` (`?days=`, padrão 60, máx. 365) com os mesmos lançamentos; cada evento tem UID estável, então reassinar não duplica. Botão **Assinar no calendário** copia o link. Só alcança apps que rodam na mesma máquina, porque o servidor escuta em `127.0.0.1` |
+| 📊 **Estatísticas** | `/stats` (atalho `g e`): totais por status e tipo, distribuição das suas notas, concluídos por mês, mapa de calor de atividade do último ano e sequência de dias seguidos, tudo a partir do histórico local |
+| ✨ **Animações** | cards entram em cascata e inclinam em 3D com brilho que segue o mouse; confete ao marcar como assistido. Tudo desliga com `prefers-reduced-motion` |
 | ⌨️ **Ctrl K** | paleta de comandos (títulos, canais, ações) e atalhos `g`+letra (`?` mostra a lista) |
 | 🎲 **O que assistir hoje** | sorteia um título da sua lista "quero ver" (filtro de tipo e nota mínima); "Outro" não repete o anterior. Botão na Biblioteca ou na Ctrl K |
 | 📺 **Episódios** | navegação por temporada, sinopse por episódio com **spoiler oculto por padrão** |
@@ -300,6 +302,12 @@ Cada fonte é configurada em **Conexões** (ou no `.env`) e adicionada em **Cana
 Catálogos e sincronização: [TVmaze](docs/providers/tvmaze.md), [AniList](docs/providers/anilist.md),
 [Trakt](docs/providers/trakt.md) e [progresso no servidor](docs/providers/progress-sync.md).
 
+**Formatos que o navegador não toca (MKV, AVI, MOV, TS, WMV, FLV, MPEG) em pasta local:** com o ffmpeg instalado
+(ou `FFMPEG_PATH`), o app copia o vídeo para MP4 quando ele já é H.264 (remux, sem perda) ou transcodifica para H.264
+em tempo real quando não é (HEVC, 10 bits, MPEG-4, entrelaçado). Sem ffmpeg, esses arquivos continuam sem tocar e a
+tela mostra o motivo. O selo no vídeo indica o caminho usado. Variáveis, limites e segurança em
+[docs/transcoding.md](docs/transcoding.md); decisão em [ADR 0002](docs/adr/0002-conversao-com-ffmpeg.md).
+
 > **Honestidade sobre o que foi testado:** pasta local, PeerTube, YouTube, TVmaze e AniList foram
 > exercitados contra o serviço real. Google Drive, WebDAV, S3, Dropbox, OneDrive, Jellyfin, Plex e Trakt
 > só contra serviços simulados e a documentação oficial — exigem conta/servidor, então o primeiro uso
@@ -346,7 +354,8 @@ taxa, ou uma tabela preenchida pelo usuário) para o importador de MAL passar a 
 - **O torrent começa pelo derivado mais leve** (`_512kb`/`small`) para o vídeo abrir rápido, não pela
   melhor qualidade — o seletor na tela deixa você trocar para `large`/`1080p` a qualquer momento.
 - **Só MP4/WebM tocam no navegador.** Itens da Archive que só têm `.ogv`/`.avi`/`.mkv` aparecem sem o
-  player P2P (o download do torrent continua lá).
+  player P2P (o download do torrent continua lá). Em **pasta local**, MKV/AVI/MOV/TS/WMV/FLV/MPEG são convertidos
+  com ffmpeg, se ele estiver instalado ([docs/transcoding.md](docs/transcoding.md)).
 - **O torrent baixa adiantado enquanto está aberto.** É o comportamento do engine (medido: ~50 MB em
   20s mesmo sem nenhuma leitura), e é o mesmo de qualquer cliente P2P com buffer. O consumo é
   limitado por três coisas: fechar o painel, sair da tela, e o sweeper que derruba o torrent sem
