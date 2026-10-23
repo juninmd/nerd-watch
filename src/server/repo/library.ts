@@ -170,6 +170,11 @@ export const upsertLibraryEntry = (db: Database, titleId: string, patch: Library
   return selectItem(db, titleId);
 };
 
+export const getLibraryItemByTitle = (db: Database, titleId: string): LibraryItem | null => {
+  const row = db.query<JoinedRow, [string]>(`${JOIN_SELECT} WHERE le.title_id = ?`).get(titleId);
+  return row ? toLibraryItem(row) : null;
+};
+
 export type RewatchOutcome = { ok: true; item: LibraryItem } | { ok: false; reason: 'not_found' | 'not_finished' };
 
 /** Revisão: só a partir de assistido. Volta para "assistindo", conta a revisão e registra o início. */

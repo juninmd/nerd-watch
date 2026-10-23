@@ -233,6 +233,19 @@ export const addToLibrary = (input: AddToLibraryInput): Promise<LibraryItemDto> 
     json<LibraryItemDto>(r),
   );
 
+export interface UpNextItemDto {
+  titleId: string;
+  title: { sourceId: string; source: CatalogSource | 'telegram'; mediaType: 'movie' | 'tv'; title: string; posterUrl: string | null };
+  seasonNumber: number;
+  episodeNumber: number;
+  episodeName: string;
+  runtime: number | null;
+  activityAt: string;
+}
+
+export const listUpNext = (limit = 12): Promise<{ items: UpNextItemDto[] }> =>
+  fetch(`/api/library/up-next?limit=${limit}`).then((r) => json<{ items: UpNextItemDto[] }>(r));
+
 export interface PatchLibraryInput {
   watchStatus?: WatchStatus;
   rating?: number | null;
@@ -246,6 +259,18 @@ export const patchLibrary = (titleId: string, patch: PatchLibraryInput): Promise
     (r) => json<LibraryItemDto>(r),
   );
 
+export interface MarkThroughResult {
+  changed: boolean;
+  previous: { watchStatus: WatchStatus; currentSeason: number | null; currentEpisode: number | null } | null;
+  item: LibraryItemDto;
+}
+
+export const markProgressThrough = (titleId: string, seasonNumber: number, episodeNumber: number): Promise<MarkThroughResult> =>
+  fetch(`/api/library/${titleId}/progress`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seasonNumber, episodeNumber }),
+  }).then((r) => json<MarkThroughResult>(r));
 export interface LibraryHistoryItemDto {
   id: string;
   kind: LibraryHistoryKind;

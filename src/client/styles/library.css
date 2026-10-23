@@ -130,3 +130,92 @@
   outline: 2px solid var(--accent-2);
   outline-offset: 3px;
 }
+
+/* Sorteio "o que assistir hoje": diálogo modal com filtros, resultado (aria-live) e Outro/Abrir. */
+.pick-dialog {
+  width: min(440px, calc(100vw - 24px));
+  margin: 12vh auto auto;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.pick-dialog::backdrop {
+  background: rgba(5, 6, 10, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.pick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pick-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.pick-head h2:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.pick-sub {
+  margin: 6px 0 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.pick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.pick-filters label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pick-result {
+  min-height: 120px;
+  margin: 16px 0;
+}
+
+.pick-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.pick-card .thumb {
+  flex: 0 0 72px;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2) center / cover no-repeat;
+}
+
+.pick-card .pick-name {
+  display: block;
+  font-size: 16px;
+}
+
+.pick-card .pick-meta {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-dim);
+}
+
+.pick-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
