@@ -189,6 +189,12 @@ kbd {
   margin: 0 0 4px;
 }
 
+/* Foco vai ao título/área principal ao trocar de tela: é programático, não precisa de contorno. */
+.view-title:focus,
+#view:focus {
+  outline: none;
+}
+
 .view-subtitle {
   color: var(--text-dim);
   font-size: 14.5px;
