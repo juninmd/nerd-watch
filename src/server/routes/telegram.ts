@@ -21,6 +21,7 @@ import { TelegramBotNotConfiguredError, resolveBotFileUrl, telegramBotEnabled } 
 import { PrivateChannelNotFoundError } from '../providers/telegram/peer.ts';
 import { listPersonalChannels } from '../providers/telegram/personal-channels.ts';
 import { TelegramPersonalNotConfiguredError, fetchPersonalChannelItems, streamPersonalItem, telegramPersonalEnabled } from '../providers/telegram/personal.ts';
+import { TelegramFloodWaitError, floodWaitResponse } from '../providers/telegram/flood-wait.ts';
 import { parseTelegramRef } from '../providers/telegram/ref.ts';
 import { fetchPersonalVideoPage } from '../providers/telegram/personal.ts';
 import { itemMediaDto } from '../telegram-item-dto.ts';
@@ -136,6 +137,7 @@ telegramRoutes.post('/channels', async (c) => {
     return c.json(toChannelResponse(channel, saved.length), 201);
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    if (err instanceof TelegramFloodWaitError) return floodWaitResponse(c, err);
     if (err instanceof PrivateChannelNotFoundError) return c.json({ error: err.message }, 404);
     return c.json({ error: 'não foi possível ler esse canal com a conta pessoal agora' }, 502);
   }
@@ -222,6 +224,7 @@ telegramRoutes.get('/my-channels', async (c) => {
     return c.json({ channels: mine.map((ch) => ({ ...ch, added: added.has(ch.handle.toLowerCase()) })) });
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    if (err instanceof TelegramFloodWaitError) return floodWaitResponse(c, err);
     return c.json({ error: 'não foi possível listar os seus canais agora' }, 502);
   }
 });
@@ -277,6 +280,7 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
     return c.json({ itemCount: saved.length });
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    if (err instanceof TelegramFloodWaitError) return floodWaitResponse(c, err);
     if (err instanceof PrivateChannelNotFoundError) return c.json({ error: err.message }, 404);
     return c.json({ error: 'não foi possível atualizar esse canal agora' }, 502);
   }
@@ -343,6 +347,7 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
     resolved = await streamPersonalItem(channel.handle, messageId, range);
   } catch (err) {
     if (err instanceof TelegramPersonalNotConfiguredError) return c.json({ error: err.message }, 501);
+    if (err instanceof TelegramFloodWaitError) return floodWaitResponse(c, err);
     if (err instanceof PrivateChannelNotFoundError) return c.json({ error: err.message }, 404);
     return c.json({ error: 'não foi possível acessar o Telegram com a conta pessoal agora' }, 502);
   }
