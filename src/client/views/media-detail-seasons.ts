@@ -8,6 +8,7 @@ import {
   type TmdbDetailDto,
 } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
+import { icon } from '../icons.ts';
 import { renderSpoilerText } from '../components/spoiler.ts';
 import { isEpisodeWatched } from '../episode-progress.ts';
 import { showToast } from '../state.ts';
@@ -51,7 +52,7 @@ export const renderSeasons = (
   let activeSeason = library?.current_season && real.some((s) => s.seasonNumber === library.current_season) ? library.current_season : real[0]?.seasonNumber ?? 1;
 
   container.innerHTML = `
-    <div class="section-head"><h2>📺 Episódios</h2></div>
+    <div class="section-head"><h2>Episódios</h2></div>
     <div class="season-tabs" id="season-tabs"></div>
     <div id="episode-list"></div>
   `;
@@ -79,7 +80,7 @@ export const renderSeasons = (
       .then((data) => {
         if (requestedSeason !== activeSeason) return;
         if (data.episodes.length === 0) {
-          listEl.innerHTML = `<div class="empty-state"><div class="big">🎬</div>sem episódios listados para esta temporada</div>`;
+          listEl.innerHTML = `<div class="empty-state"><div class="big">${icon('film')}</div>sem episódios listados para esta temporada</div>`;
           return;
         }
         listEl.innerHTML = '';
@@ -129,7 +130,7 @@ export const renderSeasons = (
       })
       .catch(() => {
         if (requestedSeason !== activeSeason) return;
-        listEl.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar os episódios</div>`;
+        listEl.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar os episódios</div>`;
       });
   };
 

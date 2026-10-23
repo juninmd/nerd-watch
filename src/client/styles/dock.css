@@ -52,8 +52,10 @@
   white-space: nowrap;
 }
 
-.dock-title:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .dock-title:hover {
+    text-decoration: underline;
+  }
 }
 
 .dock-sub {
@@ -79,8 +81,10 @@
   color: var(--text);
 }
 
-.dock button:not(.dock-title):hover:not(:disabled) {
-  background: var(--surface-hover);
+@media (hover: hover) {
+  .dock button:not(.dock-title):hover:not(:disabled) {
+    background: var(--surface-hover);
+  }
 }
 
 .dock button:disabled {

@@ -79,8 +79,8 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
       <select class="select input-pill" id="lib-sort" aria-label="Ordenar por">${SORTS.map((s) => `<option value="${s.value}">${s.label}</option>`).join('')}</select>
       <span class="toolbar-spacer"></span>
       <a class="btn btn-ghost btn-sm" href="#/lists">Listas</a>
-      <button class="btn btn-ghost btn-sm" id="lib-pick" type="button">🎲 o que assistir hoje</button>
-      <button class="btn btn-ghost btn-sm" id="lib-layout" type="button"></button>
+      <button class="btn btn-ghost btn-sm" id="lib-pick" type="button">${icon('dice', 'sm')} o que assistir hoje</button>
+      <button class="btn btn-ghost btn-sm" id="lib-layout" type="button" aria-pressed="false"></button>
       <button class="btn btn-ghost btn-sm" id="lib-select" type="button" aria-pressed="false">${icon('select', 'sm')} selecionar</button>
     </div>
     <div class="toolbar" id="lib-bulk" hidden>
@@ -128,7 +128,9 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
     const shown = visible();
     selectBtn.setAttribute('aria-pressed', String(selecting));
     selectBtn.innerHTML = selecting ? `${icon('x', 'sm')} cancelar seleção` : `${icon('select', 'sm')} selecionar`;
-    layoutBtn.innerHTML = layout === 'grid' ? `${icon('list', 'sm')} lista` : `${icon('library', 'sm')} grade`;
+    // Rótulo fixo + aria-pressed: o estado é lido pelo leitor de tela, não pelo texto do botão.
+    layoutBtn.innerHTML = `${icon('list', 'sm')} lista`;
+    layoutBtn.setAttribute('aria-pressed', String(layout === 'list'));
     bulkEl.hidden = !selecting;
     countEl.textContent = `${picked.size} de ${shown.length} selecionado${picked.size === 1 ? '' : 's'}`;
     allBtn.textContent = shown.length > 0 && picked.size === shown.length ? 'nenhum' : 'todos';
@@ -139,12 +141,20 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
 
   /** `focusIndex` devolve o foco ao card marcado — a grade é recriada e o teclado voltaria ao topo. */
   const renderList = (focusIndex?: number) => {
+    // Sem nada visível não há o que selecionar: sai do modo lote em vez de ficar em "0 de 0 selecionados".
+    if (visible().length === 0) {
+      selecting = false;
+      picked.clear();
+    }
     renderTabs();
     syncChrome();
     bar.sync();
     const shown = visible();
     if (shown.length === 0) {
-      listEl.innerHTML = `<div class="empty-state"><div class="big">📭</div>${items.length === 0 ? 'sua biblioteca está vazia' : 'nada neste filtro'} — <a href="#/search">busque algo</a> para adicionar</div>`;
+      listEl.innerHTML =
+        items.length === 0
+          ? `<div class="empty-state"><div class="big">${icon('inbox')}</div>sua biblioteca está vazia — <a href="#/search">busque algo</a> para adicionar</div>`
+          : `<div class="empty-state"><div class="big">${icon('inbox')}</div>nada neste filtro<br><button class="btn btn-ghost btn-sm" id="lib-clear-filters" type="button">limpar filtros</button></div>`;
       return;
     }
     const grid = document.createElement('div');
@@ -182,9 +192,19 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
         renderList();
       })
       .catch(() => {
-        listEl.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar sua biblioteca</div>`;
+        listEl.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar sua biblioteca</div>`;
       });
   };
+
+  // Delegação no contêiner: o botão de "limpar filtros" é recriado a cada render.
+  listEl.addEventListener('click', (e) => {
+    if (!(e.target as HTMLElement).closest('#lib-clear-filters')) return;
+    status = 'all';
+    source = 'all';
+    (host.querySelector('#lib-source') as HTMLSelectElement).value = 'all';
+    resetSelection();
+    renderList();
+  });
 
   /** Trocar filtro muda o que é "todos"; manter a seleção de itens fora da vista deixaria o lote agir no escuro. */
   const resetSelection = () => picked.clear();

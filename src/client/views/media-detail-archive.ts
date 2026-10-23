@@ -1,4 +1,5 @@
 import { getArchiveTitle } from '../api.ts';
+import { icon } from '../icons.ts';
 import { renderInlinePlayer } from '../components/inline-player.ts';
 import { parkPlayer, stopIfOnPage } from '../components/player-dock.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
@@ -35,7 +36,7 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
           </div>
           <div class="detail-grid">
             <div>
-              <div class="section-head"><h2>▶️ Assistir agora, dentro do app</h2></div>
+              <div class="section-head"><h2>Assistir agora, dentro do app</h2></div>
               <div id="main-player"></div>
               <p class="view-subtitle" style="margin-top:8px">
                 Reprodução direta do Internet Archive — este título está em domínio público, sem custo e 100% legal.
@@ -50,10 +51,10 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
               <div class="side-card">
                 <h3>Baixar</h3>
                 <a class="btn btn-ghost btn-sm" href="${escapeHtml(d.torrentUrl)}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-bottom:8px">
-                  🧲 torrent oficial (Internet Archive)
+                  ${icon('download', 'sm')} torrent oficial (Internet Archive)
                 </a>
                 <a class="btn btn-ghost btn-sm" href="${escapeHtml(d.detailsUrl)}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center">
-                  🔗 página no archive.org
+                  ${icon('forward', 'sm')} página no archive.org
                 </a>
               </div>
               <div class="side-card">
@@ -68,7 +69,7 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
                 <h3>Legendas</h3>
                 ${
                   d.subtitleUrl
-                    ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(d.subtitleUrl)}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-bottom:10px">⬇️ legenda hospedada na Archive.org</a>`
+                    ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(d.subtitleUrl)}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-bottom:10px">${icon('download', 'sm')} legenda hospedada na Archive.org</a>`
                     : ''
                 }
                 <div id="subtitles-panel"></div>
