@@ -1,5 +1,6 @@
 import type { WatchStatus } from '../../server/types.ts';
 import { patchLibrary, removeFromLibrary, rewatchLibrary, type LibraryEntryDto, type LibraryItemDto } from '../api.ts';
+import { burst } from '../effects.ts';
 import { type IconName, icon } from '../icons.ts';
 import { showToast } from '../state.ts';
 import { renderLibraryHistory } from './library-history.ts';
@@ -47,6 +48,7 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
       patchLibrary(opts.titleId, { watchStatus: s.value })
         .then((item) => {
           showToast(`marcado como "${s.label.toLowerCase()}"`);
+          if (s.value === 'watched') burst(btn);
           opts.onChange(toEntryDto(item));
         })
         .catch(() => showToast('não foi possível atualizar'));
