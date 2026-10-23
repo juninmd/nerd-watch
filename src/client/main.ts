@@ -3,6 +3,8 @@ import { openCommandPalette } from './components/command-palette.ts';
 import { releaseTorrentPlayers } from './components/torrent-player.ts';
 import { icon, type IconName } from './icons.ts';
 import { onRouteChange, type Route } from './router.ts';
+import { routeLabel, routeTitle } from './route-meta.ts';
+import { isRevisit, readScroll, restoreWhenRendered, stampRoute, writeScroll } from './scroll-memory.ts';
 import { mountPlayerDock, parkPlayer, stopIfOnPage } from './components/player-dock.ts';
 import { installShortcuts } from './shortcuts.ts';
 import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './state.ts';
@@ -51,6 +53,7 @@ app.innerHTML = `
         <a class="pill" id="conn-pill" href="#/connections"></a>
       </header>
       <main id="view" tabindex="-1"></main>
+      <div id="route-announcer" class="sr-only" aria-live="polite"></div>
     </div>
   </div>
   <div id="dock"></div>
@@ -123,7 +126,7 @@ const dispatch = (route: Route) => {
   // O vídeo só sobrevive fora da tela de reprodução se o usuário minimizou; senão encerra (e guarda a posição).
   parkPlayer();
   if (!WATCH_RE.test(path)) stopIfOnPage();
-  document.title = 'nerd-watch';
+  document.title = routeTitle(path, route.query);
   renderNav(path);
   const watchMatch = path.match(WATCH_RE);
   if (watchMatch) {
@@ -168,9 +171,30 @@ const dispatch = (route: Route) => {
   }
 };
 
+const announcerEl = document.getElementById('route-announcer') as HTMLElement;
+let currentKey: string | null = null;
+let stopRestore: (() => void) | null = null;
+
+/** Depois de trocar de tela o foco vai ao título da página, e o nome da rota é anunciado a leitores de tela. */
+const focusRouteHeading = (path: string, query: URLSearchParams) => {
+  const heading = viewEl.querySelector<HTMLElement>('h1');
+  if (heading) heading.tabIndex = -1;
+  (heading ?? viewEl).focus({ preventScroll: true });
+  announcerEl.textContent = routeLabel(path, query);
+};
+
 onRouteChange((route) => {
+  const key = location.hash.replace(/^#/, '') || '/';
+  const revisit = isRevisit(history.state, key);
+  if (currentKey !== null) writeScroll(currentKey, window.scrollY);
+  currentKey = key;
+  stampRoute(key);
+  stopRestore?.();
+  stopRestore = null;
   dispatch(route);
-  window.scrollTo(0, 0);
+  focusRouteHeading(ALIASES[route.path] ?? route.path, route.query);
+  if (revisit) stopRestore = restoreWhenRendered(viewEl, readScroll(key));
+  else window.scrollTo(0, 0);
 });
 
 void registerShellWorker();

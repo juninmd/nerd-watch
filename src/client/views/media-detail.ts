@@ -1,5 +1,6 @@
 import { type CatalogSource, getTmdbTitle } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
+import { icon } from '../icons.ts';
 import { renderRefreshMetadata } from '../components/refresh-metadata.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderSubtitlesPanel } from '../components/subtitles.ts';
@@ -74,7 +75,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
             <div>
               ${d.trailerKey ? `<div class="trailer-frame" id="trailer" tabindex="-1"><iframe src="https://www.youtube.com/embed/${d.trailerKey}" allowfullscreen title="trailer"></iframe></div>` : ''}
               <div id="seasons-section"></div>
-              ${mediaType === 'movie' ? `<div class="empty-state"><div class="big">🎬</div>filmes protegidos por direitos autorais não são reproduzidos dentro do app — use os streamings ao lado, ou confira o acervo de <a href="#/public-domain">domínio público</a> se este título já for livre.</div>` : ''}
+              ${mediaType === 'movie' ? `<div class="empty-state"><div class="big">${icon('film')}</div>filmes protegidos por direitos autorais não são reproduzidos dentro do app — use os streamings ao lado, ou confira o acervo de <a href="#/public-domain">domínio público</a> se este título já for livre.</div>` : ''}
             </div>
             <div>
               <div class="side-card" id="where-card" tabindex="-1">${whereToWatchHtml(d.watchProviders)}</div>

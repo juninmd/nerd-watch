@@ -1,13 +1,14 @@
 import type { WatchStatus } from '../../server/types.ts';
 import { patchLibrary, removeFromLibrary, rewatchLibrary, type LibraryEntryDto, type LibraryItemDto } from '../api.ts';
+import { type IconName, icon } from '../icons.ts';
 import { showToast } from '../state.ts';
 import { renderLibraryHistory } from './library-history.ts';
 
-const STATUS_OPTIONS: Array<{ value: WatchStatus; label: string; icon: string }> = [
-  { value: 'want', label: 'Quero ver', icon: '📌' },
-  { value: 'watching', label: 'Assistindo', icon: '▶️' },
-  { value: 'watched', label: 'Assistido', icon: '✅' },
-  { value: 'dropped', label: 'Abandonei', icon: '⏹️' },
+const STATUS_OPTIONS: Array<{ value: WatchStatus; label: string; icon: IconName }> = [
+  { value: 'want', label: 'Quero ver', icon: 'bookmark' },
+  { value: 'watching', label: 'Assistindo', icon: 'play' },
+  { value: 'watched', label: 'Assistido', icon: 'check' },
+  { value: 'dropped', label: 'Abandonei', icon: 'stop' },
 ];
 
 export interface StatusActionsOptions {
@@ -40,7 +41,8 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
   for (const s of STATUS_OPTIONS) {
     const btn = document.createElement('button');
     btn.className = `chip${opts.watchStatus === s.value ? ' active' : ''}`;
-    btn.textContent = `${s.icon} ${s.label}`;
+    btn.setAttribute('aria-pressed', String(opts.watchStatus === s.value));
+    btn.innerHTML = `${icon(s.icon, 'sm')} ${s.label}`;
     btn.addEventListener('click', () => {
       patchLibrary(opts.titleId, { watchStatus: s.value })
         .then((item) => {
@@ -59,7 +61,7 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
     if (opts.watchStatus === 'watched') {
       const rewatch = document.createElement('button');
       rewatch.className = 'btn btn-ghost btn-sm';
-      rewatch.textContent = '🔁 Rever';
+      rewatch.innerHTML = `${icon('replay', 'sm')} Rever`;
       rewatch.addEventListener('click', () => {
         // Desabilita durante o pedido: um segundo clique receberia 409 e enganaria o usuário.
         rewatch.disabled = true;
@@ -79,7 +81,7 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
       const count = document.createElement('span');
       count.className = 'rewatch-count';
       // rewatch_count conta as revisões; a primeira exibição conta como uma a mais.
-      count.textContent = `👁 Visto ${opts.rewatchCount + 1} vezes`;
+      count.innerHTML = `${icon('eye', 'sm')} Visto ${opts.rewatchCount + 1} vezes`;
       rewatchRow.appendChild(count);
     }
     wrap.appendChild(rewatchRow);
@@ -108,7 +110,7 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
       const remove = document.createElement('button');
       remove.className = 'btn btn-ghost btn-sm';
       remove.style.marginTop = '12px';
-      remove.textContent = '🗑️ remover da lista';
+      remove.innerHTML = `${icon('trash', 'sm')} remover da lista`;
       remove.addEventListener('click', () => {
         // biome-ignore lint/style/noNonNullAssertion: guardado pelo if acima
         removeFromLibrary(opts.entryId!)

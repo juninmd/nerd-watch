@@ -1,4 +1,5 @@
 import { downloadSubtitle, searchSubtitles, type SubtitleDownloadInput, type SubtitleResultDto } from '../api.ts';
+import { icon } from '../icons.ts';
 import { showToast } from '../state.ts';
 import { escapeHtml } from './card.ts';
 
@@ -44,7 +45,7 @@ const resultRow = (r: SubtitleResultDto): string => `
         ${r.downloads !== null ? ` ${r.downloads.toLocaleString('pt-BR')} downloads` : ''}
       </div>
     </div>
-    <button class="btn btn-ghost btn-sm" data-subtitle="${escapeHtml(r.id)}" data-source="${escapeHtml(r.source)}">⬇️ baixar</button>
+    <button class="btn btn-ghost btn-sm" data-subtitle="${escapeHtml(r.id)}" data-source="${escapeHtml(r.source)}">${icon('download', 'sm')} baixar</button>
   </div>
 `;
 
@@ -101,11 +102,11 @@ export const renderSubtitlesPanel = (opts: SubtitlesPanelOptions): HTMLElement =
             .then((res) => {
               window.open(res.url, '_blank', 'noopener,noreferrer');
               showToast(res.remaining === undefined ? 'legenda baixada' : `legenda baixada — ${res.remaining} downloads restantes hoje`);
-              btn.textContent = '⬇️ baixar';
+              btn.innerHTML = `${icon('download', 'sm')} baixar`;
             })
             .catch(() => {
               showToast('não foi possível baixar essa legenda');
-              btn.textContent = '⬇️ baixar';
+              btn.innerHTML = `${icon('download', 'sm')} baixar`;
             });
         });
       });

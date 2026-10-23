@@ -1,11 +1,12 @@
 import { searchArchive, type ArchiveMovieDto } from '../api.ts';
+import { icon } from '../icons.ts';
 import { renderCard } from '../components/card.ts';
 import { navigate } from '../router.ts';
 import { titlePath } from '../title-link.ts';
 
 export const renderPublicDomain = (host: HTMLElement): void => {
   host.innerHTML = `
-    <h1 class="view-title">🎞️ Domínio público</h1>
+    <h1 class="view-title">Domínio público</h1>
     <p class="view-subtitle">
       Filmes clássicos com direitos autorais expirados, servidos direto pelo Internet Archive — assista dentro do
       app e baixe pelo torrent oficial gerado pela própria Archive.org. 100% legal, sem chave de API.
@@ -47,7 +48,7 @@ export const renderPublicDomain = (host: HTMLElement): void => {
     searchArchive(q)
       .then((data) => renderResults(data.results))
       .catch(() => {
-        grid.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>Internet Archive indisponível agora</div>`;
+        grid.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>Internet Archive indisponível agora</div>`;
       });
   };
 
