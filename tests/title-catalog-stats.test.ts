@@ -40,9 +40,15 @@ describe('setCatalogStats: gênero e duração são catálogo, não lista do usu
     expect(getTitle(db, t.id)?.runtime_minutes).toBe(95);
   });
 
-  test('lista vazia é valor válido e substitui o anterior (catálogo respondeu sem gênero)', () => {
+  test('lista vazia não apaga gêneros já guardados (resposta parcial do catálogo)', () => {
     const t = upsertTitle(db, { source: 'tmdb', sourceId: '3', mediaType: 'movie', title: 'Filme' });
     setCatalogStats(db, t.id, { genres: ['Ação'], runtimeMinutes: null });
+    setCatalogStats(db, t.id, { genres: [], runtimeMinutes: null });
+    expect(getTitle(db, t.id)?.genres).toBe('["Ação"]');
+  });
+
+  test('lista vazia vira [] quando nada estava guardado (catálogo respondeu sem gênero)', () => {
+    const t = upsertTitle(db, { source: 'tmdb', sourceId: '5', mediaType: 'movie', title: 'Filme' });
     setCatalogStats(db, t.id, { genres: [], runtimeMinutes: null });
     expect(getTitle(db, t.id)?.genres).toBe('[]');
   });
