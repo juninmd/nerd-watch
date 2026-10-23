@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getDb } from '../db.ts';
 import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
+import { listUpNext } from '../repo/up-next.ts';
 import { upsertTitle } from '../repo/titles.ts';
 import { httpsUrlOrNull } from '../catalog-text.ts';
 import { tmdbImageUrl } from '../providers/tmdb.ts';
@@ -14,8 +15,10 @@ const isWatchStatus = (v: unknown): v is WatchStatus => typeof v === 'string' &&
 /** Fontes que guardam a URL completa do pôster; as demais guardam só o caminho da TMDB. */
 const ABSOLUTE_POSTER_SOURCES: ReadonlySet<TitleSource> = new Set(['archive', 'tvmaze', 'anilist']);
 
-const posterUrlFor = (item: LibraryItem): string | null =>
-  ABSOLUTE_POSTER_SOURCES.has(item.title.source) ? item.title.poster_path : tmdbImageUrl(item.title.poster_path, 'w342');
+const posterUrl = (source: TitleSource, posterPath: string | null): string | null =>
+  ABSOLUTE_POSTER_SOURCES.has(source) ? posterPath : tmdbImageUrl(posterPath, 'w342');
+
+const posterUrlFor = (item: LibraryItem): string | null => posterUrl(item.title.source, item.title.poster_path);
 
 const toResponse = (item: LibraryItem) => ({
   id: item.id,
@@ -45,6 +48,27 @@ libraryRoutes.get('/', async (c) => {
   const db = await getDb();
   const items = listLibrary(db, statusParam as WatchStatus | undefined);
   return c.json({ items: items.map(toResponse) });
+});
+
+const UP_NEXT_LIMIT_MAX = 50;
+
+/** Séries em andamento com o próximo episódio não visto; ordenadas pela atividade da biblioteca. */
+libraryRoutes.get('/up-next', async (c) => {
+  const raw = c.req.query('limit');
+  const limit = raw === undefined ? 12 : Number(raw);
+  if (!Number.isInteger(limit) || limit < 1 || limit > UP_NEXT_LIMIT_MAX) return c.json({ error: `limit deve ser inteiro entre 1 e ${UP_NEXT_LIMIT_MAX}` }, 400);
+  const rows = listUpNext(await getDb(), limit);
+  return c.json({
+    items: rows.map((r) => ({
+      titleId: r.titleId,
+      title: { sourceId: r.sourceId, source: r.source, mediaType: r.mediaType, title: r.title, posterUrl: posterUrl(r.source, r.posterPath) },
+      seasonNumber: r.seasonNumber,
+      episodeNumber: r.episodeNumber,
+      episodeName: r.episodeName,
+      runtime: r.runtime,
+      activityAt: r.activityAt,
+    })),
+  });
 });
 
 interface AddLibraryBody {

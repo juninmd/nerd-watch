@@ -231,6 +231,19 @@ export const addToLibrary = (input: AddToLibraryInput): Promise<LibraryItemDto> 
     json<LibraryItemDto>(r),
   );
 
+export interface UpNextItemDto {
+  titleId: string;
+  title: { sourceId: string; source: CatalogSource | 'telegram'; mediaType: 'movie' | 'tv'; title: string; posterUrl: string | null };
+  seasonNumber: number;
+  episodeNumber: number;
+  episodeName: string;
+  runtime: number | null;
+  activityAt: string;
+}
+
+export const listUpNext = (limit = 12): Promise<{ items: UpNextItemDto[] }> =>
+  fetch(`/api/library/up-next?limit=${limit}`).then((r) => json<{ items: UpNextItemDto[] }>(r));
+
 export interface PatchLibraryInput {
   watchStatus?: WatchStatus;
   rating?: number | null;
