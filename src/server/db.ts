@@ -12,23 +12,24 @@ const MODES_SQL = TELEGRAM_CHANNEL_MODES.map((m) => `'${m}'`).join(', ');
 const HISTORY_KINDS_SQL = LIBRARY_HISTORY_KINDS.map((k) => `'${k}'`).join(', ');
 
 const MIGRATIONS = `
-CREATE TABLE IF NOT EXISTS titles (
-  id TEXT PRIMARY KEY,
-  source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram', 'tvmaze', 'anilist')),
-  source_id TEXT NOT NULL,
-  media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
-  title TEXT NOT NULL,
-  original_title TEXT,
-  overview TEXT,
-  poster_path TEXT,
-  backdrop_path TEXT,
-  release_date TEXT,
-  vote_average REAL,
-  created_at TEXT NOT NULL,
-  metadata_status TEXT,
-  metadata_refreshed_at TEXT,
-  UNIQUE (source, source_id)
-);
+  CREATE TABLE IF NOT EXISTS titles (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram', 'tvmaze', 'anilist')),
+    source_id TEXT NOT NULL,
+    media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
+    title TEXT NOT NULL,
+    original_title TEXT,
+    overview TEXT,
+    poster_path TEXT,
+    backdrop_path TEXT,
+    release_date TEXT,
+    vote_average REAL,
+    created_at TEXT NOT NULL,
+    genres TEXT,
+    runtime_minutes INTEGER,
+    UNIQUE (source, source_id)
+  );
+
 
 CREATE TABLE IF NOT EXISTS seasons (
   id TEXT PRIMARY KEY,
