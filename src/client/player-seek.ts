@@ -70,3 +70,7 @@ export const registerTap = (prev: TapMemory | null, at: number, x: number, width
   if (prev && prev.side === side && gap >= 0 && gap <= DOUBLE_TAP_MS) return { seek: side, memory: null };
   return { seek: null, memory: { at, side } };
 };
+
+/** Posição como fração (0–1) da duração, para barras de progresso e de buffer. Sem duração finita, 0. */
+export const progressFraction = (position: number, duration: number): number =>
+  seekable(duration) && Number.isFinite(position) ? clamp(position / duration, 0, 1) : 0;

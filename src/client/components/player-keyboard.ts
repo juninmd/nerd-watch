@@ -17,9 +17,10 @@ export const seekVideo = (v: HTMLVideoElement, seconds: number): void => {
   if (t !== null) v.currentTime = t;
 };
 
+/** Tela cheia no palco inteiro quando existe: é ele que carrega a barra de controles própria. */
 const toggleFullscreen = (v: HTMLVideoElement): void => {
   if (document.fullscreenElement) void document.exitFullscreen();
-  else void v.requestFullscreen?.();
+  else void (v.closest<HTMLElement>('.watch-stage') ?? v).requestFullscreen?.();
 };
 
 /** Legendas: liga a primeira faixa, ou desliga todas. Sem `<track>` no vídeo, não faz nada. */

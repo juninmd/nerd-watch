@@ -8,5 +8,6 @@
 @import "./styles/lists.css";
 @import "./styles/dock.css";
 @import "./styles/watch.css";
+@import "./styles/player-controls.css";
 @import "./styles/views.css";
 @import "./styles/touch.css";

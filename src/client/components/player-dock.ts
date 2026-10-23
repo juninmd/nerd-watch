@@ -10,6 +10,7 @@ import { onPlayError } from './player-error.ts';
 import { paintControls, paintProgress, paintSpeed } from './player-dock-view.ts';
 import { DOCK_MARKUP } from './player-dock-markup.ts';
 import { wirePlayerDock } from './player-dock-wiring.ts';
+import { mountPageControls, type PageControls } from './player-page-controls.ts';
 import { clearVideo, playerKindOf } from './watch-embed.ts';
 
 export { getAutoplay, getQueueOrder, type QueueOrder, setAutoplay, setQueueOrder } from './player-prefs.ts';
@@ -49,6 +50,7 @@ let video: HTMLVideoElement | null = null;
 let queue: DockItem[] = [];
 let index = 0;
 let mode: Mode = 'hidden';
+let pageControls: PageControls | null = null;
 const listeners = new Set<() => void>();
 
 /** Toque para reproduzir (autoplay bloqueado) e contagem do próximo vídeo: ficam no palco ou na barra, conforme o modo. */
@@ -117,23 +119,36 @@ const persist = (): void => {
 
 const syncControls = (): void => {
   if (video && dock) paintControls(dock, video, index > 0, index < queue.length - 1);
+  pageControls?.repaint();
 };
 const syncProgress = (): void => {
   if (video && dock) paintProgress(dock, video);
+  pageControls?.repaint();
 };
 const syncSpeed = (): void => {
   if (video && dock) paintSpeed(dock, video);
+  pageControls?.repaint();
+};
+
+const unmountPageControls = (): void => {
+  pageControls?.destroy();
+  pageControls = null;
 };
 
 const setMode = (next: Mode, stage?: HTMLElement): void => {
   if (!dock || !video) return;
   mode = next;
+  unmountPageControls();
   if (next === 'page' && stage) {
     stage.appendChild(video);
-    video.controls = true;
+    pageControls = mountPageControls(stage, video, {
+      canPrev: () => index > 0,
+      canNext: () => index < queue.length - 1,
+      togglePlay: () => (video?.paused ? attemptPlay() : video?.pause()),
+      step: (delta) => step(delta),
+    });
   } else {
     q('.dock-video').appendChild(video);
-    video.controls = false;
   }
   dock.hidden = next !== 'dock';
   document.body.classList.toggle('has-dock', next === 'dock');
@@ -192,6 +207,7 @@ export const stopPlayer = (): void => {
 
 /** Antes de trocar a tela: tira o `<video>` da view que vai ser descartada (um nó fora do documento pausaria). */
 export const parkPlayer = (): void => {
+  unmountPageControls();
   if (mode === 'page' && dock && video) q('.dock-video').appendChild(video);
 };
 
