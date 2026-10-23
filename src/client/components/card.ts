@@ -7,13 +7,32 @@ const STATUS_LABEL: Record<WatchStatus, string> = {
   dropped: 'abandonado',
 };
 
-const initials = (title: string): string =>
+export const initials = (title: string): string =>
   title
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('');
+
+/** Placeholder com iniciais: o mesmo visual de pôster sem imagem, usado quando a imagem não carrega. */
+export const showPosterFallback = (poster: HTMLElement, title: string): void => {
+  poster.style.backgroundImage = '';
+  poster.classList.add('placeholder');
+  if (poster.querySelector('.initials')) return;
+  poster.insertAdjacentHTML('afterbegin', `<span class="initials">${escapeHtml(initials(title))}</span>`);
+};
+
+/** Valor de `background-image` seguro para URL com aspas ou barra invertida (vem de catálogos de terceiros). */
+export const posterCssUrl = (url: string): string => `url("${url.replace(/["\\]/g, '\\$&')}")`;
+
+/** Pinta o pôster por CSS. Se a imagem falha (rede, 404 do Archive), troca pelo placeholder em vez de um bloco preto. */
+export const paintPoster = (poster: HTMLElement, url: string, title: string): void => {
+  poster.style.backgroundImage = posterCssUrl(url);
+  const probe = new Image();
+  probe.addEventListener('error', () => showPosterFallback(poster, title));
+  probe.src = url;
+};
 
 export interface CardOptions {
   title: string;
@@ -46,13 +65,9 @@ export const renderCard = (opts: CardOptions): HTMLElement => {
   });
 
   const poster = document.createElement('div');
-  if (opts.posterUrl) {
-    poster.className = 'poster';
-    poster.style.backgroundImage = `url("${opts.posterUrl}")`;
-  } else {
-    poster.className = 'poster placeholder';
-    poster.innerHTML = `<span class="initials">${initials(opts.title)}</span>`;
-  }
+  poster.className = 'poster';
+  if (opts.posterUrl) paintPoster(poster, opts.posterUrl, opts.title);
+  else showPosterFallback(poster, opts.title);
 
   if (opts.status) {
     const badge = document.createElement('span');

@@ -1,16 +1,8 @@
 import { addToLibrary, type CatalogSource, search, type SearchResultDto } from '../api.ts';
-import { escapeHtml } from '../components/card.ts';
+import { escapeHtml, initials, paintPoster } from '../components/card.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 import { titlePath } from '../title-link.ts';
-
-const initials = (title: string): string =>
-  title
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('');
 
 /** Selo da fonte: tmdb usa o tipo (filme/série); as demais fontes dizem de onde vem. */
 const SOURCE_BADGE: Partial<Record<CatalogSource, string>> = {
@@ -21,8 +13,8 @@ const SOURCE_BADGE: Partial<Record<CatalogSource, string>> = {
 
 const resultCard = (r: SearchResultDto): string => `
   <div class="card" tabindex="0" role="link" aria-label="${escapeHtml(r.title)}" data-source="${r.source}" data-media="${r.mediaType}" data-id="${escapeHtml(r.sourceId)}">
-    <div class="poster${r.posterUrl ? '' : ' placeholder'}"${r.posterUrl ? ` style="background-image:url('${r.posterUrl}')"` : ''}>
-      ${r.posterUrl ? '' : `<span class="initials">${initials(r.title)}</span>`}
+    <div class="poster${r.posterUrl ? '' : ' placeholder'}"${r.posterUrl ? ` data-poster="${escapeHtml(r.posterUrl)}"` : ''}>
+      ${r.posterUrl ? '' : `<span class="initials">${escapeHtml(initials(r.title))}</span>`}
       <span class="badge badge-corner ${r.source === 'archive' ? 'badge-archive' : 'badge-want'}">${SOURCE_BADGE[r.source] ?? (r.mediaType === 'tv' ? 'série' : 'filme')}</span>
     </div>
     <div class="meta">
@@ -69,6 +61,8 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
         const source = el.dataset.source as CatalogSource;
         const mediaType = el.dataset.media as 'movie' | 'tv';
         const id = el.dataset.id as string;
+        const poster = el.querySelector<HTMLElement>('.poster[data-poster]');
+        if (poster) paintPoster(poster, poster.dataset.poster ?? '', el.getAttribute('aria-label') ?? '');
         const open = () => navigate(titlePath(source, source === 'archive' ? '_' : mediaType, id));
         el.addEventListener('click', (e) => {
           if ((e.target as HTMLElement).closest('[data-add]')) return;
