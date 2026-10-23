@@ -82,7 +82,7 @@ export const renderCalendar = (host: HTMLElement): void => {
     if (shown.length === 0) {
       entriesEl.innerHTML = dayFilter
         ? `<div class="empty-state">nada previsto para ${dayLabel(dayFilter)} — <button class="btn btn-ghost btn-sm" id="clear-day" type="button">ver todos os dias</button></div>`
-        : `<div class="empty-state"><div class="big">📭</div>nada previsto nos próximos ${days} dias — acompanhe algo em <a href="#/library">Biblioteca</a></div>`;
+        : `<div class="empty-state"><div class="big">${icon('inbox')}</div>nada previsto nos próximos ${days} dias — acompanhe algo em <a href="#/library">Biblioteca</a></div>`;
       entriesEl.querySelector('#clear-day')?.addEventListener('click', () => {
         dayFilter = null;
         renderWeek();
@@ -115,7 +115,7 @@ export const renderCalendar = (host: HTMLElement): void => {
         renderEntries();
       })
       .catch(() => {
-        entriesEl.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar a agenda</div>`;
+        entriesEl.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar a agenda</div>`;
       });
   };
 

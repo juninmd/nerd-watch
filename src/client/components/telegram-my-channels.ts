@@ -1,4 +1,5 @@
 import { addTelegramChannel, listMyTelegramChannels, type MyTelegramChannelDto } from '../api.ts';
+import { icon } from '../icons.ts';
 import { handleLabel, isPrivateHandle } from '../source-modes.ts';
 import { showToast } from '../state.ts';
 import { escapeHtml } from './card.ts';
@@ -16,8 +17,8 @@ export const openMyChannelsDialog = (onImported: () => void): void => {
   dialog.setAttribute('aria-labelledby', 'my-channels-title');
   dialog.innerHTML = `
     <form method="dialog" class="dialog-head">
-      <h2 id="my-channels-title">✈️ Meus canais do Telegram</h2>
-      <button class="btn btn-ghost btn-sm" aria-label="fechar">✕</button>
+      <h2 id="my-channels-title">Meus canais do Telegram</h2>
+      <button class="btn btn-ghost btn-sm" aria-label="fechar">${icon('x', 'sm')}</button>
     </form>
     <input type="search" class="input" id="mc-filter" placeholder="filtrar por nome ou @usuário" autocomplete="off" aria-label="filtrar canais" />
     <div id="mc-body" class="dialog-body" aria-live="polite"><p class="hint">carregando seus canais…</p></div>

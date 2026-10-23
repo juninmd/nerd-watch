@@ -1,5 +1,6 @@
 import { getTvmazeTitle, type TvmazeDetailDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
+import { icon } from '../icons.ts';
 import { renderSpoilerText } from '../components/spoiler.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderTitleError } from '../components/title-error.ts';
@@ -14,7 +15,7 @@ const episodeCount = (d: TvmazeDetailDto): number => d.seasons.reduce((n, s) => 
 
 /** Temporadas em `<details>`: nativo, acessível por teclado, sem estado extra. A primeira já vem aberta. */
 const seasonsHtml = (d: TvmazeDetailDto): string => {
-  if (d.seasons.length === 0) return '<div class="empty-state"><div class="big">📭</div>sem episódios listados pela TVmaze</div>';
+  if (d.seasons.length === 0) return `<div class="empty-state"><div class="big">${icon('inbox')}</div>sem episódios listados pela TVmaze</div>`;
   return d.seasons
     .map(
       (s, i) => `
@@ -68,7 +69,7 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
           </div>
           <div class="detail-grid">
             <div>
-              <div class="section-head"><h2>📺 Episódios</h2></div>
+              <div class="section-head"><h2>Episódios</h2></div>
               ${seasonsHtml(d)}
             </div>
             <div>
