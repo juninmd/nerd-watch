@@ -58,7 +58,7 @@ export interface CatalogStats {
  */
 export const setCatalogStats = (db: Database, titleId: string, stats: CatalogStats): void => {
   db.query(
-    'UPDATE titles SET genres = COALESCE($genres, genres), runtime_minutes = COALESCE($runtimeMinutes, runtime_minutes) WHERE id = $id',
+    `UPDATE titles SET genres = CASE WHEN $genres = '[]' AND genres IS NOT NULL THEN genres ELSE COALESCE($genres, genres) END, runtime_minutes = COALESCE($runtimeMinutes, runtime_minutes) WHERE id = $id`,
   ).run({
     $id: titleId,
     $genres: encodeGenres(stats.genres),
@@ -81,7 +81,7 @@ export const updateTitleMetadata = (db: Database, titleId: string, m: TitleMetad
   db.query(
     `UPDATE titles SET title = $title, overview = $overview, poster_path = $posterPath, backdrop_path = $backdropPath,
        release_date = $releaseDate, vote_average = $voteAverage, metadata_status = $status, metadata_refreshed_at = $refreshedAt,
-       genres = COALESCE($genres, genres), runtime_minutes = COALESCE($runtimeMinutes, runtime_minutes)
+       genres = CASE WHEN $genres = '[]' AND genres IS NOT NULL THEN genres ELSE COALESCE($genres, genres) END, runtime_minutes = COALESCE($runtimeMinutes, runtime_minutes)
      WHERE id = $id`,
   ).run({
     $id: titleId,

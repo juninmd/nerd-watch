@@ -83,3 +83,18 @@ describe('updateTitleMetadata (refresh) grava gênero e duração com a mesma re
     expect(row?.metadata_refreshed_at).toBe('2026-10-23T00:00:00.000Z');
   });
 });
+
+describe('lista vazia do provider não apaga gêneros conhecidos', () => {
+  test('genres [] com gênero já guardado mantém o anterior', () => {
+    const t = upsertTitle(db, { source: 'tmdb', sourceId: '6', mediaType: 'movie', title: 'Filme' });
+    setCatalogStats(db, t.id, { genres: ['Drama'], runtimeMinutes: 90 });
+    setCatalogStats(db, t.id, { genres: [], runtimeMinutes: null });
+    expect(getTitle(db, t.id)?.genres).toBe('["Drama"]');
+  });
+
+  test('genres [] na primeira vez ainda grava (fim do backfill, sem loop)', () => {
+    const t = upsertTitle(db, { source: 'tmdb', sourceId: '7', mediaType: 'movie', title: 'Filme' });
+    setCatalogStats(db, t.id, { genres: [], runtimeMinutes: null });
+    expect(getTitle(db, t.id)?.genres).toBe('[]');
+  });
+});

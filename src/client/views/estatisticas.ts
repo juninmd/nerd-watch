@@ -95,7 +95,7 @@ const openShareCard = (s: StatsSummary): void => {
   dlg.innerHTML = `
     <form method="dialog" class="dialog-head"><h2 id="share-title">${icon('chart')} Meu ano em ${s.year}</h2>
       <button class="btn btn-ghost btn-sm" aria-label="fechar">${icon('x', 'sm')}</button></form>
-    <p class="stat-hint">Cartão gerado no seu navegador. Traz só totais e gráficos do ano: nenhum título, nota ou anotação.</p>
+    <p class="stat-hint">Cartão gerado no seu navegador. Traz só totais do ano, nota média e gênero mais visto: nenhum título nem anotação.</p>
     <p class="stat-hint" role="status" id="share-status">Gerando cartão…</p>
     <img class="stats-share-img" id="share-img" alt="" hidden>
     <div class="stats-share-actions"><a class="btn btn-primary" id="share-download" download="nerd-watch-${s.year}.png" hidden>Baixar PNG</a></div>`;
@@ -147,9 +147,11 @@ export const renderStats = (host: HTMLElement, query: URLSearchParams): void => 
       </label>
       <button class="btn btn-ghost btn-sm" id="stats-share" type="button">${icon('download', 'sm')} Compartilhar ano</button>
     </div>
-    <div class="stats-root" id="stats-root"><div class="skeleton" style="height:200px" aria-hidden="true"></div></div>`;
+    <div class="stats-root" id="stats-root" aria-live="polite" aria-busy="true"><div id="stats-body"><div class="skeleton" style="height:200px" aria-hidden="true"></div></div></div>`;
 
   const root = host.querySelector('#stats-root') as HTMLElement;
+  const body = host.querySelector('#stats-body') as HTMLElement;
+  attachTooltips(root);
   const yearSelect = host.querySelector('#stats-year') as HTMLSelectElement;
   const hpdSelect = host.querySelector('#stats-hpd') as HTMLSelectElement;
   let latest: StatsSummary | null = null;
@@ -175,13 +177,14 @@ export const renderStats = (host: HTMLElement, query: URLSearchParams): void => 
         yearSelect.innerHTML = years
           .map((y) => `<option value="${y}"${y === year ? ' selected' : ''}>${y}</option>`)
           .join('');
-        root.innerHTML = renderBody(s);
-        attachTooltips(root);
+        body.innerHTML = renderBody(s);
+        root.setAttribute('aria-busy', 'false');
       })
       .catch((err: unknown) => {
         if (token !== loadSeq) return;
         const msg = err instanceof Error ? err.message : 'erro desconhecido';
-        root.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>Não foi possível carregar as estatísticas (${escapeHtml(msg)}).</div>`;
+        root.setAttribute('aria-busy', 'false');
+        body.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>Não foi possível carregar as estatísticas (${escapeHtml(msg)}).</div>`;
       });
   };
   load();

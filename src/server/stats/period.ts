@@ -69,6 +69,7 @@ interface MonthAcc {
 /**
  * Agregados de um ano civil. Regras (também explicadas na tela):
  * - "assistir" = `finished` (conclusão) ou `rewatch_started` (revisão); cada um conta uma exibição do título.
+ *   Uma revisão conta uma vez: o `finished` que a fecha não soma de novo (ver `openRewatch`).
  * - Tempo = duração do título por exibição (filme: runtime; série: soma dos episódios conhecidos). Exibição sem
  *   duração conhecida vai para `missingViewings`, nunca para zero.
  * - `progress` é atividade (marcou episódio), não tempo: não soma minutos.
@@ -79,7 +80,10 @@ export const buildPeriod = (input: PeriodInput): PeriodStats => {
   const { year, timeZone, titles } = input;
   const local = input.events
     .map((e) => ({ ...e, date: localDate(e.at, timeZone) }))
-    .filter((e) => yearOfDate(e.date) === year);
+    .filter((e) => yearOfDate(e.date) === year)
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  // Revisão aberta por título: o `finished` que a fecha é o fim da revisão, não uma nova conclusão nem uma nova exibição.
+  const openRewatch = new Set<string>();
 
   const acc: MonthAcc[] = Array.from({ length: 12 }, () => ({
     finished: 0,
@@ -103,6 +107,12 @@ export const buildPeriod = (input: PeriodInput): PeriodStats => {
       continue;
     }
     if (!VIEWING_KINDS.has(e.kind)) continue;
+
+    if (e.kind === 'finished' && openRewatch.delete(e.titleId)) {
+      finishedTitles.add(e.titleId);
+      continue;
+    }
+    if (e.kind === 'rewatch_started') openRewatch.add(e.titleId);
 
     const minutes = titles.get(e.titleId)?.duration.minutes ?? null;
     if (minutes === null) missingViewings++;

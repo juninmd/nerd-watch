@@ -124,3 +124,21 @@ describe('buildPeriod: estado vazio', () => {
     expect(UNKNOWN_DURATION.minutes).toBeNull();
   });
 });
+
+describe('buildPeriod: revisão fechada por "finished" conta uma vez', () => {
+  test('rewatch_started seguido de finished: uma revisão, sem conclusão nova e sem segundo tempo', () => {
+    const titles = new Map<string, ScopeTitle>([['x', title({ minutes: 90 })]]);
+    const events = [ev('x', 'rewatch_started', '2026-05-01T12:00:00Z'), ev('x', 'finished', '2026-05-03T12:00:00Z')];
+    const p = buildPeriod({ year: 2026, timeZone: 'UTC', events, titles });
+    expect(p.rewatches).toBe(1);
+    expect(p.finished).toBe(0);
+    expect(p.watchTime).toEqual({ hours: 1.5, knownViewings: 1, missingViewings: 0 });
+  });
+
+  test('finished sem revisão aberta continua sendo conclusão', () => {
+    const titles = new Map<string, ScopeTitle>([['x', title({ minutes: 60 })]]);
+    const p = buildPeriod({ year: 2026, timeZone: 'UTC', events: [ev('x', 'finished', '2026-05-03T12:00:00Z')], titles });
+    expect(p.finished).toBe(1);
+    expect(p.watchTime.knownViewings).toBe(1);
+  });
+});

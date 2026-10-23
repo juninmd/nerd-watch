@@ -2,6 +2,7 @@ import type { WatchStatus } from '../types.ts';
 import type { Duration } from './measures.ts';
 import type { PeriodStats, HistoryEvent, ScopeTitle } from './period.ts';
 import { buildPeriod } from './period.ts';
+import { localDate, yearOfDate } from './time.ts';
 import { backlogEstimate, type Backlog, type LibraryTotals, libraryTotals } from './totals.ts';
 
 export interface StatsSummary {
@@ -9,7 +10,7 @@ export interface StatsSummary {
   timezone: string;
   /** `false` quando não há nada a mostrar (biblioteca vazia e nenhuma exibição no ano): a tela mostra o estado vazio. */
   hasData: boolean;
-  /** Primeiro ano com histórico (UTC); `null` sem histórico. O seletor de ano vai dele até o ano atual. */
+  /** Primeiro ano com histórico (dia civil no fuso); `null` sem histórico. O seletor de ano vai dele até o ano atual. */
   firstYear: number | null;
   library: LibraryTotals;
   period: PeriodStats;
@@ -40,6 +41,6 @@ export const buildSummary = (input: SummaryInput): StatsSummary => {
   const library = libraryTotals(input.statusCounts, input.watched);
   const backlog = backlogEstimate(input.wanted, input.hoursPerDay, input.today);
   const hasData = library.total > 0 || period.activeDays > 0;
-  const firstYear = input.firstEventAt ? Number(input.firstEventAt.slice(0, 4)) : null;
+  const firstYear = input.firstEventAt ? yearOfDate(localDate(input.firstEventAt, input.timeZone)) : null;
   return { year: input.year, timezone: input.timeZone, hasData, firstYear, library, period, backlog };
 };
