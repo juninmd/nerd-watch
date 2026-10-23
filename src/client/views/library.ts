@@ -3,10 +3,14 @@ import { bulkLibrary, listLibrary, type LibraryItemDto } from '../api.ts';
 import { renderCard } from '../components/card.ts';
 import { icon } from '../icons.ts';
 import { openPickDialog } from '../components/pick-dialog.ts';
-import { countByStatus, filterBySource, filterByStatus, type SourceFilter, type StatusFilter } from '../library-filter.ts';
+import { applyLibraryQuery, countByStatus, filterBySource, type SourceFilter, type StatusFilter } from '../library-filter.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 import { libraryItemPath } from '../title-link.ts';
+import type { SavedViewSort } from '../../server/saved-views/schema.ts';
+import { renderSavedViewsBar } from '../components/saved-views-bar.ts';
+import { renderBulkAddToList } from '../components/library-bulk-lists.ts';
+import type { SavedViewDto } from '../views-api.ts';
 
 const TABS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'all', label: 'Tudo' },
@@ -23,6 +27,12 @@ const SOURCES: Array<{ value: SourceFilter; label: string }> = [
   { value: 'tvmaze', label: 'TVmaze' },
   { value: 'anilist', label: 'AniList' },
   { value: 'telegram', label: 'Telegram' },
+];
+
+const SORTS: Array<{ value: SavedViewSort; label: string }> = [
+  { value: 'recent', label: 'mais recentes' },
+  { value: 'title', label: 'título A–Z' },
+  { value: 'rating', label: 'maior nota' },
 ];
 
 const LAYOUT_KEY = 'nw.library.layout';
@@ -48,9 +58,10 @@ const metaFor = (item: LibraryItemDto): string | undefined =>
   item.currentSeason && item.title.mediaType === 'tv' ? `T${item.currentSeason} · Ep ${item.currentEpisode}` : (item.title.releaseDate?.slice(0, 4) ?? undefined);
 
 /** Biblioteca: tudo que o usuário marcou, com abas por status, filtro de origem, grade/lista e ações em lote. */
-export const renderLibrary = (host: HTMLElement): void => {
+export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new URLSearchParams()): void => {
   let status: StatusFilter = 'all';
   let source: SourceFilter = 'all';
+  let sort: SavedViewSort = 'recent';
   let layout = loadLayout();
   let items: LibraryItemDto[] = [];
   let selecting = false;
@@ -61,10 +72,13 @@ export const renderLibrary = (host: HTMLElement): void => {
       <h1 class="view-title">Biblioteca</h1>
       <p class="view-subtitle">Tudo o que você marcou, de "quero ver" a "abandonado".</p>
     </header>
+    <div id="lib-views"></div>
     <div class="toolbar">
       <div class="chip-row" id="lib-tabs" role="group" aria-label="Filtrar por status"></div>
       <select class="select input-pill" id="lib-source" aria-label="Filtrar por origem">${SOURCES.map((s) => `<option value="${s.value}">${s.label}</option>`).join('')}</select>
+      <select class="select input-pill" id="lib-sort" aria-label="Ordenar por">${SORTS.map((s) => `<option value="${s.value}">${s.label}</option>`).join('')}</select>
       <span class="toolbar-spacer"></span>
+      <a class="btn btn-ghost btn-sm" href="#/lists">Listas</a>
       <button class="btn btn-ghost btn-sm" id="lib-pick" type="button">🎲 o que assistir hoje</button>
       <button class="btn btn-ghost btn-sm" id="lib-layout" type="button"></button>
       <button class="btn btn-ghost btn-sm" id="lib-select" type="button" aria-pressed="false">${icon('select', 'sm')} selecionar</button>
@@ -76,6 +90,7 @@ export const renderLibrary = (host: HTMLElement): void => {
         <option value="">mudar status…</option>
         ${TABS.filter((t) => t.value !== 'all').map((t) => `<option value="${t.value}">${t.label}</option>`).join('')}
       </select>
+      <span id="lib-to-list"></span>
       <button class="btn btn-danger btn-sm" id="lib-remove" type="button" disabled>${icon('trash', 'sm')} remover da lista</button>
     </div>
     <div id="lib-list"><div class="grid">${Array.from({ length: 6 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div></div>
@@ -90,8 +105,17 @@ export const renderLibrary = (host: HTMLElement): void => {
   const allBtn = host.querySelector('#lib-all') as HTMLButtonElement;
   const removeBtn = host.querySelector('#lib-remove') as HTMLButtonElement;
   const statusSel = host.querySelector('#lib-status') as HTMLSelectElement;
+  const sortSel = host.querySelector('#lib-sort') as HTMLSelectElement;
+  const sourceSel = host.querySelector('#lib-source') as HTMLSelectElement;
+  const bar = renderSavedViewsBar({
+    currentQuery: () => ({ status, source, layout, sort }),
+    onApply: (view) => applyQuery(view),
+  });
+  (host.querySelector('#lib-views') as HTMLElement).appendChild(bar.el);
+  const listSel = renderBulkAddToList(() => [...picked]);
+  (host.querySelector('#lib-to-list') as HTMLElement).appendChild(listSel);
 
-  const visible = (): LibraryItemDto[] => filterByStatus(filterBySource(items, source), status);
+  const visible = (): LibraryItemDto[] => applyLibraryQuery(items, { status, source, sort });
 
   const renderTabs = () => {
     const counts = countByStatus(filterBySource(items, source));
@@ -110,12 +134,14 @@ export const renderLibrary = (host: HTMLElement): void => {
     allBtn.textContent = shown.length > 0 && picked.size === shown.length ? 'nenhum' : 'todos';
     removeBtn.disabled = picked.size === 0;
     statusSel.disabled = picked.size === 0;
+    listSel.disabled = picked.size === 0;
   };
 
   /** `focusIndex` devolve o foco ao card marcado — a grade é recriada e o teclado voltaria ao topo. */
   const renderList = (focusIndex?: number) => {
     renderTabs();
     syncChrome();
+    bar.sync();
     const shown = visible();
     if (shown.length === 0) {
       listEl.innerHTML = `<div class="empty-state"><div class="big">📭</div>${items.length === 0 ? 'sua biblioteca está vazia' : 'nada neste filtro'} — <a href="#/search">busque algo</a> para adicionar</div>`;
@@ -171,11 +197,29 @@ export const renderLibrary = (host: HTMLElement): void => {
     renderList();
   });
 
-  (host.querySelector('#lib-source') as HTMLSelectElement).addEventListener('change', (e) => {
+  sourceSel.addEventListener('change', (e) => {
     source = (e.target as HTMLSelectElement).value as SourceFilter;
     resetSelection();
     renderList();
   });
+
+  sortSel.addEventListener('change', (e) => {
+    sort = (e.target as HTMLSelectElement).value as SavedViewSort;
+    renderList();
+  });
+
+  /** Uma visão salva: aplica filtro, origem, ordem e layout de uma vez, e reflete nos controles. */
+  const applyQuery = (view: Pick<SavedViewDto, 'query'>) => {
+    status = view.query.status;
+    source = view.query.source;
+    sort = view.query.sort;
+    layout = view.query.layout;
+    saveLayout(layout);
+    sourceSel.value = source;
+    sortSel.value = sort;
+    resetSelection();
+    renderList();
+  };
 
   (host.querySelector('#lib-pick') as HTMLButtonElement).addEventListener('click', () => openPickDialog());
 
@@ -227,4 +271,10 @@ export const renderLibrary = (host: HTMLElement): void => {
   });
 
   load();
+  // Link "abrir visão" (paleta Ctrl K): aplica a visão assim que as visões carregarem.
+  void bar.refresh().then((views) => {
+    const id = query.get('view');
+    const view = views.find((v) => v.id === id);
+    if (view) applyQuery(view);
+  });
 };

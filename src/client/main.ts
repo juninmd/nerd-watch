@@ -10,6 +10,8 @@ import { renderCalendar } from './views/calendar.ts';
 import { renderConnections } from './views/connections.ts';
 import { renderDiscover } from './views/discover.ts';
 import { renderLibrary } from './views/library.ts';
+import { renderLists } from './views/lists.ts';
+import { renderListDetail } from './views/list-detail.ts';
 import { renderWatch } from './views/watch.ts';
 import { renderPublicDomain } from './views/public-domain.ts';
 import { renderSearch } from './views/search.ts';
@@ -63,7 +65,7 @@ const connPill = document.getElementById('conn-pill') as HTMLAnchorElement;
 
 const isActive = (item: { path: string }, activePath: string): boolean => {
   if (item.path === '/') return activePath === '/';
-  if (item.path === '/library') return activePath.startsWith('/library') || activePath.startsWith('/title/');
+  if (item.path === '/library') return activePath.startsWith('/library') || activePath.startsWith('/title/') || activePath.startsWith('/lists');
   if (item.path === '/telegram') return activePath.startsWith('/telegram') || activePath.startsWith('/watch');
   return activePath.startsWith(item.path);
 };
@@ -115,6 +117,7 @@ mountPlayerDock(document.getElementById('dock') as HTMLElement);
 const TITLE_RE = /^\/title\/(tmdb|archive|tvmaze|anilist)\/(movie|tv|_)\/(.+)$/;
 const TELEGRAM_CHANNEL_RE = /^\/telegram\/(.+)$/;
 const WATCH_RE = /^\/watch\/([^/]+)\/(\d+|start)$/;
+const LIST_DETAIL_RE = /^\/lists\/([^/]+)$/;
 
 const dispatch = (route: Route) => {
   // Fecha torrents (e mata os pollers) da tela anterior antes de trocar de view.
@@ -141,6 +144,11 @@ const dispatch = (route: Route) => {
     renderTelegramChannel(viewEl, decodeURIComponent(telegramMatch[1] as string));
     return;
   }
+  const listMatch = path.match(LIST_DETAIL_RE);
+  if (listMatch) {
+    renderListDetail(viewEl, decodeURIComponent(listMatch[1] as string));
+    return;
+  }
   switch (path) {
     case '/':
       renderDiscover(viewEl);
@@ -149,7 +157,10 @@ const dispatch = (route: Route) => {
       renderSearch(viewEl, route.query.get('q') ?? '');
       return;
     case '/library':
-      renderLibrary(viewEl);
+      renderLibrary(viewEl, route.query);
+      return;
+    case '/lists':
+      renderLists(viewEl);
       return;
     case '/agenda':
       renderCalendar(viewEl);
