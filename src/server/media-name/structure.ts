@@ -14,10 +14,10 @@ export interface StructMatch {
 const SEPARATOR_WORD = /^[-|:,/~]+$/;
 /** Temporada+episódio juntos: S01E02, T02E03, "Temporada 2 Episódio 3", S01E01-E03, S01E01E02. */
 const SE =
-  /\b(?:s|t|temp|temporada|season)[\s.-]*0*(\d{1,2})[\s.-]*(?:e|ep|episodio|episode|cap|capitulo)[\s.-]*0*(\d{1,3})(?:(?:-|e)[\s.-]*e?0*(\d{1,3}))?\b/;
+  /(?<![\w'])(?:s|t|temp|temporada|season)[\s.-]*0*(\d{1,2})[\s.-]*(?:e|ep|episodio|episode|cap|capitulo)[\s.-]*0*(\d{1,3})(?:(?:-|e)[\s.-]*e?0*(\d{1,3}))?\b/;
 /** "1x02" e "1x01-03". */
 const NXM = /\b(\d{1,2})x(\d{1,3})(?:-(\d{1,3}))?\b/;
-const SEASON_ONLY = /\b(?:temporada|temp|season|s)[\s.-]*0*(\d{1,2})\b/;
+const SEASON_ONLY = /(?<![\w'])(?:temporada|temp|season|s)[\s.-]*0*(\d{1,2})\b/;
 const EPISODE_ONLY = /\b(?:episodio|episode|ep|cap|capitulo)[\s.-]*0*(\d{1,3})\b/;
 /** "E05" sozinho: só com título antes dele (ou série informada pelo chamador). */
 const BARE_E = /\be[\s.-]*0*(\d{1,3})\b/;

@@ -139,6 +139,8 @@ const SINGLE: Record<string, ReturnType<typeof entry>> = {
   '2.0': entry({ kind: 'noise' }),
 };
 
+const CODEC_WITH_GROUP = /^(x26[45]|h26[45]|xvid|divx)-[a-z0-9]+$/;
+
 /** Duas palavras que juntas formam uma tag ("WEB DL", "Dual Áudio", "PT BR" depois de trocar o separador). */
 const PAIRS: Record<string, ReturnType<typeof entry>> = {
   'web dl': entry({ kind: 'source', value: 'WEB-DL' }),
@@ -164,6 +166,8 @@ export const classifyAt = (words: readonly string[], i: number): TagMatch | null
     const pair = PAIRS[`${word} ${next}`];
     if (pair) return { ...pair, span: 2 };
   }
-  const single = SINGLE[word] ?? resolutionFromSize(word);
+  // "x264-GRP": codec seguido do nome do grupo de release. O grupo não é tag, o codec é.
+  const codecOnly = CODEC_WITH_GROUP.exec(word)?.[1] ?? word;
+  const single = SINGLE[codecOnly] ?? resolutionFromSize(word);
   return single ? { ...single, span: 1 } : null;
 };

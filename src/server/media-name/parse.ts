@@ -74,10 +74,12 @@ export const parseMediaName = (input: string, opts: ParseOptions = {}): ParsedMe
     const end = found.find((s) => s.episodeEnd !== undefined)?.episodeEnd;
     if (end !== undefined && end > episode) out.episodeEnd = end;
   }
+  // Tags do próprio título (linha 1) têm prioridade sobre as dos colchetes: "Filme 720p [1080p]" é 720p.
+  const tokenHits: TagHit[] = [];
   toks.forEach((t, i) => {
-    if (t.hit && (t.kind === 'attr' || (t.kind === 'ambig' && i >= boundary))) hits.push(t.hit);
+    if (t.hit && (t.kind === 'attr' || (t.kind === 'ambig' && i >= boundary))) tokenHits.push(t.hit);
   });
-  applyHits(out, hits);
+  applyHits(out, [...tokenHits, ...hits]);
   if (group) out.group = group;
   if (season === 0) out.isSpecial = true;
   return out;

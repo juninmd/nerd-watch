@@ -118,6 +118,13 @@ export const MEDIA_NAME_CORPUS: MediaNameCase[] = [
   { input: 'The Special Edition 1080p', expect: { title: 'The Special Edition', resolution: '1080p' } },
   { input: 'Nacional Geographic S01E01', expect: { title: 'Nacional Geographic', season: 1, episode: 1 } },
   { input: 'Movie CAM', expect: { title: 'Movie', source: 'CAM' } },
+  // Regressões da revisão: possessivo, título que começa com palavra de ruído, codec com grupo, tag de linha vs colchete
+  { input: "Ocean's 8 2018 1080p", expect: { title: "Ocean's 8", year: 2018, resolution: '1080p' } },
+  { input: "Ocean's 8", expect: { title: "Ocean's 8" } },
+  { input: 'Opus 2019 1080p', expect: { title: 'Opus', year: 2019, resolution: '1080p' } },
+  { input: 'Movie.2019.1080p.WEB-DL.x264-GRP', expect: { title: 'Movie', year: 2019, resolution: '1080p', source: 'WEB-DL', codec: 'H.264' } },
+  { input: 'Movie 720p [1080p]', expect: { title: 'Movie', resolution: '720p' } },
+  { input: 'Movie Name 1080p\nSinopse: filme de 1999 [2001]', expect: { title: 'Movie Name', resolution: '1080p' } },
   {
     input: 'Show Special S01E00 1080p',
     expect: { title: 'Show', season: 1, episode: 0, resolution: '1080p', isSpecial: true },

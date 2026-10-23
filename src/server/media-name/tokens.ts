@@ -78,7 +78,8 @@ export const tagKinds = (toks: Tok[]): void => {
       for (let k = 0; k < match.span; k++) {
         const t = toks[i + k];
         if (t) {
-          t.kind = match.ambiguous ? 'ambig' : 'attr';
+          // Ruído (AAC, DDP, Opus...) pode ser o início de um título: só vira tag depois de pelo menos uma palavra.
+          t.kind = match.ambiguous || match.hit.kind === 'noise' ? 'ambig' : 'attr';
           t.hit = match.hit;
         }
       }
@@ -101,7 +102,8 @@ export const tokenizeCaption = (input: string) => {
     const read = readLine(line, idx === 0);
     toks.push(...read.toks);
     hits.push(...read.bracketHits);
-    bracketYear ??= read.bracketYear;
+    // Ano entre colchetes só vale na primeira linha: sinopse ou legenda não define o ano do vídeo.
+    if (idx === 0) bracketYear ??= read.bracketYear;
     group ??= read.group;
     if (titleLimit === undefined && read.toks.length > 0) titleLimit = toks.length;
   });
