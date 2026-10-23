@@ -1,4 +1,4 @@
-import type { WatchStatus } from '../server/types.ts';
+import type { LibraryHistoryKind, WatchStatus } from '../server/types.ts';
 
 /** Fontes de catálogo com página de detalhe própria. Telegram tem outra rota (canais). */
 export type CatalogSource = 'tmdb' | 'archive' | 'tvmaze' | 'anilist';
@@ -65,6 +65,7 @@ export interface LibraryEntryDto {
   notes: string | null;
   current_season: number | null;
   current_episode: number | null;
+  rewatch_count: number;
   added_at: string;
   updated_at: string;
 }
@@ -192,6 +193,7 @@ export interface LibraryItemDto {
   notes: string | null;
   currentSeason: number | null;
   currentEpisode: number | null;
+  rewatchCount: number;
   addedAt: string;
   updatedAt: string;
   title: {
@@ -244,10 +246,42 @@ export const patchLibrary = (titleId: string, patch: PatchLibraryInput): Promise
     (r) => json<LibraryItemDto>(r),
   );
 
+export interface LibraryHistoryItemDto {
+  id: string;
+  kind: LibraryHistoryKind;
+  at: string;
+  detail: string | null;
+}
+
+export interface LibraryHistoryPageDto {
+  items: LibraryHistoryItemDto[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export const getLibraryHistory = (titleId: string, limit: number, offset: number): Promise<LibraryHistoryPageDto> =>
+  fetch(`/api/library/${titleId}/history?limit=${limit}&offset=${offset}`).then((r) => json<LibraryHistoryPageDto>(r));
+
+/** Revisão: só funciona com o título marcado como assistido (senão o servidor responde 409). */
+export const rewatchLibrary = (titleId: string): Promise<LibraryItemDto> =>
+  fetch(`/api/library/${titleId}/rewatch`, { method: 'POST' }).then((r) => json<LibraryItemDto>(r));
+
 export const removeFromLibrary = (entryId: string): Promise<void> =>
   fetch(`/api/library/${entryId}`, { method: 'DELETE' }).then((res) => {
     if (!res.ok) throw new Error('falha ao remover');
   });
+
+export interface RefreshMetadataDto {
+  titleId: string;
+  seasons: number;
+  episodes: number;
+  refreshedAt: string;
+}
+
+/** Re-busca temporadas, episódios e datas na TMDB. Erro 429 traz a mensagem de espera (cooldown de 60 s). */
+export const refreshTitleMetadata = (titleId: string): Promise<RefreshMetadataDto> =>
+  fetch(`/api/library/${titleId}/refresh`, { method: 'POST' }).then((r) => json<RefreshMetadataDto>(r));
 
 export interface CalendarEntryDto {
   kind: 'episode' | 'movie';
