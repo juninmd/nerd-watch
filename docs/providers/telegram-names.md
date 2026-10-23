@@ -1,10 +1,10 @@
 # Nomes de vídeo do Telegram: `parseMediaName`
 
 Interpreta o nome de arquivo ou a legenda de um vídeo e devolve título, ano, temporada, episódio e tags de release.
-Função pura e determinística: sem rede, sem LLM, sem estado. Ainda não está ligada ao casamento com TMDB nem à UI;
-isso é um passo separado.
+Função pura e determinística: sem rede, sem LLM, sem estado. O vínculo com a biblioteca usa este parser (ver `docs/adr/0003-vinculo-canal-titulo.md`): o casamento e a decisão
+ficam em `src/server/media-name/match.ts`. O casamento com TMDB como sugestão ainda não existe.
 
-- **Código:** `src/server/media-name/parse.ts` (API), `tags.ts` (vocabulário), `structure.ts` (temporada, episódio, fim do título), `clean.ts` (ruído de canal).
+- **Código:** `src/server/media-name/parse.ts` (API), `match.ts` (vínculo com a biblioteca), `tags.ts` (vocabulário), `structure.ts` (temporada, episódio, fim do título), `clean.ts` (ruído de canal).
 - **Testes:** `tests/media-name-parse.test.ts`, com o corpus sintético em `tests/fixtures/media-name-corpus.ts` (nomes inventados).
 
 ## Uso

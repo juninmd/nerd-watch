@@ -297,3 +297,22 @@
   outline: none;
   border-color: var(--accent);
 }
+
+/* Vínculo vídeo do canal ↔ biblioteca: a linha abaixo de cada vídeo e o diálogo de escolha. */
+.tg-item { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tg-item-link { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.tg-link-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tg-link-poster { width: 28px; height: 40px; border-radius: 6px; flex: none; background: var(--surface) center / cover no-repeat; }
+.tg-links-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+.tg-link-dialog { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0; width: min(520px, calc(100vw - 32px)); background: var(--bg-soft); color: var(--text); box-shadow: var(--shadow-pop); }
+.tg-link-dialog::backdrop { background: rgb(0 0 0 / 0.6); }
+.tg-link-form { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+.tg-link-form h2 { margin: 0; font-size: 1.15rem; }
+.tg-link-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow: auto; }
+.tg-link-option { text-align: left; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }
+.tg-link-option[aria-pressed="true"] { border-color: var(--accent); background: var(--surface-hover); }
+.tg-link-option:focus-visible, .tg-link-dialog button:focus-visible, .tg-link-dialog input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tg-link-episode { display: flex; gap: 12px; }
+.tg-link-episode label { display: flex; flex-direction: column; gap: 4px; flex: 1; font-size: 0.9rem; }
+.tg-link-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.tg-link-error:empty { display: none; }

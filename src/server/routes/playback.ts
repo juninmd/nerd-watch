@@ -1,8 +1,18 @@
 import { Hono } from 'hono';
 import { getDb } from '../db.ts';
 import { InvalidPlaybackError, deletePlaybackEntry, listPlaybackEntries, parsePlaybackEntry, parsePlaybackKey, upsertPlaybackEntry } from '../repo/playback.ts';
+import { advanceLinkedProgress, isPlayed, type LinkedProgress } from '../repo/telegram-link-progress.ts';
 
 export const playbackRoutes = new Hono();
+
+const toProgressDto = (p: LinkedProgress) => ({
+  titleId: p.titleId,
+  seasonNumber: p.seasonNumber,
+  episodeNumber: p.episodeNumber,
+  changed: p.changed,
+  previous: p.previous,
+  entryId: p.entryId,
+});
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_PAGE = 500;
@@ -48,7 +58,12 @@ playbackRoutes.put('/:key', async (c) => {
   }
   try {
     const entry = parsePlaybackEntry(c.req.param('key'), body);
-    return c.json({ applied: upsertPlaybackEntry(await getDb(), entry) });
+    const db = await getDb();
+    const applied = upsertPlaybackEntry(db, entry);
+    // Vídeo de canal vinculado a um episódio: ao atingir o limiar, "Onde parei" avança (e o cliente pode desfazer).
+    const linked = applied && entry.meta && isPlayed(entry.seconds, entry.duration, entry.done) ? advanceLinkedProgress(db, entry.meta.channelId, entry.meta.messageId) : null;
+    // `progress` só aparece quando um vídeo vinculado avançou: o formato antigo ({ applied }) continua igual.
+    return c.json(linked ? { applied, progress: toProgressDto(linked) } : { applied });
   } catch (err) {
     if (err instanceof InvalidPlaybackError) return c.json({ error: err.message }, 400);
     throw err;

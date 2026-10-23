@@ -2,6 +2,7 @@ import { Database } from 'bun:sqlite';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { config } from './config.ts';
+import { migrateAddTelegramItemLink } from './db-migrations-telegram-links.ts';
 import { LIBRARY_HISTORY_KINDS, TELEGRAM_CHANNEL_MODES } from './types.ts';
 
 let instance: Database | undefined;
@@ -292,6 +293,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(MIGRATIONS);
   migrateAddRewatchCount(db);
+  migrateAddTelegramItemLink(db);
   return db;
 };
 

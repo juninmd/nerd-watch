@@ -1,4 +1,5 @@
 import { createPlaybackApi } from './playback-api.ts';
+import { announceLinkedProgress } from './linked-progress.ts';
 import { createPlaybackSync, PLAYBACK_CHANGED_EVENT } from './playback-sync.ts';
 
 /** Armazenamento tolerante: navegador com cookies/dados bloqueados não pode quebrar o player. */
@@ -24,4 +25,5 @@ export const playbackSync = createPlaybackSync({
   storage,
   api: createPlaybackApi(),
   onRemoteChange: () => window.dispatchEvent(new Event(PLAYBACK_CHANGED_EVENT)),
+  onLinkedProgress: announceLinkedProgress,
 });
