@@ -24,6 +24,8 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 🔖 **Onde você parou** | temporada e episódio atual por série, marcado com um clique |
 | 🕘 **Histórico e revisão** | cada mudança de status e de progresso fica registrada (lista recolhível na página do título, no backup também); **Rever** volta um título assistido para "assistindo" e conta as revisões ("Visto N vezes") |
 | 🗓️ **Agenda** | próximos episódios e estreias de filme dos títulos que você acompanha, com faixa de 7 dias |
+| 🔔 **Avisos de lançamento** | um aviso por lançamento da sua lista, por webhook ou [ntfy](docs/providers/notifications.md) (configurado no `.env`, desligado por padrão); antecedência de 0 a 7 dias |
+| 📅 **Assinar a agenda** | feed `.ics` em `/api/calendar.ics` (`?days=`, padrão 60, máx. 365) com os mesmos lançamentos; cada evento tem UID estável, então reassinar não duplica. Botão **Assinar no calendário** copia o link. Só alcança apps que rodam na mesma máquina, porque o servidor escuta em `127.0.0.1` |
 | ⌨️ **Ctrl K** | paleta de comandos (títulos, canais, ações) e atalhos `g`+letra (`?` mostra a lista) |
 | 📺 **Episódios** | navegação por temporada, sinopse por episódio com **spoiler oculto por padrão** |
 | 🎬 **Sinopse, nota e trailer** | via TMDB (filme e série) |
@@ -89,6 +91,44 @@ https://www.themoviedb.org/settings/api.
 ```bash
 bun run seed     # popula data/nerd-watch.db com um catálogo fictício, só para ver a interface
 ```
+
+### Docker
+
+```bash
+docker compose up -d --build     # http://localhost:7799
+docker compose logs -f           # acompanha o boot
+docker compose down              # para; os dados ficam no volume
+```
+
+- **Dados:** o SQLite e os torrents ficam no volume nomeado `nerd-watch-data` (`/app/data` dentro do
+  container). `docker compose down -v` apaga tudo.
+- **Segredos:** o compose lê `.env` se ele existir (`env_file` opcional), mas a imagem nunca inclui o `.env`
+  (ver `.dockerignore`). Atenção: credenciais salvas pela própria UI (Telegram, Drive) são gravadas em
+  `/app/.env` **dentro** do container; elas somem se o container for recriado. Para mantê-las, grave no
+  `.env` do host e recrie o container com `docker compose up -d`.
+- **Rede (modelo de segurança):** o container escuta em `0.0.0.0` só internamente (`HOST=0.0.0.0`), porque
+  o port mapping chega pela interface do container. No host a porta é publicada como `127.0.0.1:7799`, então
+  só a sua máquina alcança o app. Mesmo se você publicar em outra interface, o servidor recusa `Host` que
+  não seja loopback (anti DNS rebinding) e `Origin` de outra origem em métodos que mudam estado (anti CSRF).
+  Não remova o `127.0.0.1:` do `ports` sem entender isso.
+- **Porta:** se o `.env` define `PORT`, ajuste o mapeamento do compose para a mesma porta.
+- **Healthcheck:** a imagem checa `GET /api/health` a cada 30s; `docker compose ps` mostra `healthy`.
+- **Usuário:** o processo roda como usuário `app` (não-root); só `/app/data` é gravável.
+- Requer Docker Engine com Compose v2.24+ (para `env_file` com `required: false`).
+
+### Instalar como app (PWA)
+
+No Chrome/Edge, abra `http://localhost:7799` e use **Instalar nerd-watch** na barra de endereço. O app
+abre em janela própria, sem a barra do navegador.
+
+- O service worker (`/sw.js`) guarda **só a casca** (HTML, JS, CSS e ícones). Ele é registrado apenas em
+  contexto seguro (`localhost`, ou https), que é onde o browser o aceita.
+- Estratégia rede primeiro: com internet, a casca vem sempre atualizada; sem internet, a última versão
+  baixada abre. O cache é `nerd-watch-shell-<versão>`, e versões antigas são apagadas no `activate`.
+- **Nunca** entram no cache: `/api/*`, vídeo/áudio/legenda e qualquer requisição com `Range`. Lista, progresso,
+  catálogo e reprodução continuam exigindo o servidor no ar; o offline vale só para a interface.
+- Ícone: `src/client/pwa/icon.svg` (SVG, sem PNG). Alguns sistemas (iOS, por exemplo) pedem um
+  `apple-touch-icon` em PNG, que ainda não existe aqui.
 
 ### Como roda
 
@@ -165,6 +205,50 @@ Sem a interface, dá para preencher `TELEGRAM_API_ID` e `TELEGRAM_API_HASH` no `
   e adicione o bot como admin do canal. Ele só vê posts de depois que foi adicionado.
 
 ---
+
+## 🌐 Expondo fora do localhost
+
+Por padrão o nerd-watch só aceita requisições de `localhost`. Sem configurar nada, nada disso se aplica. Para
+usar de outro aparelho ou de fora da sua rede, ligue o acesso por token:
+
+1. Gere um token com pelo menos 16 caracteres (ex.: `openssl rand -base64 32`) e grave no `.env`:
+   `ACCESS_TOKEN=<valor gerado>`. Um valor curto impede o app de subir, com uma mensagem clara (sem mostrar o valor).
+2. Ponha um **proxy reverso com HTTPS** na frente (Caddy, nginx, Traefik ou um túnel com TLS) apontando para
+   `127.0.0.1:7799`. O servidor continua escutando só em loopback. O proxy precisa repassar o `Host` original
+   (nginx: `proxy_set_header Host $host;`): com outro `Host` o CSRF barra o login.
+3. Só se esse proxy for o único caminho até o app, defina `ACCESS_TRUST_PROXY=true`. Ele faz o cookie sair com
+   `Secure` quando o proxy informa `X-Forwarded-Proto: https`.
+
+> ⚠️ **Use HTTPS, sem exceção.** O token viaja no formulário de login e o cookie de sessão viaja em toda
+> requisição. Em HTTP puro, quem estiver no caminho (Wi-Fi público, roteador comprometido) lê os dois e assume
+> sua sessão. O app não tem TLS próprio: o HTTPS é responsabilidade do proxy.
+
+Como funciona, com `ACCESS_TOKEN` definido:
+
+- Sem credencial, toda rota `/api/*` responde 401. A allowlist pública é só o front estático, `/login`,
+  `/logout` e `GET /api/health` (que devolve apenas flags de ligado/desligado).
+- No navegador, `/login` recebe o token uma vez e grava um cookie `HttpOnly; SameSite=Strict; Path=/`. O valor do
+  cookie é um HMAC derivado do token, não o token. Nada vai para o `localStorage`. O `<video>` e os pedidos de
+  `Range` (streaming) usam o mesmo cookie.
+- Scripts mandam `Authorization: Bearer <token>`.
+- Uma chamada `/api` que volta 401 no navegador leva para `/login`.
+- Tentativas falhas (formulário ou Bearer) são limitadas a 10 a cada 15 minutos, por processo. Durante o bloqueio
+  nenhuma credencial nova entra, mas a sessão já aberta continua valendo.
+- Origin == Host continua barrando CSRF em métodos que mudam estado.
+- `POST /logout` invalida a sessão no servidor. Reiniciar o processo também invalida todas as sessões, e trocar o
+  `ACCESS_TOKEN` derruba quem estiver logado.
+
+Limites conhecidos:
+
+- Ainda não há botão "Sair" na interface; o endpoint existe, mas hoje só dá para chamá-lo por fora.
+- Login OAuth de Conexões (Google Drive e fontes OAuth) usa redirect para `127.0.0.1`: não completa pelo acesso
+  remoto. Conecte essas contas direto no servidor, em localhost, antes de expor.
+- O cookie é `SameSite=Strict`: um link aberto a partir de outro site (e-mail, mensagem) pede o login de novo na
+  primeira vez. É o preço da proteção contra CSRF.
+- O limite de tentativas é global ao processo: alguém que erra a senha de propósito pode travar o login por
+  15 minutos. Reiniciar o processo limpa o bloqueio.
+- Não há TLS, proxy nem navegador reais exercitados nesta versão: os testes cobrem o servidor em memória
+  (`tests/access-*.test.ts`). Valide o seu proxy antes de confiar nele.
 
 ## ✅ Verificação
 

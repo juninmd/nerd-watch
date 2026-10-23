@@ -2,6 +2,7 @@ import { type CatalogSource, getTmdbTitle } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderSubtitlesPanel } from '../components/subtitles.ts';
+import { renderTitleError } from '../components/title-error.ts';
 import { whereToWatchHtml } from '../components/where-to-watch.ts';
 import { renderArchiveDetail } from './media-detail-archive.ts';
 import { renderAnilistDetail } from './media-detail-anilist.ts';
@@ -124,9 +125,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
           }),
         );
       })
-      .catch((err) => {
-        host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>${escapeHtml(err instanceof Error ? err.message : 'falha ao carregar')}</div>`;
-      });
+      .catch(() => renderTitleError(host, load));
   };
 
   load();

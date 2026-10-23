@@ -1,0 +1,27 @@
+# Segredos: o .env nunca entra na imagem (o compose o injeta via env_file).
+.env
+.env.*
+!.env.example
+
+# Dados do usuário e caches: ficam no volume, não na imagem.
+data/
+.cache/
+*.db
+*.db-journal
+.server.log
+.server.err
+.poc-out.log
+.poc-err.log
+scripts/.smoke-*.png
+
+# Artefatos locais e metadados.
+node_modules/
+public/
+.git/
+.claude/
+.github/
+docs/
+tests/
+Dockerfile
+.dockerignore
+docker-compose.yml
