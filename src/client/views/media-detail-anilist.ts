@@ -1,6 +1,7 @@
 import { getAnilistTitle, type AnilistDetailDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
+import { renderTitleError } from '../components/title-error.ts';
 import { pluralize } from '../pluralize.ts';
 
 const FORMAT_LABEL: Record<string, string> = { TV: 'Série', TV_SHORT: 'Série curta', MOVIE: 'Filme', OVA: 'OVA', ONA: 'ONA', SPECIAL: 'Especial', MUSIC: 'Música' };
@@ -84,9 +85,7 @@ export const renderAnilistDetail = (host: HTMLElement, id: string): void => {
           }),
         );
       })
-      .catch((err) => {
-        host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>${escapeHtml(err instanceof Error ? err.message : 'não foi possível carregar este título')}</div>`;
-      });
+      .catch(() => renderTitleError(host, load));
   };
 
   load();
