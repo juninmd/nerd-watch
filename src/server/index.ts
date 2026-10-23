@@ -12,6 +12,7 @@ import { anilistRoutes } from './routes/anilist.ts';
 import { libraryRoutes } from './routes/library.ts';
 import { libraryIoRoutes } from './routes/library-io.ts';
 import { libraryRefreshRoutes } from './routes/library-refresh.ts';
+import { statsRoutes } from './routes/stats.ts';
 import { startMetadataRefreshJob } from './metadata/refresh-service.ts';
 import { calendarIcsRoutes, calendarRoutes } from './routes/calendar.ts';
 import { subtitlesRoutes } from './routes/subtitles.ts';
@@ -84,6 +85,7 @@ app.route('/api/drive', driveRoutes);
 app.route('/api/sources', sourcesRoutes);
 app.route('/api/playback', playbackRoutes);
 app.route('/api/trakt', traktRoutes);
+app.route('/api/stats', statsRoutes);
 
 app.use('/*', serveStatic({ root: './public' }));
 
