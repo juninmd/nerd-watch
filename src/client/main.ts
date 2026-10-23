@@ -1,4 +1,5 @@
 import { type CatalogSource, getTelegramSettings } from './api.ts';
+import { installCardTilt } from './effects.ts';
 import { openCommandPalette } from './components/command-palette.ts';
 import { releaseTorrentPlayers } from './components/torrent-player.ts';
 import { icon, type IconName } from './icons.ts';
@@ -16,6 +17,7 @@ import { renderLists } from './views/lists.ts';
 import { renderListDetail } from './views/list-detail.ts';
 import { renderWatch } from './views/watch.ts';
 import { renderPublicDomain } from './views/public-domain.ts';
+import { renderStats } from './views/stats.ts';
 import { renderSearch } from './views/search.ts';
 import { renderTelegramChannel } from './views/telegram-channel.ts';
 import { renderTelegramChannels } from './views/telegram-channels.ts';
@@ -33,6 +35,7 @@ const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
   { path: '/library', label: 'Biblioteca', icon: 'library' },
   { path: '/telegram', label: 'Canais', icon: 'send' },
   { path: '/agenda', label: 'Agenda', icon: 'calendar' },
+  { path: '/stats', label: 'Estatísticas', icon: 'chart' },
   { path: '/connections', label: 'Conexões', icon: 'sliders' },
 ];
 
@@ -115,6 +118,7 @@ refreshConnectionPill();
 
 document.getElementById('cmd-open')?.addEventListener('click', openCommandPalette);
 installShortcuts();
+installCardTilt();
 mountPlayerDock(document.getElementById('dock') as HTMLElement);
 
 const TITLE_RE = /^\/title\/(tmdb|archive|tvmaze|anilist)\/(movie|tv|_)\/(.+)$/;
@@ -167,6 +171,9 @@ const dispatch = (route: Route) => {
       return;
     case '/agenda':
       renderCalendar(viewEl);
+      return;
+    case '/stats':
+      renderStats(viewEl);
       return;
     case '/public-domain':
       renderPublicDomain(viewEl);

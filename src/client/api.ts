@@ -711,3 +711,17 @@ export const refreshTelegramLinks = (channelId: string): Promise<{ linked: numbe
 
 export const acceptTelegramSuggestions = (channelId: string): Promise<{ accepted: number }> =>
   postLink(channelId, 'links/accept-suggestions', 'POST') as Promise<{ accepted: number }>;
+
+export interface StatsDto {
+  total: number;
+  byStatus: Record<WatchStatus, number>;
+  byType: Record<'movie' | 'tv', number>;
+  ratings: number[];
+  averageRating: number | null;
+  activity: Array<{ date: string; count: number }>;
+  streak: { current: number; longest: number };
+  finishedByMonth: Array<{ month: string; count: number }>;
+  topRated: Array<{ titleId: string; source: CatalogSource; sourceId: string; mediaType: 'movie' | 'tv'; title: string; posterUrl: string | null; rating: number }>;
+}
+
+export const getStats = (): Promise<StatsDto> => fetch('/api/stats').then((r) => json<StatsDto>(r));

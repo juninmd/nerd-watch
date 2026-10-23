@@ -1,0 +1,86 @@
+/* Efeitos globais: entrada de tela, cascata de cards, tilt com brilho, confete. Movimento reduzido é zerado em tokens.css. */
+#view > * {
+  animation: view-in 0.4s var(--ease) both;
+}
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+.grid > .card,
+.rail > .card {
+  /* `backwards`, não `both`: um fill final prenderia o transform e travaria o hover/tilt. */
+animation: card-in 0.5s var(--ease) backwards;
+  animation-delay: calc(min(var(--n, 0), 14) * 35ms);
+}
+
+.grid > .card:nth-child(1), .rail > .card:nth-child(1) { --n: 0; }
+.grid > .card:nth-child(2), .rail > .card:nth-child(2) { --n: 1; }
+.grid > .card:nth-child(3), .rail > .card:nth-child(3) { --n: 2; }
+.grid > .card:nth-child(4), .rail > .card:nth-child(4) { --n: 3; }
+.grid > .card:nth-child(5), .rail > .card:nth-child(5) { --n: 4; }
+.grid > .card:nth-child(6), .rail > .card:nth-child(6) { --n: 5; }
+.grid > .card:nth-child(7), .rail > .card:nth-child(7) { --n: 6; }
+.grid > .card:nth-child(8), .rail > .card:nth-child(8) { --n: 7; }
+.grid > .card:nth-child(n + 9), .rail > .card:nth-child(n + 9) { --n: 8; }
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    transform: perspective(700px) translateY(-4px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  }
+
+  /* Brilho que segue o ponteiro sobre o pôster. */
+  .card:not(.is-selected):hover .poster::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.22), transparent 55%);
+  }
+}
+
+.navlink.active .nav-ico,
+.navlink.active svg {
+  filter: drop-shadow(0 0 6px rgba(255, 61, 110, 0.7));
+}
+
+.chip {
+  transition: transform 0.15s var(--ease), background 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+
+.chip:active {
+  transform: scale(0.94);
+}
+
+.chip.active {
+  animation: chip-pop 0.35s var(--ease);
+}
+
+@keyframes chip-pop {
+  50% { transform: scale(1.08); }
+}
+
+.burst {
+  position: fixed;
+  z-index: 100;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.burst i {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 2px;
+  animation: burst-out 0.9s cubic-bezier(0.16, 0.8, 0.3, 1) forwards;
+}
+
+@keyframes burst-out {
+  to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; }
+}

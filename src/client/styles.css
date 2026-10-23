@@ -9,5 +9,7 @@
 @import "./styles/dock.css";
 @import "./styles/watch.css";
 @import "./styles/views.css";
+@import "./styles/stats.css";
+@import "./styles/effects.css";
 @import "./styles/touch.css";
 @import "./styles/media.css";
