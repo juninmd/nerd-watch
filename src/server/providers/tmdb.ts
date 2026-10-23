@@ -82,7 +82,8 @@ export interface TmdbTitleDetails {
   seasons?: TmdbSeasonSummary[];
 }
 
-export const tmdbTitleDetails = withCache(60 * MINUTES, async (mediaType: MediaType, id: number): Promise<TmdbTitleDetails> => {
+/** Sem cache: o refresh de metadados precisa do dado atual, não do que a página já guardou há até 60 min. */
+export const fetchTmdbTitleDetails = async (mediaType: MediaType, id: number): Promise<TmdbTitleDetails> => {
   const raw = await call<Record<string, unknown>>(`/${mediaType}/${id}`);
   return {
     id: raw.id as number,
@@ -95,7 +96,9 @@ export const tmdbTitleDetails = withCache(60 * MINUTES, async (mediaType: MediaT
     status: raw.status as string,
     seasons: raw.seasons as TmdbSeasonSummary[] | undefined,
   };
-});
+};
+
+export const tmdbTitleDetails = withCache(60 * MINUTES, fetchTmdbTitleDetails);
 
 /**
  * ID do IMDb de um título da TMDB.
@@ -117,10 +120,12 @@ export interface TmdbEpisode {  episode_number: number;
   still_path: string | null;
 }
 
-export const tmdbSeasonEpisodes = withCache(60 * MINUTES, async (tvId: number, seasonNumber: number): Promise<TmdbEpisode[]> => {
+export const fetchTmdbSeasonEpisodes = async (tvId: number, seasonNumber: number): Promise<TmdbEpisode[]> => {
   const data = await call<{ episodes: TmdbEpisode[] }>(`/tv/${tvId}/season/${seasonNumber}`);
   return data.episodes;
-});
+};
+
+export const tmdbSeasonEpisodes = withCache(60 * MINUTES, fetchTmdbSeasonEpisodes);
 
 export interface TmdbWatchProvider {
   provider_name: string;

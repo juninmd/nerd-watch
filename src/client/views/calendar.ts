@@ -2,6 +2,7 @@ import { type CatalogSource, getCalendar, type CalendarEntryDto } from '../api.t
 import { escapeHtml } from '../components/card.ts';
 import { icon } from '../icons.ts';
 import { navigate } from '../router.ts';
+import { showToast } from '../state.ts';
 import { localIsoDate, weekCells } from '../time-format.ts';
 import { titlePath } from '../title-link.ts';
 
@@ -40,6 +41,7 @@ export const renderCalendar = (host: HTMLElement): void => {
     <header class="view-head">
       <h1 class="view-title">Agenda</h1>
       <p class="view-subtitle">Próximos episódios e estreias de filmes dos títulos que você está acompanhando.</p>
+      <div style="margin-top:12px"><button class="btn btn-ghost btn-sm" id="subscribe" type="button">Assinar no calendário</button></div>
     </header>
     <div class="week-strip" id="week" role="group" aria-label="Próximos 7 dias"></div>
     <div class="chip-row" id="ranges" style="margin-bottom:22px"></div>
@@ -49,6 +51,18 @@ export const renderCalendar = (host: HTMLElement): void => {
   const rangesEl = host.querySelector('#ranges') as HTMLElement;
   const entriesEl = host.querySelector('#entries') as HTMLElement;
   const weekEl = host.querySelector('#week') as HTMLElement;
+
+  // Copia o feed .ics (sempre o padrão de 60 dias, para a assinatura não mudar com o filtro da tela).
+  host.querySelector('#subscribe')?.addEventListener('click', async () => {
+    const url = new URL('/api/calendar.ics', location.origin).href;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Link copiado: cole no seu app de calendário');
+    } catch {
+      // Sem permissão de área de transferência, o link aparece no aviso para copiar à mão.
+      showToast(url);
+    }
+  });
 
   const renderWeek = () => {
     const todayIso = localIsoDate(new Date());

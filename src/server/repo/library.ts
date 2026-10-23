@@ -1,17 +1,19 @@
 import type { Database } from 'bun:sqlite';
 import type { LibraryEntryRow, TitleRow, WatchStatus } from '../types.ts';
 import { SQL_BATCH } from './titles.ts';
+import { recordAdded, recordProgress, recordRewatchStarted, recordStatusChange } from './library-history.ts';
 
 export type LibraryItem = LibraryEntryRow & { title: TitleRow };
 
 const JOIN_SELECT = `
   SELECT
     le.id, le.title_id, le.watch_status, le.rating, le.notes,
-    le.current_season, le.current_episode, le.added_at, le.updated_at,
+    le.current_season, le.current_episode, le.rewatch_count, le.added_at, le.updated_at,
     t.id as t_id, t.source as t_source, t.source_id as t_source_id, t.media_type as t_media_type,
     t.title as t_title, t.original_title as t_original_title, t.overview as t_overview,
     t.poster_path as t_poster_path, t.backdrop_path as t_backdrop_path,
-    t.release_date as t_release_date, t.vote_average as t_vote_average, t.created_at as t_created_at
+    t.release_date as t_release_date, t.vote_average as t_vote_average, t.created_at as t_created_at,
+    t.metadata_status as t_metadata_status, t.metadata_refreshed_at as t_metadata_refreshed_at
   FROM library_entries le JOIN titles t ON t.id = le.title_id
 `;
 
@@ -23,6 +25,7 @@ interface JoinedRow {
   notes: string | null;
   current_season: number | null;
   current_episode: number | null;
+  rewatch_count: number;
   added_at: string;
   updated_at: string;
   t_id: string;
@@ -37,6 +40,8 @@ interface JoinedRow {
   t_release_date: string | null;
   t_vote_average: number | null;
   t_created_at: string;
+  t_metadata_status: string | null;
+  t_metadata_refreshed_at: string | null;
 }
 
 const toLibraryItem = (row: JoinedRow): LibraryItem => ({
@@ -47,6 +52,7 @@ const toLibraryItem = (row: JoinedRow): LibraryItem => ({
   notes: row.notes,
   current_season: row.current_season,
   current_episode: row.current_episode,
+  rewatch_count: row.rewatch_count,
   added_at: row.added_at,
   updated_at: row.updated_at,
   title: {
@@ -62,6 +68,8 @@ const toLibraryItem = (row: JoinedRow): LibraryItem => ({
     release_date: row.t_release_date,
     vote_average: row.t_vote_average,
     created_at: row.t_created_at,
+    metadata_status: row.t_metadata_status,
+    metadata_refreshed_at: row.t_metadata_refreshed_at,
   },
 });
 
@@ -77,6 +85,20 @@ export const getLibraryEntriesByTitles = (db: Database, titleIds: string[]): Lib
   }
   return rows;
 };
+
+/**
+ * Séries/filmes TMDB que você acompanha (quero ver / assistindo): o alvo do refresh automático. O limite protege
+ * a consulta; a ordem põe o refresh mais antigo (ou nunca feito) primeiro, então o teto não esconde títulos vencidos.
+ */
+export const listFollowedTmdbTitles = (db: Database, limit: number): TitleRow[] =>
+  db
+    .query<TitleRow, [number]>(
+      `SELECT t.* FROM library_entries le JOIN titles t ON t.id = le.title_id
+       WHERE le.watch_status IN ('want', 'watching') AND t.source = 'tmdb'
+       ORDER BY t.metadata_refreshed_at IS NOT NULL, t.metadata_refreshed_at ASC
+       LIMIT ?`,
+    )
+    .all(limit);
 
 /** Títulos marcados como assistidos (origem e id, para a exportação decidir o que falta no Trakt). */
 export const listWatchedTitles = (db: Database): Array<Pick<TitleRow, 'source' | 'source_id' | 'media_type'>> =>
@@ -94,26 +116,38 @@ export interface LibraryPatch {
   currentEpisode?: number | null;
 }
 
+const selectItem = (db: Database, titleId: string): LibraryItem => {
+  const row = db.query<JoinedRow, [string]>(`${JOIN_SELECT} WHERE le.title_id = ?`).get(titleId);
+  if (!row) throw new Error('falha ao gravar item na lista');
+  return toLibraryItem(row);
+};
+
+/** Grava a entrada e o histórico na mesma transação: sem evento órfão nem mudança sem evento. */
 export const upsertLibraryEntry = (db: Database, titleId: string, patch: LibraryPatch): LibraryItem => {
   const now = new Date().toISOString();
   const existing = getLibraryEntryByTitle(db, titleId);
-  if (!existing) {
-    const id = crypto.randomUUID();
-    db.query(
-      `INSERT INTO library_entries (id, title_id, watch_status, rating, notes, current_season, current_episode, added_at, updated_at)
-       VALUES ($id, $titleId, $watchStatus, $rating, $notes, $currentSeason, $currentEpisode, $addedAt, $updatedAt)`,
-    ).run({
-      $id: id,
-      $titleId: titleId,
-      $watchStatus: patch.watchStatus ?? 'want',
-      $rating: patch.rating ?? null,
-      $notes: patch.notes ?? null,
-      $currentSeason: patch.currentSeason ?? null,
-      $currentEpisode: patch.currentEpisode ?? null,
-      $addedAt: now,
-      $updatedAt: now,
-    });
-  } else {
+  db.transaction(() => {
+    if (!existing) {
+      db.query(
+        `INSERT INTO library_entries (id, title_id, watch_status, rating, notes, current_season, current_episode, added_at, updated_at)
+         VALUES ($id, $titleId, $watchStatus, $rating, $notes, $currentSeason, $currentEpisode, $addedAt, $updatedAt)`,
+      ).run({
+        $id: crypto.randomUUID(),
+        $titleId: titleId,
+        $watchStatus: patch.watchStatus ?? 'want',
+        $rating: patch.rating ?? null,
+        $notes: patch.notes ?? null,
+        $currentSeason: patch.currentSeason ?? null,
+        $currentEpisode: patch.currentEpisode ?? null,
+        $addedAt: now,
+        $updatedAt: now,
+      });
+      recordAdded(db, titleId, now);
+      return;
+    }
+    const watchStatus = patch.watchStatus ?? existing.watch_status;
+    const currentSeason = patch.currentSeason !== undefined ? patch.currentSeason : existing.current_season;
+    const currentEpisode = patch.currentEpisode !== undefined ? patch.currentEpisode : existing.current_episode;
     db.query(
       `UPDATE library_entries SET
          watch_status = $watchStatus, rating = $rating, notes = $notes,
@@ -121,23 +155,39 @@ export const upsertLibraryEntry = (db: Database, titleId: string, patch: Library
        WHERE id = $id`,
     ).run({
       $id: existing.id,
-      $watchStatus: patch.watchStatus ?? existing.watch_status,
+      $watchStatus: watchStatus,
       $rating: patch.rating !== undefined ? patch.rating : existing.rating,
       $notes: patch.notes !== undefined ? patch.notes : existing.notes,
-      $currentSeason: patch.currentSeason !== undefined ? patch.currentSeason : existing.current_season,
-      $currentEpisode: patch.currentEpisode !== undefined ? patch.currentEpisode : existing.current_episode,
+      $currentSeason: currentSeason,
+      $currentEpisode: currentEpisode,
       $updatedAt: now,
     });
-  }
-  const item = getLibraryItemByTitle(db, titleId);
-  if (!item) throw new Error('falha ao gravar item na lista');
-  return item;
+    recordStatusChange(db, titleId, existing.watch_status, watchStatus, now);
+    if (currentSeason !== existing.current_season || currentEpisode !== existing.current_episode) {
+      recordProgress(db, titleId, currentSeason, currentEpisode, now);
+    }
+  })();
+  return selectItem(db, titleId);
 };
 
 export const getLibraryItemByTitle = (db: Database, titleId: string): LibraryItem | null => {
   const row = db.query<JoinedRow, [string]>(`${JOIN_SELECT} WHERE le.title_id = ?`).get(titleId);
   return row ? toLibraryItem(row) : null;
 };
+
+export type RewatchOutcome = { ok: true; item: LibraryItem } | { ok: false; reason: 'not_found' | 'not_finished' };
+
+/** Revisão: só a partir de assistido. Volta para "assistindo", conta a revisão e registra o início. */
+export const rewatchLibraryEntry = (db: Database, titleId: string): RewatchOutcome =>
+  db.transaction((): RewatchOutcome => {
+    const existing = getLibraryEntryByTitle(db, titleId);
+    if (!existing) return { ok: false, reason: 'not_found' };
+    if (existing.watch_status !== 'watched') return { ok: false, reason: 'not_finished' };
+    const now = new Date().toISOString();
+    db.query(`UPDATE library_entries SET watch_status = 'watching', rewatch_count = rewatch_count + 1, updated_at = ? WHERE id = ?`).run(now, existing.id);
+    recordRewatchStarted(db, titleId, now);
+    return { ok: true, item: selectItem(db, titleId) };
+  })();
 
 export const removeLibraryEntry = (db: Database, id: string): void => {
   db.query('DELETE FROM library_entries WHERE id = ?').run(id);
@@ -157,12 +207,15 @@ export const bulkLibraryAction = (db: Database, titleIds: string[], action: Bulk
   if (titleIds.length === 0) return 0;
   const marks = titleIds.map(() => '?').join(',');
   const run = db.transaction((): number => {
-    const result =
-      action.type === 'remove'
-        ? db.query(`DELETE FROM library_entries WHERE title_id IN (${marks})`).run(...titleIds)
-        : db
-            .query(`UPDATE library_entries SET watch_status = ?, updated_at = ? WHERE title_id IN (${marks})`)
-            .run(action.watchStatus, new Date().toISOString(), ...titleIds);
+    if (action.type === 'remove') return db.query(`DELETE FROM library_entries WHERE title_id IN (${marks})`).run(...titleIds).changes;
+    const now = new Date().toISOString();
+    const before = db
+      .query<{ title_id: string; watch_status: WatchStatus }, string[]>(`SELECT title_id, watch_status FROM library_entries WHERE title_id IN (${marks})`)
+      .all(...titleIds);
+    const result = db
+      .query(`UPDATE library_entries SET watch_status = ?, updated_at = ? WHERE title_id IN (${marks})`)
+      .run(action.watchStatus, now, ...titleIds);
+    for (const row of before) recordStatusChange(db, row.title_id, row.watch_status, action.watchStatus, now);
     return result.changes;
   });
   return run();

@@ -16,10 +16,11 @@
 
 .grid.as-list .card {
   display: grid;
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: 56px minmax(0, 1fr);
   align-items: center;
   gap: 16px;
-  padding: 8px 12px 8px 8px;
+  /* Reserva a coluna do selo de status (absoluto, à direita): sem isso o título passa por baixo dele no celular. */
+  padding: 8px 140px 8px 8px;
   min-height: 72px;
 }
 
