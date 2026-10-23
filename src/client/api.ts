@@ -1,3 +1,4 @@
+import type { StatsSummary } from '../server/stats/summary.ts';
 import type { LibraryHistoryKind, WatchStatus } from '../server/types.ts';
 
 /** Fontes de catálogo com página de detalhe própria. Telegram tem outra rota (canais). */
@@ -328,6 +329,16 @@ export interface CalendarResponse {
 
 export const getCalendar = (days = 60): Promise<CalendarResponse> =>
   fetch(`/api/calendar?days=${days}`).then((r) => json<CalendarResponse>(r));
+
+export interface StatsQuery {
+  year: number;
+  tz: string;
+  hpd: number;
+}
+
+/** Resumo de estatísticas do ano (ver server/stats). O fuso e o ritmo vão na query; nada é guardado no servidor. */
+export const getStats = (q: StatsQuery): Promise<StatsSummary> =>
+  fetch(`/api/stats?year=${q.year}&tz=${encodeURIComponent(q.tz)}&hpd=${q.hpd}`).then((r) => json<StatsSummary>(r));
 
 export interface HealthResponse {
   ok: boolean;

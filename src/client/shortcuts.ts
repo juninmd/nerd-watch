@@ -10,6 +10,7 @@ const ROWS: Array<[string, string]> = [
   ['g  b', 'Biblioteca'],
   ['g  t', 'Telegram'],
   ['g  a', 'Agenda'],
+  ['g  e', 'Estatísticas'],
   ['g  c', 'Conexões'],
   ['s', 'alternar spoilers'],
   ['espaço  k', 'player: reproduzir / pausar'],

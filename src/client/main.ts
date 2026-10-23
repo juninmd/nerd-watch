@@ -7,6 +7,7 @@ import { mountPlayerDock, parkPlayer, stopIfOnPage } from './components/player-d
 import { installShortcuts } from './shortcuts.ts';
 import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './state.ts';
 import { renderCalendar } from './views/calendar.ts';
+import { renderStats } from './views/estatisticas.ts';
 import { renderConnections } from './views/connections.ts';
 import { renderDiscover } from './views/discover.ts';
 import { renderLibrary } from './views/library.ts';
@@ -29,6 +30,7 @@ const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
   { path: '/library', label: 'Biblioteca', icon: 'library' },
   { path: '/telegram', label: 'Canais', icon: 'send' },
   { path: '/agenda', label: 'Agenda', icon: 'calendar' },
+  { path: '/estatisticas', label: 'Estatísticas', icon: 'chart' },
   { path: '/connections', label: 'Conexões', icon: 'sliders' },
 ];
 
@@ -153,6 +155,9 @@ const dispatch = (route: Route) => {
       return;
     case '/agenda':
       renderCalendar(viewEl);
+      return;
+    case '/estatisticas':
+      renderStats(viewEl, route.query);
       return;
     case '/public-domain':
       renderPublicDomain(viewEl);
