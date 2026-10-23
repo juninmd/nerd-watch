@@ -1,8 +1,9 @@
 import { getAnilistTitle, type AnilistDetailDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
+import { pluralize } from '../pluralize.ts';
 
-const FORMAT_LABEL: Record<string, string> = { TV: 'Série', TV_SHORT: 'Série curta', MOVIE: 'Filme', OVA: 'OVA', ONA: 'ONA', SPECIAL: 'Especial' };
+const FORMAT_LABEL: Record<string, string> = { TV: 'Série', TV_SHORT: 'Série curta', MOVIE: 'Filme', OVA: 'OVA', ONA: 'ONA', SPECIAL: 'Especial', MUSIC: 'Música' };
 
 const STATUS_LABEL: Record<string, string> = {
   FINISHED: 'concluído',
@@ -43,7 +44,7 @@ export const renderAnilistDetail = (host: HTMLElement, id: string): void => {
                   ${d.year ? `<span>${escapeHtml(d.year)}</span>` : ''}
                   ${d.voteAverage ? `<span>⭐ ${d.voteAverage.toFixed(1)}</span>` : ''}
                   ${status ? `<span>${escapeHtml(status)}</span>` : ''}
-                  ${d.episodes ? `<span>${d.episodes} episódios</span>` : ''}
+                  ${d.episodes ? `<span>${pluralize(d.episodes, 'episódio', 'episódios')}</span>` : ''}
                 </div>
                 <p class="hero-overview">${escapeHtml(d.overview || 'Sem sinopse disponível.')}</p>
                 ${nextEpisodeLine(d)}

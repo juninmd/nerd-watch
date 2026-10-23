@@ -2,6 +2,7 @@ import { getTvmazeTitle, type TvmazeDetailDto } from '../api.ts';
 import { escapeHtml } from '../components/card.ts';
 import { renderSpoilerText } from '../components/spoiler.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
+import { pluralize } from '../pluralize.ts';
 
 const dateLabel = (iso: string | null): string => {
   if (!iso) return 'data a confirmar';
@@ -58,7 +59,7 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
                   <span>${year}</span>
                   ${d.voteAverage ? `<span>⭐ ${d.voteAverage.toFixed(1)}</span>` : ''}
                   ${d.status ? `<span>${escapeHtml(d.status)}</span>` : ''}
-                  <span>${episodeCount(d)} episódios</span>
+                  <span>${pluralize(episodeCount(d), 'episódio', 'episódios')}</span>
                 </div>
                 <p class="hero-overview">${escapeHtml(d.overview || 'Sem sinopse disponível.')}</p>
               </div>
