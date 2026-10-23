@@ -54,7 +54,7 @@ export const renderDiscover = (host: HTMLElement): void => {
     .then(([h, watching, archive, calendar, upNext]) => {
       const banner = h.tmdbEnabled
         ? ''
-        : `<div class="banner warn">${icon('alert')}<span>Catálogo TMDB desligado — veja como ligar em <a href="#/connections">Conexões</a>. Domínio público, Telegram e sua biblioteca funcionam normalmente.</span></div>`;
+        : `<div class="banner warn">${icon('alert')}<span>Catálogo TMDB desligado — veja como ligar em <a href="#/connections">configurar conexões</a>. Domínio público, Telegram e sua biblioteca funcionam normalmente.</span></div>`;
 
       host.innerHTML = `
         <header class="view-head"><h1 class="view-title">Bem-vindo de volta</h1>
@@ -148,6 +148,6 @@ export const renderDiscover = (host: HTMLElement): void => {
       }
     })
     .catch(() => {
-      host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar o início agora</div>`;
+      host.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar o início agora</div>`;
     });
 };

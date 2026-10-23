@@ -40,7 +40,7 @@ export const renderTelegramChannel = (host: HTMLElement, titleId: string): void 
       .then(() => getTelegramChannel(titleId, { fillThumbs: true }))
       .then((d) => renderDetail(host, d, load, ui))
       .catch(() => {
-        host.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>não foi possível carregar esse canal</div>`;
+        host.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar esse canal</div>`;
       });
   };
 
@@ -196,7 +196,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
         d.mode === 'bot'
           ? 'nenhum vídeo ainda — o bot precisa estar adicionado como admin do canal, e só grava o que for postado a partir de agora'
           : 'nenhum vídeo encontrado nesse canal ainda';
-      emptyHost.innerHTML = `<div class="empty-state"><div class="big">📭</div>${emptyMessage}</div>`;
+      emptyHost.innerHTML = `<div class="empty-state"><div class="big">${icon('inbox')}</div>${emptyMessage}</div>`;
     } else if (matches.length === 0) {
       emptyHost.innerHTML = `<div class="empty-state"><div class="big">🔎</div>nenhum vídeo com “${escapeHtml(ui.q.trim())}” entre os ${d.items.length} carregados${remote ? '<br /><small>use o botão abaixo para procurar no canal inteiro</small>' : ''}</div>`;
     } else {

@@ -86,9 +86,11 @@ kbd {
   transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
 
-.navlink:hover {
-  background: var(--surface-hover);
-  color: var(--text);
+@media (hover: hover) {
+  .navlink:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
 }
 
 .navlink.active {
@@ -133,9 +135,11 @@ kbd {
   transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
 }
 
-.cmd:hover {
-  border-color: var(--accent-2);
-  color: var(--text-dim);
+@media (hover: hover) {
+  .cmd:hover {
+    border-color: var(--accent-2);
+    color: var(--text-dim);
+  }
 }
 
 .cmd-text {
@@ -187,6 +191,12 @@ kbd {
   font-weight: 800;
   letter-spacing: -0.025em;
   margin: 0 0 4px;
+}
+
+/* Foco vai ao título/área principal ao trocar de tela: é programático, não precisa de contorno. */
+.view-title:focus,
+#view:focus {
+  outline: none;
 }
 
 .view-subtitle {

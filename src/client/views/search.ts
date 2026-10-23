@@ -1,5 +1,6 @@
 import { addToLibrary, type CatalogSource, search, type SearchResultDto } from '../api.ts';
 import { escapeHtml, initials, paintPoster } from '../components/card.ts';
+import { icon } from '../icons.ts';
 import { navigate } from '../router.ts';
 import { showToast } from '../state.ts';
 import { titlePath } from '../title-link.ts';
@@ -94,6 +95,6 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
       }
     })
     .catch(() => {
-      results.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>falha na busca, tente de novo</div>`;
+      results.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>falha na busca, tente de novo</div>`;
     });
 };

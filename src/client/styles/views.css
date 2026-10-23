@@ -145,8 +145,10 @@
   transition: border-color 0.15s var(--ease);
 }
 
-.episode-row:hover {
-  border-color: var(--border);
+@media (hover: hover) {
+  .episode-row:hover {
+    border-color: var(--border);
+  }
 }
 
 .episode-row .still {
@@ -253,7 +255,8 @@
 .calendar-day-label {
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--accent-2);
+  /* #7c5cff fica em 4.2-4.5:1 sobre as superfícies; este tom mantém 5.3:1+ sem perder o violeta. */
+  color: #8f7bff;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 10px;

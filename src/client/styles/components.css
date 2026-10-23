@@ -119,8 +119,10 @@
   transition: transform 0.15s var(--ease), filter 0.15s var(--ease);
 }
 
-.btn:hover {
-  filter: brightness(1.08);
+@media (hover: hover) {
+  .btn:hover {
+    filter: brightness(1.08);
+  }
 }
 
 .btn:active {
