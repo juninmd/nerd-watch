@@ -9,12 +9,15 @@ export interface StatsSummary {
   timezone: string;
   /** `false` quando não há nada a mostrar (biblioteca vazia e nenhuma exibição no ano): a tela mostra o estado vazio. */
   hasData: boolean;
+  /** Primeiro ano com histórico (UTC); `null` sem histórico. O seletor de ano vai dele até o ano atual. */
+  firstYear: number | null;
   library: LibraryTotals;
   period: PeriodStats;
   backlog: Backlog;
 }
 
 export interface SummaryInput {
+  firstEventAt: string | null;
   year: number;
   timeZone: string;
   today: string;
@@ -37,5 +40,6 @@ export const buildSummary = (input: SummaryInput): StatsSummary => {
   const library = libraryTotals(input.statusCounts, input.watched);
   const backlog = backlogEstimate(input.wanted, input.hoursPerDay, input.today);
   const hasData = library.total > 0 || period.activeDays > 0;
-  return { year: input.year, timezone: input.timeZone, hasData, library, period, backlog };
+  const firstYear = input.firstEventAt ? Number(input.firstEventAt.slice(0, 4)) : null;
+  return { year: input.year, timezone: input.timeZone, hasData, firstYear, library, period, backlog };
 };

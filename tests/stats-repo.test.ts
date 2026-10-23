@@ -114,6 +114,12 @@ describe('loadStatsInputs + buildSummary: biblioteca sintética ponta a ponta', 
     expect(summaryFor(2027).period.finished).toBe(0);
   });
 
+  test('primeiro ano com histórico alimenta o seletor de ano; sem histórico, nulo', () => {
+    expect(summaryFor(2026).firstYear).toBeNull();
+    seed();
+    expect(summaryFor(2026).firstYear).toBe(2025);
+  });
+
   test('ano sem atividade: período vazio mesmo com biblioteca preenchida', () => {
     seed();
     const s = summaryFor(2020);

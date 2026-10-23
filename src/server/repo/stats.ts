@@ -63,6 +63,8 @@ export const durationOf = (
 };
 
 export interface StatsInputs {
+  /** Instante (ISO UTC) do evento mais antigo do histórico; `null` sem histórico. Alimenta o seletor de ano. */
+  firstEventAt: string | null;
   statusCounts: Partial<Record<WatchStatus, number>>;
   watched: Duration[];
   wanted: Duration[];
@@ -111,5 +113,8 @@ export const loadStatsInputs = (db: Database, year: number): StatsInputs => {
     .all(from, to)
     .map((r) => ({ titleId: r.title_id, kind: r.kind, at: r.at }));
 
-  return { statusCounts, watched, wanted, periodEvents, periodTitles };
+  const firstEventAt =
+    db.query<{ first: string | null }, []>('SELECT MIN(at) AS first FROM library_history').get()?.first ?? null;
+
+  return { firstEventAt, statusCounts, watched, wanted, periodEvents, periodTitles };
 };
