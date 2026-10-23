@@ -1,0 +1,23 @@
+/* Selo do caminho de reprodução (direto, remux, transcodificado) e progresso da conversão, sobre o palco do vídeo. */
+.media-host {
+  position: relative;
+}
+
+.media-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  max-width: calc(100% - 16px);
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.7);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+.media-badge[hidden] {
+  display: none;
+}

@@ -7,6 +7,7 @@ import { createOverlayController } from './player-overlay-controller.ts';
 import { getStoredSpeed } from './player-prefs.ts';
 import { setMediaMetadata } from './player-media.ts';
 import { onPlayError } from './player-error.ts';
+import { handleUnplayable, prepareForItem } from '../media-fallback.ts';
 import { paintControls, paintProgress, paintSpeed } from './player-dock-view.ts';
 import { DOCK_MARKUP } from './player-dock-markup.ts';
 import { wirePlayerDock } from './player-dock-wiring.ts';
@@ -167,6 +168,7 @@ const load = (i: number): void => {
     { once: true },
   );
   attemptPlay();
+  if (playerKindOf(item) !== 'embed') void prepareForItem(item, el, { resumeAt, isCurrent: () => current() === item, onMessage: showToast });
   q('.dock-title').textContent = item.title;
   q('.dock-sub').textContent = resumeAt !== null ? `${item.subtitle} · retomando de ${formatDuration(resumeAt)}` : item.subtitle;
   syncControls();
@@ -228,10 +230,17 @@ const step = (delta: number): void => playIndex(index + delta);
 
 const onVideoError = (): void => {
   const item = current();
-  if (!item) return;
-  onPlayError(item.src, {
-    onEmbed: (url) => { item.embedUrl = url; if (current() === item) load(index); },
+  if (!item || !video) return;
+  const handlers = {
+    onEmbed: (url: string) => {
+      item.embedUrl = url;
+      if (current() === item) load(index);
+    },
     onMessage: showToast,
+  };
+  const opts = { resumeAt: resumePoint(store.get(item.key)), isCurrent: () => current() === item, onMessage: showToast };
+  void handleUnplayable(item, video, opts).then((handled) => {
+    if (!handled) onPlayError(item.src, handlers);
   });
 };
 

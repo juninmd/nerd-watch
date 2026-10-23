@@ -24,6 +24,11 @@ COPY --from=build /app/public ./public
 COPY src ./src
 
 # Usuário sem privilégio; só o diretório de dados é gravável.
+# ffmpeg (com ffprobe) do repositório Debian, assinado pelo apt: conversão de MKV/AVI/etc. Sem ele o app segue igual.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system app \
  && useradd --system --gid app --home-dir /app --shell /usr/sbin/nologin app \
  && mkdir -p /app/data \

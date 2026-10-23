@@ -26,6 +26,12 @@ import { driveRoutes } from './routes/drive.ts';
 import { sourcesRoutes } from './routes/sources.ts';
 import { playbackRoutes } from './routes/playback.ts';
 import { traktRoutes } from './routes/trakt.ts';
+import { createMediaRoutes } from './routes/media.ts';
+import { cleanupMediaCache, createMediaService } from './media/service.ts';
+import { localLocator } from './media/local-locator.ts';
+import { installShutdownHandlers } from './media/process.ts';
+import { mediaSettings } from './media/settings.ts';
+import { binaryStatus } from './media/binaries.ts';
 import { startTorrentSweeper } from './torrent/engine.ts';
 import { getDb } from './db.ts';
 import { buildSinks } from './notify/sinks.ts';
@@ -89,6 +95,10 @@ app.route('/api/sources', sourcesRoutes);
 app.route('/api/playback', playbackRoutes);
 app.route('/api/trakt', traktRoutes);
 
+// Conversão de formatos (ffmpeg opcional): sem o binário, nada muda e a UI explica o motivo.
+const mediaCfg = mediaSettings();
+app.route('/api/media', createMediaRoutes(createMediaService({ settings: mediaCfg, locate: localLocator })));
+
 app.use('/*', serveStatic({ root: './public' }));
 
 export default {
@@ -103,6 +113,8 @@ registerAllSources();
 startTelegramBotPoller();
 startTorrentSweeper();
 startMetadataRefreshJob();
+installShutdownHandlers();
+void cleanupMediaCache(mediaCfg);
 
 // Sem ACCESS_TOKEN a saída de boot não muda. Com ele, avisa que o HTTPS é responsabilidade do proxy.
 if (remoteAccess) console.log('acesso remoto ativo (ACCESS_TOKEN): exponha só por HTTPS, via proxy reverso (ver README)');
@@ -127,5 +139,6 @@ console.log(
     `legendas ${openSubtitlesEnabled() ? 'com chave OpenSubtitles' : 'via addons do Stremio (sem chave)'}, ` +
     `torrent ${torrentEnabled() ? 'ativo' : 'desligado'}, ` +
     `bot do Telegram ${telegramBotEnabled() ? 'ativo' : 'desligado — sem TELEGRAM_BOT_TOKEN'}, ` +
-    `avisos de lançamento ${notifySinks.length > 0 ? notifySinks.map((s) => s.name).join(' + ') : 'desligados'})`,
+    `avisos de lançamento ${notifySinks.length > 0 ? notifySinks.map((s) => s.name).join(' + ') : 'desligados'}, ` +
+    `conversão ${binaryStatus(mediaCfg).ok ? 'com ffmpeg' : 'desligada'})`,
 );
