@@ -14,7 +14,6 @@ import { libraryIoRoutes } from './routes/library-io.ts';
 import { libraryRefreshRoutes } from './routes/library-refresh.ts';
 import { listsRoutes } from './routes/lists.ts';
 import { savedViewsRoutes } from './routes/saved-views.ts';
-import { statsRoutes } from './routes/stats.ts';
 import { startMetadataRefreshJob } from './metadata/refresh-service.ts';
 import { statsRoutes } from './routes/stats.ts';
 import { calendarIcsRoutes, calendarRoutes } from './routes/calendar.ts';
@@ -53,7 +52,7 @@ app.use('*', async (c, next) => {
         'Access-Control-Allow-Origin': origin || '*',
         'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Max-Age': 86400,
+        'Access-Control-Max-Age': '86400',
       },
     });
   }
@@ -97,7 +96,6 @@ app.route('/api/drive', driveRoutes);
 app.route('/api/sources', sourcesRoutes);
 app.route('/api/playback', playbackRoutes);
 app.route('/api/trakt', traktRoutes);
-app.route('/api/stats', statsRoutes);
 
 // Conversão de formatos (ffmpeg opcional): sem o binário, nada muda e a UI explica o motivo.
 const mediaCfg = mediaSettings();

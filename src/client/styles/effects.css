@@ -10,7 +10,7 @@
 .grid > .card,
 .rail > .card {
   /* `backwards`, não `both`: um fill final prenderia o transform e travaria o hover/tilt. */
-animation: card-in 0.5s var(--ease) backwards;
+  animation: card-in 0.5s var(--ease) backwards;
   animation-delay: calc(min(var(--n, 0), 14) * 35ms);
 }
 

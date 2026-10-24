@@ -51,7 +51,7 @@ export const columnChartSvg = (items: BarItem[], opts: { label: string; color: s
       const y = PAD_T + plotH - h;
       const rect =
         item.value > 0
-          ? `<rect class="stat-bar" x="${x}" y="${y}" width="${barW}" height="${h}" rx="3" fill="${opts.color}" tabindex="0" role="img" aria-label="${esc(item.tip)}" data-tip="${esc(item.tip)}"/>`
+          ? `<rect class="stat-bar" style="--i:${i}" x="${x}" y="${y}" width="${barW}" height="${h}" rx="3" fill="${opts.color}" tabindex="0" role="img" aria-label="${esc(item.tip)}" data-tip="${esc(item.tip)}"/>`
           : '';
       return `${rect}<text class="stat-x" x="${x + barW / 2}" y="${H - 8}" text-anchor="middle">${esc(item.label)}</text>`;
     })
@@ -76,7 +76,7 @@ export const stackedColumnChartSvg = (items: StackedItem[], opts: { label: strin
           if (v <= 0) return '';
           const h = (v / max) * plotH;
           base -= h;
-          return `<rect class="stat-bar" x="${x}" y="${base}" width="${barW}" height="${h}" fill="${opts.colors[s] ?? opts.colors[0]}" tabindex="0" role="img" aria-label="${esc(item.tips[s] ?? '')}" data-tip="${esc(item.tips[s] ?? '')}"/>`;
+          return `<rect class="stat-bar" style="--i:${i}" x="${x}" y="${base}" width="${barW}" height="${h}" fill="${opts.colors[s] ?? opts.colors[0]}" tabindex="0" role="img" aria-label="${esc(item.tips[s] ?? '')}" data-tip="${esc(item.tips[s] ?? '')}"/>`;
         })
         .join('');
       return `${parts}<text class="stat-x" x="${x + barW / 2}" y="${H - 8}" text-anchor="middle">${esc(item.label)}</text>`;
@@ -99,7 +99,7 @@ export const barListSvg = (items: BarItem[], opts: { label: string; color: strin
       const w = (item.value / max) * plotW;
       return [
         `<text class="stat-row-label" x="0" y="${y + 19}">${esc(truncate(item.label, 17))}</text>`,
-        `<rect class="stat-bar" x="${labelW}" y="${y + 6}" width="${Math.max(w, 2)}" height="18" rx="3" fill="${opts.color}" tabindex="0" role="img" aria-label="${esc(item.tip)}" data-tip="${esc(item.tip)}"/>`,
+        `<rect class="stat-bar" style="--i:${i}" x="${labelW}" y="${y + 6}" width="${Math.max(w, 2)}" height="18" rx="3" fill="${opts.color}" tabindex="0" role="img" aria-label="${esc(item.tip)}" data-tip="${esc(item.tip)}"/>`,
         `<text class="stat-row-value" x="${W}" y="${y + 19}" text-anchor="end">${item.value}</text>`,
       ].join('');
     })
