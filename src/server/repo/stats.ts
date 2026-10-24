@@ -30,7 +30,8 @@ export interface LibraryStats {
   topRated: TopRatedRow[];
 }
 
-const shiftDays = (iso: string, days: number): string => new Date(Date.parse(`${iso}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+const shiftDays = (iso: string, days: number): string =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 
 /** Sequências de dias consecutivos com atividade. A atual ainda vale se o último dia ativo foi ontem (o dia de hoje não acabou). */
 export const computeStreaks = (activeDates: string[], today: string): { current: number; longest: number } => {

@@ -22,6 +22,8 @@ const due = (id: string): TitleRow => ({
   created_at: T0.toISOString(),
   metadata_status: 'Returning Series',
   metadata_refreshed_at: null,
+  genres: '[]',
+  runtime_minutes: null,
 });
 
 /** Relógio controlável: `clock.ms` é o "agora" do tick. */

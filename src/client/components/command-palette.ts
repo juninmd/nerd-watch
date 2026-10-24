@@ -17,7 +17,7 @@ const staticActions = (): PaletteEntry[] => [
   { id: 'go-library', group: 'Ações', title: 'Ir para a Biblioteca', keys: 'g b', run: () => navigate('/library') },
   { id: 'go-telegram', group: 'Ações', title: 'Ir para o Telegram', keys: 'g t', run: () => navigate('/telegram') },
   { id: 'go-lists', group: 'Ações', title: 'Ir para as Listas', run: () => navigate('/lists') },
-  { id: 'go-stats', group: 'Ações', title: 'Ir para as Estatísticas', keys: 'g e', run: () => navigate('/stats') },
+  { id: 'go-stats', group: 'Ações', title: 'Ir para as Estatísticas', keys: 'g e', run: () => navigate('/estatisticas') },
   { id: 'go-agenda', group: 'Ações', title: 'Ir para a Agenda', keys: 'g a', run: () => navigate('/agenda') },
   { id: 'go-connections', group: 'Ações', title: 'Ir para as Conexões', keys: 'g c', run: () => navigate('/connections') },
   { id: 'go-pd', group: 'Ações', title: 'Explorar o domínio público', run: () => navigate('/public-domain') },

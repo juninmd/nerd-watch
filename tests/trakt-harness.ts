@@ -102,6 +102,8 @@ export const details = (title: string, seasons?: Array<{ season_number: number; 
   vote_average: 7,
   status: 'Ended',
   seasons: seasons?.map((s) => ({ ...s, name: `Temporada ${s.season_number}`, overview: '', air_date: null, poster_path: null })),
+  genres: [],
+  runtimeMinutes: null,
 });
 
 /** TMDB falsa: `catalog` indexado por `movie:ID` / `tv:ID`; id ausente lança como a TMDB faria (404). */

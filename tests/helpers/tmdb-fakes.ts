@@ -30,6 +30,8 @@ export const tvDetails = (overrides: Partial<TmdbTitleDetails> = {}): TmdbTitleD
   vote_average: 8.1,
   status: 'Returning Series',
   seasons: [season(1)],
+  genres: ['Drama'],
+  runtimeMinutes: 45,
   ...overrides,
 });
 

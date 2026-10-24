@@ -18,7 +18,14 @@ export interface RefreshableTitle {
   release_date: string | null;
   metadata_status: string | null;
   metadata_refreshed_at: string | null;
+  genres?: string | null;
 }
+
+/**
+ * Título da biblioteca que nunca recebeu gêneros/duração (`genres` nulo, linhas anteriores à migração). Filme já
+ * lançado não tem outro motivo para ser atualizado, então este é o único gatilho para preenchê-lo.
+ */
+export const needsStatsBackfill = (title: RefreshableTitle): boolean => (title.genres ?? null) === null;
 
 /**
  * Intervalo do refresh automático, ou `null` quando não há mais o que esperar (filme já lançado).

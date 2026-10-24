@@ -1,5 +1,6 @@
 import { withCache } from '../cache.ts';
 import { config, tmdbEnabled } from '../config.ts';
+import { normalizeGenres, normalizeRuntimeMinutes } from '../stats/catalog-fields.ts';
 import type { MediaType } from '../types.ts';
 
 const MINUTES = 60_000;
@@ -80,11 +81,16 @@ export interface TmdbTitleDetails {
   vote_average: number;
   status: string;
   seasons?: TmdbSeasonSummary[];
+  /** Nomes dos gêneros; `[]` quando a resposta não trouxe a lista. */
+  genres: string[];
+  /** Filme: duração do filme. Série: duração típica do episódio (`episode_run_time[0]`). */
+  runtimeMinutes: number | null;
 }
 
 /** Sem cache: o refresh de metadados precisa do dado atual, não do que a página já guardou há até 60 min. */
 export const fetchTmdbTitleDetails = async (mediaType: MediaType, id: number): Promise<TmdbTitleDetails> => {
   const raw = await call<Record<string, unknown>>(`/${mediaType}/${id}`);
+  const episodeRuntimes = Array.isArray(raw.episode_run_time) ? raw.episode_run_time : [];
   return {
     id: raw.id as number,
     title: (raw.title ?? raw.name) as string,
@@ -95,6 +101,9 @@ export const fetchTmdbTitleDetails = async (mediaType: MediaType, id: number): P
     vote_average: raw.vote_average as number,
     status: raw.status as string,
     seasons: raw.seasons as TmdbSeasonSummary[] | undefined,
+    // Sem a lista (resposta fora do padrão) vira []: `genres` nulo é o sinal de "backfill pendente" e não pode ficar em loop.
+    genres: normalizeGenres(Array.isArray(raw.genres) ? raw.genres.map((g) => (g && typeof g === 'object' ? (g as { name?: unknown }).name : null)) : []) ?? [],
+    runtimeMinutes: normalizeRuntimeMinutes(mediaType === 'movie' ? raw.runtime : episodeRuntimes[0]),
   };
 };
 

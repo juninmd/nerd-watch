@@ -12,23 +12,24 @@ const MODES_SQL = TELEGRAM_CHANNEL_MODES.map((m) => `'${m}'`).join(', ');
 const HISTORY_KINDS_SQL = LIBRARY_HISTORY_KINDS.map((k) => `'${k}'`).join(', ');
 
 const MIGRATIONS = `
-CREATE TABLE IF NOT EXISTS titles (
-  id TEXT PRIMARY KEY,
-  source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram', 'tvmaze', 'anilist')),
-  source_id TEXT NOT NULL,
-  media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
-  title TEXT NOT NULL,
-  original_title TEXT,
-  overview TEXT,
-  poster_path TEXT,
-  backdrop_path TEXT,
-  release_date TEXT,
-  vote_average REAL,
-  created_at TEXT NOT NULL,
-  metadata_status TEXT,
-  metadata_refreshed_at TEXT,
-  UNIQUE (source, source_id)
-);
+  CREATE TABLE IF NOT EXISTS titles (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL CHECK (source IN ('tmdb', 'archive', 'telegram', 'tvmaze', 'anilist')),
+    source_id TEXT NOT NULL,
+    media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
+    title TEXT NOT NULL,
+    original_title TEXT,
+    overview TEXT,
+    poster_path TEXT,
+    backdrop_path TEXT,
+    release_date TEXT,
+    vote_average REAL,
+    created_at TEXT NOT NULL,
+    genres TEXT,
+    runtime_minutes INTEGER,
+    UNIQUE (source, source_id)
+  );
+
 
 CREATE TABLE IF NOT EXISTS seasons (
   id TEXT PRIMARY KEY,
@@ -62,7 +63,8 @@ CREATE TABLE IF NOT EXISTS library_entries (
   current_season INTEGER,
   current_episode INTEGER,
   added_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  rewatch_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS telegram_channels (
@@ -89,7 +91,6 @@ CREATE TABLE IF NOT EXISTS telegram_items (
   UNIQUE (channel_id, message_id)
 );
 
-/* Progresso de reprodução por vídeo (chave = a mesma do cliente). Criada com IF NOT EXISTS: idempotente. */
 CREATE TABLE IF NOT EXISTS playback_positions (
   key TEXT PRIMARY KEY,
   seconds REAL NOT NULL,
@@ -101,15 +102,12 @@ CREATE TABLE IF NOT EXISTS playback_positions (
 
 CREATE INDEX IF NOT EXISTS idx_playback_at ON playback_positions(at);
 
--- Origem (magnet normalizado) de cada torrent do provider genérico: o engine esquece o torrent quando
--- fica ocioso, então é daqui que ele é re-adicionado depois de um restart. Idempotente por CREATE IF NOT EXISTS.
 CREATE TABLE IF NOT EXISTS torrent_sources (
   infohash TEXT PRIMARY KEY,
   magnet TEXT NOT NULL,
   added_at TEXT NOT NULL
 );
 
--- Histórico da lista por título (sobrevive à remoção da entrada). Só cresce: o import reaproveita os ids do backup.
 CREATE TABLE IF NOT EXISTS library_history (
   id TEXT PRIMARY KEY,
   title_id TEXT NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
@@ -119,7 +117,7 @@ CREATE TABLE IF NOT EXISTS library_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_library_history_title ON library_history(title_id, at);
--- Avisos de lançamento já entregues (chave = título + episódio/data). Sem isso, um restart repetiria os avisos.
+CREATE INDEX IF NOT EXISTS idx_library_history_at ON library_history(at);
 CREATE TABLE IF NOT EXISTS notifications_sent (
   key TEXT PRIMARY KEY,
   sent_at TEXT NOT NULL
@@ -275,7 +273,9 @@ export const migrateAddTelegramItemMediaAttrs = (db: Database): void => {
   }
 };
 
-/** `library_entries.rewatch_count` (quantas revisões). Roda depois de MIGRATIONS: a tabela já existe em qualquer banco. */
+/**
+ * `library_entries.rewatch_count` (quantas revisões). Roda depois de MIGRATIONS: a tabela já existe em qualquer banco.
+ */
 export const migrateAddRewatchCount = (db: Database): void => {
   const columns = db.query<{ name: string }, []>('PRAGMA table_info(library_entries)').all();
   if (columns.some((c) => c.name === 'rewatch_count')) return;

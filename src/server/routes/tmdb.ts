@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { getDb } from '../db.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
-import { replaceEpisodes, upsertSeason, upsertTitle } from '../repo/titles.ts';
+import { replaceEpisodes, setCatalogStats, upsertSeason, upsertTitle } from '../repo/titles.ts';
 import {
   TmdbNotConfiguredError,
   TmdbRequestError,
@@ -46,6 +46,8 @@ tmdbRoutes.get('/:mediaType/:id', async (c) => {
       releaseDate: details.release_date,
       voteAverage: details.vote_average,
     });
+    // Gêneros e duração são catálogo: preenchidos a cada detalhe aberto, sem tocar na lista do usuário.
+    setCatalogStats(db, titleRow.id, { genres: details.genres, runtimeMinutes: details.runtimeMinutes });
     const libraryEntry = getLibraryEntryByTitle(db, titleRow.id);
 
     return c.json({

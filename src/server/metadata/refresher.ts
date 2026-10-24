@@ -44,6 +44,8 @@ export const refreshTitle = async (deps: RefreshDeps, title: TitleRow): Promise<
         releaseDate: details.release_date,
         voteAverage: details.vote_average,
         status: details.status,
+        genres: details.genres,
+        runtimeMinutes: details.runtimeMinutes,
       },
       refreshedAt,
     );

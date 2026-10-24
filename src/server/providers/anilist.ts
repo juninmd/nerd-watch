@@ -1,5 +1,6 @@
 import { withCache } from '../cache.ts';
 import { CatalogRequestError, htmlToText, httpsUrlOrNull } from '../catalog-text.ts';
+import { normalizeGenres, normalizeRuntimeMinutes } from '../stats/catalog-fields.ts';
 import { createRateLimiter, RateLimitExceededError } from '../rate-limit.ts';
 
 /**
@@ -49,6 +50,8 @@ query ($id: Int!) {
     coverImage { large }
     averageScore
     episodes
+    duration
+    genres
     description(asHtml: false)
     nextAiringEpisode { airingAt episode }
   }
@@ -163,6 +166,10 @@ export const anilistSearch = withCache(15 * MINUTES, async (search: string, perP
 export interface AnilistDetails extends AnilistSearchItem {
   status: string | null;
   siteUrl: string | null;
+  /** Gêneros do anime (`[]` se ausentes). */
+  genres: string[];
+  /** Duração de cada episódio em minutos (campo `duration` do AniList). */
+  runtimeMinutes: number | null;
   /** Próximo episódio ainda não exibido; `null` quando o anime terminou ou não há data. */
   nextAiringEpisode: { airingAt: number; episode: number } | null;
 }
@@ -180,6 +187,8 @@ export const anilistDetails = withCache(60 * MINUTES, async (id: number): Promis
     ...item,
     status: typeof media.status === 'string' ? media.status : null,
     siteUrl: httpsUrlOrNull(media.siteUrl),
+    genres: normalizeGenres(media.genres) ?? [],
+    runtimeMinutes: normalizeRuntimeMinutes(media.duration),
     nextAiringEpisode: airingAt !== null && episode !== null ? { airingAt, episode } : null,
   };
 });
