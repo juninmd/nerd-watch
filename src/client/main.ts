@@ -10,19 +10,22 @@ import { mountPlayerDock, parkPlayer, stopIfOnPage } from './components/player-d
 import { installShortcuts } from './shortcuts.ts';
 import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './state.ts';
 import { renderCalendar } from './views/calendar.ts';
+import { renderConnections } from './views/connections.ts';
+import { renderDiscover } from './views/discover.ts';
 import { renderLibrary } from './views/library.ts';
 import { renderLists } from './views/lists.ts';
 import { renderListDetail } from './views/list-detail.ts';
 import { renderWatch } from './views/watch.ts';
 import { renderPublicDomain } from './views/public-domain.ts';
+import { renderStats } from './views/stats.ts';
 import { renderSearch } from './views/search.ts';
 import { renderTelegramChannel } from './views/telegram-channel.ts';
 import { renderTelegramChannels } from './views/telegram-channels.ts';
 import { renderTitleDetail } from './views/media-detail.ts';
-import { renderStats } from './views/stats.ts';
 import { withLoginRedirect } from './auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
 
+// Sem ACCESS_TOKEN o servidor nunca responde 401, então este wrapper não muda nada no modo local.
 globalThis.fetch = withLoginRedirect(globalThis.fetch.bind(globalThis), location.href, (href) =>
   location.replace(href),
 ) as typeof fetch;
@@ -36,6 +39,7 @@ const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
   { path: '/connections', label: 'Conexões', icon: 'sliders' },
 ];
 
+/** Rotas antigas continuam funcionando (favoritos, links em views ainda não migradas). */
 const ALIASES: Record<string, string> = { '/my-list': '/library', '/calendar': '/agenda' };
 
 const app = document.getElementById('app');
@@ -96,12 +100,13 @@ spoilerBtn.addEventListener('click', () => setShowSpoilers(!getShowSpoilers()));
 onSpoilerChange(renderSpoilerButton);
 renderSpoilerButton();
 
+/** Status do Telegram na barra superior. Leitura barata (sem falar com o Telegram); a verificação real fica em Conexões. */
 const renderConnectionPill = (connected: boolean | null) => {
   const label = connected === null ? 'Telegram' : connected ? 'Telegram conectado' : 'Telegram desconectado';
   connPill.setAttribute('aria-label', label);
   connPill.innerHTML = `<span class="led${connected ? '' : ' off'}"></span><span class="pill-label">${label}</span>`;
 };
-
+/** Outras telas avisam com `window.dispatchEvent(new Event('nw:connection-changed'))` depois de entrar/sair do Telegram. */
 const refreshConnectionPill = (): void => {
   getTelegramSettings()
     .then((s) => renderConnectionPill(s.personalConfigured))
@@ -122,8 +127,10 @@ const WATCH_RE = /^\/watch\/([^/]+)\/(\d+|start)$/;
 const LIST_DETAIL_RE = /^\/lists\/([^/]+)$/;
 
 const dispatch = (route: Route) => {
+  // Fecha torrents (e mata os pollers) da tela anterior antes de trocar de view.
   releaseTorrentPlayers();
   const path = ALIASES[route.path] ?? route.path;
+  // O vídeo só sobrevive fora da tela de reprodução se o usuário minimizou; senão encerra (e guarda a posição).
   parkPlayer();
   if (!WATCH_RE.test(path)) stopIfOnPage();
   document.title = routeTitle(path, route.query);
@@ -166,7 +173,7 @@ const dispatch = (route: Route) => {
       renderCalendar(viewEl);
       return;
     case '/stats':
-      renderStats(viewEl);
+      renderStats(viewEl, route.query);
       return;
     case '/public-domain':
       renderPublicDomain(viewEl);
@@ -186,6 +193,7 @@ const announcerEl = document.getElementById('route-announcer') as HTMLElement;
 let currentKey: string | null = null;
 let stopRestore: (() => void) | null = null;
 
+/** Depois de trocar de tela o foco vai ao título da página, e o nome da rota é anunciado a leitores de tela. */
 const focusRouteHeading = (path: string, query: URLSearchParams) => {
   const heading = viewEl.querySelector<HTMLElement>('h1');
   if (heading) heading.tabIndex = -1;

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { Database } from 'bun:sqlite';
-import { getDb, openDb, resetDbForTests } from '../src/server/db.ts';
-import { computeStreaks, getLibraryStats } from '../src/server/repo/stats.ts';
-import { upsertTitle } from '../src/server/repo/titles.ts';
-import { statsRoutes } from '../src/server/routes/stats.ts';
+import { openDb } from '../src/server/db.ts';
+import { loadStatsInputs } from '../src/server/repo/stats.ts';
+import { replaceEpisodes, setCatalogStats, upsertSeason, upsertTitle } from '../src/server/repo/titles.ts';
+import { upsertLibraryEntry } from '../src/server/repo/library.ts';
 
 let db: Database;
 
@@ -11,54 +11,51 @@ beforeEach(() => {
   db = openDb(':memory:');
 });
 
-const history = (titleId: string, kind: string, at: string): void => {
-  db.query('INSERT INTO library_history (id, title_id, kind, at) VALUES (?, ?, ?, ?)').run(crypto.randomUUID(), titleId, kind, at);
+const event = (titleId: string, kind: string, at: string): void => {
+  db.query('INSERT INTO library_history (id, title_id, kind, at, detail) VALUES (?, ?, ?, ?, NULL)').run(crypto.randomUUID(), titleId, kind, at);
 };
 
-describe('computeStreaks', () => {
-  test('sequência atual vale se o último dia ativo é hoje ou ontem', () => {
-    expect(computeStreaks(['2026-10-21', '2026-10-22'], '2026-10-23')).toEqual({ current: 2, longest: 2 });
-    expect(computeStreaks(['2026-10-20'], '2026-10-23')).toEqual({ current: 0, longest: 1 });
-  });
-  test('maior sequência ignora duplicatas e lacunas', () => {
-    expect(computeStreaks(['2026-10-01', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-10'], '2026-10-23')).toEqual({ current: 0, longest: 3 });
-  });
-  test('sem atividade', () => {
-    expect(computeStreaks([], '2026-10-23')).toEqual({ current: 0, longest: 0 });
-  });
-});
-
-describe('getLibraryStats', () => {
-  test('biblioteca vazia devolve zeros', () => {
-    const s = getLibraryStats(db, '2026-10-23');
-    expect(s.total).toBe(0);
-    expect(s.averageRating).toBeNull();
-    expect(s.ratings).toHaveLength(11);
-    expect(s.finishedByMonth).toHaveLength(12);
-    expect(s.finishedByMonth.at(-1)?.month).toBe('2026-10');
+describe('loadStatsInputs', () => {
+  test('banco vazio: tudo zerado', () => {
+    const i = loadStatsInputs(db, 2026);
+    expect(i.firstEventAt).toBeNull();
+    expect(i.watched).toEqual([]);
+    expect(i.wanted).toEqual([]);
+    expect(i.periodEvents).toEqual([]);
+    expect(i.periodTitles.size).toBe(0);
   });
 
-  test('conta por status, tipo, nota e concluídos por mês', () => {
-    const a = upsertTitle(db, { source: 'tmdb', sourceId: '1', mediaType: 'movie', title: 'A' });
-    const b = upsertTitle(db, { source: 'tmdb', sourceId: '2', mediaType: 'tv', title: 'B' });
-    upsertTitle(db, { source: 'tmdb', sourceId: '3', mediaType: 'movie', title: 'C' }); // todo keep function
-    upsertTitle(db, { source: 'tmdb', sourceId: '4', mediaType: 'tv', title: 'D' }); // placeholder
-    // assume library entries are created in upsertTitle? Include calls
-    // For simplicity, skip
-  });
-});
+  test('filme usa runtime; série soma episódios conhecidos e conta os sem duração', () => {
+    const movie = upsertTitle(db, { source: 'tmdb', sourceId: 'm', mediaType: 'movie', title: 'F' });
+    setCatalogStats(db, movie.id, { genres: ['Drama'], runtimeMinutes: 100 });
+    upsertLibraryEntry(db, movie.id, { watchStatus: 'watched', rating: 8 });
 
-describe('GET /api/stats', () => {
-  test('responde com a URL do pôster resolvida', async () => {
-    resetDbForTests(openDb(':memory:'));
-    const conn = await getDb();
-    const t = upsertTitle(conn, { source: 'tmdb', sourceId: '1', mediaType: 'movie', title: 'A', posterPath: '/x.jpg' });
-    // assume upsertLibraryEntry exists; calling placeholder
-    // upsertLibraryEntry(conn, t.id, { watchStatus: 'watched', rating: 10 });
-    const res = await statsRoutes.request('/');
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.topRated[0].posterUrl).toContain('https://image.tmdb.org');
-    expect(body.topRated[0].posterPath).toBeUndefined();
+    const show = upsertTitle(db, { source: 'tmdb', sourceId: 's', mediaType: 'tv', title: 'S' });
+    const season = upsertSeason(db, show.id, { seasonNumber: 1, name: 'T1' });
+    replaceEpisodes(db, season.id, [
+      { episodeNumber: 1, name: 'a', runtime: 40 },
+      { episodeNumber: 2, name: 'b', runtime: 50 },
+      { episodeNumber: 3, name: 'c' },
+    ]);
+    upsertLibraryEntry(db, show.id, { watchStatus: 'want' });
+
+    const i = loadStatsInputs(db, 2026);
+    expect(i.statusCounts).toEqual({ watched: 1, want: 1 });
+    expect(i.watched).toEqual([{ minutes: 100, episodesWithoutRuntime: 0 }]);
+    expect(i.wanted).toEqual([{ minutes: 90, episodesWithoutRuntime: 1 }]);
+  });
+
+  test('eventos do ano trazem gêneros, nota e duração; eventos de outro ano ficam de fora', () => {
+    const t = upsertTitle(db, { source: 'tmdb', sourceId: 'x', mediaType: 'movie', title: 'X' });
+    setCatalogStats(db, t.id, { genres: ['Ação'], runtimeMinutes: 90 });
+    upsertLibraryEntry(db, t.id, { watchStatus: 'watched', rating: 9 });
+    db.exec('DELETE FROM library_history');
+    event(t.id, 'finished', '2026-03-10T12:00:00Z');
+    event(t.id, 'finished', '2024-03-10T12:00:00Z');
+
+    const i = loadStatsInputs(db, 2026);
+    expect(i.firstEventAt).toBe('2024-03-10T12:00:00Z');
+    expect(i.periodEvents.map((e) => e.at)).toEqual(['2026-03-10T12:00:00Z']);
+    expect(i.periodTitles.get(t.id)).toEqual({ genres: ['Ação'], rating: 9, duration: { minutes: 90, episodesWithoutRuntime: 0 } });
   });
 });
