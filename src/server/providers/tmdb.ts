@@ -161,9 +161,12 @@ interface TmdbVideo {
   official: boolean;
 }
 
+const TRAILER_KEY_RE = /^[A-Za-z0-9_-]{6,32}$/;
+
 export const tmdbTrailerKey = withCache(60 * MINUTES, async (mediaType: MediaType, id: number): Promise<string | null> => {
   const data = await call<{ results: TmdbVideo[] }>(`/${mediaType}/${id}/videos`);
-  const trailers = data.results.filter((v) => v.site === 'YouTube' && v.type === 'Trailer');
+  // A chave vai para a URL de um iframe no cliente: só formato de id do YouTube passa.
+  const trailers = data.results.filter((v) => v.site === 'YouTube' && v.type === 'Trailer' && TRAILER_KEY_RE.test(v.key ?? ''));
   const best = trailers.find((v) => v.official) ?? trailers[0];
   return best?.key ?? null;
 });

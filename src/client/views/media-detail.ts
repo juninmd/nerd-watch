@@ -3,6 +3,7 @@ import { escapeHtml } from '../components/card.ts';
 import { renderAddToList } from '../components/add-to-list.ts';
 import { icon } from '../icons.ts';
 import { renderRefreshMetadata } from '../components/refresh-metadata.ts';
+import { trailerFrameHtml } from '../components/trailer-embed.ts';
 import { renderStatusActions } from '../components/status-actions.ts';
 import { renderSubtitlesPanel } from '../components/subtitles.ts';
 import { renderTitleError } from '../components/title-error.ts';
@@ -74,7 +75,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
           </div>
           <div class="detail-grid">
             <div>
-              ${d.trailerKey ? `<div class="trailer-frame" id="trailer" tabindex="-1"><iframe src="https://www.youtube.com/embed/${d.trailerKey}" allowfullscreen title="trailer"></iframe></div>` : ''}
+              ${trailerFrameHtml(d.trailerKey)}
               <div id="seasons-section"></div>
               ${mediaType === 'movie' ? `<div class="empty-state"><div class="big">${icon('film')}</div>filmes protegidos por direitos autorais não são reproduzidos dentro do app — use os streamings ao lado, ou confira o acervo de <a href="#/public-domain">domínio público</a> se este título já for livre.</div>` : ''}
             </div>
