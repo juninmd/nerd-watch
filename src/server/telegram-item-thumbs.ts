@@ -6,11 +6,16 @@ import { type TelegramChannel, listTelegramItems, setTelegramItemThumbnail } fro
 import { downloadPhoto, readThumb, saveThumb, thumbUrl } from './telegram-photos.ts';
 import type { TelegramItemRow } from './types.ts';
 
-const CONCURRENCY = 4;
+const CONCURRENCY = 6;
 const isLocal = (url: string | null): boolean => url?.startsWith('/api/') ?? false;
 
+/** Pool de `size` trabalhadores: um download lento não segura os demais (diferente de lotes, que esperam o mais lento de cada lote). */
 const inBatches = async <T>(list: T[], size: number, fn: (item: T) => Promise<void>): Promise<void> => {
-  for (let i = 0; i < list.length; i += size) await Promise.all(list.slice(i, i + size).map(fn));
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < list.length) await fn(list[next++] as T);
+  };
+  await Promise.all(Array.from({ length: Math.min(size, list.length) }, worker));
 };
 
 /** O item ainda precisa de miniatura local? (a URL é do CDN, não existe, ou o arquivo sumiu do disco) */
@@ -35,12 +40,12 @@ export const localizeThumbs = async (db: Database, channel: TelegramChannel, ite
   try {
     // Arquivo já em disco (ex.: banco restaurado): só reaponta, sem baixar de novo.
     const missing: TelegramItemRow[] = [];
-    for (const item of pending) {
+    await inBatches(pending, CONCURRENCY * 2, async (item) => {
       if (await readThumb(channel.id, item.message_id)) {
         setTelegramItemThumbnail(db, channel.id, item.message_id, thumbUrl(channel.id, item.message_id));
         done++;
       } else missing.push(item);
-    }
+    });
 
     if (channel.mode === 'personal' && telegramPersonalEnabled()) {
       const thumbs = await fetchPersonalThumbs(channel.handle, missing.map((i) => i.message_id));

@@ -41,7 +41,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 💬 **Legendas sem chave** | busca em addons do protocolo do Stremio (padrão: o OpenSubtitles v3 oficial) — **não precisa de cadastro nem de chave** |
 | ✈️ **Canais do Telegram** | acompanhe vídeos de canais públicos; modos bot e conta pessoal são opcionais. Login por QR code guiado em **Conexões**, feed de novidades (carrossel com os 50 vídeos mais novos) e player fixo com fila e retomada |
 | 📂 **Pastas do Google Drive** | aponte uma pasta de vídeos do **seu** Drive (acesso só leitura, login OAuth em **Conexões**) e assista aqui dentro, com a mesma fila, miniaturas e "continuar assistindo" dos canais. Toca MP4/H.264 e WebM (o navegador não toca MKV/AVI) |
-| 🔌 **Fontes de vídeo** | pasta local, WebDAV, S3, Dropbox, OneDrive, Jellyfin/Emby, Plex, PeerTube, YouTube (embed) e torrent: cada pasta/biblioteca vira um canal, com a mesma fila, miniaturas e "continuar assistindo". Ver [Fontes de vídeo](#-fontes-de-vídeo) |
+| 🔌 **Fontes de vídeo** | pasta local, WebDAV, S3, Dropbox, OneDrive, Jellyfin/Emby, Plex, PeerTube, YouTube e Dailymotion (embed), coleções da Internet Archive e torrent: cada pasta/biblioteca vira um canal, com a mesma fila, miniaturas e "continuar assistindo". Ver [Fontes de vídeo](#-fontes-de-vídeo) |
 | 📚 **Mais catálogos** | **TVmaze** (séries e datas de episódios no calendário) e **AniList** (anime), sem chave; **Trakt** importa o que você já assistiu |
 | ☁️ **Progresso no servidor** | "continuar assistindo" também fica no SQLite: sobrevive a limpar o navegador e vai no backup |
 | 🔒 **Local-first** | sua lista e seu progresso ficam no `data/nerd-watch.db` (SQLite); consultas ao catálogo e ao Telegram usam os serviços externos correspondentes |
@@ -296,6 +296,8 @@ Cada fonte é configurada em **Conexões** (ou no `.env`) e adicionada em **Cana
 | Plex | URL e token | [docs](docs/providers/plex.md) |
 | PeerTube | nada | [docs](docs/providers/peertube.md) |
 | YouTube (só embed) | nada | [docs](docs/providers/youtube.md) |
+| Dailymotion (só embed) | nada | [docs](docs/providers/dailymotion.md) |
+| Internet Archive (coleção) | nada | [docs](docs/providers/archive-collection.md) |
 | Torrent (magnet / `.torrent` colado) | nada | [docs](docs/providers/torrent.md) |
 
 Catálogos e sincronização: [TVmaze](docs/providers/tvmaze.md), [AniList](docs/providers/anilist.md),
