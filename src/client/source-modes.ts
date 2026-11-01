@@ -24,6 +24,8 @@ export const MODE_INFO: Record<TelegramChannelMode, ModeInfo> = {
   s3: { badge: 's3', open: 'Abrir' },
   youtube: { badge: 'youtube', open: 'Abrir no YouTube' },
   torrent: { badge: 'torrent', open: 'Abrir' },
+  dailymotion: { badge: 'dailymotion', open: 'Abrir no Dailymotion' },
+  archive: { badge: 'internet archive', open: 'Abrir na Archive' },
 };
 
 export const isTelegramMode = (mode: TelegramChannelMode): boolean => mode === 'public' || mode === 'personal' || mode === 'bot';

@@ -538,7 +538,7 @@ export const importMalList = (xml: string): Promise<MalImportReport> =>
     body: xml,
   }).then((r) => json<MalImportReport>(r));
 
-export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive' | 'local' | 'webdav' | 'dropbox' | 'onedrive' | 'jellyfin' | 'plex' | 'peertube' | 's3' | 'youtube' | 'torrent';
+export type TelegramChannelMode = 'public' | 'personal' | 'bot' | 'drive' | 'local' | 'webdav' | 'dropbox' | 'onedrive' | 'jellyfin' | 'plex' | 'peertube' | 's3' | 'youtube' | 'torrent' | 'dailymotion' | 'archive';
 
 export interface TelegramChannelDto {
   titleId: string;

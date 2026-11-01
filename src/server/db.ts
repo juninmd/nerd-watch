@@ -128,7 +128,8 @@ CREATE TABLE IF NOT EXISTS notifications_sent (
 CREATE INDEX IF NOT EXISTS idx_episodes_season ON episodes(season_id);
 CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_seasons_title ON seasons(title_id);
-CREATE INDEX IF NOT EXISTS idx_telegram_items_channel ON telegram_items(channel_id);
+-- UNIQUE (channel_id, message_id) já indexa channel_id: o índice próprio só encarecia as escritas.
+DROP INDEX IF EXISTS idx_telegram_items_channel;
 CREATE INDEX IF NOT EXISTS idx_library_status ON library_entries(watch_status);
 ${LISTS_SCHEMA}`;
 

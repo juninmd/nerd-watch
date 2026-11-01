@@ -9,6 +9,8 @@ import { registerPeertube } from '../peertube/source.ts';
 import { registerYoutube } from '../youtube/source.ts';
 import { registerJellyfin } from '../jellyfin/source.ts';
 import { registerPlex } from '../plex/source.ts';
+import { registerDailymotion } from '../dailymotion/source.ts';
+import { registerArchiveCollection } from '../archive-collection/source.ts';
 import { registerTorrent } from '../torrent/source.ts';
 
 /**
@@ -32,4 +34,6 @@ export const registerAllSources = (): void => {
   registerJellyfin();
   registerPlex();
   registerTorrent();
+  registerDailymotion();
+  registerArchiveCollection();
 };

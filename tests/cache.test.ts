@@ -44,4 +44,28 @@ describe('withCache', () => {
     expect(await fn()).toBe('ok');
     expect(calls).toBe(2);
   });
+
+  test('chamadas simultâneas iguais dividem uma só requisição', async () => {
+    let calls = 0;
+    const fn = withCache(1000, async (x: number) => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 10));
+      return x;
+    });
+    expect(await Promise.all([fn(1), fn(1), fn(1)])).toEqual([1, 1, 1]);
+    expect(calls).toBe(1);
+  });
+
+  test('erro em voo é repassado a todos e não fica guardado', async () => {
+    let calls = 0;
+    const fn = withCache(1000, async () => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 5));
+      if (calls === 1) throw new Error('falhou');
+      return calls;
+    });
+    const results = await Promise.allSettled([fn(), fn()]);
+    expect(results.map((r) => r.status)).toEqual(['rejected', 'rejected']);
+    expect(await fn()).toBe(2);
+  });
 });
