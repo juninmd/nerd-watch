@@ -39,13 +39,15 @@ export const localizeThumbs = async (db: Database, channel: TelegramChannel, ite
 
   try {
     // Arquivo já em disco (ex.: banco restaurado): só reaponta, sem baixar de novo.
-    const missing: TelegramItemRow[] = [];
+    const onDisk = new Set<TelegramItemRow>();
     await inBatches(pending, CONCURRENCY * 2, async (item) => {
-      if (await readThumb(channel.id, item.message_id)) {
-        setTelegramItemThumbnail(db, channel.id, item.message_id, thumbUrl(channel.id, item.message_id));
-        done++;
-      } else missing.push(item);
+      if (!(await readThumb(channel.id, item.message_id))) return;
+      setTelegramItemThumbnail(db, channel.id, item.message_id, thumbUrl(channel.id, item.message_id));
+      onDisk.add(item);
+      done++;
     });
+    // Ordem original preservada (o pool termina fora de ordem; a conta pessoal pede as miniaturas na sequência da lista).
+    const missing = pending.filter((item) => !onDisk.has(item));
 
     if (channel.mode === 'personal' && telegramPersonalEnabled()) {
       const thumbs = await fetchPersonalThumbs(channel.handle, missing.map((i) => i.message_id));
