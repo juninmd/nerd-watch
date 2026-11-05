@@ -1,0 +1,9 @@
+# Falsos positivos confirmados manualmente - Valores fake de teste (GOCSPX-secret-123).
+# Formato: commit:arquivo:regra:linha (fingerprint exato; segredo novo no mesmo
+# arquivo continua sendo detectado). Nao usar path allowlist para isso.
+
+f404a814e101767b4ab510f1a9ccc37b4beb391c:tests/media-body-timeout.test.ts:generic-api-key:83
+af0bb7beb7fc20c928af36da11b8c2a402852d0d:tests/drive-api.test.ts:generic-api-key:20
+3cf890ee0f466916ab22b2f91e70eaeb726a5cbe:tests/drive-route.test.ts:generic-api-key:32
+af0bb7beb7fc20c928af36da11b8c2a402852d0d:tests/drive-route.test.ts:generic-api-key:32
+3cf890ee0f466916ab22b2f91e70eaeb726a5cbe:tests/drive-api.test.ts:generic-api-key:20
