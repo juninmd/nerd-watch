@@ -1,4 +1,4 @@
-import { withCache } from '../../cache.ts';
+import { withCache } from '../../lib/cache.ts';
 
 /**
  * Cliente do protocolo de addons do Stremio — a parte reaproveitável daquele ecossistema.

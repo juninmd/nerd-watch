@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { config, driveClientConfigured } from '../../config.ts';
-import { updateEnvVar } from '../../env-file.ts';
+import { config, driveClientConfigured } from '../../config/config.ts';
+import { updateEnvVar } from '../../config/env-file.ts';
 
 /** Só leitura: o app lista e baixa vídeos, nunca escreve nem apaga nada no Drive. */
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';

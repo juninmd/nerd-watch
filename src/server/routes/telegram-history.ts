@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
-import { telegramPersonalEnabled } from '../config.ts';
-import { getDb } from '../db.ts';
+import { telegramPersonalEnabled } from '../config/config.ts';
+import { getDb } from '../db/database.ts';
 import { PrivateChannelNotFoundError } from '../providers/telegram/peer.ts';
 import { TelegramFloodWaitError, floodWaitResponse } from '../providers/telegram/flood-wait.ts';
 import { TelegramPersonalNotConfiguredError } from '../providers/telegram/personal.ts';
 import { TelegramChannelNotFoundError } from '../providers/telegram/public.ts';
 import { getTelegramChannel } from '../repo/telegram.ts';
-import { hasHistory, loadMoreHistory, searchHistory } from '../telegram-history.ts';
+import { hasHistory, loadMoreHistory, searchHistory } from '../telegram/history.ts';
 
 export const SEARCH_MAX_CHARS = 100;
 

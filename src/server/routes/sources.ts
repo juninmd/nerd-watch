@@ -1,13 +1,13 @@
 import { Hono } from 'hono';
-import { config } from '../config.ts';
-import { getDb } from '../db.ts';
-import { encodeEnvValue } from '../env-file.ts';
+import { config } from '../config/config.ts';
+import { getDb } from '../db/database.ts';
+import { encodeEnvValue } from '../config/env-file.ts';
 import { getDescriptor, getSource, listDescriptors } from '../providers/sources/registry.ts';
 import { sourceErrorBody, syncSourceChannel } from '../providers/sources/service.ts';
 import { readSetting, writeSetting } from '../providers/sources/settings.ts';
 import type { SourceDescriptor } from '../providers/sources/types.ts';
 import { countTelegramItemsByChannel, deleteTelegramChannel, getTelegramChannelByHandle, upsertTelegramChannel } from '../repo/telegram.ts';
-import { toChannelResponse } from '../telegram-channel-dto.ts';
+import { toChannelResponse } from '../telegram/channel-dto.ts';
 
 /** Maior valor aceito por campo: tokens e URLs reais cabem folgados; megabytes não. */
 const MAX_SETTING_CHARS = 4096;

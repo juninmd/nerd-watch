@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { buildCalendarIcs } from '../calendar-ics.ts';
-import { getDb } from '../db.ts';
+import { buildCalendarIcs } from '../calendar/ics.ts';
+import { getDb } from '../db/database.ts';
 import { listUpcoming } from '../repo/calendar.ts';
 import { tmdbImageUrl } from '../providers/tmdb.ts';
 

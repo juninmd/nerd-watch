@@ -1,4 +1,4 @@
-import { withCache } from '../cache.ts';
+import { withCache } from '../lib/cache.ts';
 import { isPlayableVideo } from '../media/playable.ts';
 
 const MINUTES = 60_000;

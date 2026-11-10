@@ -1,4 +1,4 @@
-import { updateEnvVar } from '../../env-file.ts';
+import { updateEnvVar } from '../../config/env-file.ts';
 
 /** Lê sempre do ambiente (não de um snapshot no boot): salvar pela UI vale na hora, sem reiniciar. */
 export const readSetting = (env: string): string | undefined => process.env[env]?.trim() || undefined;

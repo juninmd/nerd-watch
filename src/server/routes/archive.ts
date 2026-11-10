@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { archiveMovieDetails, archiveSearchPublicDomain } from '../providers/archive.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { upsertTitle } from '../repo/titles.ts';

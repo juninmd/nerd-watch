@@ -4,7 +4,7 @@ Catálogo de séries e datas de exibição de episódios. Alimenta a busca, a p�
 
 - **Chave:** não exige. Não há variável de ambiente.
 - **Endpoints usados:** `GET /search/shows?q=`, `GET /shows/:id?embed=episodes`.
-- **Limite documentado:** pelo menos 20 chamadas a cada 10 s por IP. O app aplica esse teto localmente (`src/server/rate-limit.ts`): chamada além do limite falha na hora com mensagem de "tente de novo", sem sair para a rede.
+- **Limite documentado:** pelo menos 20 chamadas a cada 10 s por IP. O app aplica esse teto localmente (`src/server/lib/rate-limit.ts`): chamada além do limite falha na hora com mensagem de "tente de novo", sem sair para a rede.
 - **Cache:** busca 15 min, detalhe 60 min (memória do processo; erros não são cacheados).
 - **Timeout:** 10 s por chamada.
 

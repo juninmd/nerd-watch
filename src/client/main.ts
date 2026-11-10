@@ -1,28 +1,28 @@
-import { type CatalogSource, getTelegramSettings } from './api.ts';
-import { installCardTilt } from './effects.ts';
-import { openCommandPalette } from './components/command-palette.ts';
-import { releaseTorrentPlayers } from './components/torrent-player.ts';
-import { icon, type IconName } from './icons.ts';
-import { onRouteChange, type Route } from './router.ts';
-import { routeLabel, routeTitle } from './route-meta.ts';
-import { isRevisit, readScroll, restoreWhenRendered, stampRoute, writeScroll } from './scroll-memory.ts';
-import { mountPlayerDock, parkPlayer, stopIfOnPage } from './components/player-dock.ts';
-import { installShortcuts } from './shortcuts.ts';
-import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './state.ts';
-import { renderCalendar } from './views/calendar.ts';
-import { renderConnections } from './views/connections.ts';
-import { renderDiscover } from './views/discover.ts';
-import { renderLibrary } from './views/library.ts';
-import { renderLists } from './views/lists.ts';
-import { renderListDetail } from './views/list-detail.ts';
-import { renderWatch } from './views/watch.ts';
-import { renderPublicDomain } from './views/public-domain.ts';
-import { renderStats } from './views/stats.ts';
-import { renderSearch } from './views/search.ts';
-import { renderTelegramChannel } from './views/telegram-channel.ts';
-import { renderTelegramChannels } from './views/telegram-channels.ts';
-import { renderTitleDetail } from './views/media-detail.ts';
-import { withLoginRedirect } from './auth-redirect.ts';
+import { type CatalogSource, getTelegramSettings } from './api/index.ts';
+import { installCardTilt } from './ui/effects.ts';
+import { openCommandPalette } from './app/command-palette.ts';
+import { releaseTorrentPlayers } from './player/torrent-player.ts';
+import { icon, type IconName } from './ui/icons.ts';
+import { onRouteChange, type Route } from './app/router.ts';
+import { routeLabel, routeTitle } from './app/route-meta.ts';
+import { isRevisit, readScroll, restoreWhenRendered, stampRoute, writeScroll } from './app/scroll-memory.ts';
+import { mountPlayerDock, parkPlayer, stopIfOnPage } from './player/player-dock.ts';
+import { installShortcuts } from './app/shortcuts.ts';
+import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './app/state.ts';
+import { renderCalendar } from './calendar/calendar-page.ts';
+import { renderConnections } from './connections/connections-page.ts';
+import { renderHome } from './home/home-page.ts';
+import { renderLibrary } from './library/library-page.ts';
+import { renderLists } from './lists/lists-page.ts';
+import { renderListDetail } from './lists/list-detail-page.ts';
+import { renderWatch } from './player/watch-page.ts';
+import { renderPublicDomain } from './catalog/public-domain-page.ts';
+import { renderStats } from './stats/stats-page.ts';
+import { renderSearch } from './catalog/search-page.ts';
+import { renderTelegramChannel } from './channels/channel-page.ts';
+import { renderTelegramChannels } from './channels/channels-page.ts';
+import { renderTitleDetail } from './catalog/title-page.ts';
+import { withLoginRedirect } from './app/auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
 
 // Sem ACCESS_TOKEN o servidor nunca responde 401, então este wrapper não muda nada no modo local.
@@ -158,7 +158,7 @@ const dispatch = (route: Route) => {
   }
   switch (path) {
     case '/':
-      renderDiscover(viewEl);
+      renderHome(viewEl);
       return;
     case '/search':
       renderSearch(viewEl, route.query.get('q') ?? '');

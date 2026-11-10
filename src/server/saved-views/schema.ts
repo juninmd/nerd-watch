@@ -1,6 +1,6 @@
-import { hasControlChar } from '../text-guards.ts';
+import { hasControlChar } from '../lib/text-guards.ts';
 import { WATCH_STATUSES } from '../types.ts';
-import { ValidationError } from '../validation-error.ts';
+import { ValidationError } from '../lib/validation-error.ts';
 
 /**
  * Visão salva da biblioteca: só combinações destes valores fixos. Nada do cliente vira SQL: o filtro é aplicado

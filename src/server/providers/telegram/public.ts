@@ -5,7 +5,7 @@
  * bytes`, então o cliente toca direto nessa URL. O token expira (~3h), por isso `resolvePublicPlayUrl`
  * busca a página da mensagem individual de novo a cada play, pra sempre devolver um link fresco.
  */
-import { withCache } from '../../cache.ts';
+import { withCache } from '../../lib/cache.ts';
 
 const BASE = 'https://t.me';
 const USER_AGENT = 'Mozilla/5.0 (compatible; nerd-watch/0.1)';

@@ -1,6 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import type { LinkCandidate } from '../media-name/match.ts';
 import { getTelegramChannel, getTelegramItem } from '../repo/telegram.ts';
 import {

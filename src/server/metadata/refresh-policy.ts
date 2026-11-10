@@ -1,4 +1,4 @@
-import { todayIso } from '../date.ts';
+import { todayIso } from '../lib/date.ts';
 import type { MediaType } from '../types.ts';
 
 const HOUR_MS = 60 * 60 * 1000;

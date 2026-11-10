@@ -1,7 +1,7 @@
-import { withCache } from '../cache.ts';
-import { CatalogRequestError, htmlToText, httpsUrlOrNull } from '../catalog-text.ts';
+import { withCache } from '../lib/cache.ts';
+import { CatalogRequestError, htmlToText, httpsUrlOrNull } from '../lib/catalog-text.ts';
 import { normalizeGenres, normalizeRuntimeMinutes } from '../stats/catalog-fields.ts';
-import { createRateLimiter, RateLimitExceededError } from '../rate-limit.ts';
+import { createRateLimiter, RateLimitExceededError } from '../lib/rate-limit.ts';
 
 /**
  * AniList: anime. GraphQL público, sem chave. Limite documentado: 90 req/min, mas o próprio

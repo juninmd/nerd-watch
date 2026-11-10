@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { config, driveClientConfigured, driveConnected } from '../config.ts';
-import { updateEnvVar } from '../env-file.ts';
+import { config, driveClientConfigured, driveConnected } from '../config/config.ts';
+import { updateEnvVar } from '../config/env-file.ts';
 import { completeAuthFlow, disconnectDrive, getFlowState, startAuthFlow } from '../providers/drive/oauth.ts';
 
 export const driveRoutes = new Hono();

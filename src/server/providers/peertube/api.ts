@@ -1,4 +1,4 @@
-import { withCache } from '../../cache.ts';
+import { withCache } from '../../lib/cache.ts';
 import type { NewTelegramItem } from '../../repo/telegram.ts';
 import { type FetchFn, fetchCapped, makeFetch } from '../public-http.ts';
 import { syntheticMessageId } from '../sources/service.ts';

@@ -1,6 +1,6 @@
 import type { StatsSummary } from '../../server/stats/summary.ts';
-import { escapeHtml } from '../components/card.ts';
-import { icon } from '../icons.ts';
+import { escapeHtml } from '../ui/card.ts';
+import { icon } from '../ui/icons.ts';
 import {
   backlogView,
   formatCount,
@@ -12,7 +12,7 @@ import {
   ratingRows,
   weekdayRows,
 } from './model.ts';
-import { barListSvg, columnChartSvg, dataTable, stackedColumnChartSvg } from './svg.ts';
+import { barListSvg, columnChartSvg, dataTable, stackedColumnChartSvg } from './charts.ts';
 
 /** Cores das séries: azul = conclusão, laranja = revisão (par validado para CVD no fundo da tela escura). */
 export const SERIES_FINISHED = '#3987e5';

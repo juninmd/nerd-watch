@@ -1,5 +1,5 @@
-import { ValidationError } from '../validation-error.ts';
-import { CR, LF, TAB, hasControlChar } from '../text-guards.ts';
+import { ValidationError } from '../lib/validation-error.ts';
+import { CR, LF, TAB, hasControlChar } from '../lib/text-guards.ts';
 
 export const LIST_NAME_MAX = 80;
 export const LIST_DESCRIPTION_MAX = 500;

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { InvalidPlaybackError, deletePlaybackEntry, listPlaybackEntries, parsePlaybackEntry, parsePlaybackKey, upsertPlaybackEntry } from '../repo/playback.ts';
 import { advanceLinkedProgress, isPlayed, type LinkedProgress } from '../repo/telegram-link-progress.ts';
 

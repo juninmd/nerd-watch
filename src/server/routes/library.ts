@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { refreshAllChannelLinks } from '../repo/telegram-links.ts';
 import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEntry, rewatchLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
 import { listLibraryHistory, parseHistoryPage } from '../repo/library-history.ts';
 import { InvalidProgressError, markProgressThrough, ProgressNotFoundError } from '../repo/library-progress.ts';
 import { listUpNext } from '../repo/up-next.ts';
 import { upsertTitle } from '../repo/titles.ts';
-import { httpsUrlOrNull } from '../catalog-text.ts';
+import { httpsUrlOrNull } from '../lib/catalog-text.ts';
 import { tmdbImageUrl } from '../providers/tmdb.ts';
 import { type MediaType, type TitleSource, WATCH_STATUSES, type WatchStatus } from '../types.ts';
 

@@ -1,7 +1,7 @@
 import { TelegramClient } from 'teleproto';
 import { StringSession } from 'teleproto/sessions';
-import { config } from '../../config.ts';
-import { updateEnvVar } from '../../env-file.ts';
+import { config } from '../../config/config.ts';
+import { updateEnvVar } from '../../config/env-file.ts';
 
 /**
  * Login via QR code (auth.exportLoginToken/UpdateLoginToken do MTProto): o servidor nunca vê telefone,

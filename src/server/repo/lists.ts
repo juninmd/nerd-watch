@@ -1,7 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import type { MediaType, TitleSource } from '../types.ts';
 import { LIST_ITEMS_MAX, checkPermutation, orderByPosition } from '../lists/rules.ts';
-import { ValidationError } from '../validation-error.ts';
+import { ValidationError } from '../lib/validation-error.ts';
 import { SQL_BATCH } from './titles.ts';
 
 export interface ListRow {

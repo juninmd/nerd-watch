@@ -1,7 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { Hono, type Context } from 'hono';
-import { CatalogRequestError } from '../catalog-text.ts';
-import { getDb } from '../db.ts';
+import { CatalogRequestError } from '../lib/catalog-text.ts';
+import { getDb } from '../db/database.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { replaceEpisodes, setCatalogStats, upsertSeason, upsertTitle } from '../repo/titles.ts';
 import { TVMAZE_ATTRIBUTION, tvmazeSearchShows, tvmazeShowDetails, type TvmazeEpisode } from '../providers/tvmaze.ts';

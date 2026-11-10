@@ -1,6 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { createCooldown, type Cooldown } from '../metadata/cooldown.ts';
 import { describeError } from '../metadata/refresh-job.ts';
 import { refreshTitleFromTmdb } from '../metadata/refresh-service.ts';

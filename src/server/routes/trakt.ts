@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { exportWatched, PartialExportError } from '../providers/trakt/export.ts';
 import { importWatched } from '../providers/trakt/import.ts';
 import { sourceErrorBody } from '../providers/sources/service.ts';

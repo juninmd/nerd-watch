@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import parseTorrent from 'parse-torrent';
 import WebTorrent from 'webtorrent';
-import { config, torrentEnabled } from '../config.ts';
+import { config, torrentEnabled } from '../config/config.ts';
 import { isPlayableVideo } from '../media/playable.ts';
 import { isSafeTorrentPath } from './magnet.ts';
 import { rankVideoFiles, resolveVideoIndex, type TorrentFileLike, type VideoCandidate } from './select.ts';

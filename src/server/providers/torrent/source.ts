@@ -1,5 +1,5 @@
-import { torrentEnabled } from '../../config.ts';
-import { getDb } from '../../db.ts';
+import { torrentEnabled } from '../../config/config.ts';
+import { getDb } from '../../db/database.ts';
 import { type TorrentSource, getTorrentSource, saveTorrentSource } from '../../repo/torrent-sources.ts';
 import { TorrentDisabledError, TorrentUnavailableError, openGenericTorrent } from '../../torrent/engine.ts';
 import { MagnetError, parseMagnet } from '../../torrent/magnet.ts';

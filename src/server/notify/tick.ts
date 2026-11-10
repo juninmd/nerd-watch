@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import { todayIso } from '../date.ts';
+import { todayIso } from '../lib/date.ts';
 import { listUpcoming } from '../repo/calendar.ts';
 import { markNotificationSent, sentKeys } from '../repo/notifications.ts';
 import { buildMessage } from './message.ts';

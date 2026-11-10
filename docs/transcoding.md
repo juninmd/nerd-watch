@@ -86,7 +86,7 @@ Erros são mensagens nossas. Caminho do disco e saída do ffmpeg nunca aparecem 
 ## Seek no stream transcodificado (cliente)
 
 O stream `?start=S` começa em 0 para o navegador, mas representa S segundos do vídeo. O módulo
-`src/client/media-shim.ts` faz o `<video>` daquele item falar a linha do vídeo inteiro:
+`src/client/player/media-shim.ts` faz o `<video>` daquele item falar a linha do vídeo inteiro:
 
 - leitura de `currentTime` = `S + tempo nativo`; `duration` = duração do arquivo (do ffprobe);
 - escrita de `currentTime`: se o alvo está no trecho que o navegador já tem, só move o ponteiro; senão reabre o

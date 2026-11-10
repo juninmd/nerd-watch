@@ -1,7 +1,7 @@
 import { Api, TelegramClient } from 'teleproto';
 import { StringSession } from 'teleproto/sessions';
-import { config, telegramPersonalEnabled } from '../../config.ts';
-import { updateEnvVar } from '../../env-file.ts';
+import { config, telegramPersonalEnabled } from '../../config/config.ts';
+import { updateEnvVar } from '../../config/env-file.ts';
 import { resolvePeer } from './peer.ts';
 import { type TelegramPersonalItem, toItem } from './personal-item.ts';
 import { withFloodWait } from './flood-wait.ts';

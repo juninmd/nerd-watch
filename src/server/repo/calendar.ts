@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import { isWithinWindow, todayIso } from '../date.ts';
+import { isWithinWindow, todayIso } from '../lib/date.ts';
 import type { TitleSource } from '../types.ts';
 
 export interface CalendarEntry {

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { LIST_BULK_MAX, LIST_ITEMS_MAX, readTitleIds, validateDescription, validateListName, validateTitleIds } from '../lists/rules.ts';
 import {
   addTitlesToList,
@@ -16,7 +16,7 @@ import {
   type ListSummary,
 } from '../repo/lists.ts';
 import { posterUrl } from './library.ts';
-import { assertKnownKeys, guardInput, parsePage, readJsonObject } from './json-body.ts';
+import { assertKnownKeys, guardInput, parsePage, readJsonObject } from '../http/json-body.ts';
 
 /** Listas próprias (locais). Montado em /api/lists. */
 export const listsRoutes = new Hono();
