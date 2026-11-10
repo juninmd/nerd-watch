@@ -72,3 +72,18 @@ export const installCardTilt = (): void => {
     if (active && !active.contains(e.relatedTarget as Node | null)) reset();
   });
 };
+
+/**
+ * Troca o conteúdo da tela com a View Transitions API: a tela antiga some em fade enquanto a nova entra. Sem
+ * suporte (ou com movimento reduzido) a troca é direta, como antes. A promessa resolve quando o DOM novo já
+ * está no lugar (não espera a animação terminar), então foco e rolagem não atrasam.
+ */
+export const swapView = (update: () => void): Promise<void> => {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { updateCallbackDone: Promise<void> } };
+  if (calm() || typeof doc.startViewTransition !== 'function') {
+    update();
+    return Promise.resolve();
+  }
+  // Erro ao desenhar a tela continua aparecendo no console; só não vira promessa rejeitada sem dono.
+  return doc.startViewTransition(update).updateCallbackDone.catch((err: unknown) => console.error(err));
+};

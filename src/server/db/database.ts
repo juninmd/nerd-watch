@@ -125,7 +125,9 @@ CREATE TABLE IF NOT EXISTS notifications_sent (
   sent_at TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_episodes_season ON episodes(season_id);
+-- Cobre a soma de duração das estatísticas (season_id + runtime) sem ler a tabela; substitui o índice só de season_id.
+DROP INDEX IF EXISTS idx_episodes_season;
+CREATE INDEX IF NOT EXISTS idx_episodes_season_runtime ON episodes(season_id, runtime);
 CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_seasons_title ON seasons(title_id);
 -- UNIQUE (channel_id, message_id) já indexa channel_id: o índice próprio só encarecia as escritas.

@@ -59,3 +59,22 @@ test('inclui filmes rastreados com release_date futuro, ordenados por data', () 
   const entries = listUpcoming(db, 30, FROM);
   expect(entries.map((e) => e.kind)).toEqual(['episode', 'movie']);
 });
+
+test('o teto da janela no SQL inclui o último dia (mesmo com hora) e corta o dia seguinte', () => {
+  const title = upsertTitle(db, { source: 'tmdb', sourceId: '1', mediaType: 'tv', title: 'Série' });
+  upsertLibraryEntry(db, title.id, { watchStatus: 'watching' });
+  const season = upsertSeason(db, title.id, { seasonNumber: 1, name: 'T1' });
+  replaceEpisodes(db, season.id, [
+    { episodeNumber: 1, name: 'Hoje', airDate: FROM },
+    { episodeNumber: 2, name: 'Último dia', airDate: addDays(30) },
+    { episodeNumber: 3, name: 'Último dia com hora', airDate: `${addDays(30)}T21:00:00Z` },
+    { episodeNumber: 4, name: 'Dia seguinte', airDate: addDays(31) },
+  ]);
+  const movie = upsertTitle(db, { source: 'tmdb', sourceId: '2', mediaType: 'movie', title: 'Filme no limite', releaseDate: addDays(30) });
+  const late = upsertTitle(db, { source: 'tmdb', sourceId: '3', mediaType: 'movie', title: 'Filme depois', releaseDate: addDays(31) });
+  upsertLibraryEntry(db, movie.id, { watchStatus: 'want' });
+  upsertLibraryEntry(db, late.id, { watchStatus: 'want' });
+
+  const names = listUpcoming(db, 30, FROM).map((e) => e.episodeName ?? e.titleName);
+  expect(names.sort()).toEqual(['Filme no limite', 'Hoje', 'Último dia', 'Último dia com hora']);
+});

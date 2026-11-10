@@ -4,10 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>nerd-watch</title>
+    <meta name="description" content="Controle local do que você assistiu, está assistindo e quer assistir." />
     <meta name="theme-color" content="#0a0b12" />
+    <meta name="color-scheme" content="dark" />
+    <!-- Pinta o fundo antes do CSS chegar: sem clarão branco na primeira carga. -->
+    <style>html{background:#0a0b12}</style>
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" href="data:," />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
+    <!-- preload -->
   </head>
   <body>
     <div id="app"></div>

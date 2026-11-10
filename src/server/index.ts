@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { serveStatic } from 'hono/bun';
 import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled, torrentEnabled } from './config/config.ts';
 import { startTelegramBotPoller } from './telegram/bot-poller.ts';
 import { createAccess } from './http/access-guard.ts';
 import { requestAllowed, originAllowed } from './http/security.ts';
+import { createStaticHandler } from './http/static.ts';
 import { searchRoutes } from './routes/search.ts';
 import { tmdbRoutes } from './routes/tmdb.ts';
 import { archiveRoutes } from './routes/archive.ts';
@@ -101,7 +101,7 @@ app.route('/api/trakt', traktRoutes);
 const mediaCfg = mediaSettings();
 app.route('/api/media', createMediaRoutes(createMediaService({ settings: mediaCfg, locate: localLocator })));
 
-app.use('/*', serveStatic({ root: './public' }));
+app.use('/*', createStaticHandler('./public'));
 
 export default {
   port: config.port,

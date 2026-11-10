@@ -13,6 +13,7 @@
     "test": "bun test tests",
     "check": "bun run lint && bun run typecheck && bun run test",
     "smoke": "bun run scripts/smoke.ts",
+    "bench": "bun run scripts/bench.ts",
     "poc:torrent": "bun run scripts/poc-torrent.ts",
     "poc:subtitles": "bun run scripts/poc-subtitles.ts",
     "seed": "bun run src/server/db/seed.ts",

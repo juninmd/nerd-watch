@@ -75,3 +75,38 @@ describe('janela UTC do ano e validação de fuso', () => {
     expect(isValidTimeZone('')).toBe(false);
   });
 });
+
+describe('localDate: atalho por deslocamento do dia bate com o Intl', () => {
+  const exact = (at: Date, tz: string): string => {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(at);
+    const pick = (type: string): string => parts.find((p) => p.type === type)?.value ?? '';
+    return `${pick('year')}-${pick('month')}-${pick('day')}`;
+  };
+
+  // Fusos com horário de verão, meia hora, 45 minutos e virada de data; passo primo para cair em horas variadas.
+  const zones = ['America/Sao_Paulo', 'America/New_York', 'Europe/Lisbon', 'Asia/Kathmandu', 'Australia/Lord_Howe', 'Pacific/Kiritimati', 'Pacific/Apia', 'UTC'];
+
+  test('um ano inteiro de instantes, incluindo os dias de virada de horário', () => {
+    const start = Date.UTC(2024, 0, 1);
+    for (const tz of zones) {
+      for (let ms = start; ms < start + 366 * 86_400_000; ms += 7_919_000) {
+        const at = new Date(ms);
+        expect(`${tz} ${at.toISOString()} ${localDate(at, tz)}`).toBe(`${tz} ${at.toISOString()} ${exact(at, tz)}`);
+      }
+    }
+  });
+
+  test('minuto a minuto em volta da virada de horário de verão (Nova York, março e novembro de 2024)', () => {
+    for (const around of [Date.UTC(2024, 2, 10, 7), Date.UTC(2024, 10, 3, 6)]) {
+      for (let ms = around - 26 * 3_600_000; ms < around + 26 * 3_600_000; ms += 60_000) {
+        const at = new Date(ms);
+        expect(localDate(at, 'America/New_York')).toBe(exact(at, 'America/New_York'));
+      }
+    }
+  });
+
+  test('fora de 1970–2100 usa o caminho exato', () => {
+    expect(localDate('1969-12-31T23:30:00Z', 'America/Sao_Paulo')).toBe('1969-12-31');
+    expect(localDate('2150-06-01T02:00:00Z', 'America/Sao_Paulo')).toBe('2150-05-31');
+  });
+});

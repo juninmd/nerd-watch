@@ -33,22 +33,33 @@ const durationOf = (r: DurationRow): Duration => {
   return { minutes: null, episodesWithoutRuntime: r.episodes };
 };
 
-const DURATION_SELECT = `
-  SELECT t.id AS title_id, t.media_type, t.runtime_minutes,
+/**
+ * Uma consulta só para tudo que as estatísticas precisam por título: duração (soma dos episódios), gêneros, nota
+ * e status. O alvo é a união de "assistido", "quero ver" e quem teve evento na janela do ano; antes eram três
+ * somas sobrepostas mais uma leitura de gêneros. `COUNT(e.season_id)` (e não `e.id`) deixa a soma ser respondida
+ * só pelo índice `idx_episodes_season_runtime`, sem tocar a tabela de episódios.
+ */
+const SCOPE_SQL = `
+  SELECT t.id AS title_id, t.media_type, t.runtime_minutes, t.genres, le.rating, le.watch_status,
          SUM(CASE WHEN e.runtime > 0 THEN e.runtime END) AS episode_minutes,
-         COUNT(e.id) AS episodes,
+         COUNT(e.season_id) AS episodes,
          COUNT(CASE WHEN e.runtime > 0 THEN 1 END) AS episodes_known
   FROM titles t
+  LEFT JOIN library_entries le ON le.title_id = t.id
   LEFT JOIN seasons s ON s.title_id = t.id AND s.season_number > 0
-  LEFT JOIN episodes e ON e.season_id = s.id`;
+  LEFT JOIN episodes e ON e.season_id = s.id
+  WHERE t.id IN (
+    SELECT title_id FROM library_entries WHERE watch_status IN ('watched', 'want')
+    UNION
+    SELECT title_id FROM library_history WHERE at >= $from AND at < $to
+  )
+  GROUP BY t.id`;
 
-const durationsByTitle = (db: Database, where: string, params: Record<string, string>): Map<string, Duration> =>
-  new Map(
-    db
-      .query<DurationRow, Record<string, string>>(`${DURATION_SELECT} ${where} GROUP BY t.id`)
-      .all(params)
-      .map((r) => [r.title_id, durationOf(r)]),
-  );
+interface ScopeRow extends DurationRow {
+  genres: string | null;
+  rating: number | null;
+  watch_status: WatchStatus | null;
+}
 
 /** Lê do SQLite os insumos puros das estatísticas do ano. Só agregados: nada além do necessário sai daqui. */
 export const loadStatsInputs = (db: Database, year: number): StatsInputs => {
@@ -57,47 +68,27 @@ export const loadStatsInputs = (db: Database, year: number): StatsInputs => {
     statusCounts[r.s] = r.n;
   }
 
-  const listed = (status: WatchStatus): Duration[] => {
-    const byTitle = durationsByTitle(db, 'WHERE t.id IN (SELECT title_id FROM library_entries WHERE watch_status = $status)', { $status: status });
-    return [...byTitle.values()];
-  };
-
   const firstEventAt = db.query<{ at: string | null }, []>('SELECT MIN(at) at FROM library_history').get()?.at ?? null;
 
-  const { from, to } = yearWindowUtc(year);
+  const window = yearWindowUtc(year);
+  const range = { $from: window.from, $to: window.to };
   const periodEvents = db
-    .query<{ title_id: string; kind: LibraryHistoryKind; at: string }, { $from: string; $to: string }>(
+    .query<{ title_id: string; kind: LibraryHistoryKind; at: string }, typeof range>(
       'SELECT title_id, kind, at FROM library_history WHERE at >= $from AND at < $to ORDER BY at',
     )
-    .all({ $from: from, $to: to })
+    .all(range)
     .map((r): HistoryEvent => ({ titleId: r.title_id, kind: r.kind, at: r.at }));
+  const inPeriod = new Set(periodEvents.map((e) => e.titleId));
 
+  const watched: Duration[] = [];
+  const wanted: Duration[] = [];
   const periodTitles = new Map<string, ScopeTitle>();
-  const ids = [...new Set(periodEvents.map((e) => e.titleId))];
-  if (ids.length > 0) {
-    const marks = ids.map(() => '?').join(', ');
-    const durations = new Map(
-      db
-        .query<DurationRow, string[]>(`${DURATION_SELECT} WHERE t.id IN (${marks}) GROUP BY t.id`)
-        .all(...ids)
-        .map((r) => [r.title_id, durationOf(r)]),
-    );
-    const meta = db
-      .query<{ id: string; genres: string | null; rating: number | null }, string[]>(
-        `SELECT t.id, t.genres, le.rating FROM titles t LEFT JOIN library_entries le ON le.title_id = t.id WHERE t.id IN (${marks})`,
-      )
-      .all(...ids);
-    for (const m of meta) {
-      periodTitles.set(m.id, { genres: decodeGenres(m.genres), rating: m.rating, duration: durations.get(m.id) ?? UNKNOWN_DURATION });
-    }
+  for (const r of db.query<ScopeRow, typeof range>(SCOPE_SQL).all(range)) {
+    const duration = durationOf(r);
+    if (r.watch_status === 'watched') watched.push(duration);
+    else if (r.watch_status === 'want') wanted.push(duration);
+    if (inPeriod.has(r.title_id)) periodTitles.set(r.title_id, { genres: decodeGenres(r.genres), rating: r.rating, duration });
   }
 
-  return {
-    firstEventAt,
-    statusCounts,
-    watched: listed('watched'),
-    wanted: listed('want'),
-    periodEvents,
-    periodTitles,
-  };
+  return { firstEventAt, statusCounts, watched, wanted, periodEvents, periodTitles };
 };

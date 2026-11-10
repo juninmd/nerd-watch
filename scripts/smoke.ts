@@ -106,16 +106,30 @@ try {
   else fail('/api/subtitles formato inesperado');
 
   const home = await fetch(`${BASE}/`);
-  if (home.ok && (await home.text()).includes('<div id="app">')) console.log('✓ / serve o index.html');
+  const homeHtml = home.ok ? await home.text() : '';
+  if (homeHtml.includes('<div id="app">')) console.log('✓ / serve o index.html');
   else fail('/ não serviu o index.html esperado');
 
-  const appJs = await fetch(`${BASE}/app.js`);
-  if (appJs.ok && appJs.headers.get('content-type')?.includes('javascript')) console.log('✓ /app.js servido');
-  else fail('/app.js falhou ao ser servido');
+  // Os nomes têm hash do conteúdo: o smoke lê do index.html os mesmos caminhos que o navegador pediria.
+  const appJsPath = homeHtml.match(/<script[^>]+src="(\/assets\/[^"]+\.js)"/)?.[1];
+  const cssPath = homeHtml.match(/<link[^>]+href="(\/assets\/[^"]+\.css)"/)?.[1];
+  if (!appJsPath || !cssPath) fail('index.html sem o JS de entrada ou o CSS em /assets/');
 
-  const css = await fetch(`${BASE}/styles.css`);
-  if (css.ok && css.headers.get('content-type')?.includes('text/css')) console.log('✓ /styles.css servido');
-  else fail('/styles.css falhou ao ser servido');
+  const appJs = await fetch(`${BASE}${appJsPath}`, { headers: { 'Accept-Encoding': 'br' } });
+  if (appJs.ok && appJs.headers.get('content-type')?.includes('javascript')) console.log(`✓ ${appJsPath} servido`);
+  else fail('JS de entrada falhou ao ser servido');
+  if (appJs.headers.get('cache-control')?.includes('immutable')) console.log('✓ /assets/* com cache imutável');
+  else fail('/assets/* deveria ir com Cache-Control immutable');
+  if (appJs.headers.get('content-encoding') === 'br') console.log('✓ JS entregue pré-comprimido (brotli)');
+  else fail('JS de entrada deveria vir em brotli quando o cliente aceita');
+
+  const css = await fetch(`${BASE}${cssPath}`);
+  if (css.ok && css.headers.get('content-type')?.includes('text/css')) console.log(`✓ ${cssPath} servido`);
+  else fail('CSS falhou ao ser servido');
+
+  const revisit = await fetch(`${BASE}/`, { headers: { 'If-None-Match': home.headers.get('etag') ?? '' } });
+  if (revisit.status === 304) console.log('✓ index.html revalida com 304');
+  else fail(`index.html com If-None-Match deveria ser 304, veio ${revisit.status}`);
 } catch (err) {
   fail(err instanceof Error ? err.message : String(err));
 } finally {

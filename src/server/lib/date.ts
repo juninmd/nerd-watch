@@ -12,6 +12,10 @@ export const isWithinWindow = (dateIso: string | null, fromIso: string, days: nu
   return diffDays >= 0 && diffDays <= days;
 };
 
+/** `dateIso` (só a parte `YYYY-MM-DD`) mais `days` dias civis. Conta em UTC: sem fuso nem horário de verão no meio. */
+export const addDaysIso = (dateIso: string, days: number): string =>
+  new Date(Date.parse(`${dateIso.slice(0, 10)}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+
 /** Data local (não UTC): `toISOString()` já vira o dia seguinte à noite em fusos negativos (ex.: Brasil), escondendo lançamentos de hoje.
  *  Aceita `now` só para testes determinísticos; chamadores reais usam o padrão. */
 export const todayIso = (now: Date = new Date()): string => {
