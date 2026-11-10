@@ -147,15 +147,18 @@ ocupada), espera o `/api/health` e navega a janela nativa (WebView2) para `http:
 O front, o SQLite e os providers seguem intocados — não há IPC nem reescrita do cliente.
 
 ```bash
-bun run desktop:dev     # janela com o servidor local (fecha junto)
-bun run desktop:build   # binário em src-tauri/target/release + instalador NSIS assinado
+bun run desktop:dev     # compila o sidecar e abre a janela com o servidor local
+bun run desktop:build   # sidecar + cliente + instalador NSIS assinado
 ```
 
-- Precisa do [Bun](https://bun.sh) no PATH. A pasta do app é achada nesta ordem: `NERD_WATCH_DIR`,
-  os recursos embarcados na instalação (`src/`, `public/`, `node_modules/`) e, por último, o
-  caminho do build (dev).
-- Saída do servidor no app empacotado: `.cache/desktop.log`.
+- O servidor vira **um executável** (`src-tauri/binaries/nerd-watch-server-<triplo>.exe`) via
+  `bun build --compile`: o app instalado não usa `node_modules` nem precisa de Bun no PATH.
+  Detalhes e o stub de WebRTC: [ADR 0005](docs/adr/0005-desktop-sidecar.md).
+- Dev (sem instalar) continua rodando `bun src/server/index.ts` do repositório; `NERD_WATCH_DIR`
+  força esse modo.
+- Saída do servidor no app empacotado: `.cache/desktop.log` na pasta de instalação.
 - Fechar a janela derruba o processo do servidor.
+- Dados do usuário (SQLite e torrents) ficam em `%LOCALAPPDATA%`, fora do que o update substitui.
 - `desktop:build` assina o artefato de update: defina `TAURI_SIGNING_PRIVATE_KEY` e
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (a chave fica em `~/.tauri/`, nunca no repositório).
 

@@ -58,6 +58,8 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+      - name: sidecar do servidor
+        run: bun run build:server
       - name: aplica a versão calculada
         run: bun run scripts/next-version.ts --apply --bump "${{ inputs.bump || 'auto' }}"
       - uses: tauri-apps/tauri-action@v1

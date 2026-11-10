@@ -101,7 +101,9 @@ app.route('/api/trakt', traktRoutes);
 const mediaCfg = mediaSettings();
 app.route('/api/media', createMediaRoutes(createMediaService({ settings: mediaCfg, locate: localLocator })));
 
-app.use('/*', createStaticHandler('./public'));
+// O app desktop roda o servidor de dentro da pasta de instalação: lá o cliente é um recurso do
+// Tauri, fora do cwd. Sem PUBLIC_DIR o padrão continua sendo `./public` (dev e Docker).
+app.use('/*', createStaticHandler(process.env.PUBLIC_DIR ?? './public'));
 
 export default {
   port: config.port,

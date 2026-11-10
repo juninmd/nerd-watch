@@ -16,32 +16,32 @@ use tauri_plugin_updater::UpdaterExt;
 /// Handle do servidor Bun para derrubar no exit (sem isso, fechar a janela deixa o processo vivo).
 struct ServerProcess(Mutex<Option<Child>>);
 
-/// Onde o servidor roda. `bundled` distingue a versão instalada (recursos em `_up_/`) do dev.
-struct AppDir {
-    dir: PathBuf,
-    bundled: bool,
+/// Como o servidor é iniciado. O modo instalado usa o sidecar compilado (sem Bun, sem
+/// `node_modules`); dev e `NERD_WATCH_DIR` continuam rodando o TypeScript direto com `bun`.
+enum Server {
+    /// Executável ao lado do app (recurso `externalBin` do Tauri).
+    Sidecar(PathBuf),
+    /// Repositório + `bun src/server/index.ts`.
+    Script(PathBuf),
 }
 
-/// Pasta do projeto (onde está o package.json). Ordem: `NERD_WATCH_DIR` > app embarcado na
-/// instalação > caminho do build (dev). O app embarcado é o que faz a versão instalada pelo
-/// instalador e pelo auto-update achar o servidor sem depender do repositório.
-fn app_dir(app: &AppHandle) -> Option<AppDir> {
+fn resolve_server() -> Option<Server> {
     if let Some(dir) = std::env::var_os("NERD_WATCH_DIR") {
-        return Some(AppDir { dir: PathBuf::from(dir), bundled: false });
+        return Some(Server::Script(PathBuf::from(dir)));
     }
-    if let Ok(resources) = app.path().resource_dir() {
-        // Tauri copia caminhos fora de `src-tauri/` para `_up_/`; os dois layouts são aceitos.
-        for candidate in [resources.clone(), resources.join("_up_")] {
-            if candidate.join("package.json").exists() && candidate.join("src").join("server").is_dir() {
-                return Some(AppDir { dir: candidate, bundled: true });
-            }
-        }
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let sidecar = exe_dir.join("nerd-watch-server.exe");
+    if sidecar.exists() {
+        return Some(Server::Sidecar(exe_dir));
     }
     let dev = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_else(|| PathBuf::from("."));
-    Some(AppDir { dir: dev, bundled: false }).filter(|app| app.dir.join("package.json").exists())
+    Some(Server::Script(dev)).filter(|server| match server {
+        Server::Script(dir) => dir.join("package.json").exists(),
+        Server::Sidecar(_) => true,
+    })
 }
 
 fn preferred_port() -> u16 {
@@ -119,36 +119,53 @@ fn show_error(app: &AppHandle, message: &str) {
 }
 
 fn start_server_then_load(app: AppHandle) {
-    let located = match app_dir(&app) {
-        Some(located) => located,
+    let server = match resolve_server() {
+        Some(server) => server,
         None => {
-            show_error(&app, "não achei os arquivos do app: defina NERD_WATCH_DIR");
+            show_error(&app, "não achei o servidor: defina NERD_WATCH_DIR apontando para o repositório");
             return;
         }
     };
-    let dir = located.dir;
+    let dir = match &server {
+        Server::Sidecar(dir) => dir.clone(),
+        Server::Script(dir) => dir.clone(),
+    };
 
     let log = open_log(&dir);
-    if !dir.join("public").join("index.html").exists() && !build_client(&dir) {
-        show_error(&app, "falha no build do cliente (bun run build:client)");
-        return;
-    }
-
     let port = pick_port(preferred_port());
-    let mut command = Command::new("bun");
+    let mut command = match &server {
+        // Sidecar: executável único, sem Bun e sem node_modules na máquina.
+        Server::Sidecar(_) => Command::new(dir.join("nerd-watch-server.exe")),
+        Server::Script(repo) => {
+            if !repo.join("public").join("index.html").exists() && !build_client(repo) {
+                show_error(&app, "falha no build do cliente (bun run build:client)");
+                return;
+            }
+            let mut bun = Command::new("bun");
+            bun.arg("src/server/index.ts");
+            bun
+        }
+    };
     command
-        .arg("src/server/index.ts")
         .current_dir(&dir)
         .env("PORT", port.to_string())
         .stdin(Stdio::null());
 
-    // Na versão instalada, os recursos em `_up_/` são substituídos pelo update: lista, progresso e
-    // torrents ficam no diretório de dados do usuário para sobreviver à atualização.
-    if located.bundled {
+    // O instalador é substituído pelo auto-update: lista, progresso e torrents ficam no diretório
+    // de dados do usuário. O cliente é recurso da instalação (`_up_/public`, layout do Tauri).
+    if matches!(server, Server::Sidecar(_)) {
         if let Ok(data) = app.path().app_local_data_dir() {
             let _ = std::fs::create_dir_all(&data);
             command.env("DB_PATH", data.join("nerd-watch.db"));
             command.env("TORRENT_PATH", data.join("torrents"));
+        }
+        if let Ok(resources) = app.path().resource_dir() {
+            for base in [resources.clone(), resources.join("_up_")] {
+                if base.join("public").join("index.html").exists() {
+                    command.env("PUBLIC_DIR", base.join("public"));
+                    break;
+                }
+            }
         }
     }
 
@@ -166,7 +183,11 @@ fn start_server_then_load(app: AppHandle) {
     let child = match command.spawn() {
         Ok(child) => child,
         Err(err) => {
-            show_error(&app, &format!("não consegui rodar o bun ({err}). Instale o Bun: https://bun.sh"));
+            let hint = match &server {
+                Server::Sidecar(_) => "o sidecar do servidor não abriu — reinstale o app",
+                Server::Script(_) => "instale o Bun: https://bun.sh",
+            };
+            show_error(&app, &format!("não consegui iniciar o servidor ({err}); {hint}"));
             return;
         }
     };
@@ -211,7 +232,10 @@ fn append_log(dir: &Path, line: &str) {
 /// assinada com a chave de `plugins.updater.pubkey`, instala e reinicia. Falha de rede não pode
 /// atrapalhar o uso: o erro só vai para o log e o app segue na versão atual.
 fn check_updates(app: AppHandle) {
-    let dir = app_dir(&app).map(|located| located.dir).unwrap_or_else(|| PathBuf::from("."));
+    let dir = match resolve_server() {
+        Some(Server::Sidecar(dir)) | Some(Server::Script(dir)) => dir,
+        None => PathBuf::from("."),
+    };
     tauri::async_runtime::spawn(async move {
         let updater = match app.updater() {
             Ok(updater) => updater,

@@ -31,9 +31,9 @@ e a versão instalada não tem como saber que existe versão nova.
 
 ## Consequências
 
-- O instalador carrega `src/`, `public/`, `node_modules` e `package.json` como recursos: a versão
-  instalada roda o servidor a partir da pasta de instalação, sem depender do repositório.
-  **Bun continua sendo pré-requisito** (o shell chama `bun` do PATH).
+- O instalador leva **um executável** do servidor (`bun build --compile`, ver
+  [ADR 0005](0005-desktop-sidecar.md)) e o cliente em `public/`. Nada de `node_modules` e nada de
+  Bun instalado na máquina.
 - Publicar release passa a ser consequência de mergear commit convencional em `main`; PR com
   título fora do padrão não gera versão.
 - Nada disso muda o app web (`bun run dev`) nem o Docker: os dois caminhos seguem iguais.
