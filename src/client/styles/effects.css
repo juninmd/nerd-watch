@@ -102,14 +102,21 @@
   animation-timing-function: var(--ease);
 }
 
-/* O player fixo fica fora da transição: o vídeo não pisca nem congela ao trocar de tela. */
+/*
+ * O player fixo fica fora da transição: só a imagem nova (que é ao vivo) aparece, então o vídeo não pisca nem
+ * congela ao trocar de tela. Sem esconder a antiga, as duas somariam o brilho (plus-lighter) por um instante.
+ */
 #dock {
   view-transition-name: player-dock;
 }
 
-::view-transition-old(player-dock),
+::view-transition-old(player-dock) {
+  display: none;
+}
+
 ::view-transition-new(player-dock) {
   animation: none;
+  mix-blend-mode: normal;
 }
 
 .btn {
