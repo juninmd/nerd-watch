@@ -1,5 +1,6 @@
 import { escapeHtml } from './card.ts';
 import { icon } from '../icons.ts';
+import { resumePromptLabels } from '../resume-prompt.ts';
 
 export interface OverlayView {
   remove(): void;
@@ -55,4 +56,33 @@ export const showUpNext = (host: HTMLElement, opts: UpNextOptions): OverlayView 
       count.textContent = String(seconds);
     },
   };
+};
+
+export interface ResumePromptOptions {
+  seconds: number;
+  onResume(): void;
+  onStart(): void;
+}
+
+/** Pergunta antes de pular para um ponto já assistido. Mesmo estilo do "próximo vídeo", com dois botões. */
+export const showResumePrompt = (host: HTMLElement, opts: ResumePromptOptions): OverlayView => {
+  const labels = resumePromptLabels(opts.seconds);
+  const card = document.createElement('div');
+  card.className = 'player-overlay player-upnext';
+  card.setAttribute('role', 'dialog');
+  card.setAttribute('aria-label', 'Continuar de onde parou?');
+  card.innerHTML = `
+    <span class="upnext-text"><small>Continuar assistindo?</small></span>
+    <span class="upnext-actions">
+      <button type="button" class="btn btn-primary btn-sm" data-act="resume">${escapeHtml(labels.resume)}</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-act="start">${escapeHtml(labels.start)}</button>
+    </span>`;
+  card.addEventListener('click', (e) => {
+    const act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (act === 'resume') opts.onResume();
+    else if (act === 'start') opts.onStart();
+  });
+  host.appendChild(card);
+  card.querySelector<HTMLElement>('[data-act="resume"]')?.focus({ preventScroll: true });
+  return { remove: () => card.remove() };
 };

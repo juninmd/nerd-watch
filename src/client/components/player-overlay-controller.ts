@@ -5,7 +5,7 @@ import {
   tickCountdown,
   UP_NEXT_SECONDS,
 } from '../player-countdown.ts';
-import { type OverlayView, showTapToPlay, showUpNext } from './player-overlays.ts';
+import { type OverlayView, showResumePrompt, showTapToPlay, showUpNext } from './player-overlays.ts';
 
 export interface OverlayController {
   /** Autoplay bloqueado pelo navegador: pede um toque do usuário. */
@@ -14,6 +14,8 @@ export interface OverlayController {
   startUpNext(title: string): void;
   /** Some com qualquer overlay (novo vídeo, reprodução retomada, player fechado). */
   clear(): void;
+  /** Pergunta "retomar ou começar do início?"; some ao responder ou com `clear()`. */
+  askResume(seconds: number, onResume: () => void, onStart: () => void): void;
   /** Recoloca o overlay quando o palco muda de lugar (página <-> barra fixa). */
   repaint(): void;
 }
@@ -33,13 +35,29 @@ export const createOverlayController = (opts: {
   let tapPending = false;
   let upNext: UpNext | null = null;
   let view: OverlayView | null = null;
+  let resumeAsk: { seconds: number; onResume: () => void; onStart: () => void } | null = null;
 
   const paint = (): void => {
     view?.remove();
     view = null;
     const host = opts.host();
     if (!host) return;
-    if (upNext) {
+    if (resumeAsk) {
+      const ask = resumeAsk;
+      view = showResumePrompt(host, {
+        seconds: ask.seconds,
+        onResume: () => {
+          resumeAsk = null;
+          paint();
+          ask.onResume();
+        },
+        onStart: () => {
+          resumeAsk = null;
+          paint();
+          ask.onStart();
+        },
+      });
+    } else if (upNext) {
       view = showUpNext(host, {
         title: upNext.title,
         remaining: upNext.countdown.remaining,
@@ -79,6 +97,10 @@ export const createOverlayController = (opts: {
   };
 
   return {
+    askResume(seconds, onResume, onStart) {
+      resumeAsk = { seconds, onResume, onStart };
+      paint();
+    },
     askTap() {
       tapPending = true;
       paint();
@@ -90,6 +112,7 @@ export const createOverlayController = (opts: {
     },
     clear() {
       tapPending = false;
+      resumeAsk = null;
       if (upNext) clearInterval(upNext.timer);
       upNext = null;
       paint();

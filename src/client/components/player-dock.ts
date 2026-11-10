@@ -4,6 +4,7 @@ import { isAutoplayBlocked } from '../player-session.ts';
 import { showToast } from '../state.ts';
 import { formatDuration } from '../time-format.ts';
 import { createOverlayController } from './player-overlay-controller.ts';
+import { resumePromptFor } from '../resume-prompt.ts';
 import { getStoredSpeed } from './player-prefs.ts';
 import { setMediaMetadata } from './player-media.ts';
 import { onPlayError } from './player-error.ts';
@@ -174,7 +175,9 @@ const load = (i: number): void => {
   index = i;
   overlays.clear();
   captions?.load(playerKindOf(item) === 'embed' ? null : (item.captions ?? null));
-  const resumeAt = resumePoint(store.get(item.key));
+  // Posição longa: pergunta antes de pular (ver resume-prompt.ts). Posição curta segue retomando sozinha.
+  const resumeAsk = resumePromptFor(store.get(item.key));
+  const resumeAt = resumeAsk ? null : resumePoint(store.get(item.key));
   // Trocar o src volta a taxa para a padrão do elemento: a preferência vira a padrão antes, e é reaplicada depois.
   const rate = getStoredSpeed();
   el.defaultPlaybackRate = rate;
@@ -189,6 +192,15 @@ const load = (i: number): void => {
     },
     { once: true },
   );
+  if (resumeAsk) {
+    overlays.askResume(
+      resumeAsk.seconds,
+      () => {
+        if (current() === item && el.readyState >= 1 && resumeAsk.seconds < el.duration) el.currentTime = resumeAsk.seconds;
+      },
+      () => {},
+    );
+  }
   attemptPlay();
   if (playerKindOf(item) !== 'embed') void prepareForItem(item, el, { resumeAt, isCurrent: () => current() === item, onMessage: showToast });
   q('.dock-title').textContent = item.title;
@@ -262,7 +274,7 @@ const onVideoError = (): void => {
     },
     onMessage: showToast,
   };
-  const opts = { resumeAt: resumePoint(store.get(item.key)), isCurrent: () => current() === item, onMessage: showToast };
+  const opts = { resumeAt: resumePromptFor(store.get(item.key)) ? null : resumePoint(store.get(item.key)), isCurrent: () => current() === item, onMessage: showToast };
   void handleUnplayable(item, video, opts).then((handled) => {
     if (!handled) onPlayError(item.src, handlers);
   });

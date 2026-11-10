@@ -3,6 +3,9 @@ import { config } from '../config.ts';
 import { OpenSubtitlesNotConfiguredError, OpenSubtitlesRequestError, openSubtitlesEnabled } from '../providers/opensubtitles.ts';
 import { resolveAddonFileUrl, resolveSubtitleDownload, searchAllSubtitles } from '../providers/subtitles/index.ts';
 import { fetchSubtitleBytes } from '../subtitles/load.ts';
+import { alignSubtitleVtt } from '../../shared/subtitles/autosync.ts';
+import { toWebVtt } from '../../shared/subtitles/srt-vtt.ts';
+import { BodyError, readJsonObject } from './json-body.ts';
 import type { MediaType } from '../types.ts';
 import { subtitleFailureText, subtitleVttHandler } from './subtitles-vtt.ts';
 
@@ -10,6 +13,41 @@ export const subtitlesRoutes = new Hono();
 
 /** Legenda já convertida para WebVTT, pronta para o `<track>` do player. */
 subtitlesRoutes.post('/vtt', subtitleVttHandler);
+
+/** Duas legendas de texto de até 2 MB cada (teto de `MAX_SUBTITLE_BYTES`), com folga para o JSON em volta. */
+const AUTOSYNC_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Alinha uma legenda de addon à referência (legenda embutida do mesmo vídeo). Corpo: `{ subtitle, reference }`,
+ * ambos texto SRT/ASS/VTT. Só devolve o ajuste quando há consenso; senão devolve a legenda convertida, intacta.
+ */
+subtitlesRoutes.post('/autosync', async (c) => {
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonObject(c, AUTOSYNC_MAX_BYTES);
+  } catch (err) {
+    if (err instanceof BodyError) return c.json({ error: err.message }, err.status);
+    throw err;
+  }
+  if (typeof body.subtitle !== 'string' || typeof body.reference !== 'string') {
+    return c.json({ error: 'informe "subtitle" e "reference" como texto' }, 400);
+  }
+  const sub = toWebVtt(body.subtitle);
+  if (!sub.ok) return c.json({ error: 'a legenda não tem linhas de texto válidas' }, 400);
+  const ref = toWebVtt(body.reference);
+  if (!ref.ok) return c.json({ error: 'a referência não tem linhas de texto válidas' }, 400);
+
+  const { vtt, outcome } = alignSubtitleVtt(sub.vtt, ref.vtt);
+  return c.json({
+    applied: outcome.applied,
+    reason: outcome.applied ? null : outcome.reason,
+    offsetMs: outcome.fit ? Math.round(outcome.fit.offsetMs) : null,
+    scale: outcome.fit ? Number(outcome.fit.scale.toFixed(4)) : null,
+    inliers: outcome.fit?.inliers ?? 0,
+    total: outcome.fit?.total ?? sub.cues,
+    vtt,
+  });
+});
 
 /** Id do IMDb é `tt` + dígitos. Validar aqui evita que um valor cru chegue ao nome do arquivo. */
 const IMDB_ID_RE = /^tt\d{7,10}$/;
