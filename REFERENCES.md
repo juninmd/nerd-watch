@@ -13,3 +13,7 @@
 - [Hono Framework](https://hono.dev/) - Framework web leve usado no backend.
 - [Yamtrack](https://github.com/FuzzyGrim/Yamtrack) - Tracker self-hosted de mídia; inspirou a página de estatísticas e o feed de calendário.
 - [Watcharr](https://github.com/sbondCo/Watcharr) - Watchlist self-hosted simples; referência de UX de biblioteca.
+- [Tauri 2](https://v2.tauri.app/) - Shell desktop (`src-tauri/`): janela WebView2 apontando para o servidor Bun local.
+- [Tauri Updater](https://v2.tauri.app/plugin/updater/) - Auto-update assinado lendo `latest.json` da release.
+- [Conventional Commits 1.0](https://www.conventionalcommits.org/pt-br/v1.0.0/) - Regra que decide a versão publicada.
+- [Bun](https://bun.sh/docs) - Runtime e bundler do servidor e do cliente.

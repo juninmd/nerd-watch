@@ -140,6 +140,47 @@ abre em janela própria, sem a barra do navegador.
 - Ícone: `src/client/pwa/icon.svg` (SVG, sem PNG). Alguns sistemas (iOS, por exemplo) pedem um
   `apple-touch-icon` em PNG, que ainda não existe aqui.
 
+### App desktop (Tauri)
+
+`src-tauri/` é um shell fino: ele sobe `bun src/server/index.ts` (porta `PORT`, ou uma livre se estiver
+ocupada), espera o `/api/health` e navega a janela nativa (WebView2) para `http://127.0.0.1:<porta>`.
+O front, o SQLite e os providers seguem intocados — não há IPC nem reescrita do cliente.
+
+```bash
+bun run desktop:dev     # compila o sidecar e abre a janela com o servidor local
+bun run desktop:build   # sidecar + cliente + instalador NSIS assinado
+```
+
+- O servidor vira **um executável** (`src-tauri/binaries/nerd-watch-server-<triplo>.exe`) via
+  `bun build --compile`: o app instalado não usa `node_modules` nem precisa de Bun no PATH.
+  Detalhes e o stub de WebRTC: [ADR 0005](docs/adr/0005-desktop-sidecar.md).
+- Dev (sem instalar) continua rodando `bun src/server/index.ts` do repositório; `NERD_WATCH_DIR`
+  força esse modo.
+- Saída do servidor no app empacotado: `.cache/desktop.log` na pasta de instalação.
+- Fechar a janela derruba o processo do servidor.
+- Dados do usuário (SQLite e torrents) ficam em `%LOCALAPPDATA%`, fora do que o update substitui.
+- `desktop:build` assina o artefato de update: defina `TAURI_SIGNING_PRIVATE_KEY` e
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (a chave fica em `~/.tauri/`, nunca no repositório).
+
+### Auto-update e releases
+
+O app instalado checa `releases/latest/download/latest.json` no boot e, se houver versão nova
+assinada, instala e reinicia sozinho (o servidor Bun é derrubado antes). Erro de rede só aparece em
+`.cache/desktop.log` — o app segue na versão atual. Regras e limites: [ADR 0004](docs/adr/0004-auto-update-tauri.md).
+
+Quem publica é o workflow [`.github/workflows/release.yml`](.github/workflows/release.yml), sem
+versão digitada à mão: **commit convencional em `main`** define o bump.
+
+| Commit | Versão |
+|---|---|
+| `feat: ...` | minor |
+| `fix:` / `perf:` / `refactor:` | patch |
+| `feat!:` / `BREAKING CHANGE:` | major |
+| `docs:` / `chore:` / `test:` / `ci:` / `Merge ...` | nada é publicado |
+
+`bun run scripts/next-version.ts` mostra o que sairia; `workflow_dispatch` aceita `bump` forçado
+(`patch`/`minor`/`major`) para o primeiro release ou um hotfix.
+
 ### Como roda
 
 O mapa das pastas e as receitas de "onde ponho isso" estão em [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -376,8 +417,8 @@ taxa, ou uma tabela preenchida pelo usuário) para o importador de MAL passar a 
 
 ## Limites conhecidos
 
-- **Sem empacotamento desktop** (Tauri) nesta primeira versão — roda como app web local. Fica como
-  próximo passo se fizer sentido.
+- **Desktop via Tauri** em `src-tauri/` (shell que sobe o servidor Bun e abre a janela nativa); o app
+  continua sendo web local, sem IPC nem cliente reescrito.
 - **Metadados da TMDB atualizados em background, não em tempo real.** Só entram no refresh automático os
   títulos em "Quero ver" ou "Assistindo": série em exibição a cada 24 h, série encerrada a cada 30 dias, filme só
   até lançar. Cada rodada (10 min) atualiza no máximo 5 títulos e para ao primeiro erro 429/5xx da TMDB. Sem
