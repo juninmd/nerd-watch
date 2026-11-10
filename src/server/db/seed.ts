@@ -131,4 +131,114 @@ const constelacao = upsertTitle(db, {
 });
 upsertLibraryEntry(db, constelacao.id, { watchStatus: 'want' });
 
-console.log(`seed concluído em ${todayIso()} — 6 títulos, biblioteca populada.`);
+// ---- Acervo extra: dá corpo à biblioteca e às estatísticas (gêneros, duração, notas e histórico ao longo do ano). ----
+
+interface DemoTitle {
+  slug: string;
+  title: string;
+  mediaType: 'movie' | 'tv';
+  genres: string[];
+  runtime: number;
+  status: 'want' | 'watching' | 'watched' | 'dropped';
+  rating?: number;
+  /** Há quantos dias foi concluído (só para `watched`): espalha as conclusões pelo ano. */
+  finishedDaysAgo?: number;
+  rewatchedDaysAgo?: number;
+}
+
+const DEMO: DemoTitle[] = [
+  { slug: 'atlas-de-areia', title: 'Atlas de Areia', mediaType: 'movie', genres: ['Aventura', 'Drama'], runtime: 128, status: 'watched', rating: 9, finishedDaysAgo: 291 },
+  { slug: 'o-relojoeiro', title: 'O Relojoeiro de Praga', mediaType: 'movie', genres: ['Suspense', 'Mistério'], runtime: 112, status: 'watched', rating: 8, finishedDaysAgo: 268 },
+  { slug: 'verao-em-orbita', title: 'Verão em Órbita', mediaType: 'movie', genres: ['Ficção científica', 'Comédia'], runtime: 97, status: 'watched', rating: 7, finishedDaysAgo: 262 },
+  { slug: 'a-ultima-estacao', title: 'A Última Estação', mediaType: 'movie', genres: ['Drama'], runtime: 134, status: 'watched', rating: 10, finishedDaysAgo: 230, rewatchedDaysAgo: 41 },
+  { slug: 'ecos-do-vale', title: 'Ecos do Vale', mediaType: 'tv', genres: ['Mistério', 'Drama'], runtime: 48, status: 'watched', rating: 8, finishedDaysAgo: 214 },
+  { slug: 'neon-e-chuva', title: 'Neon e Chuva', mediaType: 'movie', genres: ['Ficção científica', 'Suspense'], runtime: 118, status: 'watched', rating: 9, finishedDaysAgo: 187 },
+  { slug: 'a-receita', title: 'A Receita da Vó Zélia', mediaType: 'movie', genres: ['Comédia'], runtime: 92, status: 'watched', rating: 6, finishedDaysAgo: 171 },
+  { slug: 'cartas-para-lia', title: 'Cartas para Lia', mediaType: 'movie', genres: ['Romance', 'Drama'], runtime: 105, status: 'watched', rating: 8, finishedDaysAgo: 164 },
+  { slug: 'guardioes-do-recife', title: 'Guardiões do Recife', mediaType: 'tv', genres: ['Animação', 'Aventura'], runtime: 24, status: 'watched', rating: 9, finishedDaysAgo: 133 },
+  { slug: 'o-sobrado', title: 'O Sobrado', mediaType: 'movie', genres: ['Terror', 'Suspense'], runtime: 101, status: 'watched', rating: 7, finishedDaysAgo: 98 },
+  { slug: 'linha-de-fundo', title: 'Linha de Fundo', mediaType: 'movie', genres: ['Documentário'], runtime: 88, status: 'watched', rating: 8, finishedDaysAgo: 96 },
+  { slug: 'duas-luas', title: 'Duas Luas', mediaType: 'movie', genres: ['Ficção científica', 'Drama'], runtime: 141, status: 'watched', rating: 9, finishedDaysAgo: 62, rewatchedDaysAgo: 9 },
+  { slug: 'a-travessia', title: 'A Travessia', mediaType: 'movie', genres: ['Aventura', 'Drama'], runtime: 124, status: 'watched', rating: 8, finishedDaysAgo: 37 },
+  { slug: 'feira-livre', title: 'Feira Livre', mediaType: 'tv', genres: ['Comédia'], runtime: 26, status: 'watched', rating: 7, finishedDaysAgo: 20 },
+  { slug: 'o-mapa-invertido', title: 'O Mapa Invertido', mediaType: 'movie', genres: ['Mistério', 'Aventura'], runtime: 116, status: 'watched', rating: 9, finishedDaysAgo: 6 },
+  { slug: 'arquivo-morto', title: 'Arquivo Morto', mediaType: 'tv', genres: ['Suspense', 'Drama'], runtime: 52, status: 'watching', rating: 8 },
+  { slug: 'jardim-suspenso', title: 'Jardim Suspenso', mediaType: 'movie', genres: ['Romance'], runtime: 99, status: 'want' },
+  { slug: 'porto-seguro', title: 'Porto Inseguro', mediaType: 'movie', genres: ['Suspense'], runtime: 107, status: 'want' },
+  { slug: 'a-oficina', title: 'A Oficina do Tempo', mediaType: 'tv', genres: ['Ficção científica', 'Animação'], runtime: 22, status: 'want' },
+  { slug: 'sal-grosso', title: 'Sal Grosso', mediaType: 'movie', genres: ['Comédia', 'Drama'], runtime: 94, status: 'dropped', rating: 4 },
+];
+
+/** Instante de N dias atrás, às 21h locais: a "sessão da noite" cai sempre no mesmo dia civil do navegador. */
+const nightsAgo = (days: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(21, 0, 0, 0);
+  return d.toISOString();
+};
+
+const setCatalogFields = db.query('UPDATE titles SET genres = ?, runtime_minutes = ? WHERE id = ?');
+// Histórico com id fixo + OR IGNORE: rodar o seed de novo não duplica eventos.
+// "Adicionado" e as datas da entrada nascem com o instante do seed; recuar espalha a atividade pelos dias da semana.
+const backdateAdded = db.query("UPDATE library_history SET at = ?1 WHERE title_id = ?2 AND kind = 'added'");
+const backdateEntry = db.query('UPDATE library_entries SET added_at = ?1, updated_at = ?2 WHERE title_id = ?3');
+const addHistory = db.query('INSERT OR IGNORE INTO library_history (id, title_id, kind, at, detail) VALUES (?, ?, ?, ?, ?)');
+
+for (const [title, genres, runtime] of [
+  [horizonte, ['Ficção científica', 'Drama'], 45],
+  [farol, ['Mistério', 'Drama'], 50],
+  [mare, ['Drama', 'Romance'], 30],
+  [sinfonia, ['Drama'], 122],
+  [codice, ['Aventura', 'Mistério'], 110],
+  [constelacao, ['Ficção científica'], 130],
+] as const) {
+  setCatalogFields.run(JSON.stringify(genres), runtime, title.id);
+}
+addHistory.run('seed-farol-finished', farol.id, 'finished', nightsAgo(55), null);
+
+for (const demo of DEMO) {
+  const title = upsertTitle(db, {
+    source: 'tmdb',
+    sourceId: `demo-${demo.slug}`,
+    mediaType: demo.mediaType,
+    title: demo.title,
+    overview: 'Título fictício do catálogo de demonstração.',
+    releaseDate: addDays(-(demo.finishedDaysAgo ?? 30) - 120),
+    voteAverage: demo.rating ?? 7,
+  });
+  setCatalogFields.run(JSON.stringify(demo.genres), demo.runtime, title.id);
+  if (demo.mediaType === 'tv') {
+    const season = upsertSeason(db, title.id, { seasonNumber: 1, name: 'Temporada 1', airDate: addDays(-400) });
+    replaceEpisodes(
+      db,
+      season.id,
+      Array.from({ length: 8 }, (_, i) => ({ episodeNumber: i + 1, name: `Episódio ${i + 1}`, airDate: addDays(-400 + i * 7), runtime: demo.runtime })),
+    );
+  }
+  const watchingTv = demo.status === 'watching' && demo.mediaType === 'tv';
+  upsertLibraryEntry(db, title.id, {
+    watchStatus: demo.status,
+    rating: demo.rating ?? null,
+    ...(watchingTv ? { currentSeason: 1, currentEpisode: 5 } : {}),
+  });
+  const lastTouch = demo.rewatchedDaysAgo ?? demo.finishedDaysAgo ?? DEMO.indexOf(demo);
+  const addedDaysAgo = (demo.finishedDaysAgo ?? DEMO.indexOf(demo) * 3) + 11;
+  backdateAdded.run(nightsAgo(addedDaysAgo), title.id);
+  backdateEntry.run(nightsAgo(addedDaysAgo), nightsAgo(lastTouch), title.id);
+  if (demo.finishedDaysAgo !== undefined) {
+    addHistory.run(`seed-${demo.slug}-finished`, title.id, 'finished', nightsAgo(demo.finishedDaysAgo), null);
+    // Série: três noites de episódios antes do fim, para o mapa de atividade ter sequências.
+    if (demo.mediaType === 'tv') {
+      for (let n = 1; n <= 3; n++) addHistory.run(`seed-${demo.slug}-progress-${n}`, title.id, 'progress', nightsAgo(demo.finishedDaysAgo + n), `T1 E${8 - n}`);
+    }
+  }
+  if (demo.rewatchedDaysAgo !== undefined) {
+    addHistory.run(`seed-${demo.slug}-rewatch`, title.id, 'rewatch_started', nightsAgo(demo.rewatchedDaysAgo), null);
+    addHistory.run(`seed-${demo.slug}-rewatch-end`, title.id, 'finished', nightsAgo(demo.rewatchedDaysAgo - 1), null);
+  }
+  if (watchingTv) {
+    for (let n = 0; n < 5; n++) addHistory.run(`seed-${demo.slug}-progress-${n}`, title.id, 'progress', nightsAgo(n * 2 + 1), `T1 E${5 - n}`);
+  }
+}
+
+console.log(`seed concluído em ${todayIso()} — ${6 + DEMO.length} títulos, biblioteca e histórico populados.`);

@@ -140,12 +140,15 @@ const dispatch = async (route: Route, key: string, revisit: boolean): Promise<vo
   parkPlayer();
   if (match?.def.id !== 'watch') stopIfOnPage();
   document.title = routeTitle(path, route.query);
-  renderNav(path);
+  // Primeira carga: o menu aparece já, sem esperar o chunk da tela.
+  if (!navEl.hasChildNodes()) renderNav(path);
 
   const render = match ? await match.def.open(match.params).catch(() => renderLoadError) : renderNotFound;
   if (seq !== navSeq) return;
 
   await swapView(() => {
+    // O menu muda junto com a tela, dentro da transição: é o que faz o destaque deslizar de um item ao outro.
+    renderNav(path);
     render(viewEl, route.query);
     focusRouteHeading(path, route.query);
     if (revisit) stopRestore = restoreWhenRendered(viewEl, readScroll(key));

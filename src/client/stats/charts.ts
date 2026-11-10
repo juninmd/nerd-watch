@@ -1,7 +1,12 @@
 /**
- * Gráficos em SVG puro (sem biblioteca). Funções puras: recebem dados, devolvem markup. Cada marca é focável
- * (tabindex) e carrega o texto do tooltip em `data-tip`, então o teclado e o leitor de tela alcançam o mesmo dado
- * que o mouse. A tabela equivalente é gerada à parte (`dataTable`), para quem não enxerga o gráfico.
+ * Gráficos das estatísticas, sem biblioteca. Funções puras: recebem dados, devolvem markup.
+ *
+ * Colunas e barras são HTML/CSS (não SVG com viewBox): o texto fica no tamanho real da fonte em qualquer largura,
+ * em vez de esticar junto com o desenho, e as marcas caem em pixels inteiros. Só o mapa de atividade e o anel da
+ * meta são SVG, desenhados no tamanho natural (sem escala).
+ *
+ * Cada marca é focável (tabindex) e carrega o texto do tooltip em `data-tip`, então teclado e leitor de tela
+ * alcançam o mesmo dado que o mouse. A tabela equivalente sai de `dataTable`, para quem não enxerga o gráfico.
  */
 
 export interface BarItem {
@@ -30,81 +35,196 @@ export const niceMax = (value: number): number => {
   return 10 * base;
 };
 
-/* Viewbox estreito de propósito: em 390 px o gráfico escala para ~0,9x e o texto continua legível sem rolagem. */
-const W = 400;
-const H = 220;
-const PAD_L = 34;
-const PAD_B = 28;
-const PAD_T = 10;
-
-/** Colunas verticais com eixo Y de três marcas (0, meio e máximo). `color` é a cor da série (token ou hex). */
-export const columnChartSvg = (items: BarItem[], opts: { label: string; color: string }): string => {
-  const max = niceMax(Math.max(0, ...items.map((i) => i.value)));
-  const plotH = H - PAD_B - PAD_T;
-  const slot = (W - PAD_L) / Math.max(items.length, 1);
-  const barW = Math.max(6, Math.min(44, slot * 0.6));
-  const grid = gridLines(max, plotH);
-  const bars = items
-    .map((item, i) => {
-      const h = (item.value / max) * plotH;
-      const x = PAD_L + i * slot + (slot - barW) / 2;
-      const y = PAD_T + plotH - h;
-      const rect =
-        item.value > 0
-          ? `<rect class="stat-bar" style="--i:${i}" x="${x}" y="${y}" width="${barW}" height="${h}" rx="3" fill="${opts.color}" tabindex="0" role="img" aria-label="${esc(item.tip)}" data-tip="${esc(item.tip)}"/>`
-          : '';
-      return `${rect}<text class="stat-x" x="${x + barW / 2}" y="${H - 8}" text-anchor="middle">${esc(item.label)}</text>`;
-    })
-    .join('');
-  return `<svg class="stat-svg" viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(opts.label)}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>`;
+/**
+ * Marcas do eixo Y para contagens: sempre inteiras. Até 10 o teto é o menor par (ou 1) que cobre o valor, para o
+ * meio do eixo não cair em "0,5 título"; acima disso vale `niceMax`, cujo meio já é inteiro.
+ */
+export const axisTicks = (value: number): number[] => {
+  if (value <= 1) return [0, 1];
+  if (value <= 10) {
+    const max = value <= 2 ? 2 : Math.ceil(value / 2) * 2;
+    return [0, max / 2, max];
+  }
+  const max = niceMax(value);
+  return [0, max / 2, max];
 };
 
-/** Colunas empilhadas (ex.: conclusões + revisões por mês). Cada segmento leva um recorte da cor do fundo: separação de 2 px. */
-export const stackedColumnChartSvg = (items: StackedItem[], opts: { label: string; colors: string[] }): string => {
-  const totals = items.map((i) => i.segments.reduce((a, b) => a + b, 0));
-  const max = niceMax(Math.max(0, ...totals));
-  const plotH = H - PAD_B - PAD_T;
-  const slot = (W - PAD_L) / Math.max(items.length, 1);
-  const barW = Math.max(6, Math.min(44, slot * 0.6));
-  const grid = gridLines(max, plotH);
-  const cols = items
-    .map((item, i) => {
-      const x = PAD_L + i * slot + (slot - barW) / 2;
-      let base = PAD_T + plotH;
-      const parts = item.segments
-        .map((v, s) => {
-          if (v <= 0) return '';
-          const h = (v / max) * plotH;
-          base -= h;
-          return `<rect class="stat-bar" style="--i:${i}" x="${x}" y="${base}" width="${barW}" height="${h}" fill="${opts.colors[s] ?? opts.colors[0]}" tabindex="0" role="img" aria-label="${esc(item.tips[s] ?? '')}" data-tip="${esc(item.tips[s] ?? '')}"/>`;
-        })
-        .join('');
-      return `${parts}<text class="stat-x" x="${x + barW / 2}" y="${H - 8}" text-anchor="middle">${esc(item.label)}</text>`;
-    })
-    .join('');
-  return `<svg class="stat-svg" viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(opts.label)}" preserveAspectRatio="xMidYMid meet">${grid}${cols}</svg>`;
+const formatTick = (n: number): string => (n >= 1000 ? `${Math.round(n / 100) / 10} mil` : String(n));
+
+const pct = (value: number, max: number): string => `${Math.round((value / max) * 10000) / 100}%`;
+
+/** Linhas de grade e rótulos do eixo Y. Decorativo: os valores estão nas marcas e na tabela. */
+const grid = (ticks: number[]): string => {
+  const max = ticks[ticks.length - 1] as number;
+  return `<div class="chart-grid" aria-hidden="true">${ticks.map((t) => `<span style="--at:${pct(t, max)}"><i>${formatTick(t)}</i></span>`).join('')}</div>`;
 };
 
-/** Barras horizontais (gêneros). Altura fixa por linha; o rótulo fica à esquerda, nunca dentro da barra. */
-export const barListSvg = (items: BarItem[], opts: { label: string; color: string }): string => {
-  const rowH = 30;
-  const labelW = 132;
-  const valueW = 30;
-  const h = Math.max(rowH, items.length * rowH + 8);
-  const max = niceMax(Math.max(0, ...items.map((i) => i.value)));
-  const plotW = W - labelW - valueW;
+const xAxis = (labels: string[]): string =>
+  `<div class="chart-x" aria-hidden="true">${labels.map((l) => `<span>${esc(l)}</span>`).join('')}</div>`;
+
+interface Segment {
+  value: number;
+  tip: string;
+  color: string;
+}
+
+/** Coluna com um ou mais segmentos empilhados. O de cima leva a ponta arredondada; zero não desenha nada. */
+const column = (segments: Segment[], max: number, index: number, capLabel: string | null): string => {
+  const drawn = segments.filter((s) => s.value > 0);
+  const marks = drawn
+    .map((s, i) => {
+      const cap = i === drawn.length - 1 ? ' is-cap' : '';
+      return `<div class="chart-bar${cap}" style="--h:${pct(s.value, max)};--i:${index};background:${s.color}" tabindex="0" role="img" aria-label="${esc(s.tip)}" data-tip="${esc(s.tip)}"></div>`;
+    })
+    .join('');
+  const label = capLabel === null ? '' : `<span class="chart-val" aria-hidden="true">${esc(capLabel)}</span>`;
+  // column-reverse: o primeiro segmento fica na base, e o rótulo (último) acima da ponta.
+  return `<div class="chart-col">${marks}${label}</div>`;
+};
+
+/** Só a coluna mais alta leva o número na ponta (a primeira, em empate): rótulo em tudo vira ruído. */
+const tallest = (totals: number[]): number => {
+  const max = Math.max(0, ...totals);
+  return max > 0 ? totals.indexOf(max) : -1;
+};
+
+const columns = (label: string, labels: string[], cols: Segment[][]): string => {
+  const totals = cols.map((segments) => segments.reduce((n, s) => n + Math.max(0, s.value), 0));
+  const ticks = axisTicks(Math.max(0, ...totals));
+  const max = ticks[ticks.length - 1] as number;
+  const top = tallest(totals);
+  const body = cols.map((segments, i) => column(segments, max, i, i === top ? formatTick(totals[i] as number) : null)).join('');
+  return `<div class="chart chart-cols" role="group" aria-label="${esc(label)}" style="--cols:${Math.max(cols.length, 1)}">
+    <div class="chart-plot">${grid(ticks)}<div class="chart-bars">${body}</div></div>
+    ${xAxis(labels)}
+  </div>`;
+};
+
+/** Colunas verticais de uma série. `color` é a cor da série (hex da paleta validada). */
+export const columnChart = (items: BarItem[], opts: { label: string; color: string }): string =>
+  columns(
+    opts.label,
+    items.map((i) => i.label),
+    items.map((i) => [{ value: i.value, tip: i.tip, color: opts.color }]),
+  );
+
+/** Colunas empilhadas (ex.: conclusões + revisões por mês), com 2 px de fundo entre os segmentos. */
+export const stackedColumnChart = (items: StackedItem[], opts: { label: string; colors: string[] }): string =>
+  columns(
+    opts.label,
+    items.map((i) => i.label),
+    items.map((i) => i.segments.map((value, s) => ({ value, tip: i.tips[s] ?? '', color: opts.colors[s] ?? (opts.colors[0] as string) }))),
+  );
+
+/** Barras horizontais (gêneros). O rótulo fica à esquerda, nunca dentro da barra; nome longo corta com reticências no CSS. */
+export const barList = (items: BarItem[], opts: { label: string; color: string }): string => {
+  const max = Math.max(1, ...items.map((i) => i.value));
   const rows = items
-    .map((item, i) => {
-      const y = 4 + i * rowH;
-      const w = (item.value / max) * plotW;
-      return [
-        `<text class="stat-row-label" x="0" y="${y + 19}">${esc(truncate(item.label, 17))}</text>`,
-        `<rect class="stat-bar" style="--i:${i}" x="${labelW}" y="${y + 6}" width="${Math.max(w, 2)}" height="18" rx="3" fill="${opts.color}" tabindex="0" role="img" aria-label="${esc(item.tip)}" data-tip="${esc(item.tip)}"/>`,
-        `<text class="stat-row-value" x="${W}" y="${y + 19}" text-anchor="end">${item.value}</text>`,
-      ].join('');
+    .map(
+      (item, i) => `<div class="chart-row">
+        <span class="chart-row-label" title="${esc(item.label)}">${esc(item.label)}</span>
+        <div class="chart-track"><div class="chart-bar-h" style="--w:${pct(item.value, max)};--i:${i};background:${opts.color}" tabindex="0" role="img" aria-label="${esc(item.tip)}" data-tip="${esc(item.tip)}"></div></div>
+        <span class="chart-row-value" aria-hidden="true">${item.value}</span>
+      </div>`,
+    )
+    .join('');
+  return `<div class="chart chart-rows" role="group" aria-label="${esc(opts.label)}">${rows}</div>`;
+};
+
+export interface BarPart {
+  label: string;
+  value: number;
+  color: string;
+  tip: string;
+}
+
+/** Texto dentro de um bloco só quando cabe com folga; abaixo disso o valor fica no tooltip e na tabela. */
+const SHARE_LABEL_MIN = 0.12;
+
+/** Um todo dividido em partes (composição da biblioteca). Parte zerada não desenha nada; a legenda segue a ordem dos blocos. */
+export const segmentedBar = (parts: BarPart[], opts: { label: string }): string => {
+  const total = parts.reduce((n, p) => n + Math.max(0, p.value), 0);
+  if (total === 0) return '';
+  const drawn = parts.filter((p) => p.value > 0);
+  const blocks = drawn
+    .map((p, i) => {
+      const share = p.value / total;
+      const text = share >= SHARE_LABEL_MIN ? `${Math.round(share * 100)}%` : '';
+      return `<div class="seg" style="--share:${p.value};--i:${i};background:${p.color}" tabindex="0" role="img" aria-label="${esc(p.tip)}" data-tip="${esc(p.tip)}">${text}</div>`;
     })
     .join('');
-  return `<svg class="stat-svg stat-svg-bars" viewBox="0 0 ${W} ${h}" role="group" aria-label="${esc(opts.label)}" preserveAspectRatio="xMinYMin meet">${rows}</svg>`;
+  const legend = drawn
+    .map((p) => `<li><span class="swatch" style="background:${p.color}" aria-hidden="true"></span>${esc(p.label)}</li>`)
+    .join('');
+  return `<div class="seg-bar" role="group" aria-label="${esc(opts.label)}">${blocks}</div><ul class="stat-legend" aria-label="Legenda">${legend}</ul>`;
+};
+
+export interface HeatCell {
+  date: string;
+  /** Coluna = semana do ano (domingo abre a semana); linha = dia da semana (0 = domingo). */
+  col: number;
+  row: number;
+  /** 0 = sem atividade; 1 a 4 = quartos do dia mais movimentado do ano. */
+  level: number;
+  tip: string;
+}
+
+export interface HeatMonth {
+  label: string;
+  col: number;
+}
+
+export interface HeatLayout {
+  cells: HeatCell[];
+  months: HeatMonth[];
+  weeks: number;
+}
+
+const HEAT_CELL = 14;
+const HEAT_STEP = 18;
+const HEAT_LEFT = 30;
+const HEAT_TOP = 18;
+/** Rampa de um matiz só (azul), do mais perto do fundo ao mais claro: validada como escala ordinal no fundo escuro. */
+export const HEAT_RAMP = ['#184f95', '#256abf', '#3987e5', '#86b6ef'];
+
+/** Mapa de atividade do ano: um quadrado por dia. Nível 0 é só o trilho; os dias ativos são focáveis e têm tooltip. */
+export const heatmapSvg = (layout: HeatLayout, opts: { label: string; weekdays: string[] }): string => {
+  const width = HEAT_LEFT + layout.weeks * HEAT_STEP;
+  const height = HEAT_TOP + 7 * HEAT_STEP;
+  const cells = layout.cells
+    .map((c) => {
+      const x = HEAT_LEFT + c.col * HEAT_STEP;
+      const y = HEAT_TOP + c.row * HEAT_STEP;
+      if (c.level === 0) return `<rect class="heat-cell" x="${x}" y="${y}" width="${HEAT_CELL}" height="${HEAT_CELL}" rx="3.5"/>`;
+      return `<rect class="heat-cell is-on" x="${x}" y="${y}" width="${HEAT_CELL}" height="${HEAT_CELL}" rx="3.5" style="--i:${c.col};fill:${HEAT_RAMP[c.level - 1]}" tabindex="0" role="img" aria-label="${esc(c.tip)}" data-tip="${esc(c.tip)}"/>`;
+    })
+    .join('');
+  const months = layout.months
+    .map((m) => `<text class="heat-label" x="${HEAT_LEFT + m.col * HEAT_STEP}" y="11">${esc(m.label)}</text>`)
+    .join('');
+  // Só segunda, quarta e sexta: sete rótulos seguidos ficariam colados e competiriam com os quadrados.
+  const weekdays = [1, 3, 5]
+    .map((row) => `<text class="heat-label" x="0" y="${HEAT_TOP + row * HEAT_STEP + 11}">${esc(opts.weekdays[row] ?? '')}</text>`)
+    .join('');
+  return `<svg class="heat-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="group" aria-label="${esc(opts.label)}">${months}${weekdays}${cells}</svg>`;
+};
+
+/** Legenda do mapa: do menos ao mais, com os mesmos quadrados. */
+export const heatLegend = (): string =>
+  `<p class="heat-legend" aria-hidden="true">menos <span class="heat-key"></span>${HEAT_RAMP.map((c) => `<span class="heat-key" style="background:${c}"></span>`).join('')} mais</p>`;
+
+const RING_R = 52;
+const RING_LEN = 2 * Math.PI * RING_R;
+
+/** Anel de progresso (0 a 1). O trilho é um passo escuro do mesmo azul; o número fica em HTML, por cima. */
+export const ringSvg = (progress: number): string => {
+  const p = Math.min(1, Math.max(0, progress));
+  // Sem progresso não há arco: um traço de comprimento zero com ponta redonda viraria um ponto solto.
+  const fill =
+    p > 0
+      ? `<circle class="ring-fill" cx="64" cy="64" r="${RING_R}" stroke-dasharray="${RING_LEN.toFixed(2)}" style="--gap:${(RING_LEN * (1 - p)).toFixed(2)};--len:${RING_LEN.toFixed(2)}" transform="rotate(-90 64 64)"/>`
+      : '';
+  return `<svg class="ring-svg" width="128" height="128" viewBox="0 0 128 128" aria-hidden="true"><circle class="ring-track" cx="64" cy="64" r="${RING_R}"/>${fill}</svg>`;
 };
 
 /** Tabela equivalente ao gráfico, dentro de um <details> fechado: a mesma informação, em texto. */
@@ -117,18 +237,3 @@ export const dataTable = (caption: string, headers: string[], rows: string[][]):
       <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody>
     </table>
   </details>`;
-
-/** Linhas de grade e rótulos do eixo Y: 0, metade e máximo. */
-const gridLines = (max: number, plotH: number): string =>
-  [max, max / 2, 0]
-    .map((t) => {
-      const y = PAD_T + plotH - (t / max) * plotH;
-      return `<line class="stat-grid" x1="${PAD_L}" x2="${W}" y1="${y}" y2="${y}"/><text class="stat-tick" x="${PAD_L - 6}" y="${y + 4}" text-anchor="end">${formatTick(t)}</text>`;
-    })
-    .join('');
-
-/** Rótulo curto para a barra; o nome completo fica no tooltip, no aria-label e na tabela. */
-const truncate = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
-
-const formatTick = (n: number): string =>
-  n >= 1000 ? `${Math.round(n / 100) / 10} mil` : String(Math.round(n * 10) / 10);

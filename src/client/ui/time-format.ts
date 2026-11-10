@@ -31,3 +31,12 @@ export const formatDuration = (seconds: number | null): string | null => {
   const s = seconds % 60;
   return h > 0 ? `${h}h${pad(m)}` : `${m}:${pad(s)}`;
 };
+
+/** Fuso IANA do navegador (ex.: `America/Sao_Paulo`), para o servidor agregar pelo dia civil de quem olha. */
+export const browserTimeZone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+};

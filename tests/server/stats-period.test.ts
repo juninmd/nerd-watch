@@ -70,6 +70,13 @@ describe('buildPeriod: agregados de um ano com histórico sintético', () => {
     expect(period.busiestWeekday).toBe(1); // segunda: 2 de março e 1º de junho (empate com terça: vence a primeira)
     expect(period.longestStreak).toEqual({ days: 5, start: '2026-03-01', end: '2026-03-05' });
   });
+
+  test('dias com atividade: um por dia civil, em ordem, com a contagem de eventos', () => {
+    expect(period.days).toHaveLength(period.activeDays);
+    expect(period.days.map((d) => d.date)).toEqual([...period.days.map((d) => d.date)].sort());
+    expect(period.days.reduce((n, d) => n + d.events, 0)).toBe(period.weekdays.reduce((a, b) => a + b, 0));
+    expect(period.days[0]).toMatchObject({ date: expect.stringMatching(/^2026-\d{2}-\d{2}$/), events: expect.any(Number) });
+  });
 });
 
 describe('buildPeriod: fronteiras de ano e de horário de verão', () => {
@@ -107,6 +114,7 @@ describe('buildPeriod: estado vazio', () => {
       busiestWeekday: null,
       longestStreak: null,
       weekdays: [0, 0, 0, 0, 0, 0, 0],
+      days: [],
     });
     expect(p.ratings.average).toBeNull();
     expect(p.months.every((m) => m.hours === null)).toBe(true);

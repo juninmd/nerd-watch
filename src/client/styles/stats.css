@@ -39,7 +39,8 @@
   box-shadow: var(--shadow-card);
 }
 .stat-label {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
+  font-weight: 500;
   font-size: 13px;
   color: var(--text-dim);
 }
@@ -47,6 +48,7 @@
   margin: 0;
   font-size: 28px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
@@ -89,45 +91,320 @@
 .stat-chart {
   min-width: 0;
 }
-.stat-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
+
+/* Colunas em HTML: a altura do plot é fixa e a largura acompanha o cartão, então o texto nunca estica. */
+.chart {
+  --axis: 34px;
+  font-variant-numeric: tabular-nums;
 }
-.stat-svg .stat-grid {
-  stroke: var(--border);
+.chart-plot {
+  position: relative;
+  height: 200px;
+  margin: 20px 0 0 var(--axis);
+}
+.chart-grid,
+.chart-bars {
+  position: absolute;
+  inset: 0;
+}
+.chart-grid span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--at);
+  border-top: 1px solid var(--border-soft);
+}
+.chart-grid span:first-child {
+  border-top-color: var(--border);
+}
+.chart-grid i {
+  position: absolute;
+  right: 100%;
+  margin-right: 8px;
+  transform: translateY(-50%);
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-faint);
+}
+.chart-bars,
+.chart-x {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+}
+.chart-col {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  min-width: 0;
+}
+.chart-bar {
+  flex: 0 0 auto;
+  width: min(24px, 62%);
+  height: var(--h);
+  min-height: 3px;
+  transform-origin: 50% 100%;
+  animation: stat-grow 0.6s var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 28ms + 120ms);
+  transition: filter 0.15s var(--ease);
+}
+.chart-bar.is-cap {
+  border-radius: 4px 4px 0 0;
+}
+.chart-val {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 3px;
+  color: var(--text);
+  animation: stat-fade 0.4s var(--ease) 0.5s backwards;
+}
+.chart-x {
+  margin: 8px 0 0 var(--axis);
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.chart-x span {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Barras horizontais (gêneros): rótulo à esquerda, valor à direita, barra fina no meio. */
+.chart-rows {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.chart-row {
+  display: grid;
+  grid-template-columns: minmax(0, 132px) minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 12px;
+  min-height: 28px;
+  font-size: 13px;
+}
+.chart-row-label {
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chart-row-value {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+}
+.chart-track {
+  height: 12px;
+}
+.chart-bar-h {
+  width: var(--w);
+  min-width: 3px;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  transform-origin: 0 50%;
+  animation: stat-grow-x 0.6s var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms + 120ms);
+  transition: filter 0.15s var(--ease);
+}
+
+/* Composição da biblioteca: um todo em blocos, 2 px de fundo entre eles. */
+.seg-bar {
+  display: flex;
+  gap: 2px;
+  height: 28px;
+  margin: 12px 0 10px;
+}
+.seg {
+  flex: var(--share) 1 0;
+  min-width: 6px;
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  /* Quase preto sobre os quatro tons (todos passam de 4.5:1); branco não passaria no amarelo nem no verde. */
+  color: #0a0b12;
+  transform-origin: 0 50%;
+  animation: stat-grow-x 0.6s var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms + 120ms);
+  transition: filter 0.15s var(--ease);
+}
+.chart-bar:hover,
+.chart-bar-h:hover,
+.seg:hover {
+  filter: brightness(1.18);
+}
+/* Marca focável: o anel precisa aparecer em qualquer cor de série. */
+.chart-bar:focus-visible,
+.chart-bar-h:focus-visible,
+.seg:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* Mapa de atividade: SVG no tamanho natural; em tela estreita rola na horizontal em vez de encolher. */
+.heat-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 28px;
+}
+.heat-aside {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+.heat-aside .stat-hint {
+  margin: 0 0 12px;
+}
+.heat-scroll {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
+}
+.heat-svg {
+  display: block;
+  shape-rendering: geometricPrecision;
+}
+/* Dia sem atividade: trilho quase na cor do cartão, com contorno fino, para o primeiro tom de azul se destacar. */
+.heat-cell {
+  fill: var(--surface-2);
+  stroke: var(--border-soft);
   stroke-width: 1;
 }
-.stat-svg .stat-tick,
-.stat-svg .stat-row-value {
-  fill: var(--text-faint);
-  font-size: 12px;
+.heat-cell.is-on {
+  stroke: none;
 }
-.stat-svg .stat-x,
-.stat-svg .stat-row-label {
-  fill: var(--text-dim);
-  font-size: 12px;
+.heat-cell.is-on {
+  animation: stat-fade 0.45s var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 9ms + 100ms);
 }
-/* Marca focável: o anel de foco precisa ser visível em qualquer cor de série. */
-.stat-svg .stat-bar {
-  stroke: var(--surface);
-  stroke-width: 2;
-  cursor: default;
+.heat-cell.is-on:hover {
+  filter: brightness(1.2);
 }
-.stat-svg .stat-bar:focus-visible {
+.heat-cell:focus-visible {
   outline: none;
   stroke: var(--text);
-  stroke-width: 3;
+  stroke-width: 2;
+}
+.heat-label {
+  fill: var(--text-faint);
+  font-size: 11px;
+}
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.heat-key {
+  width: 14px;
+  height: 14px;
+  border-radius: 3.5px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border-soft);
+}
+
+/* Meta do ano: anel com o número em HTML por cima. */
+.goal-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+.goal-text {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.ring {
+  position: relative;
+  flex: 0 0 auto;
+  width: 128px;
+  height: 128px;
+}
+.ring-svg {
+  display: block;
+}
+.ring-track,
+.ring-fill {
+  fill: none;
+  stroke-width: 10;
+}
+.ring-track {
+  stroke: #184f95;
+  opacity: 0.4;
+}
+.ring-fill {
+  stroke: #3987e5;
+  stroke-linecap: round;
+  stroke-dashoffset: var(--gap);
+  animation: ring-draw 0.9s var(--ease) 0.15s backwards;
+}
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+.ring-center strong {
+  font-size: 24px;
+  line-height: 1.1;
+}
+.ring-center span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.goal-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.goal-field input {
+  width: 120px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+}
+.stat-ico {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 8px;
+  border-radius: 8px;
+  background: var(--gradient-soft);
+  color: var(--text);
+  vertical-align: -7px;
 }
 .stat-legend {
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 6px 14px;
   list-style: none;
   margin: 0 0 8px;
   padding: 0;
   font-size: 13px;
   color: var(--text-dim);
+}
+.stat-legend li {
+  white-space: nowrap;
 }
 .stat-legend .swatch {
   display: inline-block;
@@ -218,15 +495,30 @@
   .stat-kpis {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+@media (min-width: 900px) {
   .stats-wide {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.35fr) minmax(0, 1fr);
   }
   .stat-charts {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
-  .stat-charts .stat-figure:first-child,
-  .stat-charts .stat-figure:last-child {
+  .stat-charts .stat-figure {
+    grid-column: span 3;
+  }
+  .stat-charts .stat-wide {
     grid-column: 1 / -1;
+  }
+  .stat-charts .stat-main {
+    grid-column: span 4;
+  }
+  .stat-charts .stat-main + .stat-figure {
+    grid-column: span 2;
+  }
+}
+@media (min-width: 1280px) {
+  .stat-kpis {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 /* Entrada em cascata dos cartões e crescimento das barras. Movimento reduzido é zerado em tokens.css. */
@@ -248,20 +540,6 @@
     transform: translateY(-2px);
   }
 }
-.stat-svg .stat-bar {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: stat-grow 0.6s var(--ease) backwards;
-  animation-delay: calc(var(--i, 0) * 28ms + 120ms);
-  transition: filter 0.15s var(--ease);
-}
-.stat-svg-bars .stat-bar {
-  transform-origin: 0 50%;
-  animation-name: stat-grow-x;
-}
-.stat-svg .stat-bar:hover {
-  filter: brightness(1.18);
-}
 .stat-tip {
   animation: stat-tip-in 0.12s var(--ease);
 }
@@ -276,4 +554,10 @@
 }
 @keyframes stat-tip-in {
   from { opacity: 0; }
+}
+@keyframes stat-fade {
+  from { opacity: 0; }
+}
+@keyframes ring-draw {
+  from { stroke-dashoffset: var(--len); }
 }

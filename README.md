@@ -25,10 +25,10 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | ⏭️ **Próximos episódios** | no início, o próximo episódio não visto de cada série em andamento, pela última atividade (carrega até 12; posição de vídeo de canal segue em "Continuar assistindo") |
 | 🕘 **Histórico e revisão** | cada mudança de status e de progresso fica registrada (lista recolhível na página do título, no backup também); **Rever** volta um título assistido para "assistindo" e conta as revisões ("Visto N vezes") |
 | 🗓️ **Agenda** | próximos episódios e estreias de filme dos títulos que você acompanha, com faixa de 7 dias |
-| 📊 **Estatísticas** | `/stats` (atalho `g e`): conclusões, tempo assistido estimado, gêneros, notas, dia da semana e maior sequência de dias por ano, mais a fila "quero ver" com data de término no ritmo escolhido. Tempo usa a duração do catálogo (TMDB, TVmaze, AniList); o que não tem duração fica de fora e é contado. Datas seguem o fuso do navegador. **Compartilhar ano** gera um PNG no próprio navegador, só com totais. API: `GET /api/stats?year=&tz=&hpd=` |
+| 📊 **Estatísticas** | `/stats` (atalho `g e`): conclusões, tempo assistido estimado, gêneros, notas, dia da semana e maior sequência de dias por ano, mais a fila "quero ver" com data de término no ritmo escolhido. **Mapa de atividade** do ano (um quadrado por dia), **composição da biblioteca** por status e **meta do ano** com anel de progresso e ritmo esperado (a meta fica só no navegador). Na tela inicial, a faixa **Seu ano** resume os números. Tempo usa a duração do catálogo (TMDB, TVmaze, AniList); o que não tem duração fica de fora e é contado. Datas seguem o fuso do navegador. **Compartilhar ano** gera um PNG no próprio navegador, só com totais. API: `GET /api/stats?year=&tz=&hpd=` |
 | 🔔 **Avisos de lançamento** | um aviso por lançamento da sua lista, por webhook ou [ntfy](docs/providers/notifications.md) (configurado no `.env`, desligado por padrão); antecedência de 0 a 7 dias |
 | 📅 **Assinar a agenda** | feed `.ics` em `/api/calendar.ics` (`?days=`, padrão 60, máx. 365) com os mesmos lançamentos; cada evento tem UID estável, então reassinar não duplica. Botão **Assinar no calendário** copia o link. Só alcança apps que rodam na mesma máquina, porque o servidor escuta em `127.0.0.1` |
-| ✨ **Animações** | cards entram em cascata e inclinam em 3D com brilho que segue o mouse; confete ao marcar como assistido. Tudo desliga com `prefers-reduced-motion` |
+| ✨ **Animações** | troca de tela com transição (o destaque do menu desliza até o item novo), cards em cascata com inclinação 3D e brilho que segue o mouse, gráficos que crescem e números que contam, confete ao marcar como assistido. Tudo desliga com `prefers-reduced-motion` |
 | ⌨️ **Ctrl K** | paleta de comandos (títulos, canais, ações) e atalhos `g`+letra (`?` mostra a lista) |
 | 🎲 **O que assistir hoje** | sorteia um título da sua lista "quero ver" (filtro de tipo e nota mínima); "Outro" não repete o anterior. Botão na Biblioteca ou na Ctrl K |
 | 📺 **Episódios** | navegação por temporada, sinopse por episódio com **spoiler oculto por padrão** |
@@ -65,11 +65,16 @@ assistir apenas o que tem direito. Desligue com `TORRENT_ENABLED=false`.
 
 Capturas da app em execução com o banco fictício criado por `bun run seed`. Nenhum dado pessoal foi usado.
 
-![Página inicial com títulos fictícios em andamento e calendário](docs/screenshots/inicio.png)
+![Página inicial com a faixa "Seu ano", títulos fictícios em andamento e próximos episódios](docs/screenshots/inicio.webp)
 
-| Biblioteca (antes "Minha lista") | Agenda (antes "Calendário") |
+| Biblioteca | Agenda |
 |---|---|
-| ![Lista fictícia com filtros de acompanhamento](docs/screenshots/minha-lista.png) | ![Calendário de lançamentos dos títulos fictícios](docs/screenshots/calendario.png) |
+| ![Biblioteca fictícia com filtros por status e cartões coloridos pelo título](docs/screenshots/biblioteca.webp) | ![Agenda de lançamentos dos títulos fictícios](docs/screenshots/agenda.webp) |
+
+Estatísticas do ano: meta com anel de progresso, composição da biblioteca, mapa de atividade e gráficos por mês,
+dia da semana, nota e gênero.
+
+![Estatísticas com meta do ano, composição da biblioteca, mapa de atividade e gráficos](docs/screenshots/estatisticas.webp)
 
 Streaming P2P de um item de domínio público — `House on Haunted Hill` (1959), tocando direto do
 torrent da Archive, com escolha do derivado e estatísticas de peer:
@@ -137,9 +142,11 @@ abre em janela própria, sem a barra do navegador.
 
 ### Como roda
 
+O mapa das pastas e as receitas de "onde ponho isso" estão em [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ```
 Hono (Bun) — server local, só escuta em 127.0.0.1
-  ├─ front  → public/  (bundle Bun: catálogo, calendário, player)
+  ├─ front  → public/  (bundle Bun: um chunk por tela, CSS único, /assets/* com hash e brotli)
   ├─ SQLite → data/nerd-watch.db (sua lista, progresso, cache de episódios)
   ├─ torrents → .cache/torrents (engine WebTorrent em processo: acervo do Archive + o que você colar em Conexões)
   └─ providers → TMDB (com chave) + Internet Archive (sem chave) + Telegram (opcional) + Google Drive (opcional)
@@ -253,13 +260,14 @@ Limites conhecidos:
 - O limite de tentativas é global ao processo: alguém que erra a senha de propósito pode travar o login por
   15 minutos. Reiniciar o processo limpa o bloqueio.
 - Não há TLS, proxy nem navegador reais exercitados nesta versão: os testes cobrem o servidor em memória
-  (`tests/access-*.test.ts`). Valide o seu proxy antes de confiar nele.
+  (`tests/server/access-*.test.ts`). Valide o seu proxy antes de confiar nele.
 
 ## ✅ Verificação
 
 ```bash
 bun run check   # lint (biome) + typecheck (tsc) + testes (bun test)
 bun run smoke   # sobe o server numa porta separada e confere as rotas principais
+bun run bench   # latência das rotas e peso da casca num banco temporário (ver "Desempenho")
 ```
 
 Com o servidor rodando em outra aba, a PoC do streaming por torrent confere de ponta a ponta
@@ -278,6 +286,33 @@ bun run poc:subtitles -- tt0944947 tv      # série
 ```
 
 ---
+
+## ⚡ Desempenho
+
+`bun run bench` sobe o servidor real num banco temporário com 2000 títulos (40 mil episódios) e mede por HTTP,
+então roda igual em qualquer commit. Os números abaixo comparam o commit anterior à reorganização com o atual,
+na mesma máquina (p50 de 200 rodadas por rota):
+
+| Medida | Antes | Depois |
+|---|---|---|
+| Casca, 1ª visita (HTML + CSS + JS da tela inicial) | 20 requisições, 315,9 kB | 7 requisições, 44,4 kB |
+| Casca, revisita | 20 requisições, 315,9 kB | 1 requisição (304), 0 kB |
+| `GET /api/calendar` | 37,5 ms | 6,6 ms |
+| `GET /api/stats` | 29,1 ms | 16,5 ms |
+| `GET /api/library` (2000 itens, 913 kB) | 7,1 ms | 6,9 ms |
+
+No navegador (Chromium, rede limitada a 9 Mbps com 40 ms de latência, mediana de 5 execuções):
+
+| Medida | Antes | Depois |
+|---|---|---|
+| Primeira pintura (FCP), 1ª visita | 468 ms | 176 ms |
+| Primeira pintura (FCP), revisita | 488 ms | 140 ms |
+| Requisições até a primeira pintura | 20 | 3 |
+| Biblioteca com 2000 títulos pronta | 1701 ms | 1284 ms |
+| Imagens pedidas ao abrir a biblioteca | 2561 | 142 |
+
+O que mudou está em [ARCHITECTURE.md](ARCHITECTURE.md#desempenho-o-que-sustenta-os-números). Para repetir:
+`bun run bench` (opções: `--titles N`, `--rounds N`, `--json arquivo`, `--keep` para manter o banco).
 
 ## 🔌 Fontes de vídeo
 

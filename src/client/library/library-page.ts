@@ -139,8 +139,7 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
     listSel.disabled = picked.size === 0;
   };
 
-  /** `focusIndex` devolve o foco ao card marcado — a grade é recriada e o teclado voltaria ao topo. */
-  const renderList = (focusIndex?: number) => {
+  const renderList = () => {
     // Sem nada visível não há o que selecionar: sai do modo lote em vez de ficar em "0 de 0 selecionados".
     if (visible().length === 0) {
       selecting = false;
@@ -159,29 +158,32 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
     }
     const grid = document.createElement('div');
     grid.className = layout === 'list' ? 'grid as-list' : 'grid';
-    for (const [index, item] of shown.entries()) {
-      grid.appendChild(
-        renderCard({
-          title: item.title.title,
-          posterUrl: item.title.posterUrl,
-          meta: metaFor(item),
-          status: item.watchStatus,
-          selection: selecting
-            ? {
-                selected: picked.has(item.titleId),
-                onToggle: () => {
-                  if (!picked.delete(item.titleId)) picked.add(item.titleId);
-                  renderList(index);
-                },
-              }
-            : undefined,
-          onClick: () => navigate(libraryItemPath(item)),
-        }),
-      );
+    for (const item of shown) {
+      const card: HTMLElement = renderCard({
+        title: item.title.title,
+        posterUrl: item.title.posterUrl,
+        meta: metaFor(item),
+        status: item.watchStatus,
+        selection: selecting
+          ? {
+              selected: picked.has(item.titleId),
+              // Marca só este card: redesenhar a grade inteira a cada clique custava caro em biblioteca grande
+              // (e era o que obrigava a devolver o foco na mão).
+              onToggle: () => {
+                if (!picked.delete(item.titleId)) picked.add(item.titleId);
+                const on = picked.has(item.titleId);
+                card.classList.toggle('is-selected', on);
+                card.setAttribute('aria-checked', String(on));
+                syncChrome();
+              },
+            }
+          : undefined,
+        onClick: () => navigate(libraryItemPath(item)),
+      });
+      grid.appendChild(card);
     }
     listEl.innerHTML = '';
     listEl.appendChild(grid);
-    if (focusIndex !== undefined) (grid.children[focusIndex] as HTMLElement | undefined)?.focus();
   };
 
   const load = () => {

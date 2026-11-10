@@ -49,6 +49,8 @@ export interface Kpi {
   label: string;
   value: string;
   hint: string;
+  /** Presente quando o valor é um número inteiro: a tela anima a contagem até ele. */
+  count?: number;
 }
 
 const watchHint = (missing: number, known: number): string => {
@@ -68,6 +70,7 @@ export const kpiCards = (s: StatsSummary): Kpi[] => {
       id: 'finished',
       label: 'Concluídos',
       value: formatCount(p.finished),
+      count: p.finished,
       hint: `${formatCount(p.rewatches)} ${plural(p.rewatches, 'revisão', 'revisões')}`,
     },
     {
@@ -80,6 +83,7 @@ export const kpiCards = (s: StatsSummary): Kpi[] => {
       id: 'days',
       label: 'Dias com atividade',
       value: formatCount(p.activeDays),
+      count: p.activeDays,
       hint: streak
         ? `maior sequência: ${formatCount(streak.days)} ${plural(streak.days, 'dia', 'dias')}`
         : 'nenhuma sequência ainda',
@@ -103,7 +107,7 @@ export const kpiCards = (s: StatsSummary): Kpi[] => {
     },
     {
       id: 'weekday',
-      label: 'Dia mais movimentado',
+      label: 'Dia mais ativo',
       value: busiest === null ? '—' : (WEEKDAY_LONG[busiest] ?? '—'),
       hint: busiest === null ? 'sem atividade neste ano' : 'pelos eventos da lista',
     },

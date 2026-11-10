@@ -3,8 +3,11 @@ import { getStats } from '../api/index.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from '../app/router.ts';
+import { countUp } from '../ui/effects.ts';
+import { browserTimeZone, localIsoDate } from '../ui/time-format.ts';
 import { yearOptions } from './model.ts';
-import { renderBody } from './render.ts';
+import { parseGoal, readGoal, saveGoal } from './goal.ts';
+import { renderBody, renderGoal } from './render.ts';
 import { shareCardPng } from './share-card.ts';
 import { shareCardModel } from './share-model.ts';
 
@@ -36,12 +39,24 @@ const parseYear = (raw: string | null): number | null => {
   return y >= 1970 && y <= 2100 ? y : null;
 };
 
-const browserTimeZone = (): string => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  } catch {
-    return 'UTC';
+/** Números inteiros dos cartões sobem de zero até o valor (com movimento reduzido aparecem direto). */
+const animateCounts = (root: HTMLElement): void => {
+  for (const el of root.querySelectorAll<HTMLElement>('[data-count]')) {
+    const to = Number(el.dataset.count);
+    // Acima de 999 o valor formatado tem separador de milhar: fica o texto pronto, sem animação.
+    if (Number.isInteger(to) && to > 0 && to < 1000) countUp(el, to, 700);
   }
+};
+
+/**
+ * Em tela estreita o mapa de atividade rola na horizontal e começaria em janeiro. No ano corrente ele já abre
+ * com a semana de hoje à vista (as últimas semanas são o que a pessoa quer ver); em ano passado, no fim do ano.
+ */
+const revealRecentActivity = (root: HTMLElement, isCurrentYear: boolean): void => {
+  const scroller = root.querySelector<HTMLElement>('.heat-scroll');
+  if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+  const elapsed = isCurrentYear ? (Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (366 * 86_400_000) : 1;
+  scroller.scrollLeft = Math.max(0, scroller.scrollWidth * elapsed - scroller.clientWidth * 0.75);
 };
 
 /** Chave de corrida: só a resposta mais recente aparece (trocar de ano depressa não mistura números). */
@@ -166,6 +181,27 @@ export const renderStats = (host: HTMLElement, query: URLSearchParams): void => 
     if (latest) openShareCard(latest);
   });
 
+  /** O campo da meta grava ao sair ou no Enter, e só o cartão dela é redesenhado (o foco volta ao campo). */
+  const wireGoal = (s: StatsSummary): void => {
+    const input = body.querySelector<HTMLInputElement>('#stats-goal');
+    if (!input) return;
+    input.addEventListener('change', () => {
+      const goal = input.value.trim() === '' ? null : parseGoal(input.value);
+      if (goal === null && input.value.trim() !== '') {
+        input.setCustomValidity('Use um número inteiro de 1 a 999.');
+        input.reportValidity();
+        return;
+      }
+      saveGoal(goal);
+      const card = body.querySelector('#stats-goal-card');
+      if (!card) return;
+      card.outerHTML = renderGoal(s, goal, localIsoDate(new Date()));
+      wireGoal(s);
+      body.querySelector<HTMLInputElement>('#stats-goal')?.focus();
+    });
+    input.addEventListener('input', () => input.setCustomValidity(''));
+  };
+
   const load = (): void => {
     const token = ++loadSeq;
     getStats({ year, tz, hpd })
@@ -177,7 +213,10 @@ export const renderStats = (host: HTMLElement, query: URLSearchParams): void => 
         yearSelect.innerHTML = years
           .map((y) => `<option value="${y}"${y === year ? ' selected' : ''}>${y}</option>`)
           .join('');
-        body.innerHTML = renderBody(s);
+        body.innerHTML = renderBody(s, { goal: readGoal(), today: localIsoDate(new Date()) });
+        animateCounts(body);
+        wireGoal(s);
+        revealRecentActivity(body, year === currentYear);
         root.setAttribute('aria-busy', 'false');
       })
       .catch((err: unknown) => {

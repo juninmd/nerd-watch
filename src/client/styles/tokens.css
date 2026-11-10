@@ -50,7 +50,13 @@ body {
   background: var(--bg-soft);
   color: var(--text);
   font-family: var(--font);
+  /* Nitidez: suavização de subpixel desligada no fundo escuro (texto claro engorda), kerning e ligaduras ligados. */
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   min-height: 100vh;
 }
 

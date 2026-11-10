@@ -15,10 +15,21 @@ export const initials = (title: string): string =>
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('');
 
+/**
+ * Matiz (0 a 359) derivado do título: o mesmo título sempre cai na mesma cor, e uma grade sem pôsteres deixa de
+ * ser uma parede de cartões iguais. Hash simples (djb2), sem aleatoriedade.
+ */
+export const titleHue = (title: string): number => {
+  let hash = 5381;
+  for (let i = 0; i < title.length; i++) hash = ((hash << 5) + hash + title.charCodeAt(i)) >>> 0;
+  return hash % 360;
+};
+
 /** Placeholder com iniciais: o mesmo visual de pôster sem imagem, usado quando a imagem não carrega. */
 export const showPosterFallback = (poster: HTMLElement, title: string): void => {
   poster.style.backgroundImage = '';
   poster.classList.add('placeholder');
+  poster.style.setProperty('--ph', String(titleHue(title)));
   if (poster.querySelector('.initials')) return;
   poster.insertAdjacentHTML('afterbegin', `<span class="initials">${escapeHtml(initials(title))}</span>`);
 };
@@ -26,12 +37,45 @@ export const showPosterFallback = (poster: HTMLElement, title: string): void => 
 /** Valor de `background-image` seguro para URL com aspas ou barra invertida (vem de catálogos de terceiros). */
 export const posterCssUrl = (url: string): string => `url("${url.replace(/["\\]/g, '\\$&')}")`;
 
-/** Pinta o pôster por CSS. Se a imagem falha (rede, 404 do Archive), troca pelo placeholder em vez de um bloco preto. */
+/**
+ * A TMDB entrega a mesma imagem em várias larguras. Com `srcset`, uma tela de alta densidade recebe a versão
+ * maior (o `w342` fixo ficava borrado em telas 2x) e uma tela comum não baixa mais do que precisa.
+ * Outras origens (Archive, canais) têm um tamanho só: devolve `null`.
+ */
+export const posterSrcset = (url: string): string | null => {
+  const m = url.match(/^(https:\/\/image\.tmdb\.org\/t\/p\/)w\d+(\/[^?#\s]+)$/);
+  return m ? [342, 500, 780].map((w) => `${m[1]}w${w}${m[2]} ${w}w`).join(', ') : null;
+};
+
+/** Largura do card na grade e nos trilhos: o navegador escolhe a imagem do `srcset` por ela e pela densidade da tela. */
+const POSTER_SIZES = '(max-width: 720px) 45vw, 220px';
+
+/**
+ * Põe o pôster como `<img>` preguiçosa: só baixa perto da área visível e decodifica fora da thread principal.
+ * Se a imagem falha (rede, 404 do Archive), troca pelo placeholder em vez de um bloco preto.
+ */
 export const paintPoster = (poster: HTMLElement, url: string, title: string): void => {
-  poster.style.backgroundImage = posterCssUrl(url);
-  const probe = new Image();
-  probe.addEventListener('error', () => showPosterFallback(poster, title));
-  probe.src = url;
+  const img = new Image();
+  img.className = 'poster-img';
+  img.alt = '';
+  img.loading = 'lazy';
+  img.decoding = 'async';
+  const srcset = posterSrcset(url);
+  if (srcset) {
+    img.srcset = srcset;
+    img.sizes = POSTER_SIZES;
+  }
+  img.addEventListener('load', () => img.classList.add('is-loaded'), { once: true });
+  img.addEventListener(
+    'error',
+    () => {
+      img.remove();
+      showPosterFallback(poster, title);
+    },
+    { once: true },
+  );
+  img.src = url;
+  poster.prepend(img);
 };
 
 export interface CardOptions {
