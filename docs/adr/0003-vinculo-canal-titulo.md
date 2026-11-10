@@ -13,7 +13,7 @@ errado. Errar um vínculo polui o progresso do usuário, então a regra é: na d
 
 1. **Colunas aditivas e nulas em `telegram_items`:** `title_id` (FK com `ON DELETE SET NULL`), `season_number`,
    `episode_number`, `episode_end`, `link_status` (`suggested` | `linked`), `link_source` (`auto` | `manual`) e
-   `link_confidence`. Entram pelo padrão `ADD COLUMN` idempotente (`src/server/db-migrations-telegram-links.ts`).
+   `link_confidence`. Entram pelo padrão `ADD COLUMN` idempotente (`src/server/db/migrate-telegram-links.ts`).
    Sem tabela nova: o vínculo é um atributo do vídeo, e um vídeo tem no máximo um vínculo.
 2. **Matcher determinístico** (`src/server/media-name/match.ts`), sem rede e sem LLM. Só casa com títulos da
    biblioteca (séries). Pontuação: 0,5 por título exato (sem acento, caixa ou pontuação); +0,3 se o ano do nome

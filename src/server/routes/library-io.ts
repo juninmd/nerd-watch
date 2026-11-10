@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { CSV_MAX_BYTES, InputError, MAL_MAX_BYTES, readBodyText } from '../providers/library-io/common.ts';
 import { importLibraryCsv, type LibraryImportReport } from '../providers/library-io/import-csv.ts';
 import { importMalAnimeList, type MalImportReport } from '../providers/library-io/import-mal.ts';

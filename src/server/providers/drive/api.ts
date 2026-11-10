@@ -1,4 +1,4 @@
-import { config } from '../../config.ts';
+import { config } from '../../config/config.ts';
 import type { NewTelegramItem } from '../../repo/telegram.ts';
 import { fetchHeaders } from '../sources/http.ts';
 import { DriveReauthRequiredError, driveFetch, getAccessToken, invalidateAccessToken } from './oauth.ts';

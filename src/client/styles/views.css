@@ -398,3 +398,85 @@
 .tg-more:empty {
   display: none;
 }
+
+/* Faixa "Seu ano" na tela inicial: resumo das estatísticas, a faixa inteira é um link. */
+.year-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 28px;
+  margin: 0 0 28px;
+  padding: 16px 20px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--gradient-soft), var(--surface);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+@media (hover: hover) {
+  .year-strip:hover {
+    border-color: var(--border);
+    transform: translateY(-2px);
+  }
+}
+
+.ys-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.ys-item {
+  display: grid;
+  gap: 2px;
+}
+
+.ys-item strong {
+  font-size: 22px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.ys-item span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Mini gráfico: meses em tom apagado, o mês corrente no azul da série. */
+.ys-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 36px;
+  margin-left: auto;
+}
+
+.ys-spark i {
+  width: 6px;
+  height: max(var(--h), 3px);
+  border-radius: 2px 2px 0 0;
+  background: #5b6186;
+  transform-origin: 50% 100%;
+  animation: stat-grow 0.6s var(--ease) backwards;
+}
+
+.ys-spark i.is-now {
+  background: #3987e5;
+}
+
+.ys-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+@media (max-width: 720px) {
+  .ys-spark {
+    margin-left: 0;
+  }
+}

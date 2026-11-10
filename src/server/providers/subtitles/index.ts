@@ -1,4 +1,4 @@
-import { config } from '../../config.ts';
+import { config } from '../../config/config.ts';
 import { tmdbExternalIds } from '../tmdb.ts';
 import { archiveMovieDetails } from '../archive.ts';
 import { isFetchableSubtitleUrl } from '../../subtitles/url-guard.ts';

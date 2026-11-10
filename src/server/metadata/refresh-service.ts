@@ -1,6 +1,6 @@
 import type { Database } from 'bun:sqlite';
-import { tmdbEnabled } from '../config.ts';
-import { getDb } from '../db.ts';
+import { tmdbEnabled } from '../config/config.ts';
+import { getDb } from '../db/database.ts';
 import { fetchTmdbSeasonEpisodes, fetchTmdbTitleDetails } from '../providers/tmdb.ts';
 import { listFollowedTmdbTitles } from '../repo/library.ts';
 import type { TitleRow } from '../types.ts';

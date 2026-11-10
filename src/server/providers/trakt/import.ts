@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import { tmdbEnabled } from '../../config.ts';
+import { tmdbEnabled } from '../../config/config.ts';
 import { getLibraryEntriesByTitles, upsertLibraryEntry } from '../../repo/library.ts';
 import { findTmdbTitles, upsertTitle } from '../../repo/titles.ts';
 import type { LibraryEntryRow, MediaType, TitleRow } from '../../types.ts';

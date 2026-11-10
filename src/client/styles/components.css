@@ -21,25 +21,43 @@
 .card .poster {
   aspect-ratio: 2 / 3;
   width: 100%;
+  background-color: var(--surface-2);
   background-size: cover;
   background-position: center;
   position: relative;
 }
 
+/* Pôster real: entra em fade quando termina de carregar; até lá o fundo do card segura o lugar. */
+.poster-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+}
+
+.poster-img.is-loaded {
+  opacity: 1;
+}
+
 .card .poster.placeholder {
   display: grid;
   place-items: center;
-  background: var(--gradient-soft);
+  /* --ph vem do título (card.ts): cada título sem pôster tem o seu tom, sempre o mesmo. */
+  background:
+    radial-gradient(120% 80% at 20% 0%, hsl(var(--ph, 330) 70% 34% / 0.55), transparent 60%),
+    linear-gradient(160deg, hsl(var(--ph, 330) 42% 20%), hsl(calc(var(--ph, 330) + 48) 46% 12%));
   padding: 12px;
 }
 
 .card .poster.placeholder .initials {
-  font-size: 30px;
+  font-size: 34px;
   font-weight: 800;
-  background: var(--gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  letter-spacing: 0.02em;
+  color: hsl(var(--ph, 330) 80% 88%);
+  text-shadow: 0 2px 18px hsl(var(--ph, 330) 80% 40% / 0.6);
   text-align: center;
   line-height: 1.1;
 }
@@ -180,6 +198,17 @@
 .empty-state .big {
   font-size: 34px;
   margin-bottom: 10px;
+}
+
+/* Ações de um estado de erro (voltar, tentar de novo) ficam centralizadas, como o texto acima delas. */
+.title-error-actions {
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.empty-state .view-title {
+  font-size: clamp(20px, 2.4vw, 26px);
+  color: var(--text);
 }
 
 .spoiler-box {

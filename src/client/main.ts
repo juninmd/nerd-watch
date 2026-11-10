@@ -1,28 +1,16 @@
-import { type CatalogSource, getTelegramSettings } from './api.ts';
-import { installCardTilt } from './effects.ts';
-import { openCommandPalette } from './components/command-palette.ts';
-import { releaseTorrentPlayers } from './components/torrent-player.ts';
-import { icon, type IconName } from './icons.ts';
-import { onRouteChange, type Route } from './router.ts';
-import { routeLabel, routeTitle } from './route-meta.ts';
-import { isRevisit, readScroll, restoreWhenRendered, stampRoute, writeScroll } from './scroll-memory.ts';
-import { mountPlayerDock, parkPlayer, stopIfOnPage } from './components/player-dock.ts';
-import { installShortcuts } from './shortcuts.ts';
-import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './state.ts';
-import { renderCalendar } from './views/calendar.ts';
-import { renderConnections } from './views/connections.ts';
-import { renderDiscover } from './views/discover.ts';
-import { renderLibrary } from './views/library.ts';
-import { renderLists } from './views/lists.ts';
-import { renderListDetail } from './views/list-detail.ts';
-import { renderWatch } from './views/watch.ts';
-import { renderPublicDomain } from './views/public-domain.ts';
-import { renderStats } from './views/stats.ts';
-import { renderSearch } from './views/search.ts';
-import { renderTelegramChannel } from './views/telegram-channel.ts';
-import { renderTelegramChannels } from './views/telegram-channels.ts';
-import { renderTitleDetail } from './views/media-detail.ts';
-import { withLoginRedirect } from './auth-redirect.ts';
+import { getTelegramSettings } from './api/telegram.ts';
+import { installCardTilt, swapView } from './ui/effects.ts';
+import { openCommandPalette } from './app/command-palette.ts';
+import { releaseTorrentPlayers } from './player/torrent-player.ts';
+import { icon, type IconName } from './ui/icons.ts';
+import { onRouteChange, type Route } from './app/router.ts';
+import { canonicalPath, preloadPages, resolveRoute } from './app/routes.ts';
+import { routeLabel, routeTitle } from './app/route-meta.ts';
+import { isRevisit, readScroll, restoreWhenRendered, stampRoute, writeScroll } from './app/scroll-memory.ts';
+import { mountPlayerDock, parkPlayer, stopIfOnPage } from './player/player-dock.ts';
+import { installShortcuts } from './app/shortcuts.ts';
+import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './app/state.ts';
+import { withLoginRedirect } from './app/auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
 
 // Sem ACCESS_TOKEN o servidor nunca responde 401, então este wrapper não muda nada no modo local.
@@ -38,9 +26,6 @@ const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
   { path: '/stats', label: 'Estatísticas', icon: 'chart' },
   { path: '/connections', label: 'Conexões', icon: 'sliders' },
 ];
-
-/** Rotas antigas continuam funcionando (favoritos, links em views ainda não migradas). */
-const ALIASES: Record<string, string> = { '/my-list': '/library', '/calendar': '/agenda' };
 
 const app = document.getElementById('app');
 if (!app) throw new Error('#app não encontrado');
@@ -121,77 +106,11 @@ installShortcuts();
 installCardTilt();
 mountPlayerDock(document.getElementById('dock') as HTMLElement);
 
-const TITLE_RE = /^\/title\/(tmdb|archive|tvmaze|anilist)\/(movie|tv|_)\/(.+)$/;
-const TELEGRAM_CHANNEL_RE = /^\/telegram\/(.+)$/;
-const WATCH_RE = /^\/watch\/([^/]+)\/(\d+|start)$/;
-const LIST_DETAIL_RE = /^\/lists\/([^/]+)$/;
-
-const dispatch = (route: Route) => {
-  // Fecha torrents (e mata os pollers) da tela anterior antes de trocar de view.
-  releaseTorrentPlayers();
-  const path = ALIASES[route.path] ?? route.path;
-  // O vídeo só sobrevive fora da tela de reprodução se o usuário minimizou; senão encerra (e guarda a posição).
-  parkPlayer();
-  if (!WATCH_RE.test(path)) stopIfOnPage();
-  document.title = routeTitle(path, route.query);
-  renderNav(path);
-  const watchMatch = path.match(WATCH_RE);
-  if (watchMatch) {
-    renderWatch(viewEl, watchMatch[1] as string, watchMatch[2] as string);
-    return;
-  }
-  const titleMatch = path.match(TITLE_RE);
-  if (titleMatch) {
-    const [, source, mediaType, id] = titleMatch as unknown as [string, CatalogSource, 'movie' | 'tv' | '_', string];
-    renderTitleDetail(viewEl, source, mediaType, decodeURIComponent(id));
-    return;
-  }
-  const telegramMatch = path.match(TELEGRAM_CHANNEL_RE);
-  if (telegramMatch) {
-    renderTelegramChannel(viewEl, decodeURIComponent(telegramMatch[1] as string));
-    return;
-  }
-  const listMatch = path.match(LIST_DETAIL_RE);
-  if (listMatch) {
-    renderListDetail(viewEl, decodeURIComponent(listMatch[1] as string));
-    return;
-  }
-  switch (path) {
-    case '/':
-      renderDiscover(viewEl);
-      return;
-    case '/search':
-      renderSearch(viewEl, route.query.get('q') ?? '');
-      return;
-    case '/library':
-      renderLibrary(viewEl, route.query);
-      return;
-    case '/lists':
-      renderLists(viewEl);
-      return;
-    case '/agenda':
-      renderCalendar(viewEl);
-      return;
-    case '/stats':
-      renderStats(viewEl, route.query);
-      return;
-    case '/public-domain':
-      renderPublicDomain(viewEl);
-      return;
-    case '/telegram':
-      renderTelegramChannels(viewEl, route.query);
-      return;
-    case '/connections':
-      renderConnections(viewEl, route.query);
-      return;
-    default:
-      viewEl.innerHTML = `<div class="empty-state"><div class="big">${icon('search')}</div>página não encontrada <a href="#/">voltar ao início</a></div>`;
-  }
-};
-
 const announcerEl = document.getElementById('route-announcer') as HTMLElement;
 let currentKey: string | null = null;
 let stopRestore: (() => void) | null = null;
+/** Só a navegação mais recente desenha: um chunk que chega atrasado não pisa na tela que o usuário já abriu. */
+let navSeq = 0;
 
 /** Depois de trocar de tela o foco vai ao título da página, e o nome da rota é anunciado a leitores de tela. */
 const focusRouteHeading = (path: string, query: URLSearchParams) => {
@@ -201,6 +120,44 @@ const focusRouteHeading = (path: string, query: URLSearchParams) => {
   announcerEl.textContent = routeLabel(path, query);
 };
 
+const renderNotFound = (host: HTMLElement): void => {
+  host.innerHTML = `<div class="empty-state"><div class="big">${icon('search')}</div>página não encontrada <a href="#/">voltar ao início</a></div>`;
+};
+
+/** Chunk da tela não baixou (servidor parado, rede caiu): a tela diz o que houve e oferece tentar de novo. */
+const renderLoadError = (host: HTMLElement): void => {
+  host.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar esta tela <button class="btn btn-ghost btn-sm" type="button" id="route-retry">tentar de novo</button></div>`;
+  host.querySelector('#route-retry')?.addEventListener('click', () => window.dispatchEvent(new HashChangeEvent('hashchange')));
+};
+
+const dispatch = async (route: Route, key: string, revisit: boolean): Promise<void> => {
+  const seq = ++navSeq;
+  const path = canonicalPath(route.path);
+  const match = resolveRoute(path);
+  // Fecha torrents (e mata os pollers) da tela anterior antes de trocar de view.
+  releaseTorrentPlayers();
+  // O vídeo só sobrevive fora da tela de reprodução se o usuário minimizou; senão encerra (e guarda a posição).
+  parkPlayer();
+  if (match?.def.id !== 'watch') stopIfOnPage();
+  document.title = routeTitle(path, route.query);
+  // Primeira carga: o menu aparece já, sem esperar o chunk da tela.
+  if (!navEl.hasChildNodes()) renderNav(path);
+
+  const render = match ? await match.def.open(match.params).catch(() => renderLoadError) : renderNotFound;
+  if (seq !== navSeq) return;
+
+  await swapView(() => {
+    // O menu muda junto com a tela, dentro da transição: é o que faz o destaque deslizar de um item ao outro.
+    renderNav(path);
+    render(viewEl, route.query);
+    focusRouteHeading(path, route.query);
+    if (revisit) stopRestore = restoreWhenRendered(viewEl, readScroll(key));
+    else window.scrollTo(0, 0);
+  });
+};
+
+let firstRoute = true;
+
 onRouteChange((route) => {
   const key = location.hash.replace(/^#/, '') || '/';
   const revisit = isRevisit(history.state, key);
@@ -209,10 +166,12 @@ onRouteChange((route) => {
   stampRoute(key);
   stopRestore?.();
   stopRestore = null;
-  dispatch(route);
-  focusRouteHeading(ALIASES[route.path] ?? route.path, route.query);
-  if (revisit) stopRestore = restoreWhenRendered(viewEl, readScroll(key));
-  else window.scrollTo(0, 0);
+  void dispatch(route, key, revisit).then(() => {
+    if (!firstRoute) return;
+    firstRoute = false;
+    // Com a primeira tela no ar, o tempo ocioso baixa as outras: navegar depois não espera a rede.
+    (window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1200)))(() => void preloadPages());
+  });
 });
 
 void registerShellWorker();

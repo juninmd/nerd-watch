@@ -1,5 +1,5 @@
 import { Hono, type Context } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { replaceEpisodes, setCatalogStats, upsertSeason, upsertTitle } from '../repo/titles.ts';
 import {

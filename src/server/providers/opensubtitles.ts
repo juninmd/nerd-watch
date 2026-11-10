@@ -1,5 +1,5 @@
-import { withCache } from '../cache.ts';
-import { config, openSubtitlesEnabled } from '../config.ts';
+import { withCache } from '../lib/cache.ts';
+import { config, openSubtitlesEnabled } from '../config/config.ts';
 
 /**
  * REST API oficial da OpenSubtitles.com (a antiga API XML-RPC de opensubtitles.org foi

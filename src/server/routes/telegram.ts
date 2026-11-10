@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { fetchHeaders } from '../providers/sources/http.ts';
-import { originAllowed } from '../security.ts';
+import { originAllowed } from '../http/security.ts';
 import {
   countTelegramItemsByChannel,
   deleteTelegramChannel,
@@ -25,17 +25,17 @@ import { TelegramFloodWaitError, floodWaitResponse } from '../providers/telegram
 import { parseTelegramRef } from '../providers/telegram/ref.ts';
 import { loadLinkedTitles } from '../repo/telegram-links.ts';
 import { fetchPersonalVideoPage } from '../providers/telegram/personal.ts';
-import { itemMediaDto } from '../telegram-item-dto.ts';
-import { nextCursor, publicHistoryExhausted } from '../telegram-history.ts';
+import { itemMediaDto } from '../telegram/item-dto.ts';
+import { nextCursor, publicHistoryExhausted } from '../telegram/history.ts';
 import { telegramHistoryRoutes } from './telegram-history.ts';
 import { telegramLinkRoutes } from './telegram-links.ts';
 import { getSource } from '../providers/sources/registry.ts';
 import { playSourceItem, refreshSourceChannel } from '../providers/sources/service.ts';
 import type { TelegramChannel } from '../repo/telegram.ts';
-import { applyPublicInfo, syncChannelInfo } from '../telegram-channel-info.ts';
-import { ensureThumbs, localizeThumbs, needsThumb } from '../telegram-item-thumbs.ts';
-import { itemEmbedUrl, itemLinkDto, toChannelResponse } from '../telegram-channel-dto.ts';
-import { readPhoto, readThumb } from '../telegram-photos.ts';
+import { applyPublicInfo, syncChannelInfo } from '../telegram/channel-info.ts';
+import { ensureThumbs, localizeThumbs, needsThumb } from '../telegram/item-thumbs.ts';
+import { itemEmbedUrl, itemLinkDto, toChannelResponse } from '../telegram/channel-dto.ts';
+import { readPhoto, readThumb } from '../telegram/photos.ts';
 import type { TelegramChannelMode } from '../types.ts';
 
 export const telegramRoutes = new Hono();
@@ -301,7 +301,7 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
 });
 
 telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
-  // GET é isento do check de Origin em toda a app por ser normalmente idempotente/barato (ver security.ts),
+  // GET é isento do check de Origin em toda a app por ser normalmente idempotente/barato (ver http/security.ts),
   // mas essa rota tem efeito colateral real e caro (proxy de download via MTProto/Bot API) — sem esse check
   // qualquer aba de terceiro aberta no mesmo navegador podia forçar downloads repetidos contra o Telegram
   // do usuário só com fetch(), sem precisar ler a resposta (CORS não bloqueia isso, é abuso por efeito colateral).

@@ -1,7 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { listTelegramItems, getTelegramItem, pruneTelegramItems, setTelegramItemThumbnail, updateChannelCursor, upsertTelegramItems } from '../../repo/telegram.ts';
 import type { TelegramChannel } from '../../repo/telegram.ts';
-import { localizeThumbs, needsThumb } from '../../telegram-item-thumbs.ts';
+import { localizeThumbs, needsThumb } from '../../telegram/item-thumbs.ts';
 import { getSource } from './registry.ts';
 import { SourceError } from './types.ts';
 

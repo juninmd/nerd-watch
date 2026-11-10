@@ -1,4 +1,4 @@
-import { config } from '../config.ts';
+import { config } from '../config/config.ts';
 import { TmdbRequestError } from '../providers/tmdb.ts';
 import type { TitleRow } from '../types.ts';
 import { needsRefresh, needsStatsBackfill } from './refresh-policy.ts';

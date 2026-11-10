@@ -2,7 +2,7 @@ import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { locateVideo } from '../providers/local/access.ts';
 import { SourceError } from '../providers/sources/types.ts';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { getTelegramChannel, getTelegramItem } from '../repo/telegram.ts';
 import { MediaError, type LocatedFile } from './service.ts';
 

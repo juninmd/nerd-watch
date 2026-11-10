@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { config, telegramBotEnabled, telegramPersonalEnabled } from '../config.ts';
-import { updateEnvVar } from '../env-file.ts';
+import { config, telegramBotEnabled, telegramPersonalEnabled } from '../config/config.ts';
+import { updateEnvVar } from '../config/env-file.ts';
 import { logoutPersonalSession, verifyPersonalSession } from '../providers/telegram/personal.ts';
 import { cancelLogin, getLoginState, startLogin, submitLoginPassword } from '../providers/telegram/qr-login.ts';
-import { startTelegramBotPoller } from '../telegram-bot-poller.ts';
+import { startTelegramBotPoller } from '../telegram/bot-poller.ts';
 
 export const telegramSettingsRoutes = new Hono();
 

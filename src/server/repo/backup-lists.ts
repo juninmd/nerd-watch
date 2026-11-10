@@ -1,7 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { validateDescription, validateListName } from '../lists/rules.ts';
 import { parseStoredViewQuery, parseViewName } from '../saved-views/schema.ts';
-import { ValidationError } from '../validation-error.ts';
+import { ValidationError } from '../lib/validation-error.ts';
 import type { ListRow } from './lists.ts';
 import type { SavedViewRow } from './saved-views.ts';
 

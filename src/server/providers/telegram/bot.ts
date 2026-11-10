@@ -1,4 +1,4 @@
-import { config, telegramBotEnabled } from '../../config.ts';
+import { config, telegramBotEnabled } from '../../config/config.ts';
 
 /**
  * Bot do Telegram: a Bot API não tem `getChatHistory` (isso só existe na Client API/TDLib) — um bot só

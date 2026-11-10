@@ -1,5 +1,5 @@
 import { type Context, Hono } from 'hono';
-import { torrentEnabled } from '../config.ts';
+import { torrentEnabled } from '../config/config.ts';
 import {
   TorrentBadFileIndexError,
   TorrentDisabledError,

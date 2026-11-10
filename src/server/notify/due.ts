@@ -1,4 +1,4 @@
-import { isWithinWindow, todayIso } from '../date.ts';
+import { isWithinWindow, todayIso } from '../lib/date.ts';
 import type { CalendarEntry } from '../repo/calendar.ts';
 
 /** Lógica pura (sem I/O): quais lançamentos já pedem aviso agora. O banco entra só como `alreadySent`. */

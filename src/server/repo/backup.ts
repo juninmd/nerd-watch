@@ -13,7 +13,7 @@ import { InvalidPlaybackError, PLAYBACK_MAX_ROWS, type PlaybackEntry, listPlayba
 import { type ListItemRow, type ListsBackupFields, importListsBackup, validateListsBackup } from './backup-lists.ts';
 import type { ListRow } from './lists.ts';
 import type { SavedViewRow } from './saved-views.ts';
-import { ValidationError } from '../validation-error.ts';
+import { ValidationError } from '../lib/validation-error.ts';
 
 export interface BackupData extends ListsBackupFields {
   version: 1;

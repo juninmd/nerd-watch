@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { serveStatic } from 'hono/bun';
-import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled, torrentEnabled } from './config.ts';
-import { startTelegramBotPoller } from './telegram-bot-poller.ts';
-import { createAccess } from './access-guard.ts';
-import { requestAllowed, originAllowed } from './security.ts';
+import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled, torrentEnabled } from './config/config.ts';
+import { startTelegramBotPoller } from './telegram/bot-poller.ts';
+import { createAccess } from './http/access-guard.ts';
+import { requestAllowed, originAllowed } from './http/security.ts';
+import { createStaticHandler } from './http/static.ts';
 import { searchRoutes } from './routes/search.ts';
 import { tmdbRoutes } from './routes/tmdb.ts';
 import { archiveRoutes } from './routes/archive.ts';
@@ -34,7 +34,7 @@ import { installShutdownHandlers } from './media/process.ts';
 import { mediaSettings } from './media/settings.ts';
 import { binaryStatus } from './media/binaries.ts';
 import { startTorrentSweeper } from './torrent/engine.ts';
-import { getDb } from './db.ts';
+import { getDb } from './db/database.ts';
 import { buildSinks } from './notify/sinks.ts';
 import { startNotifyScheduler } from './notify/scheduler.ts';
 
@@ -101,7 +101,7 @@ app.route('/api/trakt', traktRoutes);
 const mediaCfg = mediaSettings();
 app.route('/api/media', createMediaRoutes(createMediaService({ settings: mediaCfg, locate: localLocator })));
 
-app.use('/*', serveStatic({ root: './public' }));
+app.use('/*', createStaticHandler('./public'));
 
 export default {
   port: config.port,

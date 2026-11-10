@@ -35,6 +35,11 @@ export interface MonthStats {
   hours: number | null;
 }
 
+export interface DayActivity {
+  date: string;
+  events: number;
+}
+
 export interface PeriodStats {
   finished: number;
   rewatches: number;
@@ -45,6 +50,8 @@ export interface PeriodStats {
   genres: { top: GenreCount[]; untagged: number };
   ratings: { counts: number[]; average: number | null; rated: number; unrated: number };
   weekdays: number[];
+  /** Dias civis com atividade, em ordem, com a contagem de eventos: alimenta o mapa de atividade do ano. */
+  days: DayActivity[];
   busiestWeekday: number | null;
   longestStreak: Streak | null;
 }
@@ -131,12 +138,15 @@ export const buildPeriod = (input: PeriodInput): PeriodStats => {
 
   const activeDates = local.map((e) => e.date);
   const weekdays = weekdayCounts(activeDates);
+  const perDay = new Map<string, number>();
+  for (const date of activeDates) perDay.set(date, (perDay.get(date) ?? 0) + 1);
+  const days = [...perDay].map(([date, events]) => ({ date, events })).sort((a, b) => (a.date < b.date ? -1 : 1));
 
   return {
     finished: acc.reduce((n, m) => n + m.finished, 0),
     rewatches: acc.reduce((n, m) => n + m.rewatches, 0),
     progressEvents,
-    activeDays: new Set(activeDates).size,
+    activeDays: days.length,
     watchTime: { hours: hoursOf(totalMinutes), knownViewings, missingViewings },
     months: acc.map((m, i) => ({
       month: i + 1,
@@ -148,6 +158,7 @@ export const buildPeriod = (input: PeriodInput): PeriodStats => {
     genres: topGenres([...viewedTitles].map((id) => titles.get(id)?.genres ?? null)),
     ratings: ratingSummary([...finishedTitles].map((id) => titles.get(id)?.rating ?? null)),
     weekdays,
+    days,
     busiestWeekday: busiestWeekday(weekdays),
     longestStreak: longestStreak(activeDates),
   };

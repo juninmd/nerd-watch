@@ -1,6 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import { parseStoredViewQuery, serializeViewQuery, type LibraryViewQuery } from '../saved-views/schema.ts';
-import { ValidationError } from '../validation-error.ts';
+import { ValidationError } from '../lib/validation-error.ts';
 
 /** Teto de visões: a barra de chips e a paleta listam todas; sem teto a barra viraria uma lista sem fim. */
 export const SAVED_VIEWS_MAX = 30;

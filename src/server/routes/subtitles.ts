@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { config } from '../config.ts';
+import { config } from '../config/config.ts';
 import { OpenSubtitlesNotConfiguredError, OpenSubtitlesRequestError, openSubtitlesEnabled } from '../providers/opensubtitles.ts';
 import { resolveAddonFileUrl, resolveSubtitleDownload, searchAllSubtitles } from '../providers/subtitles/index.ts';
 import { fetchSubtitleBytes } from '../subtitles/load.ts';

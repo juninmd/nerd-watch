@@ -1,5 +1,5 @@
-import { withCache } from '../cache.ts';
-import { config, tmdbEnabled } from '../config.ts';
+import { withCache } from '../lib/cache.ts';
+import { config, tmdbEnabled } from '../config/config.ts';
 import { normalizeGenres, normalizeRuntimeMinutes } from '../stats/catalog-fields.ts';
 import type { MediaType } from '../types.ts';
 

@@ -1,4 +1,4 @@
-import { driveClientConfigured, driveConnected } from '../../config.ts';
+import { driveClientConfigured, driveConnected } from '../../config/config.ts';
 import { registerDescriptor, registerSource } from '../sources/registry.ts';
 import { type FileSource, SourceError } from '../sources/types.ts';
 import { DriveFolderNotFoundError, downloadDriveThumb, folderLink, getFolderName, listFolderVideos, parseFolderInput, streamDriveFile, toItems } from './api.ts';

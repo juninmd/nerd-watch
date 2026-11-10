@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { loadStatsInputs } from '../repo/stats.ts';
 import { isStatsError, parseStatsParams } from '../stats/params.ts';
 import { buildSummary } from '../stats/summary.ts';

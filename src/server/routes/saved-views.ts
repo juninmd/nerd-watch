@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { getDb } from '../db.ts';
+import { getDb } from '../db/database.ts';
 import { createSavedView, deleteSavedView, listSavedViews, updateSavedView } from '../repo/saved-views.ts';
 import { parseViewName, parseViewQuery } from '../saved-views/schema.ts';
-import { assertKnownKeys, guardInput, readJsonObject } from './json-body.ts';
+import { assertKnownKeys, guardInput, readJsonObject } from '../http/json-body.ts';
 
 /** Visões salvas da biblioteca (nome + combinação de filtro, ordem e layout). Montado em /api/views. */
 export const savedViewsRoutes = new Hono();

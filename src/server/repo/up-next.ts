@@ -23,7 +23,7 @@ export interface UpNextRow {
  * Temporada 0 (especiais) é uma trilha à parte, como em `isEpisodeWatched` no cliente.
  *
  * Plano (testado em tests/up-next-repo.test.ts): `cand` lê por `idx_library_status` e ordena um conjunto já
- * limitado por LIMIT; o join usa `idx_seasons_title` e `idx_episodes_season`. Uma consulta só, sem N+1.
+ * limitado por LIMIT; o join usa `idx_seasons_title` e `idx_episodes_season_runtime`. Uma consulta só, sem N+1.
  * Não usa `playback_positions`: a posição de reprodução é por vídeo de canal, sem vínculo com episódio.
  */
 export const UP_NEXT_SQL = `
