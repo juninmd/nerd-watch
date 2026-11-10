@@ -17,7 +17,9 @@
     "poc:torrent": "bun run scripts/poc-torrent.ts",
     "poc:subtitles": "bun run scripts/poc-subtitles.ts",
     "seed": "bun run src/server/db/seed.ts",
-    "telegram:login": "bun run scripts/telegram-login.ts"
+    "telegram:login": "bun run scripts/telegram-login.ts",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build"
   },
   "dependencies": {
     "hono": "^4.6.14",
@@ -28,6 +30,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/bun": "latest",
     "@types/qrcode": "^1.5.6",
     "typescript": "^5.7.2"

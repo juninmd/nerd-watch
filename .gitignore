@@ -1,6 +1,8 @@
 node_modules/
 public/
 .cache/
+src-tauri/target/
+src-tauri/gen/
 data/
 *.db
 *.db-journal

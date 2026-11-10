@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "nerd-watch",
+  "version": "0.1.0",
+  "identifier": "dev.nerdwatch.desktop",
+  "build": {
+    "frontendDist": "./splash"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/juninmd/nerd-watch/releases/latest/download/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVCQjFBRUU3RTQwQ0ZCMEEKUldRSyt3ems1NjZ4VzdJNUVyZjE4dGw1VmlrUm9CR1Q3OXJsb0k3cnlURFA5dHdXU3VZUzlTQzUK"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "resources": ["../src/**/*", "../public/**/*", "../package.json", "../node_modules/**/*"]
+  }
+}

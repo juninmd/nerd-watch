@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Janela principal criada em runtime; só as permissões de núcleo.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

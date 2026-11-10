@@ -1,0 +1,79 @@
+name: Release
+
+# Release automático a partir de commit convencional (docs/adr/0004-auto-update-tauri.md):
+# o push em `main` calcula a próxima versão, cria a tag `vX.Y.Z` e publica o instalador assinado.
+# O app instalado lê `releases/latest/download/latest.json` no boot e se atualiza sozinho.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Tipo de versão (auto = pelos commits convencionais)'
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.next.outputs.changed }}
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - id: next
+        run: bun run scripts/next-version.ts --bump "${{ inputs.bump || 'auto' }}"
+
+  validate:
+    needs: version
+    if: needs.version.outputs.changed == 'true'
+    uses: juninmd/base-actions/.github/workflows/reusable-validate.yml@main
+
+  release:
+    needs: [version, validate]
+    if: needs.version.outputs.changed == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - name: dependências
+        run: bun install --frozen-lockfile
+      - name: cliente
+        run: bun run build:client
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: aplica a versão calculada
+        run: bun run scripts/next-version.ts --apply --bump "${{ inputs.bump || 'auto' }}"
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: nerd-watch v__VERSION__
+          releaseBody: |
+            Instalador do nerd-watch v__VERSION__ (Windows x64, NSIS).
+
+            O app instalado se atualiza sozinho: ele checa `releases/latest/download/latest.json`
+            no boot e aplica a versão assinada. Quem prefere manual baixa o `-setup.exe` abaixo.
+          generateReleaseNotes: true
+          updaterJsonPreferNsis: true
+          tauriScript: bun tauri
+          args: --bundles nsis
