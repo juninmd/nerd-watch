@@ -1,0 +1,12 @@
+# Achados aceitos de forma consciente e temporária.
+#
+# Regra: só entra aqui CVE sem versão corrigida publicada, com justificativa e
+# data de revisão. O `trivy fs .` do workflow SAST lê este arquivo do root.
+#
+# CVE-2024-29415 (`ip@2.0.1`, transitivo webtorrent -> bittorrent-tracker, que
+# fixa `ip@^2.0.1`): o pacote upstream está abandonado e o CVE cobre toda a 2.x,
+# então não existe versão para atualizar. No nerd-watch o uso é indireto (o
+# tracker do webtorrent usa `ip.isPrivate` ao negociar peers) e não recebe
+# entrada arbitrária do usuário. Revisar em 2027-02-01, quando o
+# bittorrent-tracker deve trocar a dependência.
+CVE-2024-29415
