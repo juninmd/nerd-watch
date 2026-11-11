@@ -4,6 +4,7 @@ import { icon } from '../ui/icons.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { titlePath } from '../ui/title-link.ts';
+import { paletteKeyLabel } from '../app/shortcut-keys.ts';
 
 /** Selo da fonte: tmdb usa o tipo (filme/série); as demais fontes dizem de onde vem. */
 const SOURCE_BADGE: Partial<Record<CatalogSource, string>> = {
@@ -22,7 +23,7 @@ const resultCard = (r: SearchResultDto): string => `
       <div class="title">${escapeHtml(r.title)}</div>
       <div class="sub">${r.releaseDate ? r.releaseDate.slice(0, 4) : ''}${r.voteAverage ? ` · ⭐ ${r.voteAverage.toFixed(1)}` : ''}</div>
     </div>
-    <button class="btn btn-primary btn-sm" data-add style="position:absolute;bottom:64px;right:8px;padding:6px 10px;box-shadow:0 4px 12px -2px rgba(0,0,0,.6)">+ lista</button>
+    <button class="btn btn-primary btn-sm" data-add aria-label="Adicionar ${escapeHtml(r.title)} à biblioteca" style="position:absolute;bottom:64px;right:8px;padding:6px 10px;box-shadow:0 4px 12px -2px rgba(0,0,0,.6)">+ biblioteca</button>
   </div>
 `;
 
@@ -44,7 +45,7 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
   });
 
   if (!query) {
-    results.innerHTML = `<div class="empty-state"><div class="big">🔎</div>digite o nome de um título acima — ou use <kbd>Ctrl K</kbd> de qualquer tela</div>`;
+    results.innerHTML = `<div class="empty-state"><div class="big" aria-hidden="true">${icon('search')}</div>digite o nome de um título acima — ou use <kbd>${paletteKeyLabel(navigator.platform)}</kbd> de qualquer tela</div>`;
     return;
   }
 
@@ -53,7 +54,7 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
   search(query)
     .then((data) => {
       if (data.results.length === 0) {
-        results.innerHTML = `<div class="empty-state"><div class="big">🕵️</div>nada encontrado para "${escapeHtml(query)}"</div>`;
+        results.innerHTML = `<div class="empty-state"><div class="big" aria-hidden="true">${icon('search')}</div>nada encontrado para "${escapeHtml(query)}"<p class="hint">confira a grafia ou tente o nome original do título</p></div>`;
         return;
       }
       results.innerHTML = `<div class="grid">${data.results.map(resultCard).join('')}</div>`;

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { config, telegramBotEnabled, telegramPersonalEnabled } from '../config/config.ts';
 import { updateEnvVar } from '../config/env-file.ts';
-import { logoutPersonalSession, verifyPersonalSession } from '../providers/telegram/personal.ts';
+import { getKnownPersonalAccount, getKnownPersonalAvatar, logoutPersonalSession, verifyPersonalSession } from '../providers/telegram/personal.ts';
 import { cancelLogin, getLoginState, startLogin, submitLoginPassword } from '../providers/telegram/qr-login.ts';
 import { startTelegramBotPoller } from '../telegram/bot-poller.ts';
 
@@ -11,6 +11,22 @@ const statusResponse = () => ({
   botTokenConfigured: telegramBotEnabled(),
   apiCredentialsConfigured: Boolean(config.telegram.apiId && config.telegram.apiHash),
   personalConfigured: telegramPersonalEnabled(),
+  // Quem está logado: o nome vem da última verificação com o Telegram (null se ainda não houve uma).
+  personalAccount: telegramPersonalEnabled() ? accountDto() : null,
+});
+
+/** Nome e @usuário; a foto vira uma URL com o photoId na query, então trocar a foto no Telegram invalida o cache do navegador. */
+const accountDto = () => {
+  const account = getKnownPersonalAccount();
+  if (!account) return null;
+  const avatarUrl = account.avatar ? `/api/telegram/settings/avatar?v=${encodeURIComponent(account.avatar.photoId)}` : null;
+  return { name: account.name, username: account.username, avatarUrl };
+};
+
+telegramSettingsRoutes.get('/avatar', (c) => {
+  const avatar = telegramPersonalEnabled() ? getKnownPersonalAvatar() : null;
+  if (!avatar) return c.body(null, 404);
+  return c.body(new Uint8Array(avatar.bytes), 200, { 'Content-Type': avatar.type, 'Cache-Control': 'private, max-age=300' });
 });
 
 telegramSettingsRoutes.get('/', async (c) => {

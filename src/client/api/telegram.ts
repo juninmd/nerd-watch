@@ -116,10 +116,19 @@ export const listMyTelegramChannels = (): Promise<{ channels: MyTelegramChannelD
 export const telegramPlayUrl =(titleId: string, messageId: string): string =>
   `/api/telegram/channels/${titleId}/items/${encodeURIComponent(messageId)}/play`;
 
+export interface TelegramPersonalAccount {
+  name: string;
+  username: string | null;
+  /** URL da foto de perfil (com `v` = photoId, então troca de foto invalida o cache); `null` sem foto. */
+  avatarUrl: string | null;
+}
+
 export interface TelegramSettingsStatus {
   botTokenConfigured: boolean;
   apiCredentialsConfigured: boolean;
   personalConfigured: boolean;
+  /** Conta da session pessoal; `null` sem session ou antes da primeira verificação. */
+  personalAccount: TelegramPersonalAccount | null;
 }
 
 /** `verify` pergunta ao Telegram se a sessão ainda vale (mais lento); sem ele a leitura é só local. */

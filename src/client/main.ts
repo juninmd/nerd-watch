@@ -1,8 +1,10 @@
 import { getTelegramSettings } from './api/telegram.ts';
+import { escapeHtml } from './ui/card.ts';
 import { installCardTilt, swapView } from './ui/effects.ts';
 import { openCommandPalette } from './app/command-palette.ts';
 import { releaseTorrentPlayers } from './player/torrent-player.ts';
 import { icon, type IconName } from './ui/icons.ts';
+import { paletteKeyLabel } from './app/shortcut-keys.ts';
 import { onRouteChange, type Route } from './app/router.ts';
 import { canonicalPath, preloadPages, resolveRoute } from './app/routes.ts';
 import { routeLabel, routeTitle } from './app/route-meta.ts';
@@ -24,6 +26,7 @@ globalThis.fetch = withLoginRedirect(globalThis.fetch.bind(globalThis), location
 
 const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
   { path: '/', label: 'Início', icon: 'home' },
+  { path: '/search', label: 'Buscar', icon: 'search' },
   { path: '/library', label: 'Biblioteca', icon: 'library' },
   { path: '/telegram', label: 'Canais', icon: 'send' },
   { path: '/agenda', label: 'Agenda', icon: 'calendar' },
@@ -41,7 +44,7 @@ app.innerHTML = `
     <div class="main">
       <header class="topbar">
         <button class="cmd" id="cmd-open" type="button" aria-haspopup="dialog">
-          ${icon('search')}<span class="cmd-text">Buscar títulos, canais e ações…</span><kbd>Ctrl K</kbd>
+          ${icon('search')}<span class="cmd-text">Buscar títulos, canais e ações…</span><kbd>${paletteKeyLabel(navigator.platform)}</kbd>
         </button>
         <button class="pill" id="spoiler-toggle" type="button"></button>
         <a class="pill" id="conn-pill" href="#/connections"></a>
@@ -79,9 +82,10 @@ const renderNav = (activePath: string) => {
 
 const renderSpoilerButton = () => {
   const on = getShowSpoilers();
+  // O nome acessível é fixo e o estado vai no aria-pressed: leitores de tela não anunciam "Spoilers visíveis, pressionado".
   spoilerBtn.setAttribute('aria-pressed', String(on));
+  spoilerBtn.setAttribute('aria-label', 'Mostrar spoilers');
   const label = on ? 'Spoilers visíveis' : 'Spoilers ocultos';
-  spoilerBtn.setAttribute('aria-label', label);
   spoilerBtn.innerHTML = `${icon(on ? 'eye' : 'eyeOff', 'sm')}<span class="pill-label">${label}</span>`;
 };
 
@@ -90,15 +94,17 @@ onSpoilerChange(renderSpoilerButton);
 renderSpoilerButton();
 
 /** Status do Telegram na barra superior. Leitura barata (sem falar com o Telegram); a verificação real fica em Conexões. */
-const renderConnectionPill = (connected: boolean | null) => {
-  const label = connected === null ? 'Telegram' : connected ? 'Telegram conectado' : 'Telegram desconectado';
+const renderConnectionPill = (connected: boolean | null, account: { name: string; avatarUrl: string | null } | null = null) => {
+  // Com conta conhecida mostra a foto e o nome logo na barra (ex.: "Telegram · Ana"); sem ela, o rótulo genérico.
+  const label = connected === null ? 'Telegram' : connected ? (account ? `Telegram · ${account.name}` : 'Telegram conectado') : 'Telegram desconectado';
   connPill.setAttribute('aria-label', label);
-  connPill.innerHTML = `<span class="led${connected ? '' : ' off'}"></span><span class="pill-label">${label}</span>`;
+  const photo = connected && account?.avatarUrl ? `<img class="pill-avatar" src="${escapeHtml(account.avatarUrl)}" alt="" width="20" height="20" />` : '';
+  connPill.innerHTML = `${photo}<span class="led${connected ? '' : ' off'}"></span><span class="pill-label">${escapeHtml(label)}</span>`;
 };
 /** Outras telas avisam com `window.dispatchEvent(new Event('nw:connection-changed'))` depois de entrar/sair do Telegram. */
 const refreshConnectionPill = (): void => {
   getTelegramSettings()
-    .then((s) => renderConnectionPill(s.personalConfigured))
+    .then((s) => renderConnectionPill(s.personalConfigured, s.personalAccount))
     .catch(() => renderConnectionPill(null));
 };
 window.addEventListener('nw:connection-changed', refreshConnectionPill);

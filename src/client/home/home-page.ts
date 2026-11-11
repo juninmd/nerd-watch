@@ -4,6 +4,7 @@ import { escapeHtml, renderCard } from '../ui/card.ts';
 import { continueWatchingCards, refreshResumeCards } from '../player/continue-watching.ts';
 import { renderTelegramFeed } from '../channels/telegram-feed.ts';
 import { icon, type IconName } from '../ui/icons.ts';
+import { paletteKeyLabel } from '../app/shortcut-keys.ts';
 import { PLAYBACK_CHANGED_EVENT } from '../player/playback-sync.ts';
 import { navigate } from '../app/router.ts';
 import { yearStrip } from '../stats/insights.ts';
@@ -97,7 +98,7 @@ export const renderHome = (host: HTMLElement): void => {
       const resumeCards = continueWatchingCards();
       for (const card of resumeCards) watchingRail.appendChild(card);
       if (watching.items.length === 0 && resumeCards.length === 0) {
-        watchingRail.innerHTML = `<div class="empty-state" style="flex:1">nada em andamento — busque algo (<kbd>Ctrl K</kbd>) e marque como "assistindo"</div>`;
+        watchingRail.innerHTML = `<div class="empty-state" style="flex:1">nada em andamento — busque algo (<kbd>${paletteKeyLabel(navigator.platform)}</kbd>) e marque como "assistindo"</div>`;
       }
       // A sincronização pode trazer posições de outro aparelho depois que a tela já renderizou.
       const onPlaybackChanged = () => {

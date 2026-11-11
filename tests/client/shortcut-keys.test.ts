@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { resolveKey } from '../../src/client/app/shortcut-keys.ts';
+import { paletteKeyLabel, resolveKey } from '../../src/client/app/shortcut-keys.ts';
 
 describe('resolveKey', () => {
   test('Ctrl/Cmd+K e "/" abrem a paleta', () => {
@@ -26,5 +26,14 @@ describe('resolveKey', () => {
     expect(resolveKey('s', false)).toEqual({ kind: 'spoilers' });
     expect(resolveKey('?', false)).toEqual({ kind: 'help' });
     expect(resolveKey('s', true)).toEqual({ kind: 'none' });
+  });
+});
+
+describe('paletteKeyLabel', () => {
+  test('mostra ⌘K em Mac e iPhone, Ctrl K no resto', () => {
+    expect(paletteKeyLabel('MacIntel')).toBe('⌘K');
+    expect(paletteKeyLabel('iPhone')).toBe('⌘K');
+    expect(paletteKeyLabel('Win32')).toBe('Ctrl K');
+    expect(paletteKeyLabel('Linux x86_64')).toBe('Ctrl K');
   });
 });

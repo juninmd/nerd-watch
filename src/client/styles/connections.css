@@ -269,3 +269,51 @@
 #gd-body {
   margin-top: 12px;
 }
+
+/* Conta do Telegram logada: inicial num círculo + nome e @usuário. */
+.tg-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.tg-account-photo {
+  object-fit: cover;
+}
+
+.tg-account a.tg-account-handle {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.tg-account a.tg-account-handle:hover,
+.tg-account a.tg-account-handle:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.tg-account-avatar {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent, #2aabee);
+  color: #fff;
+  font-weight: 600;
+}
+
+.tg-account strong {
+  display: block;
+  font-size: 14px;
+}
+
+.tg-account-handle {
+  color: var(--text-dim);
+  font-size: 13px;
+}

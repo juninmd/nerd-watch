@@ -62,7 +62,7 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
       }
       ${
         total === 0
-          ? `<div class="empty-state"><div class="big">🗂️</div>lista vazia — adicione títulos pela página de cada um ("Adicionar à lista") ou pela Biblioteca</div>`
+          ? `<div class="empty-state"><div class="big" aria-hidden="true">${icon('folder')}</div>lista vazia — adicione títulos pela página de cada um ("Adicionar à lista") ou pela Biblioteca</div>`
           : `<ol class="list-items" aria-label="Itens da lista, em ordem">${rows}</ol>`
       }
       <p class="list-status" role="status" aria-live="polite"></p>`;
@@ -105,7 +105,7 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
         paint();
       })
       .catch(() => {
-        root.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>lista não encontrada ou indisponível <a href="#/lists">voltar às listas</a></div>`;
+        root.innerHTML = `<div class="empty-state"><div class="big" aria-hidden="true">${icon('alert')}</div>lista não encontrada ou indisponível <a href="#/lists">voltar às listas</a></div>`;
       });
 
   root.addEventListener('click', (e) => {

@@ -24,6 +24,26 @@ export class TelegramPersonalNotConfiguredError extends Error {
 
 let clientPromise: Promise<TelegramClient> | null = null;
 
+/** Conta que a session atual representa (nome e @usuário, sem telefone). Preenchida pela última verificação bem-sucedida. */
+export interface PersonalAccount {
+  name: string;
+  username: string | null;
+  /** Foto de perfil pequena (JPEG) guardada em memória; `null` se a conta não tem foto. */
+  avatar: { bytes: Uint8Array; type: string; photoId: string } | null;
+}
+let knownAccount: PersonalAccount | null = null;
+
+/** Último nome conhecido da conta; `null` se nunca foi verificada nesta execução ou se a session saiu. */
+export const getKnownPersonalAccount = (): PersonalAccount | null => knownAccount;
+
+/** Foto da conta pessoal, para a rota de imagem. Só é baixada de novo quando o `photoId` muda. */
+export const getKnownPersonalAvatar = (): PersonalAccount['avatar'] => knownAccount?.avatar ?? null;
+
+const photoIdOf = (me: Api.User): string | null => {
+  const photo = me.photo as { photoId?: unknown } | undefined;
+  return photo && photo.photoId !== undefined ? String(photo.photoId) : null;
+};
+
 /** floodSleepThreshold 0: sem isso o teleproto dorme sozinho até 60 s em FLOOD_WAIT, fora do nosso teto e do sleep injetável. */
 export const PERSONAL_CLIENT_OPTIONS = { connectionRetries: 5, floodSleepThreshold: 0 } as const;
 
@@ -37,6 +57,7 @@ export const isDeadSessionError = (err: unknown): boolean =>
 const dropSession = async (): Promise<void> => {
   const pending = clientPromise;
   clientPromise = null;
+  knownAccount = null;
   config.telegram.session = undefined;
   updateEnvVar('TELEGRAM_SESSION', '');
   await pending?.then((client) => client.disconnect()).catch(() => {});
@@ -63,10 +84,25 @@ export const verifyPersonalSession = async (): Promise<boolean> => {
   if (!telegramPersonalEnabled()) return false;
   try {
     await withLiveSession(async (client) => {
-      await Promise.race([client.getMe(), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS))]);
+      const me = (await Promise.race([
+        client.getMe(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS)),
+      ])) as Api.User;
+      const name = [me.firstName, me.lastName].filter(Boolean).join(' ').trim();
+      const photoId = photoIdOf(me);
+      // Mesma foto de antes: reaproveita os bytes em vez de baixar a imagem a cada abertura de Conexões.
+      const previous = knownAccount?.avatar;
+      let avatar: PersonalAccount['avatar'] = null;
+      if (photoId && previous?.photoId === photoId) avatar = previous;
+      else if (photoId) {
+        const bytes = await client.downloadProfilePhoto(me, { isBig: false }).catch(() => undefined);
+        if (bytes instanceof Uint8Array && bytes.byteLength > 0) avatar = { bytes, type: 'image/jpeg', photoId };
+      }
+      knownAccount = { name: name || me.username || 'conta sem nome', username: me.username ?? null, avatar };
     });
     return true;
   } catch (err) {
+    if (err instanceof TelegramPersonalNotConfiguredError) knownAccount = null;
     return !(err instanceof TelegramPersonalNotConfiguredError);
   }
 };
