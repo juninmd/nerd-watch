@@ -29,6 +29,11 @@ describe('GET /api/telegram/settings', () => {
     });
     expect(Object.keys(body).sort()).toEqual(['apiCredentialsConfigured', 'botTokenConfigured', 'personalAccount', 'personalConfigured']);
   });
+
+  test('avatar sem foto conhecida devolve 404', async () => {
+    const res = await telegramSettingsRoutes.request('/avatar');
+    expect(res.status).toBe(404);
+  });
 });
 
 describe('POST /api/telegram/settings — validação (não deve chegar a gravar no .env real)', () => {

@@ -369,3 +369,12 @@ kbd {
     background: var(--surface-hover);
   }
 }
+
+/* Foto da conta do Telegram na barra do topo (antes do LED de status). */
+.pill-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}

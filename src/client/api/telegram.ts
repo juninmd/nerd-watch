@@ -119,6 +119,8 @@ export const telegramPlayUrl =(titleId: string, messageId: string): string =>
 export interface TelegramPersonalAccount {
   name: string;
   username: string | null;
+  /** URL da foto de perfil (com `v` = photoId, então troca de foto invalida o cache); `null` sem foto. */
+  avatarUrl: string | null;
 }
 
 export interface TelegramSettingsStatus {

@@ -41,12 +41,24 @@ const announce = (): void => {
   window.dispatchEvent(new Event('nw:connection-changed'));
 };
 
-/** Quem está logado: inicial num círculo + nome e @usuário. O nome vem do Telegram, então passa por escapeHtml. */
+/** Quem está logado: foto (ou inicial, se não houver) + nome e @usuário, que leva ao perfil. Textos vêm do Telegram: passam por escapeHtml. */
 const accountCard = (account: PersonalAccount | null): string => {
   if (!account) return '';
   const initial = escapeHtml(account.name.charAt(0).toUpperCase());
-  const handle = account.username ? `<span class="tg-account-handle">@${escapeHtml(account.username)}</span>` : '';
-  return `<div class="tg-account" aria-label="Conta conectada: ${escapeHtml(account.name)}"><span class="tg-account-avatar" aria-hidden="true">${initial}</span><div><strong>${escapeHtml(account.name)}</strong>${handle}</div></div>`;
+  const avatar = account.avatarUrl
+    ? `<img class="tg-account-avatar tg-account-photo" src="${escapeHtml(account.avatarUrl)}" alt="" width="48" height="48" />`
+    : `<span class="tg-account-avatar" aria-hidden="true">${initial}</span>`;
+  const handle = account.username
+    ? `<a class="tg-account-handle" href="https://t.me/${encodeURIComponent(account.username)}" target="_blank" rel="noopener noreferrer">@${escapeHtml(account.username)}</a>`
+    : '';
+  return `<div class="tg-account" aria-label="Conta conectada: ${escapeHtml(account.name)}">${avatar}<div><strong>${escapeHtml(account.name)}</strong>${handle}</div></div>`;
+};
+
+/** Se a foto não carregar (arquivo removido, rede), cai para a inicial em vez de mostrar imagem quebrada. */
+const bindAvatarFallback = (root: HTMLElement): void => {
+  const img = root.querySelector<HTMLImageElement>('img.tg-account-photo');
+  if (!img) return;
+  img.addEventListener('error', () => img.replaceWith(Object.assign(document.createElement('span'), { className: 'tg-account-avatar', textContent: img.closest('.tg-account')?.querySelector('strong')?.textContent?.charAt(0).toUpperCase() ?? '' })));
 };
 
 const stepper = (active: number): string =>
@@ -271,6 +283,7 @@ export const renderTelegramLogin = (host: HTMLElement): void => {
         <button class="btn btn-primary" id="tg-import" type="button">${icon('download', 'sm')} Importar meus canais</button>
         <button class="btn btn-ghost" id="tg-logout" type="button">Encerrar sessão</button>
       </div>`);
+    bindAvatarFallback(root);
     root.querySelector('#tg-import')?.addEventListener('click', () => navigate('/telegram?import=1'));
     root.querySelector('#tg-logout')?.addEventListener('click', () => {
       if (!confirm('Encerrar a sessão do Telegram? Você precisará escanear o QR de novo para voltar a usar sua conta (canais já importados continuam).')) return;

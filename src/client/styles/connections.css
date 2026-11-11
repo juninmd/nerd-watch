@@ -281,10 +281,25 @@
   border-radius: 10px;
 }
 
+.tg-account-photo {
+  object-fit: cover;
+}
+
+.tg-account a.tg-account-handle {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.tg-account a.tg-account-handle:hover,
+.tg-account a.tg-account-handle:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
 .tg-account-avatar {
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
   border-radius: 50%;
