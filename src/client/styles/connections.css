@@ -7,7 +7,7 @@
 }
 
 .hint a {
-  color: #a996ff;
+  color: var(--link);
   text-decoration: underline;
 }
 
@@ -75,7 +75,7 @@
   place-items: center;
   border-radius: 12px;
   background: var(--surface-2);
-  color: #a996ff;
+  color: var(--link);
 }
 
 #tg-body {

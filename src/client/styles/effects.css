@@ -160,11 +160,11 @@ body::before {
   to { transform: translate3d(4%, -3%, 0) rotate(6deg) scale(1.08); }
 }
 
-/* Menu: o rótulo aparece como dica ao lado no desktop e o item ativo ganha barra com brilho. */
+/* Menu: o item ativo ganha uma barra com brilho na borda esquerda e o ícone dá um pulinho no hover. */
 .navlink::before {
   content: "";
   position: absolute;
-  left: -10px;
+  left: -12px;
   top: 22%;
   bottom: 22%;
   width: 3px;
@@ -172,7 +172,7 @@ body::before {
   background: var(--gradient);
   box-shadow: 0 0 12px rgba(255, 61, 110, 0.8);
   transform: scaleY(0);
-  transition: transform 0.3s var(--ease);
+  transition: transform var(--dur) var(--ease);
 }
 
 .navlink.active::before {
@@ -182,26 +182,7 @@ body::before {
 @media (hover: hover) {
   .navlink:hover .i,
   .navlink:hover svg {
-    transform: translateY(-2px) scale(1.12);
-  }
-}
-
-@media (max-width: 880px) {
-  .navlink::before {
-    left: 22%;
-    right: 22%;
-    top: -6px;
-    bottom: auto;
-    width: auto;
-    height: 3px;
-    border-radius: 0 0 4px 4px;
-    transform: scaleX(0);
-  }
-  .navlink.active::before {
-    transform: scaleX(1);
-  }
-  .navrail {
-    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(2px) scale(1.1);
   }
 }
 

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled, torrentEnabled } from './config/config.ts';
 import { createAccess } from './http/access-guard.ts';
+import { buildSinks } from './notify/sinks.ts';
 import { originAllowed, requestAllowed } from './http/security.ts';
 import { createStaticHandler } from './http/static.ts';
 import { searchRoutes } from './routes/search.ts';
@@ -69,6 +70,10 @@ app.get('/api/health', (c) =>
     openSubtitlesEnabled: openSubtitlesEnabled(),
     torrentEnabled: torrentEnabled(),
     telegramBotEnabled: telegramBotEnabled(),
+    // Só indicadores: as URLs e o token nunca saem do servidor. A tela Ajustes usa isto para mostrar o estado.
+    notifyEnabled: buildSinks(config.notify).length > 0,
+    notifyLeadDays: config.notify.leadDays,
+    accessEnabled: Boolean(config.access.token),
   }),
 );
 app.route('/api/search', searchRoutes);

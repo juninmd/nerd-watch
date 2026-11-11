@@ -8,6 +8,9 @@ const EXACT_LABELS: Record<string, string> = {
   '/stats': 'Estatísticas',
   '/telegram': 'Canais',
   '/connections': 'Conexões',
+  '/data': 'Importar e backup',
+  '/settings': 'Ajustes e avisos',
+  '/lists': 'Listas',
   '/public-domain': 'Domínio público',
   '/search': 'Busca',
 };

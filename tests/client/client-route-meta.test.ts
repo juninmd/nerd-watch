@@ -8,6 +8,8 @@ describe('routeTitle (aba e leitor de tela)', () => {
     expect(routeTitle('/library', q())).toBe('Biblioteca · nerd-watch');
     expect(routeTitle('/agenda', q())).toBe('Agenda · nerd-watch');
     expect(routeTitle('/connections', q())).toBe('Conexões · nerd-watch');
+    expect(routeTitle('/data', q())).toBe('Importar e backup · nerd-watch');
+    expect(routeTitle('/settings', q())).toBe('Ajustes e avisos · nerd-watch');
   });
 
   test('rotas antigas usam o mesmo nome da rota atual', () => {

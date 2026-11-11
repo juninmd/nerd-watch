@@ -193,7 +193,7 @@
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: rgba(18, 20, 31, 0.96);
+  background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
 }
 

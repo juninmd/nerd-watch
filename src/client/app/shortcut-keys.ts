@@ -1,5 +1,7 @@
+import { goKeys } from './nav-model.ts';
+
 /** Destinos do atalho "g + letra" (estilo GitHub). A paleta de comandos mostra as mesmas teclas. */
-export const GO_KEYS: Record<string, string> = { h: '/', b: '/library', t: '/telegram', a: '/agenda', e: '/stats', c: '/connections' };
+export const GO_KEYS: Record<string, string> = goKeys();
 
 /** Rótulo da paleta de comandos para a tela: ⌘K em Mac/iOS (onde o Ctrl não existe), Ctrl K no resto. */
 export const paletteKeyLabel = (platform: string): string => (/mac|iphone|ipad|ipod/i.test(platform) ? '⌘K' : 'Ctrl K');
@@ -8,6 +10,7 @@ export type KeyOutcome =
   | { kind: 'palette' }
   | { kind: 'help' }
   | { kind: 'spoilers' }
+  | { kind: 'theme' }
   | { kind: 'go'; path: string }
   | { kind: 'pending' }
   | { kind: 'none' };
@@ -29,6 +32,8 @@ export const resolveKey = (key: string, gPending: boolean, ctrlOrMeta = false): 
       return { kind: 'help' };
     case 's':
       return { kind: 'spoilers' };
+    case 'v':
+      return { kind: 'theme' };
     case 'g':
       return { kind: 'pending' };
     default:

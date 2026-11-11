@@ -232,7 +232,7 @@
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 11, 18, 0.35);
+  background: var(--scrim);
   font-size: 12px;
   font-weight: 700;
   color: var(--text);
