@@ -8,8 +8,12 @@ const AUTOPLAY_KEY = 'nw.player.autoplay';
 const ORDER_KEY = 'nw.player.order';
 
 /** Ordem em que o canal é listado e enfileirado: do mais recente ao mais antigo (padrão) ou o contrário. */
-export type QueueOrder = 'newest' | 'oldest';
-export const getQueueOrder = (): QueueOrder => (storage.getItem(ORDER_KEY) === 'oldest' ? 'oldest' : 'newest');
+export type QueueOrder = 'newest' | 'oldest' | 'name' | 'name-desc';
+const ORDERS: readonly string[] = ['newest', 'oldest', 'name', 'name-desc'];
+export const getQueueOrder = (): QueueOrder => {
+  const v = storage.getItem(ORDER_KEY);
+  return ORDERS.includes(v ?? '') ? (v as QueueOrder) : 'newest';
+};
 export const setQueueOrder = (order: QueueOrder): void => storage.setItem(ORDER_KEY, order);
 export const getAutoplay = (): boolean => storage.getItem(AUTOPLAY_KEY) !== '0';
 export const setAutoplay = (on: boolean): void => storage.setItem(AUTOPLAY_KEY, on ? '1' : '0');

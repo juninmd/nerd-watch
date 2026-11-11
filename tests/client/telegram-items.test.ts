@@ -93,3 +93,21 @@ describe('orderItems', () => {
     expect(items.map((i) => i.messageId)).toEqual(['20', '3', '100']);
   });
 });
+
+describe('orderItems por data e nome', () => {
+  const v = [
+    { messageId: '5', caption: 'Beta', postedAt: '2024-01-01T00:00:00Z' },
+    { messageId: '9', caption: 'álfa 10', postedAt: '2023-01-01T00:00:00Z' },
+    { messageId: '1', caption: 'álfa 2', postedAt: '2025-01-01T00:00:00Z' },
+  ];
+  test('data usa postedAt antes do id', () => {
+    expect(orderItems(v, 'newest').map((i) => i.messageId)).toEqual(['1', '5', '9']);
+  });
+  test('nome ignora acento e ordena números naturalmente', () => {
+    expect(orderItems(v, 'name').map((i) => i.caption)).toEqual(['álfa 2', 'álfa 10', 'Beta']);
+    expect(orderItems(v, 'name-desc').map((i) => i.caption)).toEqual(['Beta', 'álfa 10', 'álfa 2']);
+  });
+  test('sem legenda o título vem do nome do arquivo', () => {
+    expect(itemTitle({ messageId: '3', caption: null, fileName: 'Ep 01.mp4' })).toBe('Ep 01');
+  });
+});

@@ -19,6 +19,7 @@ import { showToast } from '../app/state.ts';
 import { canRefreshMode, handleLabel, MODE_INFO } from '../connections/source-modes.ts';
 import { filterItems, itemDescription, itemFileName, itemTitle, orderItems, watchPath } from './telegram-items.ts';
 import { formatDuration } from '../ui/time-format.ts';
+import { getListMode, setListMode } from './list-mode.ts';
 import { mediaUrl } from '../platform/tauri.ts';
 
 /** Quantos cards aparecem de cada vez: milhares de vídeos carregados não viram milhares de nós no DOM. */
@@ -27,12 +28,13 @@ const PAGE_SIZE = 60;
 /** Estado da lista que precisa sobreviver a um `reload()` (carregar mais antigos, buscar no Telegram…). */
 interface ListState {
   q: string;
+  list: boolean;
   shown: number;
 }
 
 export const renderTelegramChannel = (host: HTMLElement, titleId: string): void => {
   host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
-  const ui: ListState = { q: '', shown: PAGE_SIZE };
+  const ui: ListState = { q: '', list: getListMode(), shown: PAGE_SIZE };
 
   const load = () => {
     // Recalcula o vínculo automático com a biblioteca atual antes de mostrar a lista (idempotente, sem falhar a tela).
@@ -71,14 +73,14 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     </div>
     <div class="detail-grid">
       <div>
-        <div class="section-head"><h2>Vídeos</h2>${d.items.length > 1 ? `<select class="select" id="tg-order" aria-label="Ordem dos vídeos"><option value="newest"${order === 'newest' ? ' selected' : ''}>Mais recentes primeiro</option><option value="oldest"${order === 'oldest' ? ' selected' : ''}>Mais antigos primeiro</option></select>` : ''}${canRefreshMode(d.mode) ? `<button class="btn btn-ghost btn-sm" id="tg-refresh" type="button">${icon('download', 'sm')} atualizar</button>` : ''}</div>
+        <div class="section-head"><h2>Vídeos</h2>${d.items.length > 1 ? `<select class="select" id="tg-order" aria-label="Ordem dos vídeos"><option value="newest"${order === 'newest' ? ' selected' : ''}>Mais recentes primeiro</option><option value="oldest"${order === 'oldest' ? ' selected' : ''}>Mais antigos primeiro</option><option value="name"${order === 'name' ? ' selected' : ''}>Nome (A–Z)</option><option value="name-desc"${order === 'name-desc' ? ' selected' : ''}>Nome (Z–A)</option></select>` : ''}${d.items.length ? `<button class="btn btn-ghost btn-sm" id="tg-view" type="button" aria-pressed="${ui.list}">${ui.list ? 'ver em grade' : 'ver em lista'}</button>` : ''}${canRefreshMode(d.mode) ? `<button class="btn btn-ghost btn-sm" id="tg-refresh" type="button">${icon('download', 'sm')} atualizar</button>` : ''}</div>
         ${d.mode === 'bot' ? `<p class="hint">modo bot só recebe vídeos postados a partir de agora — sem histórico retroativo.</p>` : ''}
         ${d.items.some((i) => i.link?.status === 'suggested') ? `<div class="tg-links-bar" role="region" aria-label="Sugestões de vínculo"><span>${d.items.filter((i) => i.link?.status === 'suggested').length} sugestão(ões) de vínculo para confirmar</span><button class="btn btn-ghost btn-sm" id="tg-accept" type="button">aceitar sugestões</button></div>` : ''}
         <div class="tg-search">
           <input type="search" class="input input-pill" id="tg-q" placeholder="buscar no título e na descrição dos vídeos" autocomplete="off" aria-label="Buscar nos vídeos deste canal" value="${escapeHtml(ui.q)}" />
           <span class="hint" id="tg-count" role="status" aria-live="polite"></span>
         </div>
-        <div id="tg-items" class="grid"></div>
+        <div id="tg-items" class="${ui.list ? 'tg-list' : 'grid'}"></div>
         <div id="tg-empty"></div>
         <div id="tg-more" class="tg-more"></div>
       </div>
@@ -214,6 +216,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       card.setAttribute('role', 'button');
       card.setAttribute('aria-label', `reproduzir: ${itemTitle(item)}${resumeAt !== null ? ` (continuar de ${formatDuration(resumeAt)})` : ''}`);
       const fileName = itemFileName(item);
+      if (ui.list) card.classList.add('card-row');
       const description = itemDescription(item);
       card.innerHTML = `
         <div class="poster${item.thumbnailUrl ? '' : ' placeholder'}">
@@ -291,6 +294,11 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   });
   host.querySelector('#tg-order')?.addEventListener('change', (e) => {
     setQueueOrder((e.target as HTMLSelectElement).value as QueueOrder);
+    renderDetail(host, d, reload, ui);
+  });
+  host.querySelector('#tg-view')?.addEventListener('click', () => {
+    ui.list = !ui.list;
+    setListMode(ui.list);
     renderDetail(host, d, reload, ui);
   });
   renderItems();
