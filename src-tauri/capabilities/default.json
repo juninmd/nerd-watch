@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Janela principal criada em runtime; só as permissões de núcleo.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:app:default"]
 }

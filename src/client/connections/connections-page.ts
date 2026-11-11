@@ -7,6 +7,7 @@ import { mountTraktActions } from './trakt-actions.ts';
 import { listSources } from '../api/sources.ts';
 import { icon, type IconName } from '../ui/icons.ts';
 import { showToast } from '../app/state.ts';
+import { installedVersion, versionLabel } from '../platform/version.ts';
 
 interface Integration {
   title: string;
@@ -119,7 +120,17 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
       </section>
       <section class="conn-card" id="conn-library-io"></section>
     </div>
+    <p class="hint conn-version" id="conn-version" hidden></p>
   `;
+
+  // Desktop: mostra a versão instalada (a mesma que o auto-update compara). No navegador fica oculto.
+  const versionEl = host.querySelector('#conn-version') as HTMLElement;
+  void installedVersion().then((version) => {
+    const label = versionLabel(version);
+    if (!label) return;
+    versionEl.textContent = label;
+    versionEl.hidden = false;
+  });
 
   renderTelegramLogin(host.querySelector('#conn-telegram') as HTMLElement);
 

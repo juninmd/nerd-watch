@@ -18,6 +18,11 @@
   align-items: start;
 }
 
+.conn-version {
+  margin: 18px 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .conn-wide {
   grid-column: 1 / -1;
 }
