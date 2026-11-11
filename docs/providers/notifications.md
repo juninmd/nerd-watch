@@ -16,6 +16,8 @@ nem serviço próprio: você escolhe o destino no `.env`.
 | --- | --- | --- |
 | `NOTIFY_WEBHOOK_URL` | `http://` ou `https://` | ativa o sink de webhook |
 | `NOTIFY_NTFY_URL` | `http://` ou `https://` (ex.: `https://ntfy.sh/seu-topico`) | ativa o sink ntfy |
+| `NOTIFY_DISCORD_WEBHOOK_URL` | URL do webhook do canal Discord | ativa o sink Discord |
+| `NOTIFY_TELEGRAM_BOT_TOKEN` + `NOTIFY_TELEGRAM_CHAT_ID` | token do @BotFather e id do chat | ativa o sink Telegram (precisa dos dois) |
 | `NOTIFY_LEAD_DAYS` | inteiro de `0` a `7` | antecedência; valor inválido vira `0` |
 
 A URL costuma carregar um segredo (token no caminho ou na query, ou o nome do tópico). Trate-a como senha: ela não

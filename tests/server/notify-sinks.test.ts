@@ -149,3 +149,21 @@ describe('timeout por sink', () => {
     expect(await pending).toBeInstanceOf(Error);
   });
 });
+
+describe('buildSinks: Discord e Telegram', () => {
+  test('Discord envia content sem menções; Telegram exige token e chat', async () => {
+    const { calls, fetchImpl } = recordingFetch();
+    const sinks = buildSinks({
+      discordUrl: 'https://discord.example.test/api/webhooks/1/abc',
+      telegramBotToken: '123456:ABCdef_ghi',
+      telegramChatId: '42',
+      fetchImpl,
+    });
+    expect(sinks.map((s) => s.name)).toEqual(['discord', 'telegram']);
+    for (const s of sinks) await s.send(message, new AbortController().signal);
+    expect(JSON.parse(String(calls[0]?.init.body)).allowed_mentions).toEqual({ parse: [] });
+    expect(calls[1]?.url).toContain('/bot123456:ABCdef_ghi/sendMessage');
+    expect(JSON.parse(String(calls[1]?.init.body)).chat_id).toBe('42');
+    expect(buildSinks({ telegramBotToken: '123456:ABCdef_ghi' })).toEqual([]);
+  });
+});

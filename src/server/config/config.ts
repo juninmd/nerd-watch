@@ -97,6 +97,9 @@ export const config = {
   notify: {
     webhookUrl: parseHttpUrl(process.env.NOTIFY_WEBHOOK_URL),
     ntfyUrl: parseHttpUrl(process.env.NOTIFY_NTFY_URL),
+    discordUrl: parseHttpUrl(process.env.NOTIFY_DISCORD_WEBHOOK_URL),
+    telegramBotToken: process.env.NOTIFY_TELEGRAM_BOT_TOKEN?.trim() || undefined,
+    telegramChatId: process.env.NOTIFY_TELEGRAM_CHAT_ID?.trim() || undefined,
     leadDays: leadDaysEnv(process.env.NOTIFY_LEAD_DAYS),
   },
   dbPath: process.env.DB_PATH ?? 'data/nerd-watch.db',
