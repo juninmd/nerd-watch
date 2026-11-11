@@ -61,3 +61,25 @@ describe('contraste do texto branco sobre o gradiente primário', () => {
     for (const stop of stops) expect(contrastRatio('#ffffff', stop)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 });
+
+describe('tema claro', () => {
+  const light = tokens.match(/:root\[data-theme="light"\]\s*\{([^}]*)\}/)?.[1] ?? '';
+  const lightToken = (name: string): string => {
+    const m = light.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})\\s*;`));
+    if (!m?.[1]) throw new Error(`token --${name} não encontrado no tema claro`);
+    return m[1];
+  };
+  const lightSurfaces = ['bg', 'surface', 'surface-2', 'surface-hover'].map(lightToken);
+
+  for (const name of ['text', 'text-dim', 'text-faint', 'link', 'danger', 'warning', 'signal']) {
+    test(`--${name} tem 4.5:1 em todas as superfícies claras`, () => {
+      for (const bg of lightSurfaces) expect(contrastRatio(lightToken(name), bg)).toBeGreaterThanOrEqual(AA_NORMAL);
+    });
+  }
+
+  test('botões e chips ativos: branco sobre o gradiente claro tem 4.5:1', () => {
+    const stops = light.match(/--gradient:\s*linear-gradient\([^)]*\);/)?.[0].match(/#[0-9a-fA-F]{6}/g) ?? [];
+    expect(stops.length).toBeGreaterThanOrEqual(2);
+    for (const stop of stops) expect(contrastRatio('#ffffff', stop)).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+});

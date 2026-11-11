@@ -78,7 +78,7 @@
   place-items: center;
   border-radius: 10px;
   background: var(--surface-2);
-  color: #a996ff;
+  color: var(--link);
 }
 
 .pal-txt {

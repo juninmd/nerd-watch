@@ -51,7 +51,7 @@ video::cue {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: rgba(14, 16, 26, 0.97);
+  background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
   color: var(--text);
   font-size: 13px;

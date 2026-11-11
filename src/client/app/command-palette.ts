@@ -4,6 +4,7 @@ import { icon } from '../ui/icons.ts';
 import { filterEntries, type PaletteEntry } from './palette-search.ts';
 import { openPickDialog } from '../library/pick-dialog.ts';
 import { navigate } from './router.ts';
+import { getThemePref, nextThemePref, setThemePref } from './theme.ts';
 import { handleLabel } from '../connections/source-modes.ts';
 import { libraryItemPath } from '../ui/title-link.ts';
 import { escapeHtml } from '../ui/card.ts';
@@ -16,14 +17,17 @@ const staticActions = (): PaletteEntry[] => [
   { id: 'go-home', group: 'Ações', title: 'Ir para o Início', keys: 'g h', run: () => navigate('/') },
   { id: 'go-library', group: 'Ações', title: 'Ir para a Biblioteca', keys: 'g b', run: () => navigate('/library') },
   { id: 'go-telegram', group: 'Ações', title: 'Ir para o Telegram', keys: 'g t', run: () => navigate('/telegram') },
-  { id: 'go-lists', group: 'Ações', title: 'Ir para as Listas', run: () => navigate('/lists') },
-  { id: 'go-stats', group: 'Ações', title: 'Ir para as Estatísticas', keys: 'g e', run: () => navigate('/estatisticas') },
+  { id: 'go-lists', group: 'Ações', title: 'Ir para as Listas', keys: 'g l', run: () => navigate('/lists') },
+  { id: 'go-stats', group: 'Ações', title: 'Ir para as Estatísticas', keys: 'g e', run: () => navigate('/stats') },
   { id: 'go-agenda', group: 'Ações', title: 'Ir para a Agenda', keys: 'g a', run: () => navigate('/agenda') },
   { id: 'go-connections', group: 'Ações', title: 'Ir para as Conexões', keys: 'g c', run: () => navigate('/connections') },
-  { id: 'go-pd', group: 'Ações', title: 'Explorar o domínio público', run: () => navigate('/public-domain') },
   { id: 'pick', group: 'Ações', title: 'O que assistir hoje (sorteio)', run: () => openPickDialog() },
   { id: 'telegram-import', group: 'Ações', title: 'Importar meus canais do Telegram', run: () => navigate('/telegram?import=1') },
-  { id: 'backup', group: 'Ações', title: 'Exportar ou importar backup', run: () => navigate('/connections?focus=backup') },
+  { id: 'go-search', group: 'Ações', title: 'Buscar títulos no catálogo', keys: 'g s', run: () => navigate('/search') },
+  { id: 'go-pd', group: 'Ações', title: 'Explorar o domínio público', keys: 'g p', run: () => navigate('/public-domain') },
+  { id: 'backup', group: 'Ações', title: 'Exportar ou importar backup', keys: 'g d', run: () => navigate('/data?focus=backup') },
+  { id: 'go-settings', group: 'Ações', title: 'Ajustes e avisos', keys: 'g j', run: () => navigate('/settings') },
+  { id: 'theme', group: 'Ações', title: 'Alternar tema (escuro, claro, sistema)', run: () => setThemePref(nextThemePref(getThemePref())) },
 ];
 
 let dataPromise: Promise<PaletteEntry[]> | null = null;

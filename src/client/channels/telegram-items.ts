@@ -5,7 +5,7 @@ import type { DockItem } from '../player/player-dock.ts';
  * Telegram não tem campo de título — usa a 1ª linha da legenda como título e o resto como descrição.
  * Sem corte: a tela do canal e a de reprodução mostram a mensagem inteira (o layout quebra a linha).
  */
-export const itemTitle = (item: Pick<TelegramItemDto, 'caption' | 'messageId'> & { fileName?: string | null }): string => {
+export const itemTitle = (item: { caption?: string | null; messageId: string } & { fileName?: string | null }): string => {
   const firstLine = item.caption?.split('\n').find((l) => l.trim().length > 0);
   if (firstLine) return firstLine.trim();
   // Sem legenda: o nome do arquivo (sem extensão) é melhor título que o id da mensagem.

@@ -1,6 +1,6 @@
 /**
  * Tabela de rotas do app. Cada tela é um chunk separado, baixado só quando a rota abre (`import()`), então a
- * primeira carga traz a casca e a tela pedida, não as 13 telas. Para criar uma tela: escreva
+ * primeira carga traz a casca e a tela pedida, não as 15 telas. Para criar uma tela: escreva
  * `src/client/<feature>/<nome>-page.ts` exportando `render...` e acrescente uma linha em `PAGES` e em `ROUTES`.
  *
  * Sem DOM neste módulo: `resolveRoute` é testável direto (tests/client/routes.test.ts).
@@ -25,6 +25,8 @@ const PAGES = {
   channel: () => import('../channels/channel-page.ts'),
   watch: () => import('../player/watch-page.ts'),
   connections: () => import('../connections/connections-page.ts'),
+  data: () => import('../connections/data-page.ts'),
+  settings: () => import('./settings-page.ts'),
 } as const;
 
 export type RouteId = keyof typeof PAGES;
@@ -87,6 +89,8 @@ export const ROUTES: readonly RouteDef[] = [
     },
   },
   { id: 'connections', pattern: /^\/connections$/, open: async () => (await PAGES.connections()).renderConnections },
+  { id: 'data', pattern: /^\/data$/, open: async () => (await PAGES.data()).renderData },
+  { id: 'settings', pattern: /^\/settings$/, open: async () => (await PAGES.settings()).renderSettings },
 ];
 
 /** Rotas antigas continuam funcionando (favoritos e links salvos). */

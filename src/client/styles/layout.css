@@ -39,30 +39,42 @@ kbd {
 
 .shell {
   display: grid;
-  grid-template-columns: 88px 1fr;
+  grid-template-columns: var(--sidebar-w) 1fr;
   min-height: 100vh;
 }
 
-/* Menu lateral compacto: ícone + rótulo curto sempre visíveis; no mobile vira a barra inferior. */
+/* Menu lateral vertical: marca, quatro grupos por intenção (Assistir, Descobrir, Fontes, Conta e dados) e rodapé. */
 .navrail {
   position: sticky;
   top: 0;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 6px;
-  padding: 18px 10px;
+  padding: 18px 12px 14px;
+  overflow-y: auto;
   border-right: 1px solid var(--border-soft);
-  background: rgba(18, 20, 31, 0.55);
+  background: var(--glass);
   backdrop-filter: blur(14px);
 }
 
+.side-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 8px 16px;
+}
+
+.brand-name {
+  font: 800 18px var(--font-display);
+  letter-spacing: -0.02em;
+}
+
 .brand {
-  width: 44px;
-  height: 44px;
-  margin-bottom: 14px;
-  border-radius: 14px;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 12px;
   background: var(--gradient);
   display: grid;
   place-items: center;
@@ -70,20 +82,43 @@ kbd {
   box-shadow: 0 8px 22px -6px rgba(255, 61, 110, 0.55);
 }
 
-.navlink {
-  position: relative;
-  width: 100%;
-  min-height: 56px;
+.nav {
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-label {
+  padding: 0 12px 6px;
+  font: 700 10.5px var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.navlink {
+  position: relative;
+  min-height: 40px;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 700;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text-dim);
-  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.navlink .i {
+  width: 18px;
+  height: 18px;
 }
 
 @media (hover: hover) {
@@ -95,8 +130,46 @@ kbd {
 
 .navlink.active {
   color: var(--text);
-  background: linear-gradient(180deg, rgba(255, 61, 110, 0.18), rgba(124, 92, 255, 0.1));
-  box-shadow: inset 2px 0 0 var(--accent);
+  background: var(--gradient-soft);
+}
+
+.side-foot {
+  margin-top: auto;
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.side-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.side-btn kbd {
+  margin-left: auto;
+}
+
+@media (hover: hover) {
+  .side-btn:hover {
+    border-color: var(--accent-2);
+    color: var(--text);
+  }
+}
+
+.menu-btn,
+.drawer-scrim {
+  display: none;
 }
 
 .main {
@@ -114,7 +187,7 @@ kbd {
   gap: 12px;
   margin: 0 calc(-1 * clamp(16px, 2.6vw, 36px)) 28px;
   padding: 14px clamp(16px, 2.6vw, 36px);
-  background: rgba(10, 11, 18, 0.72);
+  background: var(--topbar-bg);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border-soft);
 }
@@ -238,7 +311,7 @@ kbd {
 }
 
 .section-head a {
-  color: #a996ff;
+  color: var(--link);
 }
 
 .rail {
@@ -266,33 +339,47 @@ kbd {
   .shell {
     grid-template-columns: 1fr;
   }
+  /* Celular: o mesmo menu vertical vira uma gaveta que desliza da esquerda (sai do foco quando fechada). */
   .navrail {
     position: fixed;
-    z-index: 40;
-    inset: auto 0 0 0;
-    height: auto;
-    flex-direction: row;
-    justify-content: space-around;
-    padding: 6px 8px;
-    border-right: none;
-    border-top: 1px solid var(--border-soft);
-    background: rgba(14, 16, 26, 0.92);
+    z-index: 60;
+    inset: 0 auto 0 0;
+    width: min(84vw, 300px);
+    height: 100dvh;
+    background: var(--glass-strong);
+    box-shadow: var(--shadow-pop);
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform var(--dur) var(--ease), visibility 0s linear var(--dur);
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   }
-  .brand {
-    display: none;
+  .navrail.is-open {
+    transform: none;
+    visibility: visible;
+    transition: transform var(--dur) var(--ease), visibility 0s;
   }
-  .navlink {
-    flex: 1;
-    min-width: 0;
-    min-height: 52px;
-    padding: 6px 2px;
-    font-size: 10px;
+  .drawer-scrim:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: var(--scrim);
+    backdrop-filter: blur(3px);
+    animation: fade-in var(--dur) var(--ease);
   }
-  .navlink .label {
-    max-width: 100%;
+  body.drawer-open {
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+  .menu-btn {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
   }
   .topbar {
     flex-wrap: nowrap;
@@ -310,7 +397,13 @@ kbd {
     padding: 11px 13px;
   }
   .main {
-    padding-bottom: 96px;
+    padding-bottom: 48px;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
   }
 }
 
@@ -330,7 +423,7 @@ kbd {
   height: 40px;
   border-radius: 50%;
   border: 1px solid var(--border);
-  background: rgba(18, 20, 31, 0.88);
+  background: var(--glass-strong);
   color: var(--text);
   backdrop-filter: blur(6px);
   cursor: pointer;

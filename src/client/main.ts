@@ -3,7 +3,7 @@ import { escapeHtml } from './ui/card.ts';
 import { installCardTilt, swapView } from './ui/effects.ts';
 import { openCommandPalette } from './app/command-palette.ts';
 import { releaseTorrentPlayers } from './player/torrent-player.ts';
-import { icon, type IconName } from './ui/icons.ts';
+import { icon } from './ui/icons.ts';
 import { paletteKeyLabel } from './app/shortcut-keys.ts';
 import { onRouteChange, type Route } from './app/router.ts';
 import { canonicalPath, preloadPages, resolveRoute } from './app/routes.ts';
@@ -11,10 +11,17 @@ import { routeLabel, routeTitle } from './app/route-meta.ts';
 import { isRevisit, readScroll, restoreWhenRendered, stampRoute, writeScroll } from './app/scroll-memory.ts';
 import { mountPlayerDock, parkPlayer, stopIfOnPage } from './player/player-dock.ts';
 import { installShortcuts } from './app/shortcuts.ts';
+import { NAV_GROUPS, isNavActive } from './app/nav-model.ts';
+import { getThemePref, installTheme, nextThemePref, onThemeChange, setThemePref, THEME_LABEL } from './app/theme.ts';
+import { logout } from './app/logout.ts';
+import { health } from './api/index.ts';
 import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './app/state.ts';
 import { withLoginRedirect } from './app/auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
 import { installDesktopBridge } from './platform/tauri.ts';
+
+// Tema antes de tudo: sem clarão do tema errado na primeira pintura.
+installTheme();
 
 // Desktop: frontend embutido, `/api` por IPC e links no navegador. No navegador não faz nada.
 installDesktopBridge();
@@ -24,25 +31,24 @@ globalThis.fetch = withLoginRedirect(globalThis.fetch.bind(globalThis), location
   location.replace(href),
 ) as typeof fetch;
 
-const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
-  { path: '/', label: 'Início', icon: 'home' },
-  { path: '/search', label: 'Buscar', icon: 'search' },
-  { path: '/library', label: 'Biblioteca', icon: 'library' },
-  { path: '/telegram', label: 'Canais', icon: 'send' },
-  { path: '/agenda', label: 'Agenda', icon: 'calendar' },
-  { path: '/stats', label: 'Estatísticas', icon: 'chart' },
-  { path: '/connections', label: 'Conexões', icon: 'sliders' },
-];
-
 const app = document.getElementById('app');
 if (!app) throw new Error('#app não encontrado');
 
 app.innerHTML = `
   <a class="skip" href="#view">pular para o conteúdo</a>
   <div class="shell">
-    <nav class="navrail" id="nav" aria-label="principal"></nav>
+    <aside class="navrail" id="sidebar" aria-label="menu lateral">
+      <div class="side-brand"><span class="brand" aria-hidden="true">${icon('film')}</span><span class="brand-name">nerd-watch</span></div>
+      <nav class="nav" id="nav" aria-label="principal"></nav>
+      <div class="side-foot">
+        <button class="side-btn" id="theme-toggle" type="button"></button>
+        <button class="side-btn" id="logout-btn" type="button" hidden>${icon('logout', 'sm')}<span>Sair</span></button>
+      </div>
+    </aside>
+    <div class="drawer-scrim" id="scrim" hidden></div>
     <div class="main">
       <header class="topbar">
+        <button class="menu-btn" id="menu-open" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="Abrir menu">${icon('menu')}</button>
         <button class="cmd" id="cmd-open" type="button" aria-haspopup="dialog">
           ${icon('search')}<span class="cmd-text">Buscar títulos, canais e ações…</span><kbd>${paletteKeyLabel(navigator.platform)}</kbd>
         </button>
@@ -61,24 +67,65 @@ const viewEl = document.getElementById('view') as HTMLElement;
 const spoilerBtn = document.getElementById('spoiler-toggle') as HTMLButtonElement;
 const connPill = document.getElementById('conn-pill') as HTMLAnchorElement;
 
-const isActive = (item: { path: string }, activePath: string): boolean => {
-  if (item.path === '/') return activePath === '/';
-  if (item.path === '/library') return activePath.startsWith('/library') || activePath.startsWith('/title/') || activePath.startsWith('/lists');
-  if (item.path === '/telegram') return activePath.startsWith('/telegram') || activePath.startsWith('/watch');
-  return activePath.startsWith(item.path);
+const sidebarEl = document.getElementById('sidebar') as HTMLElement;
+const scrimEl = document.getElementById('scrim') as HTMLElement;
+const menuBtn = document.getElementById('menu-open') as HTMLButtonElement;
+
+/** Gaveta no celular: o mesmo menu vertical desliza da esquerda. No desktop o botão some e a gaveta nunca "abre". */
+const setDrawer = (open: boolean): void => {
+  sidebarEl.classList.toggle('is-open', open);
+  scrimEl.hidden = !open;
+  menuBtn.setAttribute('aria-expanded', String(open));
+  document.body.classList.toggle('drawer-open', open);
 };
+menuBtn.addEventListener('click', () => setDrawer(!sidebarEl.classList.contains('is-open')));
+scrimEl.addEventListener('click', () => setDrawer(false));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && sidebarEl.classList.contains('is-open')) setDrawer(false);
+});
 
 const renderNav = (activePath: string) => {
-  navEl.innerHTML = `<div class="brand" aria-hidden="true">${icon('film')}</div>`;
-  for (const item of NAV_ITEMS) {
-    const a = document.createElement('a');
-    a.href = `#${item.path}`;
-    a.className = `navlink${isActive(item, activePath) ? ' active' : ''}`;
-    if (isActive(item, activePath)) a.setAttribute('aria-current', 'page');
-    a.innerHTML = `${icon(item.icon)}<span class="label">${item.label}</span>`;
-    navEl.appendChild(a);
+  navEl.replaceChildren();
+  for (const group of NAV_GROUPS) {
+    const section = document.createElement('div');
+    section.className = 'nav-group';
+    section.setAttribute('role', 'group');
+    section.setAttribute('aria-label', group.label);
+    section.innerHTML = `<div class="nav-label" aria-hidden="true">${group.label}</div>`;
+    for (const item of group.items) {
+      const a = document.createElement('a');
+      a.href = `#${item.path}`;
+      const active = isNavActive(item, activePath);
+      a.className = `navlink${active ? ' active' : ''}`;
+      if (active) a.setAttribute('aria-current', 'page');
+      a.title = `${item.label} (g ${item.key})`;
+      a.innerHTML = `${icon(item.icon)}<span class="label">${item.label}</span>`;
+      a.addEventListener('click', () => setDrawer(false));
+      section.appendChild(a);
+    }
+    navEl.appendChild(section);
   }
 };
+
+const themeBtn = document.getElementById('theme-toggle') as HTMLButtonElement;
+const THEME_ICON = { dark: 'moon', light: 'sun', system: 'monitor' } as const;
+const renderThemeButton = () => {
+  const pref = getThemePref();
+  themeBtn.setAttribute('aria-label', `Tema: ${THEME_LABEL[pref]}. Alternar tema`);
+  themeBtn.innerHTML = `${icon(THEME_ICON[pref], 'sm')}<span>Tema: ${THEME_LABEL[pref]}</span><kbd>v</kbd>`;
+};
+themeBtn.addEventListener('click', () => setThemePref(nextThemePref(getThemePref())));
+onThemeChange(renderThemeButton);
+renderThemeButton();
+
+// "Sair" só aparece quando o servidor exige token (sem token não há sessão para encerrar).
+const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
+logoutBtn.addEventListener('click', () => void logout());
+void health()
+  .then((h) => {
+    logoutBtn.hidden = !h.accessEnabled;
+  })
+  .catch(() => undefined);
 
 const renderSpoilerButton = () => {
   const on = getShowSpoilers();
@@ -142,6 +189,7 @@ const renderLoadError = (host: HTMLElement): void => {
 
 const dispatch = async (route: Route, key: string, revisit: boolean): Promise<void> => {
   const seq = ++navSeq;
+  setDrawer(false);
   const path = canonicalPath(route.path);
   const match = resolveRoute(path);
   // Fecha torrents (e mata os pollers) da tela anterior antes de trocar de view.

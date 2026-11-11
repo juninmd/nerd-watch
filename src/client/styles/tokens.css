@@ -32,8 +32,72 @@
   --shadow-card: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
   --shadow-pop: 0 20px 50px -12px rgba(0, 0, 0, 0.65);
 
+  /* Cor com função: coral = ação, ciano = progresso, dourado = nota. Nunca decoração. */
+  --signal: #3fe3d3;
+  --gold: #f5b73d;
+  --link: #a996ff;
+
+  /* Vidro (menu, barra superior, controles flutuantes) e véus sobre imagem. */
+  --glass: rgba(18, 20, 31, 0.55);
+  --glass-strong: rgba(18, 20, 31, 0.92);
+  --topbar-bg: rgba(10, 11, 18, 0.72);
+  --scrim: rgba(5, 4, 15, 0.55);
+  --hero-fade: 10, 11, 18;
+
+  --radius-xl: 22px;
+
+  /* Tipografia: sem fonte externa (app local-first, PWA offline). Display compacto e pesado nos títulos. */
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI Variable Display", "SF Pro Display", var(--font);
+  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  /* Movimento: uma curva e três durações, usadas por todas as telas. */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 0.15s;
+  --dur: 0.3s;
+  --dur-slow: 0.55s;
+
+  --sidebar-w: 248px;
+}
+
+/* Tema claro completo ("lilás névoa"). `theme.ts` grava data-theme="dark|light" no <html>; sem JS fica o escuro. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #eeedf6;
+  --bg-soft: radial-gradient(1200px 600px at 15% -10%, rgba(124, 92, 255, 0.14), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(228, 40, 79, 0.1), transparent 55%), #eeedf6;
+  --surface: #ffffff;
+  --surface-2: #e4e2f0;
+  --surface-hover: #d9d6ea;
+  --border: #cfcce2;
+  --border-soft: #e0deee;
+
+  --text: #14122b;
+  --text-dim: #4a4770;
+  --text-faint: #5c5980;
+
+  --accent: #e4284f;
+  --accent-2: #5b3fd9;
+  --gradient: linear-gradient(135deg, #c81e45 0%, #5b3fd9 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(228, 40, 79, 0.14), rgba(91, 63, 217, 0.14));
+
+  --success: #0a7a55;
+  --warning: #7a4f08;
+  --danger: #b42318;
+  --info: #1d5fbf;
+  --signal: #08665e;
+  --gold: #7a4f08;
+  --link: #5b3fd9;
+
+  --shadow-card: 0 8px 24px -10px rgba(40, 30, 90, 0.28);
+  --shadow-pop: 0 20px 50px -14px rgba(40, 30, 90, 0.35);
+
+  --glass: rgba(255, 255, 255, 0.7);
+  --glass-strong: rgba(255, 255, 255, 0.94);
+  --topbar-bg: rgba(238, 237, 246, 0.78);
+  --scrim: rgba(20, 18, 43, 0.35);
+  --hero-fade: 238, 237, 246;
 }
 
 * {
@@ -58,6 +122,13 @@ body {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 
 a {
@@ -111,6 +182,12 @@ img {
     --border: #5b6186;
     --text-dim: #c4c9de;
     --text-faint: #b3b9d1;
+  }
+
+  :root[data-theme="light"] {
+    --border: #6a668f;
+    --text-dim: #2c2950;
+    --text-faint: #3a3760;
   }
 }
 
