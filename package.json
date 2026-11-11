@@ -19,10 +19,11 @@
     "seed": "bun run src/server/db/seed.ts",
     "telegram:login": "bun run scripts/telegram-login.ts",
     "build:server": "bun run scripts/build-server.ts",
-    "desktop:dev": "bun run build:server && tauri dev",
+    "desktop:dev": "bun run build:client && bun run build:server && tauri dev",
     "desktop:build": "bun run build:client && bun run build:server && tauri build"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
     "hono": "^4.6.14",
     "parse-torrent": "^11.0.24",
     "qrcode": "^1.5.4",

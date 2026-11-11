@@ -34,7 +34,7 @@ const outfile = `${outdir}/nerd-watch-server-${triple}${process.platform === 'wi
 mkdirSync(outdir, { recursive: true });
 
 const result = await Bun.build({
-  entrypoints: [`${ROOT}src/server/index.ts`],
+  entrypoints: [`${ROOT}src/server/worker.ts`],
   target: 'bun',
   minify: true,
   plugins: [

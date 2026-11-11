@@ -1,221 +1,210 @@
-// Shell desktop do nerd-watch: o app continua sendo o servidor Bun/Hono local.
-// Esta camada só sobe `bun src/server/index.ts`, espera o /api/health e aponta a janela
-// nativa (WebView2) para o loopback. Assim o front, o SQLite e os providers não mudam.
+// Shell desktop do nerd-watch.
+//
+// O cliente vai embutido (`frontendDist`), como no canto-widget: a janela abre em
+// `tauri://localhost/index.html` e não existe página servida por HTTP. As chamadas `/api/*` do
+// cliente são interceptadas e viram IPC (`api_request`) para um worker Bun por stdin/stdout.
+// Só o streaming de bytes (vídeo, torrent, legenda) usa um loopback interno, porque `<video>` e
+// `Range` não cabem no protocolo de IPC.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
-use std::io::Write;
-use std::net::{TcpListener, TcpStream};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{self, Sender};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_updater::UpdaterExt;
 
-/// Handle do servidor Bun para derrubar no exit (sem isso, fechar a janela deixa o processo vivo).
-struct ServerProcess(Mutex<Option<Child>>);
-
-/// Como o servidor é iniciado. O modo instalado usa o sidecar compilado (sem Bun, sem
-/// `node_modules`); dev e `NERD_WATCH_DIR` continuam rodando o TypeScript direto com `bun`.
-enum Server {
-    /// Executável ao lado do app (recurso `externalBin` do Tauri).
-    Sidecar(PathBuf),
-    /// Repositório + `bun src/server/index.ts`.
-    Script(PathBuf),
+/// Resposta de `/api/*` vinda do worker.
+#[derive(serde::Deserialize, serde::Serialize)]
+struct Reply {
+    status: u16,
+    headers: HashMap<String, String>,
+    body: String,
 }
 
-fn resolve_server() -> Option<Server> {
-    if let Some(dir) = std::env::var_os("NERD_WATCH_DIR") {
-        return Some(Server::Script(PathBuf::from(dir)));
-    }
-    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
-    let sidecar = exe_dir.join("nerd-watch-server.exe");
-    if sidecar.exists() {
-        return Some(Server::Sidecar(exe_dir));
-    }
-    let dev = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."));
-    Some(Server::Script(dev)).filter(|server| match server {
-        Server::Script(dir) => dir.join("package.json").exists(),
-        Server::Sidecar(_) => true,
-    })
+/// Processo Bun que responde pelo app. Vive enquanto a janela viver.
+struct Worker {
+    stdin: Mutex<ChildStdin>,
+    pending: Arc<Mutex<HashMap<u64, Sender<Reply>>>>,
+    next_id: AtomicU64,
+    media_base: String,
+    child: Mutex<Option<Child>>,
 }
 
-fn preferred_port() -> u16 {
-    std::env::var("NERD_WATCH_PORT")
-        .or_else(|_| std::env::var("PORT"))
-        .ok()
-        .and_then(|raw| raw.trim().parse::<u16>().ok())
-        .unwrap_or(7799)
-}
+impl Worker {
+    /// Sobe o sidecar (instalado) ou `bun src/server/worker.ts` (dev) e espera o `ready`.
+    fn spawn() -> Result<Worker, String> {
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(Path::to_path_buf))
+            .ok_or_else(|| "não achei a pasta do executável".to_string())?;
+        let sidecar = exe_dir.join("nerd-watch-server.exe");
+        let dev_dir = std::env::var_os("NERD_WATCH_DIR")
+            .map(PathBuf::from)
+            .or_else(|| {
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .parent()
+                    .map(Path::to_path_buf)
+            });
 
-fn port_free(port: u16) -> bool {
-    TcpListener::bind(("127.0.0.1", port)).is_ok()
-}
+        let mut command = if sidecar.exists() {
+            let mut cmd = Command::new(&sidecar);
+            cmd.current_dir(&exe_dir);
+            cmd
+        } else {
+            let dir = dev_dir
+                .filter(|dir| dir.join("package.json").exists())
+                .ok_or_else(|| {
+                    "não achei o servidor: instale o app ou defina NERD_WATCH_DIR".to_string()
+                })?;
+            let mut cmd = Command::new("bun");
+            cmd.arg("src/server/worker.ts").current_dir(&dir);
+            cmd
+        };
 
-/// Porta livre: se a preferida estiver ocupada (outra instância, outro app), o SO escolhe uma.
-fn pick_port(preferred: u16) -> u16 {
-    if port_free(preferred) {
-        return preferred;
-    }
-    TcpListener::bind(("127.0.0.1", 0))
-        .ok()
-        .and_then(|listener| listener.local_addr().ok())
-        .map(|addr| addr.port())
-        .unwrap_or(preferred)
-}
-
-fn wait_health(port: u16, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
-    while Instant::now() < deadline {
-        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
-            return true;
-        }
-        std::thread::sleep(Duration::from_millis(200));
-    }
-    false
-}
-
-fn open_log(dir: &Path) -> Option<File> {
-    let path = dir.join(".cache").join("desktop.log");
-    std::fs::create_dir_all(path.parent()?).ok()?;
-    File::create(path).ok()
-}
-
-/// Primeira execução sem `public/`: o servidor sobe, mas as telas vêm do bundle do cliente.
-fn build_client(dir: &Path) -> bool {
-    Command::new("bun")
-        .args(["run", "build:client"])
-        .current_dir(dir)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
-}
-
-/// Escapa o mínimo para embutir a mensagem num literal JS (aspas, barras e quebras).
-fn js_escape(raw: &str) -> String {
-    let mut out = String::with_capacity(raw.len());
-    for ch in raw.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' | '\r' => out.push(' '),
-            _ => out.push(ch),
-        }
-    }
-    out
-}
-
-fn show_error(app: &AppHandle, message: &str) {
-    if let Some(window) = app.get_webview_window("main") {
-        let quoted = js_escape(message);
-        let _ = window.eval(&format!("window.nerdWatchError(\"{quoted}\")"));
-    }
-}
-
-fn start_server_then_load(app: AppHandle) {
-    let server = match resolve_server() {
-        Some(server) => server,
-        None => {
-            show_error(&app, "não achei o servidor: defina NERD_WATCH_DIR apontando para o repositório");
-            return;
-        }
-    };
-    let dir = match &server {
-        Server::Sidecar(dir) => dir.clone(),
-        Server::Script(dir) => dir.clone(),
-    };
-
-    let log = open_log(&dir);
-    let port = pick_port(preferred_port());
-    let mut command = match &server {
-        // Sidecar: executável único, sem Bun e sem node_modules na máquina.
-        Server::Sidecar(_) => Command::new(dir.join("nerd-watch-server.exe")),
-        Server::Script(repo) => {
-            if !repo.join("public").join("index.html").exists() && !build_client(repo) {
-                show_error(&app, "falha no build do cliente (bun run build:client)");
-                return;
+        let log = open_log(&exe_dir);
+        command.stdin(Stdio::piped()).stdout(Stdio::piped());
+        match &log {
+            Some(file) => {
+                command.stderr(Stdio::from(file.try_clone().map_err(|e| e.to_string())?));
             }
-            let mut bun = Command::new("bun");
-            bun.arg("src/server/index.ts");
-            bun
+            None => {
+                command.stderr(Stdio::null());
+            }
         }
-    };
-    command
-        .current_dir(&dir)
-        .env("PORT", port.to_string())
-        .stdin(Stdio::null());
 
-    // O instalador é substituído pelo auto-update: lista, progresso e torrents ficam no diretório
-    // de dados do usuário. O cliente é recurso da instalação (`_up_/public`, layout do Tauri).
-    if matches!(server, Server::Sidecar(_)) {
-        if let Ok(data) = app.path().app_local_data_dir() {
-            let _ = std::fs::create_dir_all(&data);
-            command.env("DB_PATH", data.join("nerd-watch.db"));
-            command.env("TORRENT_PATH", data.join("torrents"));
-        }
-        if let Ok(resources) = app.path().resource_dir() {
-            for base in [resources.clone(), resources.join("_up_")] {
-                if base.join("public").join("index.html").exists() {
-                    command.env("PUBLIC_DIR", base.join("public"));
-                    break;
+        let mut child = command
+            .spawn()
+            .map_err(|err| format!("não consegui iniciar o servidor ({err})"))?;
+        let stdin = child.stdin.take().ok_or("sem stdin do worker")?;
+        let stdout = child.stdout.take().ok_or("sem stdout do worker")?;
+
+        let pending: Arc<Mutex<HashMap<u64, Sender<Reply>>>> = Arc::new(Mutex::new(HashMap::new()));
+        let pending_reader = Arc::clone(&pending);
+        let (ready_tx, ready_rx) = mpsc::channel::<String>();
+        std::thread::spawn(move || {
+            let mut ready_sent = false;
+            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) {
+                    if value.get("type").and_then(|t| t.as_str()) == Some("ready") {
+                        let base = value
+                            .get("mediaBase")
+                            .and_then(|b| b.as_str())
+                            .unwrap_or_default()
+                            .to_string();
+                        let _ = ready_tx.send(base);
+                        ready_sent = true;
+                        continue;
+                    }
+                    if let Some(id) = value.get("id").and_then(|id| id.as_u64()) {
+                        if let Ok(reply) = serde_json::from_value::<Reply>(value) {
+                            if let Some(tx) = pending_reader
+                                .lock()
+                                .ok()
+                                .and_then(|mut map| map.remove(&id))
+                            {
+                                let _ = tx.send(reply);
+                            }
+                        }
+                    }
                 }
             }
+            if !ready_sent {
+                let _ = ready_tx.send(String::new());
+            }
+        });
+
+        let media_base = ready_rx
+            .recv_timeout(Duration::from_secs(30))
+            .map_err(|_| "o servidor embutido não respondeu em 30s".to_string())?;
+        if media_base.is_empty() {
+            let _ = child.kill();
+            return Err("o servidor embutido subiu sem endereço de mídia".to_string());
         }
+
+        Ok(Worker {
+            stdin: Mutex::new(stdin),
+            pending,
+            next_id: AtomicU64::new(1),
+            media_base,
+            child: Mutex::new(Some(child)),
+        })
     }
 
-    match &log {
-        // No app empacotado não existe console: a saída do servidor vai para .cache/desktop.log.
-        Some(file) => {
-            command.stdout(Stdio::from(file.try_clone().expect("clone do log")));
-            command.stderr(Stdio::from(file.try_clone().expect("clone do log")));
+    fn call(
+        &self,
+        method: &str,
+        path: &str,
+        headers: HashMap<String, String>,
+        body: Option<String>,
+    ) -> Result<Reply, String> {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let (tx, rx) = mpsc::channel();
+        self.pending
+            .lock()
+            .map_err(|e| e.to_string())?
+            .insert(id, tx);
+
+        let message = serde_json::json!({ "id": id, "method": method, "path": path, "headers": headers, "body": body });
+        {
+            let mut stdin = self.stdin.lock().map_err(|e| e.to_string())?;
+            writeln!(stdin, "{message}")
+                .map_err(|err| format!("worker fechou a entrada: {err}"))?;
+            stdin.flush().map_err(|err| err.to_string())?;
         }
-        None => {
-            command.stdout(Stdio::null()).stderr(Stdio::null());
-        }
+
+        rx.recv_timeout(Duration::from_secs(120))
+            .map_err(|_| "o servidor embutido não respondeu".to_string())
     }
 
-    let child = match command.spawn() {
-        Ok(child) => child,
-        Err(err) => {
-            let hint = match &server {
-                Server::Sidecar(_) => "o sidecar do servidor não abriu — reinstale o app",
-                Server::Script(_) => "instale o Bun: https://bun.sh",
-            };
-            show_error(&app, &format!("não consegui iniciar o servidor ({err}); {hint}"));
-            return;
-        }
-    };
-    if let Some(state) = app.try_state::<ServerProcess>() {
-        *state.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(child);
-    }
-
-    if !wait_health(port, Duration::from_secs(45)) {
-        show_error(&app, "o servidor local não respondeu em 45s (veja .cache/desktop.log)");
-        return;
-    }
-
-    if let Some(window) = app.get_webview_window("main") {
-        let url = format!("http://127.0.0.1:{port}/");
-        let _ = window.navigate(url.parse().expect("url de loopback válida"));
-    }
-
-    // Depois da UI na tela: baixar update em paralelo não pode atrasar a abertura.
-    check_updates(app.clone());
-}
-
-fn stop_server(app: &AppHandle) {
-    if let Some(state) = app.try_state::<ServerProcess>() {
-        if let Some(mut child) = state.0.lock().unwrap_or_else(|e| e.into_inner()).take() {
+    fn stop(&self) {
+        if let Some(mut child) = self.child.lock().ok().and_then(|mut c| c.take()) {
             let _ = child.kill();
             let _ = child.wait();
         }
     }
+}
+
+struct WorkerState(Arc<Worker>);
+
+#[tauri::command]
+async fn api_request(
+    state: State<'_, WorkerState>,
+    method: String,
+    path: String,
+    headers: Option<HashMap<String, String>>,
+    body: Option<String>,
+) -> Result<Reply, String> {
+    let worker = Arc::clone(&state.0);
+    tauri::async_runtime::spawn_blocking(move || {
+        worker.call(&method, &path, headers.unwrap_or_default(), body)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+/// Abre no navegador do sistema. Só http(s): nada de `file://` ou esquema arbitrário.
+fn open_in_browser(url: &str) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("só links http(s) abrem no navegador".to_string());
+    }
+    #[cfg(target_os = "windows")]
+    let spawned = Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    #[cfg(target_os = "macos")]
+    let spawned = Command::new("open").arg(url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let spawned = Command::new("xdg-open").arg(url).spawn();
+    spawned.map(|_| ()).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn open_external(url: String) -> Result<(), String> {
+    open_in_browser(&url)
 }
 
 fn append_log(dir: &Path, line: &str) {
@@ -228,36 +217,45 @@ fn append_log(dir: &Path, line: &str) {
     }
 }
 
-/// Auto-update: o app checa o `latest.json` da última release a cada boot e, se houver versão nova
+fn open_log(dir: &Path) -> Option<File> {
+    let path = dir.join(".cache").join("desktop.log");
+    std::fs::create_dir_all(path.parent()?).ok()?;
+    OpenOptions::new().create(true).append(true).open(path).ok()
+}
+
+/// Auto-update: checa o `latest.json` da última release a cada boot e, se houver versão nova
 /// assinada com a chave de `plugins.updater.pubkey`, instala e reinicia. Falha de rede não pode
 /// atrapalhar o uso: o erro só vai para o log e o app segue na versão atual.
-fn check_updates(app: AppHandle) {
-    let dir = match resolve_server() {
-        Some(Server::Sidecar(dir)) | Some(Server::Script(dir)) => dir,
-        None => PathBuf::from("."),
-    };
+fn check_updates(app: AppHandle, directory: PathBuf) {
     tauri::async_runtime::spawn(async move {
         let updater = match app.updater() {
             Ok(updater) => updater,
             Err(err) => {
-                append_log(&dir, &format!("indisponível: {err}"));
+                append_log(&directory, &format!("indisponível: {err}"));
                 return;
             }
         };
         match updater.check().await {
             Ok(Some(update)) => {
-                append_log(&dir, &format!("versão {} disponível (atual {})", update.version, update.current_version));
+                append_log(
+                    &directory,
+                    &format!(
+                        "versão {} disponível (atual {})",
+                        update.version, update.current_version
+                    ),
+                );
                 if let Err(err) = update.download_and_install(|_, _| {}, || {}).await {
-                    append_log(&dir, &format!("falha ao instalar {}: {err}", update.version));
+                    append_log(
+                        &directory,
+                        &format!("falha ao instalar {}: {err}", update.version),
+                    );
                     return;
                 }
-                append_log(&dir, "instalado — reiniciando");
-                // O servidor Bun é filho deste processo: sem derrubar antes, o restart deixa órfão.
-                stop_server(&app);
+                append_log(&directory, "instalado — reiniciando");
                 app.restart();
             }
-            Ok(None) => append_log(&dir, "nenhuma versão nova"),
-            Err(err) => append_log(&dir, &format!("consulta falhou: {err}")),
+            Ok(None) => append_log(&directory, "nenhuma versão nova"),
+            Err(err) => append_log(&directory, &format!("consulta falhou: {err}")),
         }
     });
 }
@@ -265,23 +263,44 @@ fn check_updates(app: AppHandle) {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(ServerProcess(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![api_request, open_external])
         .setup(|app| {
-            // A janela nasce no splash e é navegada para o loopback quando o /api/health responde.
+            let worker =
+                Worker::spawn().map_err(|err| format!("erro ao iniciar o nerd-watch: {err}"))?;
+            let media_base =
+                serde_json::to_string(&worker.media_base).unwrap_or_else(|_| "\"\"".to_string());
+            let directory = std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(Path::to_path_buf))
+                .unwrap_or_else(|| PathBuf::from("."));
+            app.manage(WorkerState(Arc::new(worker)));
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("nerd-watch")
                 .inner_size(1280.0, 860.0)
                 .min_inner_size(960.0, 620.0)
+                .initialization_script(format!("window.__NERD_WATCH_MEDIA_BASE__ = {media_base};"))
+                // Link externo (trailer, streaming, embed) abre no navegador, nunca dentro da janela.
+                .on_navigation(|url| {
+                    let host = url.host_str().unwrap_or_default();
+                    if url.scheme() == "tauri" || host == "tauri.localhost" {
+                        return true;
+                    }
+                    let _ = open_in_browser(url.as_str());
+                    false
+                })
                 .build()?;
+
             let handle = app.handle().clone();
-            std::thread::spawn(move || start_server_then_load(handle));
+            check_updates(handle, directory);
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("erro ao iniciar o nerd-watch")
         .run(|app, event| {
             if matches!(event, RunEvent::Exit) {
-                stop_server(app);
+                if let Some(state) = app.try_state::<WorkerState>() {
+                    state.0.stop();
+                }
             }
         });
 }

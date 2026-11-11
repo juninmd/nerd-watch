@@ -79,7 +79,7 @@ Não há DOM nos testes: por isso a lógica fica em módulos puros.
 rótulo em `app/route-meta.ts`; se for item de menu, `NAV_ITEMS` em `main.ts`; caso em `tests/client/routes.test.ts`.
 
 **Novo endpoint.** `src/server/routes/<recurso>.ts` (validação + DTO) → SQL em `src/server/repo/<recurso>.ts` →
-registre em `src/server/index.ts` → função tipada em `src/client/api/<domínio>.ts` → teste de rota em
+registre em `src/server/app.ts` → função tipada em `src/client/api/<domínio>.ts` → teste de rota em
 `tests/server/<recurso>-route.test.ts`.
 
 **Nova coluna ou tabela.** `CREATE ... IF NOT EXISTS` em `MIGRATIONS` (`db/database.ts`) ou uma função

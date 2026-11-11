@@ -142,22 +142,25 @@ abre em janela própria, sem a barra do navegador.
 
 ### App desktop (Tauri)
 
-`src-tauri/` é um shell fino: ele sobe `bun src/server/index.ts` (porta `PORT`, ou uma livre se estiver
-ocupada), espera o `/api/health` e navega a janela nativa (WebView2) para `http://127.0.0.1:<porta>`.
-O front, o SQLite e os providers seguem intocados — não há IPC nem reescrita do cliente.
+`src-tauri/` é um shell fino. O cliente vai **embutido** (`frontendDist: ../public`), como no
+canto-widget: a janela abre em `tauri://localhost` e não existe página servida por HTTP. O backend
+é o mesmo Hono de sempre (`src/server/app.ts`), rodando como worker do sidecar e respondendo por
+IPC (`api_request`); só o streaming de bytes (vídeo, imagem, legenda, torrent) usa um loopback
+interno, porque `<video>`/`Range` não cabem no IPC. Links externos abrem no navegador do sistema.
 
 ```bash
-bun run desktop:dev     # compila o sidecar e abre a janela com o servidor local
-bun run desktop:build   # sidecar + cliente + instalador NSIS assinado
+bun run desktop:dev     # compila cliente + sidecar e abre a janela
+bun run desktop:build   # instalador NSIS assinado
 ```
 
 - O servidor vira **um executável** (`src-tauri/binaries/nerd-watch-server-<triplo>.exe`) via
   `bun build --compile`: o app instalado não usa `node_modules` nem precisa de Bun no PATH.
-  Detalhes e o stub de WebRTC: [ADR 0005](docs/adr/0005-desktop-sidecar.md).
+  Arquitetura e limites: [ADR 0006](docs/adr/0006-desktop-ipc-frontend-embutido.md) e
+  [ADR 0005](docs/adr/0005-desktop-sidecar.md).
 - Dev (sem instalar) continua rodando `bun src/server/index.ts` do repositório; `NERD_WATCH_DIR`
-  força esse modo.
+  força esse modo e `bun run dev` mantém o app web igual.
 - Saída do servidor no app empacotado: `.cache/desktop.log` na pasta de instalação.
-- Fechar a janela derruba o processo do servidor.
+- Fechar a janela derruba o worker.
 - Dados do usuário (SQLite e torrents) ficam em `%LOCALAPPDATA%`, fora do que o update substitui.
 - `desktop:build` assina o artefato de update: defina `TAURI_SIGNING_PRIVATE_KEY` e
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (a chave fica em `~/.tauri/`, nunca no repositório).
