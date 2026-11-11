@@ -10,6 +10,8 @@
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -18,6 +20,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_updater::UpdaterExt;
+
+/// O sidecar compilado pelo Bun é um executável de console; sem esta flag o Windows abre uma
+/// janela de terminal junto com o app. Os pipes de stdin/stdout continuam valendo.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// Resposta de `/api/*` vinda do worker.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -69,6 +76,8 @@ impl Worker {
 
         let log = open_log(&exe_dir);
         command.stdin(Stdio::piped()).stdout(Stdio::piped());
+        #[cfg(windows)]
+        command.creation_flags(CREATE_NO_WINDOW);
         match &log {
             Some(file) => {
                 command.stderr(Stdio::from(file.try_clone().map_err(|e| e.to_string())?));
