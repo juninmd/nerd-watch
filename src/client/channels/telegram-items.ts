@@ -5,9 +5,12 @@ import type { DockItem } from '../player/player-dock.ts';
  * Telegram não tem campo de título — usa a 1ª linha da legenda como título e o resto como descrição.
  * Sem corte: a tela do canal e a de reprodução mostram a mensagem inteira (o layout quebra a linha).
  */
-export const itemTitle = (item: Pick<TelegramItemDto, 'caption' | 'messageId'>): string => {
+export const itemTitle = (item: Pick<TelegramItemDto, 'caption' | 'messageId'> & { fileName?: string | null }): string => {
   const firstLine = item.caption?.split('\n').find((l) => l.trim().length > 0);
-  return firstLine ? firstLine.trim() : `Vídeo — mensagem ${item.messageId}`;
+  if (firstLine) return firstLine.trim();
+  // Sem legenda: o nome do arquivo (sem extensão) é melhor título que o id da mensagem.
+  const file = item.fileName?.trim().replace(/\.[A-Za-z0-9]{2,5}$/, '').trim();
+  return file || `Vídeo — mensagem ${item.messageId}`;
 };
 
 export const itemDescription = (item: Pick<TelegramItemDto, 'caption'>): string | null => {
@@ -52,9 +55,31 @@ export const pickNextChannel = <T extends { titleId: string; itemCount: number }
   return null;
 };
 
-/** Ordena pelo id da mensagem (cresce com o tempo): `newest` = mais recente primeiro. Não altera a lista original. */
-export const orderItems = <T extends { messageId: string }>(items: T[], order: 'newest' | 'oldest'): T[] => {
-  const sorted = [...items].sort((a, b) => Number(a.messageId) - Number(b.messageId));
+export type ItemOrder = 'newest' | 'oldest' | 'name' | 'name-desc';
+
+/**
+ * Ordena por data de postagem (`postedAt`; sem data cai para o id da mensagem, que cresce com o tempo) ou por nome
+ * (título, sem acento, com números naturais). Não altera a lista original.
+ */
+export const orderItems = <T extends { messageId: string; postedAt?: string | null; caption?: string | null; fileName?: string | null }>(
+  items: T[],
+  order: ItemOrder,
+): T[] => {
+  if (order === 'name' || order === 'name-desc') {
+    const key = (i: T) => normalizeSearch(itemTitle(i));
+    const sorted = [...items].sort((a, b) => key(a).localeCompare(key(b), 'pt-BR', { numeric: true }) || Number(a.messageId) - Number(b.messageId));
+    return order === 'name' ? sorted : sorted.reverse();
+  }
+  const time = (i: T) => {
+    const t = i.postedAt ? Date.parse(i.postedAt) : Number.NaN;
+    return Number.isFinite(t) ? t : null;
+  };
+  const sorted = [...items].sort((a, b) => {
+    const ta = time(a);
+    const tb = time(b);
+    if (ta !== null && tb !== null && ta !== tb) return ta - tb;
+    return Number(a.messageId) - Number(b.messageId);
+  });
   return order === 'newest' ? sorted.reverse() : sorted;
 };
 

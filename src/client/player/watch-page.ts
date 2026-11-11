@@ -77,6 +77,8 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
           <select class="select" id="queue-order" aria-label="Ordem da fila de vídeos">
             <option value="newest"${order === 'newest' ? ' selected' : ''}>Mais recentes primeiro</option>
             <option value="oldest"${order === 'oldest' ? ' selected' : ''}>Mais antigos primeiro</option>
+            <option value="name"${order === 'name' ? ' selected' : ''}>Nome (A–Z)</option>
+            <option value="name-desc"${order === 'name-desc' ? ' selected' : ''}>Nome (Z–A)</option>
           </select>
         </label>
         <div id="watch-list"></div>
@@ -189,7 +191,7 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
     const earlier = now.queue.slice(0, now.index);
     listEl.innerHTML = `
       ${upcoming.map((it, k) => nextRow(it, now.index + 1 + k)).join('')}
-      ${earlier.length ? `<h3 class="watch-more">${order === 'newest' ? 'Mais recentes' : 'Mais antigos'}</h3>${earlier.map((it, k) => nextRow(it, k)).join('')}` : ''}
+      ${earlier.length ? `<h3 class="watch-more">${order === 'newest' ? 'Mais recentes' : order === 'oldest' ? 'Mais antigos' : 'Anteriores na lista'}</h3>${earlier.map((it, k) => nextRow(it, k)).join('')}` : ''}
       ${upcoming.length + earlier.length === 0 ? '<p class="hint">Este canal só tem este vídeo por enquanto.</p>' : ''}
       ${nextChannel ? `<h3 class="watch-more">Próximo canal</h3>${channelRow(nextChannel)}` : ''}`;
     // Mantém a barra do navegador no vídeo atual quando a reprodução automática troca de item.

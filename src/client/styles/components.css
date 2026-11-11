@@ -337,6 +337,11 @@
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
+.tg-list { display: flex; flex-direction: column; gap: 12px; }
+.tg-list .card { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; width: 100%; }
+.tg-list .card .poster { flex: none; width: 168px; aspect-ratio: 16 / 9; }
+.tg-list .card .meta { flex: 1; min-width: 0; }
+@media (max-width: 560px) { .tg-list .card .poster { width: 120px; } }
 .tg-card-desc {
   margin: 0 0 6px;
   font-size: 12.5px;
