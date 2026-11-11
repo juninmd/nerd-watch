@@ -2,7 +2,7 @@ import type { NotifyMessage } from './message.ts';
 import { parseHttpUrl } from './url.ts';
 
 export interface NotifySink {
-  readonly name: 'webhook' | 'ntfy';
+  readonly name: 'webhook' | 'ntfy' | 'discord' | 'telegram';
   /** Resolve se o destino aceitou; rejeita com `SinkError` (mensagem sem URL, só o host). */
   send(message: NotifyMessage, signal: AbortSignal): Promise<void>;
 }
@@ -10,6 +10,11 @@ export interface NotifySink {
 export interface SinkOptions {
   webhookUrl?: string;
   ntfyUrl?: string;
+  /** Webhook de canal do Discord (`https://discord.com/api/webhooks/...`). */
+  discordUrl?: string;
+  /** Bot do Telegram: token do @BotFather + id do chat de destino. Os dois são necessários. */
+  telegramBotToken?: string;
+  telegramChatId?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }
@@ -64,6 +69,36 @@ export const buildSinks = (options: SinkOptions): NotifySink[] => {
             Title: encodeHeader(Array.from(`Lançamento: ${message.title}`).slice(0, NTFY_TITLE_MAX).join('')),
           },
           body: message.text,
+        }),
+    });
+  }
+
+  const discordUrl = parseHttpUrl(options.discordUrl);
+  if (discordUrl) {
+    sinks.push({
+      name: 'discord',
+      send: (message, signal) =>
+        deliver('discord', discordUrl, fetchImpl, timeoutMs, signal, {
+          headers: { 'Content-Type': 'application/json' },
+          // Discord limita `content` a 2000 caracteres; `allowed_mentions` vazio evita @everyone vindo de um título.
+          body: JSON.stringify({
+            content: `🔔 **${message.title}**\n${message.text}`.slice(0, 2000),
+            allowed_mentions: { parse: [] },
+          }),
+        }),
+    });
+  }
+
+  const token = options.telegramBotToken?.trim();
+  const chatId = options.telegramChatId?.trim();
+  if (token && chatId && /^[\w:-]{10,200}$/.test(token)) {
+    const telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+    sinks.push({
+      name: 'telegram',
+      send: (message, signal) =>
+        deliver('telegram', telegramUrl, fetchImpl, timeoutMs, signal, {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: `🔔 ${message.title}\n${message.text}`.slice(0, 4096) }),
         }),
     });
   }

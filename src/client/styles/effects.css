@@ -141,3 +141,170 @@
 @keyframes section-reveal {
   from { opacity: 0; transform: translateY(18px); }
 }
+
+/* ---- Visual v2: aurora, vidro, realces e microinterações (tudo opt-out em reduced-motion, ver tokens.css) ---- */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 35% at 20% 25%, rgba(124, 92, 255, 0.16), transparent 70%),
+    radial-gradient(35% 30% at 80% 15%, rgba(255, 61, 110, 0.13), transparent 70%),
+    radial-gradient(40% 35% at 60% 90%, rgba(52, 211, 153, 0.07), transparent 70%);
+  animation: aurora 28s ease-in-out infinite alternate;
+}
+
+@keyframes aurora {
+  to { transform: translate3d(4%, -3%, 0) rotate(6deg) scale(1.08); }
+}
+
+/* Menu: o rótulo aparece como dica ao lado no desktop e o item ativo ganha barra com brilho. */
+.navlink::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: var(--gradient);
+  box-shadow: 0 0 12px rgba(255, 61, 110, 0.8);
+  transform: scaleY(0);
+  transition: transform 0.3s var(--ease);
+}
+
+.navlink.active::before {
+  transform: scaleY(1);
+}
+
+@media (hover: hover) {
+  .navlink:hover .i,
+  .navlink:hover svg {
+    transform: translateY(-2px) scale(1.12);
+  }
+}
+
+@media (max-width: 880px) {
+  .navlink::before {
+    left: 22%;
+    right: 22%;
+    top: -6px;
+    bottom: auto;
+    width: auto;
+    height: 3px;
+    border-radius: 0 0 4px 4px;
+    transform: scaleX(0);
+  }
+  .navlink.active::before {
+    transform: scaleX(1);
+  }
+  .navrail {
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Marca com respiração suave. */
+.brand {
+  animation: brand-glow 4s ease-in-out infinite;
+}
+
+@keyframes brand-glow {
+  50% { box-shadow: 0 10px 30px -4px rgba(124, 92, 255, 0.7); }
+}
+
+/* Cards: vidro com borda que acende no hover. */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    box-shadow: 0 18px 40px -14px rgba(124, 92, 255, 0.45), 0 0 0 1px rgba(169, 150, 255, 0.35);
+  }
+}
+
+/* Botão primário com varredura de brilho. */
+.btn.primary,
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn.primary::after,
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .btn.primary:hover::after,
+  .btn-primary:hover::after {
+    transform: translateX(120%);
+    transition: transform 0.7s var(--ease);
+  }
+}
+
+/* Barra de busca ganha anel de foco com gradiente e a barra superior fica mais translúcida. */
+.cmd:focus-visible {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.2);
+}
+
+.view-title {
+  background: linear-gradient(90deg, var(--text) 60%, #b8a8ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.section-head h2 {
+  position: relative;
+  padding-left: 12px;
+}
+
+.section-head h2::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 4px;
+  border-radius: 4px;
+  background: var(--gradient);
+}
+
+/* Barra de progresso de rolagem (só onde há animação por rolagem). */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .topbar::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -1px;
+      height: 2px;
+      background: var(--gradient);
+      transform-origin: 0 50%;
+      animation: scroll-progress linear both;
+      animation-timeline: scroll(root);
+    }
+  }
+}
+
+@keyframes scroll-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Esqueleto de carregamento com brilho deslizante. */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}

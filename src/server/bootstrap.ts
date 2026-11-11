@@ -23,7 +23,13 @@ export const startBackgroundJobs = (): void => {
   void cleanupMediaCache(mediaSettings());
 
   // Avisos de lançamento: só sobe com um destino configurado por env (nunca por request).
-  const notifySinks = buildSinks({ webhookUrl: config.notify.webhookUrl, ntfyUrl: config.notify.ntfyUrl });
+  const notifySinks = buildSinks({
+    webhookUrl: config.notify.webhookUrl,
+    ntfyUrl: config.notify.ntfyUrl,
+    discordUrl: config.notify.discordUrl,
+    telegramBotToken: config.notify.telegramBotToken,
+    telegramChatId: config.notify.telegramChatId,
+  });
   if (notifySinks.length === 0) return;
   void getDb()
     .then((db) =>
