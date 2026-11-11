@@ -12,6 +12,10 @@ import { installShortcuts } from './app/shortcuts.ts';
 import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './app/state.ts';
 import { withLoginRedirect } from './app/auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
+import { installDesktopBridge } from './platform/tauri.ts';
+
+// Desktop: frontend embutido, `/api` por IPC e links no navegador. No navegador não faz nada.
+installDesktopBridge();
 
 // Sem ACCESS_TOKEN o servidor nunca responde 401, então este wrapper não muda nada no modo local.
 globalThis.fetch = withLoginRedirect(globalThis.fetch.bind(globalThis), location.href, (href) =>

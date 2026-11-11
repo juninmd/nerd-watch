@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "identifier": "dev.nerdwatch.desktop",
   "build": {
-    "frontendDist": "./splash"
+    "beforeBuildCommand": "bun run build:client",
+    "frontendDist": "../public"
   },
   "app": {
     "windows": [],
@@ -23,7 +24,6 @@
     "targets": ["nsis"],
     "createUpdaterArtifacts": true,
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
-    "externalBin": ["binaries/nerd-watch-server"],
-    "resources": ["../public/**/*"]
+    "externalBin": ["binaries/nerd-watch-server"]
   }
 }

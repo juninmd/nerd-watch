@@ -13,3 +13,6 @@ data/
 .poc-out.log
 .poc-err.log
 scripts/.smoke-*.png
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/
