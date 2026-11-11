@@ -4,6 +4,7 @@ import { installCardTilt, swapView } from './ui/effects.ts';
 import { openCommandPalette } from './app/command-palette.ts';
 import { releaseTorrentPlayers } from './player/torrent-player.ts';
 import { icon, type IconName } from './ui/icons.ts';
+import { paletteKeyLabel } from './app/shortcut-keys.ts';
 import { onRouteChange, type Route } from './app/router.ts';
 import { canonicalPath, preloadPages, resolveRoute } from './app/routes.ts';
 import { routeLabel, routeTitle } from './app/route-meta.ts';
@@ -21,6 +22,7 @@ globalThis.fetch = withLoginRedirect(globalThis.fetch.bind(globalThis), location
 
 const NAV_ITEMS: Array<{ path: string; label: string; icon: IconName }> = [
   { path: '/', label: 'Início', icon: 'home' },
+  { path: '/search', label: 'Buscar', icon: 'search' },
   { path: '/library', label: 'Biblioteca', icon: 'library' },
   { path: '/telegram', label: 'Canais', icon: 'send' },
   { path: '/agenda', label: 'Agenda', icon: 'calendar' },
@@ -38,7 +40,7 @@ app.innerHTML = `
     <div class="main">
       <header class="topbar">
         <button class="cmd" id="cmd-open" type="button" aria-haspopup="dialog">
-          ${icon('search')}<span class="cmd-text">Buscar títulos, canais e ações…</span><kbd>Ctrl K</kbd>
+          ${icon('search')}<span class="cmd-text">Buscar títulos, canais e ações…</span><kbd>${paletteKeyLabel(navigator.platform)}</kbd>
         </button>
         <button class="pill" id="spoiler-toggle" type="button"></button>
         <a class="pill" id="conn-pill" href="#/connections"></a>
@@ -76,9 +78,10 @@ const renderNav = (activePath: string) => {
 
 const renderSpoilerButton = () => {
   const on = getShowSpoilers();
+  // O nome acessível é fixo e o estado vai no aria-pressed: leitores de tela não anunciam "Spoilers visíveis, pressionado".
   spoilerBtn.setAttribute('aria-pressed', String(on));
+  spoilerBtn.setAttribute('aria-label', 'Mostrar spoilers');
   const label = on ? 'Spoilers visíveis' : 'Spoilers ocultos';
-  spoilerBtn.setAttribute('aria-label', label);
   spoilerBtn.innerHTML = `${icon(on ? 'eye' : 'eyeOff', 'sm')}<span class="pill-label">${label}</span>`;
 };
 

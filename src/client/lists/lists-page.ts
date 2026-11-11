@@ -45,7 +45,7 @@ export const renderLists = (host: HTMLElement): void => {
 
   const paint = (total: number) => {
     if (shown.length === 0) {
-      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="big">🗂️</div>nenhuma lista ainda — crie a primeira acima, ou adicione títulos a uma lista pela página do título</div>`;
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="big" aria-hidden="true">${icon('folder')}</div>nenhuma lista ainda — crie a primeira acima, ou adicione títulos a uma lista pela página do título</div>`;
     } else {
       grid.innerHTML = shown.map(cardHtml).join('');
     }
@@ -60,7 +60,7 @@ export const renderLists = (host: HTMLElement): void => {
         paint(page.total);
       })
       .catch(() => {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="big">⚠️</div>não foi possível carregar as listas</div>`;
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="big" aria-hidden="true">${icon('alert')}</div>não foi possível carregar as listas</div>`;
       });
 
   more.addEventListener('click', (e) => {
