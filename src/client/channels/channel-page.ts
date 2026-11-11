@@ -8,7 +8,7 @@ import {
   searchTelegramHistory,
   type TelegramChannelDetailDto,
 } from '../api/index.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, paintPoster } from '../ui/card.ts';
 import { linkBadge, openLinkDialog } from './telegram-link.ts';
 import { getQueueOrder, type QueueOrder, savedPosition, setQueueOrder } from '../player/player-dock.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
@@ -17,8 +17,9 @@ import { resumePoint } from '../player/playback-store.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { canRefreshMode, handleLabel, MODE_INFO } from '../connections/source-modes.ts';
-import { filterItems, itemTitle, orderItems, watchPath } from './telegram-items.ts';
+import { filterItems, itemDescription, itemFileName, itemTitle, orderItems, watchPath } from './telegram-items.ts';
 import { formatDuration } from '../ui/time-format.ts';
+import { mediaUrl } from '../platform/tauri.ts';
 
 /** Quantos cards aparecem de cada vez: milhares de vídeos carregados não viram milhares de nós no DOM. */
 const PAGE_SIZE = 60;
@@ -52,10 +53,10 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   const items = orderItems(d.items, order);
   host.innerHTML = `
     <div class="hero">
-      <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(d.posterUrl)}')"` : ''}></div>
+      <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(mediaUrl(d.posterUrl))}')"` : ''}></div>
       <div class="scrim"></div>
       <div class="hero-content">
-        ${d.posterUrl ? `<div class="hero-avatar" style="background-image:url('${escapeHtml(d.posterUrl)}')" role="img" aria-label="foto de ${escapeHtml(d.title)}"></div>` : ''}
+        ${d.posterUrl ? `<div class="hero-avatar" style="background-image:url('${escapeHtml(mediaUrl(d.posterUrl))}')" role="img" aria-label="foto de ${escapeHtml(d.title)}"></div>` : ''}
         <div class="hero-info">
           <h1>${escapeHtml(d.title)}</h1>
           <div class="hero-meta">
@@ -211,19 +212,25 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       card.className = 'card';
       card.tabIndex = 0;
       card.setAttribute('role', 'button');
-      card.setAttribute('aria-label', `reproduzir: ${itemTitle(item, 60)}${resumeAt !== null ? ` (continuar de ${formatDuration(resumeAt)})` : ''}`);
+      card.setAttribute('aria-label', `reproduzir: ${itemTitle(item)}${resumeAt !== null ? ` (continuar de ${formatDuration(resumeAt)})` : ''}`);
+      const fileName = itemFileName(item);
+      const description = itemDescription(item);
       card.innerHTML = `
-        <div class="poster${item.thumbnailUrl ? '' : ' placeholder'}"${item.thumbnailUrl ? ` style="background-image:url('${escapeHtml(item.thumbnailUrl)}')"` : ''}>
+        <div class="poster${item.thumbnailUrl ? '' : ' placeholder'}">
           ${item.thumbnailUrl ? '' : `<span class="initials">${icon('film')}</span>`}
           ${item.durationSeconds ? `<span class="badge badge-corner">${formatDuration(item.durationSeconds)}</span>` : ''}
           ${resumeAt !== null ? `<span class="badge badge-watching resume-badge">continuar ${formatDuration(resumeAt)}</span>` : ''}
           ${watched ? `<span class="badge badge-watched resume-badge">assistido</span>` : ''}
         </div>
         <div class="meta">
-          <div class="title">${escapeHtml(itemTitle(item, 60))}</div>
+          <div class="title">${escapeHtml(itemTitle(item))}</div>
+          ${description ? `<p class="tg-card-desc">${escapeHtml(description)}</p>` : ''}
+          ${fileName ? `<div class="sub tg-file">${escapeHtml(fileName)}</div>` : ''}
           ${item.postedAt ? `<div class="sub">${new Date(item.postedAt).toLocaleDateString('pt-BR')}</div>` : ''}
         </div>
       `;
+      // Miniatura como <img> preguiçosa (o mesmo paintPoster da biblioteca): só baixa perto da tela.
+      if (item.thumbnailUrl) paintPoster(card.querySelector('.poster') as HTMLElement, item.thumbnailUrl, itemTitle(item));
       card.addEventListener('click', () => play(i));
       card.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -237,7 +244,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       wrap.appendChild(card);
       const linkRow = document.createElement('div');
       linkRow.className = 'tg-item-link';
-      linkRow.innerHTML = `${linkBadge(item.link ?? null)}<button class="btn btn-ghost btn-sm" type="button" aria-label="${escapeHtml(`vincular “${itemTitle(item, 60)}” a um título`)}">${item.link ? 'alterar vínculo' : 'vincular a um título'}</button>`;
+      linkRow.innerHTML = `${linkBadge(item.link ?? null)}<button class="btn btn-ghost btn-sm" type="button" aria-label="${escapeHtml(`vincular “${itemTitle(item)}” a um título`)}">${item.link ? 'alterar vínculo' : 'vincular a um título'}</button>`;
       linkRow.querySelector('button')?.addEventListener('click', () =>
         openLinkDialog({ channelId: d.titleId, messageId: item.messageId, current: item.link ?? null, onDone: () => reload() }),
       );

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { canRefreshMode, MODE_INFO, originLabel } from '../../src/client/connections/source-modes.ts';
-import { itemDescription, itemTitle, orderItems, pickNextChannel, toDockItem, watchPath } from '../../src/client/channels/telegram-items.ts';
+import { itemDescription, itemFileName, itemTitle, orderItems, pickNextChannel, toDockItem, watchPath } from '../../src/client/channels/telegram-items.ts';
 
 describe('itemTitle / itemDescription', () => {
   test('a primeira linha não vazia é o título e o resto vira descrição, mantendo as quebras', () => {
@@ -15,8 +15,16 @@ describe('itemTitle / itemDescription', () => {
     expect(itemDescription({ caption: null })).toBeNull();
   });
 
-  test('corta títulos longos no limite', () => {
-    expect(itemTitle({ messageId: '1', caption: 'x'.repeat(200) }, 10)).toHaveLength(10);
+  test('texto longo não é cortado: a UI mostra a legenda inteira', () => {
+    const caption = 'x'.repeat(200);
+    expect(itemTitle({ messageId: '1', caption })).toBe(caption);
+    expect(itemTitle({ messageId: '2', caption: `título\n${caption}` })).toBe('título');
+  });
+
+  test('nome do arquivo vem do Telegram e é aparado; vazio ou ausente vira null', () => {
+    expect(itemFileName({ fileName: '  filme.2026.1080p.mkv  ' })).toBe('filme.2026.1080p.mkv');
+    expect(itemFileName({ fileName: '   ' })).toBeNull();
+    expect(itemFileName({})).toBeNull();
   });
 });
 

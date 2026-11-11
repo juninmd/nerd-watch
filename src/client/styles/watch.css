@@ -61,6 +61,17 @@
   margin: 16px 0 12px;
 }
 
+.watch-back {
+  margin-top: 12px;
+}
+
+.watch-file {
+  margin: -4px 0 12px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+
 .watch-channel {
   display: flex;
   align-items: center;
@@ -160,6 +171,15 @@
   overflow: hidden;
   background: var(--surface-2) center / cover;
   color: var(--text-faint);
+}
+
+/* Miniatura da fila como <img> preguiçosa: só baixa quando entra na tela. */
+.next-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .next-thumb small {

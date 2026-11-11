@@ -21,7 +21,8 @@ import { icon } from '../ui/icons.ts';
 import { resumePoint } from './playback-store.ts';
 import { navigate } from '../app/router.ts';
 import { MODE_INFO } from '../connections/source-modes.ts';
-import { itemDescription, orderItems, pickNextChannel, toDockItem, watchPath } from '../channels/telegram-items.ts';
+import { itemDescription, itemFileName, orderItems, pickNextChannel, toDockItem, watchPath } from '../channels/telegram-items.ts';
+import { mediaUrl } from '../platform/tauri.ts';
 import { formatDuration } from '../ui/time-format.ts';
 
 const NEXT_CHANNEL_COUNTDOWN = 8;
@@ -31,15 +32,18 @@ const nextRow = (item: DockItem, i: number): string => {
   const saved = savedPosition(item.key);
   const resumeAt = resumePoint(saved);
   const status = saved?.done ? ' · assistido' : resumeAt !== null ? ` · parou em ${formatDuration(resumeAt)}` : '';
+  const thumb = item.poster
+    ? `<img class="next-thumb-img" src="${escapeHtml(mediaUrl(item.poster))}" alt="" loading="lazy" decoding="async" />`
+    : icon('film');
   return `<button type="button" class="next-item" data-i="${i}">
-    <span class="next-thumb"${item.poster ? ` style="background-image:url('${escapeHtml(item.poster)}')"` : ''}>${item.poster ? '' : icon('film')}${length ? `<small>${length}</small>` : ''}</span>
+    <span class="next-thumb">${thumb}${length ? `<small>${length}</small>` : ''}</span>
     <span class="next-text"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.subtitle)}${status}</small></span>
   </button>`;
 };
 
 const channelRow = (ch: TelegramChannelDto): string => `
   <button type="button" class="next-item next-channel" data-channel="${escapeHtml(ch.titleId)}">
-    <span class="next-thumb"${ch.posterUrl ? ` style="background-image:url('${escapeHtml(ch.posterUrl)}')"` : ''}>${ch.posterUrl ? '' : icon('send')}</span>
+    <span class="next-thumb">${ch.posterUrl ? `<img class="next-thumb-img" src="${escapeHtml(mediaUrl(ch.posterUrl))}" alt="" loading="lazy" decoding="async" />` : icon('send')}</span>
     <span class="next-text"><b>${escapeHtml(ch.title)}</b><small>${ch.itemCount} vídeo${ch.itemCount === 1 ? '' : 's'}</small></span>
   </button>`;
 
@@ -165,10 +169,13 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
     const description = itemDescription(detail);
     const meta = [detail.postedAt ? new Date(detail.postedAt).toLocaleDateString('pt-BR') : null, formatDuration(detail.durationSeconds)].filter(Boolean).join(' · ');
     document.title = `${now.item.title} — nerd-watch`;
+    const fileName = itemFileName(detail);
     infoEl.innerHTML = `
+      <a class="btn btn-ghost btn-sm watch-back" href="#/telegram/${escapeHtml(d.titleId)}">${icon('back', 'sm')} voltar ao canal</a>
       <h1 class="watch-title">${escapeHtml(now.item.title)}</h1>
+      ${fileName ? `<p class="watch-file">arquivo: ${escapeHtml(fileName)}</p>` : ''}
       <div class="watch-channel">
-        <a class="watch-avatar" href="#/telegram/${escapeHtml(d.titleId)}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(d.posterUrl)}')"` : ''} aria-hidden="true" tabindex="-1"></a>
+        <a class="watch-avatar" href="#/telegram/${escapeHtml(d.titleId)}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(mediaUrl(d.posterUrl))}')"` : ''} aria-hidden="true" tabindex="-1"></a>
         <div class="watch-channel-text"><a href="#/telegram/${escapeHtml(d.titleId)}"><b>${escapeHtml(d.title)}</b></a><small>${escapeHtml(meta)}</small></div>
         <div class="watch-actions">
           ${playerKindOf(now.item) === 'embed' ? '' : `<button class="btn btn-ghost btn-sm" id="watch-minimize" type="button">${icon('minimize', 'sm')} Minimizar</button>`}
