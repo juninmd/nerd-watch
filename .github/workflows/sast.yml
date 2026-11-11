@@ -7,6 +7,12 @@ on:
       - main
       - master
 
+# Dois pushes próximos em `main` não precisam rodar o SAST do commit antigo:
+# o novo já varre o mesmo histórico. `cancel-in-progress` evita empilhar runner.
+concurrency:
+  group: sast-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
