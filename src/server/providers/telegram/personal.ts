@@ -24,6 +24,16 @@ export class TelegramPersonalNotConfiguredError extends Error {
 
 let clientPromise: Promise<TelegramClient> | null = null;
 
+/** Conta que a session atual representa (nome e @usuário, sem telefone). Preenchida pela última verificação bem-sucedida. */
+export interface PersonalAccount {
+  name: string;
+  username: string | null;
+}
+let knownAccount: PersonalAccount | null = null;
+
+/** Último nome conhecido da conta; `null` se nunca foi verificada nesta execução ou se a session saiu. */
+export const getKnownPersonalAccount = (): PersonalAccount | null => knownAccount;
+
 /** floodSleepThreshold 0: sem isso o teleproto dorme sozinho até 60 s em FLOOD_WAIT, fora do nosso teto e do sleep injetável. */
 export const PERSONAL_CLIENT_OPTIONS = { connectionRetries: 5, floodSleepThreshold: 0 } as const;
 
@@ -37,6 +47,7 @@ export const isDeadSessionError = (err: unknown): boolean =>
 const dropSession = async (): Promise<void> => {
   const pending = clientPromise;
   clientPromise = null;
+  knownAccount = null;
   config.telegram.session = undefined;
   updateEnvVar('TELEGRAM_SESSION', '');
   await pending?.then((client) => client.disconnect()).catch(() => {});
@@ -63,10 +74,16 @@ export const verifyPersonalSession = async (): Promise<boolean> => {
   if (!telegramPersonalEnabled()) return false;
   try {
     await withLiveSession(async (client) => {
-      await Promise.race([client.getMe(), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS))]);
+      const me = (await Promise.race([
+        client.getMe(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS)),
+      ])) as Api.User;
+      const name = [me.firstName, me.lastName].filter(Boolean).join(' ').trim();
+      knownAccount = { name: name || me.username || 'conta sem nome', username: me.username ?? null };
     });
     return true;
   } catch (err) {
+    if (err instanceof TelegramPersonalNotConfiguredError) knownAccount = null;
     return !(err instanceof TelegramPersonalNotConfiguredError);
   }
 };

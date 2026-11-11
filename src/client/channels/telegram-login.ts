@@ -8,6 +8,7 @@ import {
   startTelegramLogin,
   submitTelegramLoginPassword,
   type TelegramLoginState,
+  type TelegramPersonalAccount as PersonalAccount,
 } from '../api/index.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from '../app/router.ts';
@@ -38,6 +39,14 @@ const wasConnected = (): boolean => {
 /** Avisa o resto do app (pílula da barra superior, paleta) que o estado da conexão mudou. */
 const announce = (): void => {
   window.dispatchEvent(new Event('nw:connection-changed'));
+};
+
+/** Quem está logado: inicial num círculo + nome e @usuário. O nome vem do Telegram, então passa por escapeHtml. */
+const accountCard = (account: PersonalAccount | null): string => {
+  if (!account) return '';
+  const initial = escapeHtml(account.name.charAt(0).toUpperCase());
+  const handle = account.username ? `<span class="tg-account-handle">@${escapeHtml(account.username)}</span>` : '';
+  return `<div class="tg-account" aria-label="Conta conectada: ${escapeHtml(account.name)}"><span class="tg-account-avatar" aria-hidden="true">${initial}</span><div><strong>${escapeHtml(account.name)}</strong>${handle}</div></div>`;
 };
 
 const stepper = (active: number): string =>
@@ -252,10 +261,11 @@ export const renderTelegramLogin = (host: HTMLElement): void => {
     root.querySelector('#tg-fix')?.addEventListener('click', renderCredentials);
   };
 
-  const renderConnected = () => {
+  const renderConnected = (account: PersonalAccount | null) => {
     remember(true);
     const root = mount(`
       ${stepper(4)}
+      ${accountCard(account)}
       <p class="hint">Conta pessoal conectada: o modo "conta pessoal" já funciona, sem limite de tamanho de arquivo.</p>
       <div class="conn-actions">
         <button class="btn btn-primary" id="tg-import" type="button">${icon('download', 'sm')} Importar meus canais</button>
@@ -313,7 +323,7 @@ export const renderTelegramLogin = (host: HTMLElement): void => {
     getTelegramSettings(true)
       .then((s) => {
         setChip(s.personalConfigured, s.personalConfigured ? 'conectado' : s.apiCredentialsConfigured ? 'desconectado' : 'não configurado');
-        if (s.personalConfigured) return renderConnected();
+        if (s.personalConfigured) return renderConnected(s.personalAccount);
         if (wasConnected()) announce();
         if (!s.apiCredentialsConfigured) return renderCredentials();
         // Voltar à página no meio de um login: retoma o QR em vez de oferecer "entrar" (que falharia com "já em andamento").

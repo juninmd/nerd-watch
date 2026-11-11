@@ -22,11 +22,12 @@ describe('GET /api/telegram/settings', () => {
     const res = await telegramSettingsRoutes.request('/');
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       botTokenConfigured: expect.any(Boolean),
       apiCredentialsConfigured: expect.any(Boolean),
       personalConfigured: expect.any(Boolean),
     });
+    expect(Object.keys(body).sort()).toEqual(['apiCredentialsConfigured', 'botTokenConfigured', 'personalAccount', 'personalConfigured']);
   });
 });
 
@@ -84,6 +85,6 @@ describe('POST /login/logout', () => {
   test('sem session é idempotente: devolve o status e não mexe no .env', async () => {
     const res = await telegramSettingsRoutes.request('/login/logout', { method: 'POST' });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ botTokenConfigured: false, apiCredentialsConfigured: false, personalConfigured: false });
+    expect(await res.json()).toEqual({ botTokenConfigured: false, apiCredentialsConfigured: false, personalConfigured: false, personalAccount: null });
   });
 });

@@ -1,4 +1,5 @@
 import { getTelegramSettings } from './api/telegram.ts';
+import { escapeHtml } from './ui/card.ts';
 import { installCardTilt, swapView } from './ui/effects.ts';
 import { openCommandPalette } from './app/command-palette.ts';
 import { releaseTorrentPlayers } from './player/torrent-player.ts';
@@ -86,15 +87,16 @@ onSpoilerChange(renderSpoilerButton);
 renderSpoilerButton();
 
 /** Status do Telegram na barra superior. Leitura barata (sem falar com o Telegram); a verificação real fica em Conexões. */
-const renderConnectionPill = (connected: boolean | null) => {
-  const label = connected === null ? 'Telegram' : connected ? 'Telegram conectado' : 'Telegram desconectado';
+const renderConnectionPill = (connected: boolean | null, account: { name: string } | null = null) => {
+  // Com conta conhecida mostra o nome logo na barra (ex.: "Telegram · Ana"); sem ela, o rótulo genérico.
+  const label = connected === null ? 'Telegram' : connected ? (account ? `Telegram · ${account.name}` : 'Telegram conectado') : 'Telegram desconectado';
   connPill.setAttribute('aria-label', label);
-  connPill.innerHTML = `<span class="led${connected ? '' : ' off'}"></span><span class="pill-label">${label}</span>`;
+  connPill.innerHTML = `<span class="led${connected ? '' : ' off'}"></span><span class="pill-label">${escapeHtml(label)}</span>`;
 };
 /** Outras telas avisam com `window.dispatchEvent(new Event('nw:connection-changed'))` depois de entrar/sair do Telegram. */
 const refreshConnectionPill = (): void => {
   getTelegramSettings()
-    .then((s) => renderConnectionPill(s.personalConfigured))
+    .then((s) => renderConnectionPill(s.personalConfigured, s.personalAccount))
     .catch(() => renderConnectionPill(null));
 };
 window.addEventListener('nw:connection-changed', refreshConnectionPill);

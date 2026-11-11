@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { config, telegramBotEnabled, telegramPersonalEnabled } from '../config/config.ts';
 import { updateEnvVar } from '../config/env-file.ts';
-import { logoutPersonalSession, verifyPersonalSession } from '../providers/telegram/personal.ts';
+import { getKnownPersonalAccount, logoutPersonalSession, verifyPersonalSession } from '../providers/telegram/personal.ts';
 import { cancelLogin, getLoginState, startLogin, submitLoginPassword } from '../providers/telegram/qr-login.ts';
 import { startTelegramBotPoller } from '../telegram/bot-poller.ts';
 
@@ -11,6 +11,8 @@ const statusResponse = () => ({
   botTokenConfigured: telegramBotEnabled(),
   apiCredentialsConfigured: Boolean(config.telegram.apiId && config.telegram.apiHash),
   personalConfigured: telegramPersonalEnabled(),
+  // Quem está logado: o nome vem da última verificação com o Telegram (null se ainda não houve uma).
+  personalAccount: telegramPersonalEnabled() ? getKnownPersonalAccount() : null,
 });
 
 telegramSettingsRoutes.get('/', async (c) => {
