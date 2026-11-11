@@ -36,13 +36,11 @@ jobs:
       - id: next
         run: bun run scripts/next-version.ts --bump "${{ inputs.bump || 'auto' }}"
 
-  validate:
-    needs: version
-    if: needs.version.outputs.changed == 'true'
-    uses: juninmd/base-actions/.github/workflows/reusable-validate.yml@main
-
+  # Sem `validate` aqui de propósito: o commit que chega em `main` já passou pelo
+  # workflow Validate (check obrigatório no PR) e o Validate roda de novo no push
+  # em `main`. Revalidar dentro do Release só somava ~25s antes do build.
   release:
-    needs: [version, validate]
+    needs: version
     if: needs.version.outputs.changed == 'true'
     runs-on: windows-latest
     steps:
@@ -50,6 +48,13 @@ jobs:
         with:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
+      - name: cache do bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
       - name: dependências
         run: bun install --frozen-lockfile
       - name: cliente

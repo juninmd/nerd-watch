@@ -1,11 +1,19 @@
 name: Security Scan
 
+# Varredura de histórico completo (fetch-depth: 0), semanal.
+#
+# Não roda em push: o workflow Validate já executa Gitleaks + TruffleHog
+# incremental em cada PR e em cada push em `main`. Este aqui existe para pegar
+# segredo antigo que saiu do working tree mas continua no histórico, e para
+# conferir credencial viva — trabalho que não precisa repetir a cada merge.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
   schedule:
     - cron: '0 0 * * 0'
+
+concurrency:
+  group: security-scan-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   scan:
