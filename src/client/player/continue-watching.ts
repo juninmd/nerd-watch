@@ -3,6 +3,7 @@ import { continueWatching } from './player-dock.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from '../app/router.ts';
 import { watchPath } from '../channels/telegram-items.ts';
+import { mediaUrl } from '../platform/tauri.ts';
 import { formatDuration } from '../ui/time-format.ts';
 
 const MAX_CARDS = 12;
@@ -19,7 +20,7 @@ export const continueWatchingCards = (): HTMLElement[] =>
     card.setAttribute('role', 'link');
     card.setAttribute('aria-label', `continuar ${meta.title} de ${formatDuration(resumeAt)}`);
     card.innerHTML = `
-      <div class="resume-thumb${meta.poster ? '' : ' placeholder'}"${meta.poster ? ` style="background-image:url('${escapeHtml(meta.poster)}')"` : ''}>
+      <div class="resume-thumb${meta.poster ? '' : ' placeholder'}"${meta.poster ? ` style="background-image:url('${escapeHtml(mediaUrl(meta.poster))}')"` : ''}>
         ${meta.poster ? '' : icon('film')}
         <span class="resume-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><i style="width:${percent}%"></i></span>
       </div>

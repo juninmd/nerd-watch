@@ -1,10 +1,13 @@
 import { type TelegramItemDto, telegramPlayUrl } from '../api/index.ts';
 import type { DockItem } from '../player/player-dock.ts';
 
-/** Telegram não tem campo de título — usa a 1ª linha da legenda como título e o resto como descrição. */
-export const itemTitle = (item: Pick<TelegramItemDto, 'caption' | 'messageId'>, maxLen = 80): string => {
+/**
+ * Telegram não tem campo de título — usa a 1ª linha da legenda como título e o resto como descrição.
+ * Sem corte: a tela do canal e a de reprodução mostram a mensagem inteira (o layout quebra a linha).
+ */
+export const itemTitle = (item: Pick<TelegramItemDto, 'caption' | 'messageId'>): string => {
   const firstLine = item.caption?.split('\n').find((l) => l.trim().length > 0);
-  return firstLine ? firstLine.trim().slice(0, maxLen) : `Vídeo — mensagem ${item.messageId}`;
+  return firstLine ? firstLine.trim() : `Vídeo — mensagem ${item.messageId}`;
 };
 
 export const itemDescription = (item: Pick<TelegramItemDto, 'caption'>): string | null => {
@@ -17,6 +20,9 @@ export const itemDescription = (item: Pick<TelegramItemDto, 'caption'>): string 
     .trim();
   return rest || null;
 };
+
+/** Nome do arquivo no Telegram (conta pessoal/bot preenchem; origem sem nome devolve null). */
+export const itemFileName = (item: Pick<TelegramItemDto, 'fileName'>): string | null => item.fileName?.trim() || null;
 
 export const watchPath = (channelId: string, messageId: string): string => `/watch/${channelId}/${messageId}`;
 

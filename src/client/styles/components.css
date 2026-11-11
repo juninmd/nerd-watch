@@ -329,6 +329,27 @@
 
 /* Vínculo vídeo do canal ↔ biblioteca: a linha abaixo de cada vídeo e o diálogo de escolha. */
 .tg-item { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* A legenda do Telegram é o texto do card: mostra tudo, quebrando linha em vez de cortar com "…". */
+.tg-item .card .meta .title {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.tg-card-desc {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.tg-file {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
 .tg-item-link { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .tg-link-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tg-link-poster { width: 28px; height: 40px; border-radius: 6px; flex: none; background: var(--surface) center / cover no-repeat; }

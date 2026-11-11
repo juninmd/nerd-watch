@@ -15,6 +15,7 @@ import { mountPageControls, type PageControls } from './player-page-controls.ts'
 import { clearVideo, playerKindOf } from './watch-embed.ts';
 import { type Captions, mountCaptions } from './player-captions.ts';
 import type { CaptionContext } from './player-captions-model.ts';
+import { mediaUrl } from '../platform/tauri.ts';
 
 export { getAutoplay, getQueueOrder, type QueueOrder, setAutoplay, setQueueOrder } from './player-prefs.ts';
 
@@ -178,7 +179,8 @@ const load = (i: number): void => {
   // Trocar o src volta a taxa para a padrão do elemento: a preferência vira a padrão antes, e é reaplicada depois.
   const rate = getStoredSpeed();
   el.defaultPlaybackRate = rate;
-  el.poster = item.poster ?? '';
+  // Pôster local (`/api/.../thumb`) precisa do loopback no desktop; `src` é reescrito pela ponte, `poster` não.
+  el.poster = item.poster ? mediaUrl(item.poster) : '';
   if (playerKindOf(item) === 'embed') clearVideo(el);
   else el.src = item.src;
   el.playbackRate = rate;

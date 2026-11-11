@@ -41,6 +41,8 @@ export interface TelegramItemDto {
   embedUrl?: string;
   /** Episódio da biblioteca ao qual o vídeo está vinculado (sugerido ou confirmado). */
   link?: TelegramItemLinkDto | null;
+  /** Nome do arquivo no Telegram (conta pessoal/bot); origens sem nome devolvem null. */
+  fileName?: string | null;
 }
 
 export interface TelegramItemLinkDto {
