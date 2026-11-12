@@ -20,11 +20,13 @@ e a versão instalada não tem como saber que existe versão nova.
    roda a validação (`reusable-validate`), aplica a versão em `package.json`/`tauri.conf.json`/
    `Cargo.toml` e publica com `tauri-apps/tauri-action`, que cria a tag `vX.Y.Z`, sobe o instalador
    NSIS, a assinatura `.sig` e o `latest.json`.
-3. **O app se atualiza sozinho.** `tauri-plugin-updater` aponta para
+3. **O app se atualiza com o aval do usuário.** `tauri-plugin-updater` aponta para
    `https://github.com/juninmd/nerd-watch/releases/latest/download/latest.json`. No boot, o shell
-   Rust checa, baixa, valida a assinatura (chave pública em `plugins.updater.pubkey`), instala e
-   reinicia — derrubando o servidor Bun antes, para não deixar processo órfão. Erro de rede vai
-   para `.cache/desktop.log` e o app segue funcionando na versão atual.
+   Rust checa e, se há versão nova, mostra um diálogo com a versão disponível e a instalada. Aceitar
+   baixa, valida a assinatura (chave pública em `plugins.updater.pubkey`), instala e reinicia -
+   derrubando o servidor Bun antes, para não deixar processo órfão; recusar mantém a versão atual
+   até o próximo boot. Erro de rede vai para `.cache/desktop.log` e o app segue funcionando na
+   versão atual.
 4. **A assinatura é obrigatória.** A chave privada vive só em `TAURI_SIGNING_PRIVATE_KEY` (secret do
    repositório) e no `~/.tauri/` de quem publica. Update sem assinatura válida é recusado pelo app:
    é isso que impede um `latest.json` adulterado de virar execução de código.
@@ -37,5 +39,6 @@ e a versão instalada não tem como saber que existe versão nova.
 - Publicar release passa a ser consequência de mergear commit convencional em `main`; PR com
   título fora do padrão não gera versão.
 - Nada disso muda o app web (`bun run dev`) nem o Docker: os dois caminhos seguem iguais.
-- Atualização automática não tem UI: o app reinicia sozinho quando há versão nova. Quem quiser
-  controle manual desliga com `plugins.updater` vazio ou instala o `-setup.exe` por cima.
+- Atualização automática pede confirmação: o app mostra a versão disponível e só instala/reinicia
+  quando a pessoa aceita. Quem quiser controle manual desliga com `plugins.updater` vazio ou
+  instala o `-setup.exe` por cima.

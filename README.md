@@ -169,8 +169,10 @@ bun run desktop:build   # instalador NSIS assinado
 ### Auto-update e releases
 
 O app instalado checa `releases/latest/download/latest.json` no boot e, se houver versão nova
-assinada, instala e reinicia sozinho (o servidor Bun é derrubado antes). Erro de rede só aparece em
-`.cache/desktop.log` — o app segue na versão atual. Regras e limites: [ADR 0004](docs/adr/0004-auto-update-tauri.md).
+assinada, mostra um diálogo com a versão disponível e a instalada — baixar e reiniciar só acontece
+se a pessoa aceitar; "Depois" mantém a versão atual até o próximo boot (o servidor Bun é derrubado
+antes de instalar). Erro de rede só aparece em
+`.cache/desktop.log` - o app segue na versão atual. Regras e limites: [ADR 0004](docs/adr/0004-auto-update-tauri.md).
 
 Quem publica é o workflow [`.github/workflows/release.yml`](.github/workflows/release.yml), sem
 versão digitada à mão: **commit convencional em `main`** define o bump.

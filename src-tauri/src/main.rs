@@ -19,6 +19,7 @@ use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater::UpdaterExt;
 
 /// O sidecar compilado pelo Bun é um executável de console; sem esta flag o Windows abre uma
@@ -233,8 +234,9 @@ fn open_log(dir: &Path) -> Option<File> {
 }
 
 /// Auto-update: checa o `latest.json` da última release a cada boot e, se houver versão nova
-/// assinada com a chave de `plugins.updater.pubkey`, instala e reinicia. Falha de rede não pode
-/// atrapalhar o uso: o erro só vai para o log e o app segue na versão atual.
+/// assinada com a chave de `plugins.updater.pubkey`, pergunta ao usuário antes de baixar e
+/// instalar. Escolher "Depois" deixa o app na versão atual até o próximo boot. Falha de rede não
+/// pode atrapalhar o uso: o erro só vai para o log e o app segue funcionando.
 fn check_updates(app: AppHandle, directory: PathBuf) {
     tauri::async_runtime::spawn(async move {
         let updater = match app.updater() {
@@ -246,22 +248,43 @@ fn check_updates(app: AppHandle, directory: PathBuf) {
         };
         match updater.check().await {
             Ok(Some(update)) => {
+                let version = update.version.clone();
+                let current = update.current_version.clone();
                 append_log(
                     &directory,
-                    &format!(
-                        "versão {} disponível (atual {})",
-                        update.version, update.current_version
-                    ),
+                    &format!("versão {version} disponível (atual {current}) — aguardando o usuário"),
                 );
-                if let Err(err) = update.download_and_install(|_, _| {}, || {}).await {
-                    append_log(
-                        &directory,
-                        &format!("falha ao instalar {}: {err}", update.version),
-                    );
-                    return;
-                }
-                append_log(&directory, "instalado — reiniciando");
-                app.restart();
+                let dialog_app = app.clone();
+                let install_app = app.clone();
+                let log_dir = directory.clone();
+                dialog_app
+                    .dialog()
+                    .message(format!(
+                        "A versão {version} do nerd-watch está disponível (instalada: {current}).\n\n\
+                         Baixar e instalar agora? O app reinicia ao terminar."
+                    ))
+                    .title("Atualização disponível")
+                    .buttons(MessageDialogButtons::OkCancelCustom(
+                        "Atualizar agora".into(),
+                        "Depois".into(),
+                    ))
+                    .show(move |accepted| {
+                        if !accepted {
+                            append_log(&log_dir, &format!("atualização {version} adiada pelo usuário"));
+                            return;
+                        }
+                        let app = install_app.clone();
+                        let log_dir = log_dir.clone();
+                        let version = version.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Err(err) = update.download_and_install(|_, _| {}, || {}).await {
+                                append_log(&log_dir, &format!("falha ao instalar {version}: {err}"));
+                                return;
+                            }
+                            append_log(&log_dir, "instalado - reiniciando");
+                            app.restart();
+                        });
+                    });
             }
             Ok(None) => append_log(&directory, "nenhuma versão nova"),
             Err(err) => append_log(&directory, &format!("consulta falhou: {err}")),
@@ -272,6 +295,7 @@ fn check_updates(app: AppHandle, directory: PathBuf) {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![api_request, open_external])
         .setup(|app| {
             let worker =
