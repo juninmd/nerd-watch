@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled, torrentEnabled } from './config/config.ts';
 import { createAccess } from './http/access-guard.ts';
 import { buildSinks } from './notify/sinks.ts';
-import { originAllowed, requestAllowed } from './http/security.ts';
+import { APP_CSP, HARDENING_HEADERS, originAllowed, requestAllowed } from './http/security.ts';
 import { createStaticHandler } from './http/static.ts';
 import { searchRoutes } from './routes/search.ts';
 import { tmdbRoutes } from './routes/tmdb.ts';
@@ -55,6 +55,16 @@ app.use('*', async (c, next) => {
     });
   }
   await next();
+  try {
+    for (const [name, value] of Object.entries(HARDENING_HEADERS)) {
+      if (!c.res.headers.has(name)) c.res.headers.set(name, value);
+    }
+    if (c.res.headers.get('Content-Type')?.startsWith('text/html') && !c.res.headers.has('Content-Security-Policy')) {
+      c.res.headers.set('Content-Security-Policy', APP_CSP);
+    }
+  } catch {
+    // Response vinda de fetch tem cabeçalhos imutáveis: segue sem o endurecimento extra.
+  }
 });
 
 if (config.access.token !== undefined) {
