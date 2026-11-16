@@ -19,3 +19,16 @@ export const installedVersion = async (): Promise<string | null> => {
 /** Rótulo exibido na UI. `null`/vazio = sem linha nenhuma (não é um "v" solto). */
 export const versionLabel = (version: string | null): string | null =>
   version ? `versão instalada: v${version}` : null;
+
+/** Versão a exibir: a do instalador no desktop; no navegador/Docker, a do servidor (`/api/health`). */
+export const displayVersion = async (): Promise<string | null> => {
+  const installed = await installedVersion();
+  if (installed) return installed;
+  try {
+    const reply = await fetch('/api/health');
+    const data = (await reply.json()) as { version?: string };
+    return data.version ?? null;
+  } catch {
+    return null;
+  }
+};

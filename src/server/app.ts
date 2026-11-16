@@ -1,3 +1,4 @@
+import pkg from '../../package.json' with { type: 'json' };
 import { Hono } from 'hono';
 import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled, torrentEnabled } from './config/config.ts';
 import { createAccess } from './http/access-guard.ts';
@@ -76,6 +77,7 @@ if (config.access.token !== undefined) {
 app.get('/api/health', (c) =>
   c.json({
     ok: true,
+    version: pkg.version,
     tmdbEnabled: tmdbEnabled(),
     openSubtitlesEnabled: openSubtitlesEnabled(),
     torrentEnabled: torrentEnabled(),

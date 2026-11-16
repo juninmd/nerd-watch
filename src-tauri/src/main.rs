@@ -18,8 +18,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_updater::UpdaterExt;
 
 /// O sidecar compilado pelo Bun é um executável de console; sem esta flag o Windows abre uma
@@ -217,95 +216,72 @@ fn open_external(url: String) -> Result<(), String> {
     open_in_browser(&url)
 }
 
-fn append_log(dir: &Path, line: &str) {
-    let path = dir.join(".cache").join("desktop.log");
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
-        let _ = writeln!(file, "[updater] {line}");
-    }
-}
-
 fn open_log(dir: &Path) -> Option<File> {
     let path = dir.join(".cache").join("desktop.log");
     std::fs::create_dir_all(path.parent()?).ok()?;
     OpenOptions::new().create(true).append(true).open(path).ok()
 }
 
-/// Auto-update: checa o `latest.json` da última release a cada boot e, se houver versão nova
-/// assinada com a chave de `plugins.updater.pubkey`, pergunta ao usuário antes de baixar e
-/// instalar. Escolher "Depois" deixa o app na versão atual até o próximo boot. Falha de rede não
-/// pode atrapalhar o uso: o erro só vai para o log e o app segue funcionando.
-fn check_updates(app: AppHandle, directory: PathBuf) {
-    tauri::async_runtime::spawn(async move {
-        let updater = match app.updater() {
-            Ok(updater) => updater,
-            Err(err) => {
-                append_log(&directory, &format!("indisponível: {err}"));
-                return;
-            }
-        };
-        match updater.check().await {
-            Ok(Some(update)) => {
-                let version = update.version.clone();
-                let current = update.current_version.clone();
-                append_log(
-                    &directory,
-                    &format!("versão {version} disponível (atual {current}) — aguardando o usuário"),
-                );
-                let dialog_app = app.clone();
-                let install_app = app.clone();
-                let log_dir = directory.clone();
-                dialog_app
-                    .dialog()
-                    .message(format!(
-                        "A versão {version} do nerd-watch está disponível (instalada: {current}).\n\n\
-                         Baixar e instalar agora? O app reinicia ao terminar."
-                    ))
-                    .title("Atualização disponível")
-                    .buttons(MessageDialogButtons::OkCancelCustom(
-                        "Atualizar agora".into(),
-                        "Depois".into(),
-                    ))
-                    .show(move |accepted| {
-                        if !accepted {
-                            append_log(&log_dir, &format!("atualização {version} adiada pelo usuário"));
-                            return;
-                        }
-                        let app = install_app.clone();
-                        let log_dir = log_dir.clone();
-                        let version = version.clone();
-                        tauri::async_runtime::spawn(async move {
-                            if let Err(err) = update.download_and_install(|_, _| {}, || {}).await {
-                                append_log(&log_dir, &format!("falha ao instalar {version}: {err}"));
-                                return;
-                            }
-                            append_log(&log_dir, "instalado - reiniciando");
-                            app.restart();
-                        });
-                    });
-            }
-            Ok(None) => append_log(&directory, "nenhuma versão nova"),
-            Err(err) => append_log(&directory, &format!("consulta falhou: {err}")),
-        }
+/// Atualização achada e ainda não instalada. Fica no estado do Tauri entre `check_update` e `install_update`.
+struct PendingUpdate(Mutex<Option<tauri_plugin_updater::Update>>);
+
+#[derive(serde::Serialize)]
+struct UpdateInfo {
+    version: String,
+    current: String,
+    notes: Option<String>,
+}
+
+/// Consulta o `latest.json` da última release. `None` = já está na versão mais nova. A instalação só
+/// acontece quando a pessoa pede (`install_update`): nunca reinicia o app sem aviso.
+#[tauri::command]
+async fn check_update(app: AppHandle, pending: State<'_, PendingUpdate>) -> Result<Option<UpdateInfo>, String> {
+    let updater = app.updater().map_err(|err| err.to_string())?;
+    let found = updater.check().await.map_err(|err| err.to_string())?;
+    let info = found.as_ref().map(|update| UpdateInfo {
+        version: update.version.clone(),
+        current: update.current_version.clone(),
+        notes: update.body.clone(),
     });
+    *pending.0.lock().map_err(|err| err.to_string())? = found;
+    Ok(info)
+}
+
+/// Baixa (verificando a assinatura da `pubkey`), instala e reinicia. O progresso vai para a UI pelo
+/// evento `update-progress` ({ downloaded, total }), para a pessoa ver a atualização andando.
+#[tauri::command]
+async fn install_update(app: AppHandle, pending: State<'_, PendingUpdate>) -> Result<(), String> {
+    let update = pending
+        .0
+        .lock()
+        .map_err(|err| err.to_string())?
+        .take()
+        .ok_or_else(|| "nenhuma atualização pendente".to_string())?;
+    let mut downloaded: u64 = 0;
+    let progress_app = app.clone();
+    update
+        .download_and_install(
+            move |chunk, total| {
+                downloaded += chunk as u64;
+                let _ = progress_app.emit("update-progress", serde_json::json!({ "downloaded": downloaded, "total": total }));
+            },
+            || {},
+        )
+        .await
+        .map_err(|err| err.to_string())?;
+    app.restart()
 }
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![api_request, open_external])
+        .manage(PendingUpdate(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![api_request, open_external, check_update, install_update])
         .setup(|app| {
             let worker =
                 Worker::spawn().map_err(|err| format!("erro ao iniciar o nerd-watch: {err}"))?;
             let media_base =
                 serde_json::to_string(&worker.media_base).unwrap_or_else(|_| "\"\"".to_string());
-            let directory = std::env::current_exe()
-                .ok()
-                .and_then(|exe| exe.parent().map(Path::to_path_buf))
-                .unwrap_or_else(|| PathBuf::from("."));
             app.manage(WorkerState(Arc::new(worker)));
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("nerd-watch")
@@ -322,9 +298,6 @@ fn main() {
                     false
                 })
                 .build()?;
-
-            let handle = app.handle().clone();
-            check_updates(handle, directory);
             Ok(())
         })
         .build(tauri::generate_context!())

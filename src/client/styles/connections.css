@@ -322,3 +322,18 @@
   color: var(--text-dim);
   font-size: 13px;
 }
+
+.upd-bar {
+  height: 8px;
+  margin: 10px 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.upd-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent-2);
+  transition: width 0.2s var(--ease);
+}

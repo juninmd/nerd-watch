@@ -471,3 +471,12 @@ kbd {
   object-fit: cover;
   flex: none;
 }
+
+.side-version {
+  display: block;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--muted, inherit);
+  opacity: 0.75;
+  text-decoration: none;
+}

@@ -2,6 +2,8 @@ import { json } from './http.ts';
 
 export interface HealthResponse {
   ok: boolean;
+  /** Versão do pacote que o servidor está rodando (no navegador/Docker não há versão de instalador). */
+  version: string;
   tmdbEnabled: boolean;
   openSubtitlesEnabled: boolean;
   torrentEnabled: boolean;

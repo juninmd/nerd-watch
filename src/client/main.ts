@@ -19,6 +19,8 @@ import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './app/state.t
 import { withLoginRedirect } from './app/auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
 import { installDesktopBridge } from './platform/tauri.ts';
+import { displayVersion } from './platform/version.ts';
+import { announceUpdateOnBoot } from './app/update-ui.ts';
 
 // Tema antes de tudo: sem clarão do tema errado na primeira pintura.
 installTheme();
@@ -43,6 +45,7 @@ app.innerHTML = `
       <div class="side-foot">
         <button class="side-btn" id="theme-toggle" type="button"></button>
         <button class="side-btn" id="logout-btn" type="button" hidden>${icon('logout', 'sm')}<span>Sair</span></button>
+        <a class="side-version" id="side-version" href="#/settings" hidden></a>
       </div>
     </aside>
     <div class="drawer-scrim" id="scrim" hidden></div>
@@ -233,3 +236,12 @@ onRouteChange((route) => {
 });
 
 void registerShellWorker();
+
+// Versão sempre visível na barra lateral; clicar abre Ajustes (onde fica a atualização).
+void displayVersion().then((v) => {
+  const el = document.getElementById('side-version');
+  if (!el || !v) return;
+  el.textContent = `v${v}`;
+  el.hidden = false;
+});
+announceUpdateOnBoot();

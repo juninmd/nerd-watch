@@ -1,5 +1,6 @@
 import { health } from '../api/index.ts';
-import { installedVersion, versionLabel } from '../platform/version.ts';
+import { displayVersion, versionLabel } from '../platform/version.ts';
+import { mountUpdateCard } from './update-ui.ts';
 import { icon, type IconName } from '../ui/icons.ts';
 import { notifySummary } from './settings-model.ts';
 import { openShortcutHelp } from './shortcuts.ts';
@@ -33,6 +34,10 @@ export const renderSettings = (host: HTMLElement): void => {
       <section class="conn-card">
         <div class="conn-head"><span class="conn-ic">${icon('keyboard')}</span><div><h2>Atalhos de teclado</h2><p>Ctrl K abre a paleta; g + letra vai a uma tela; ? lista todos.</p></div></div>
         <div class="conn-actions"><button class="btn btn-ghost" id="set-keys" type="button">${icon('keyboard', 'sm')} Ver atalhos</button></div>
+      </section>
+      <section class="conn-card" id="set-update">
+        <div class="conn-head"><span class="conn-ic">${icon('bell')}</span><div><h2>Atualizações</h2><p id="set-version-head">Versão do app e busca por novas releases.</p></div></div>
+        <div id="set-update-body"></div>
       </section>
       <section class="conn-card" id="set-notify">
         <div class="conn-head"><span class="conn-ic">${icon('bell')}</span><div><h2>Avisos de lançamento</h2><p id="set-notify-text">Consultando o servidor…</p></div><span class="chip-status off" id="set-notify-chip" hidden></span></div>
@@ -68,11 +73,13 @@ export const renderSettings = (host: HTMLElement): void => {
       (host.querySelector('#set-notify-text') as HTMLElement).textContent = 'Não foi possível consultar o servidor.';
     });
 
+  mountUpdateCard(host.querySelector('#set-update-body') as HTMLElement);
   const versionEl = host.querySelector('#set-version') as HTMLElement;
-  void installedVersion().then((v) => {
+  void displayVersion().then((v) => {
     const label = versionLabel(v);
     if (!label) return;
     versionEl.textContent = label;
     versionEl.hidden = false;
+    (host.querySelector('#set-version-head') as HTMLElement).textContent = label;
   });
 };
