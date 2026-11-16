@@ -3,8 +3,10 @@
  *
  * A regra existe para o release automático não publicar versão sem motivo: `feat` sobe minor,
  * `fix`/`perf`/`refactor` sobem patch, `!` no cabeçalho ou `BREAKING CHANGE` no corpo sobe major.
- * Commit que não é convencional (`docs:`, `chore:`, `Merge ...`) não publica nada — um release por
- * push de README encheria a lista de releases e o auto-update baixaria à toa.
+ * `docs:`, `chore:`, `test:`, `ci:`, `build:`, `style:` e `Merge ...` não publicam nada — um release
+ * por push de README encheria a lista de releases e o auto-update baixaria à toa.
+ * Cabeçalho fora do padrão convencional (título de squash como `Ajusta a casca (#78)`) vira patch:
+ * é código que chegou em `main` e ficar sem versão é pior do que uma release a mais.
  */
 
 export type Bump = 'major' | 'minor' | 'patch';
@@ -49,7 +51,9 @@ export const commitBump = (commit: CommitInfo): Bump | null => {
   const subject = commit.subject.trim();
   if (!subject || ignored(subject)) return null;
   const header = HEADER.exec(subject);
-  if (!header?.groups) return null;
+  // Squash de PR sem prefixo convencional carrega mudança de produção; sem o patch aqui a versão
+  // fica parada e o auto-update nunca entrega o que foi mesclado.
+  if (!header?.groups) return 'patch';
   const breaking = Boolean(header.groups.breaking) || BREAKING_FOOTER.test(commit.body ?? '');
   // Um `BREAKING CHANGE` obriga release mesmo vindo de um tipo fora da lista (ex.: `docs!:`),
   // senão a quebra de contrato ficaria sem versão nova para o auto-update entregar.

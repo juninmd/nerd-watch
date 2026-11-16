@@ -183,6 +183,7 @@ versão digitada à mão: **commit convencional em `main`** define o bump.
 | `fix:` / `perf:` / `refactor:` | patch |
 | `feat!:` / `BREAKING CHANGE:` | major |
 | `docs:` / `chore:` / `test:` / `ci:` / `Merge ...` | nada é publicado |
+| título fora do padrão convencional (squash) | patch |
 
 `bun run scripts/next-version.ts` mostra o que sairia; `workflow_dispatch` aceita `bump` forçado
 (`patch`/`minor`/`major`) para o primeiro release ou um hotfix.
