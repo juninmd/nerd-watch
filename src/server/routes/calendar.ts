@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { discoverUpcoming } from '../calendar/discover.ts';
 import { buildCalendarIcs } from '../calendar/ics.ts';
 import { getDb } from '../db/database.ts';
 import { listUpcoming } from '../repo/calendar.ts';
@@ -25,6 +26,13 @@ calendarRoutes.get('/', async (c) => {
       posterUrl: e.posterPath?.startsWith('http') ? e.posterPath : tmdbImageUrl(e.posterPath, 'w342'),
     })),
   });
+});
+
+/** Estreias públicas (fora da biblioteca): preenche a Agenda quando nada está sendo acompanhado. */
+calendarRoutes.get('/discover', async (c) => {
+  const days = parseCalendarDays(c.req.query('days'));
+  const { entries, failed } = await discoverUpcoming(days);
+  return c.json({ days, entries, failed });
 });
 
 /** Feed .ics para assinar no calendário: mesmos dados e validação de `days` do JSON. Montado em `/api` como `/api/calendar.ics`. */

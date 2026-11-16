@@ -146,3 +146,35 @@ export const tvmazeShowDetails = withCache(60 * MINUTES, async (id: number): Pro
     runtimeMinutes: normalizeRuntimeMinutes(raw.averageRuntime ?? raw.runtime),
   };
 });
+
+export interface TvmazeScheduleItem {
+  showId: number;
+  showName: string;
+  imageUrl: string | null;
+  date: string;
+  season: number;
+  number: number;
+  episodeName: string;
+}
+
+/** `/schedule/web?date=`: episódios de streaming do dia no mundo todo. Só estreias de temporada/série (episódio 1). */
+export const tvmazeWebPremieres = withCache(3 * 60 * MINUTES, async (date: string): Promise<TvmazeScheduleItem[]> => {
+  const data = await get('/schedule/web', { date });
+  if (!Array.isArray(data)) throw unexpected();
+  const out: TvmazeScheduleItem[] = [];
+  for (const raw of data) {
+    if (!isRecord(raw) || raw.number !== 1 || typeof raw.season !== 'number') continue;
+    const embedded = isRecord(raw._embedded) && isRecord(raw._embedded.show) ? raw._embedded.show : null;
+    if (!embedded || typeof embedded.id !== 'number' || typeof embedded.name !== 'string') continue;
+    out.push({
+      showId: embedded.id,
+      showName: embedded.name,
+      imageUrl: imageOf(embedded.image),
+      date,
+      season: raw.season,
+      number: 1,
+      episodeName: typeof raw.name === 'string' ? raw.name : '',
+    });
+  }
+  return out;
+});
