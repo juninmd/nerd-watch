@@ -49,7 +49,7 @@ export const HARDENING_HEADERS: Readonly<Record<string, string>> = {
 
 /**
  * CSP da casca (HTML). Script só do próprio app; imagem e mídia aceitam http e https (fontes diretas só em http tocam no `<video>`); iframe (embeds de YouTube/PeerTube) só https.
- * `ipc:` e `ipc.localhost` são a ponte do Tauri no desktop.
+ * `ipc:` e `ipc.localhost` são a ponte do Tauri no desktop; `api.github.com` só serve para ver se há release nova.
  */
 export const APP_CSP = [
   "default-src 'self'",
@@ -58,7 +58,7 @@ export const APP_CSP = [
   "img-src 'self' http: https: data: blob:",
   "media-src 'self' http: https: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' ipc: http://ipc.localhost",
+  "connect-src 'self' ipc: http://ipc.localhost https://api.github.com",
   'frame-src https:',
   "object-src 'none'",
   "base-uri 'none'",
