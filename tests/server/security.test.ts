@@ -82,6 +82,7 @@ describe('cabeçalhos de endurecimento', () => {
     expect(APP_CSP).toContain("object-src 'none'");
     expect(APP_CSP).toContain("frame-ancestors 'none'");
     expect(APP_CSP).not.toContain("'unsafe-eval'");
+    expect(APP_CSP).toContain("media-src 'self' http: https: blob:");
     expect(HARDENING_HEADERS['X-Frame-Options']).toBe('DENY');
     expect(HARDENING_HEADERS['X-Content-Type-Options']).toBe('nosniff');
   });
