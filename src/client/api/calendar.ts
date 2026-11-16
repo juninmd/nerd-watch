@@ -21,3 +21,12 @@ export interface CalendarResponse {
 
 export const getCalendar = (days = 60): Promise<CalendarResponse> =>
   fetch(`/api/calendar?days=${days}`).then((r) => json<CalendarResponse>(r));
+
+export interface DiscoverResponse {
+  days: number;
+  entries: Omit<CalendarEntryDto, 'titleId'>[];
+  failed: string[];
+}
+
+export const getCalendarDiscover = (days = 14): Promise<DiscoverResponse> =>
+  fetch(`/api/calendar/discover?days=${days}`).then((r) => json<DiscoverResponse>(r));

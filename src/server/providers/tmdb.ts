@@ -172,3 +172,21 @@ export const tmdbTrailerKey = withCache(60 * MINUTES, async (mediaType: MediaTyp
 });
 
 export { tmdbEnabled };
+
+export interface TmdbUpcomingMovie {
+  id: number;
+  title: string;
+  poster_path: string | null;
+  release_date: string;
+}
+
+/** Filmes com estreia entre `from` e `to` (YYYY-MM-DD), por popularidade. Alimenta a Agenda sem depender da biblioteca. */
+export const tmdbUpcomingMovies = withCache(3 * 60 * MINUTES, async (from: string, to: string): Promise<TmdbUpcomingMovie[]> => {
+  const data = await call<{ results: TmdbUpcomingMovie[] }>('/discover/movie', {
+    'primary_release_date.gte': from,
+    'primary_release_date.lte': to,
+    sort_by: 'popularity.desc',
+    include_adult: 'false',
+  });
+  return data.results.filter((m) => m.release_date);
+});

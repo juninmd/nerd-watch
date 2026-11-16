@@ -192,3 +192,35 @@ export const anilistDetails = withCache(60 * MINUTES, async (id: number): Promis
     nextAiringEpisode: airingAt !== null && episode !== null ? { airingAt, episode } : null,
   };
 });
+
+const AIRING_QUERY = `
+query ($from: Int!, $to: Int!) {
+  Page(page: 1, perPage: 50) {
+    airingSchedules(airingAt_greater: $from, airingAt_lesser: $to, episode: 1, sort: TIME) {
+      airingAt
+      episode
+      media { id title { romaji english native } coverImage { large } isAdult countryOfOrigin }
+    }
+  }
+}`;
+
+export interface AnilistPremiere {
+  id: number;
+  title: string;
+  imageUrl: string | null;
+  airingAt: number;
+}
+
+/** Estreias (episódio 1) de anime entre dois instantes em segundos Unix. */
+export const anilistPremieres = withCache(3 * 60 * MINUTES, async (from: number, to: number): Promise<AnilistPremiere[]> => {
+  const data = await query(AIRING_QUERY, { from, to });
+  const page = isRecord(data.Page) ? data.Page : null;
+  if (!page || !Array.isArray(page.airingSchedules)) throw unexpected();
+  const out: AnilistPremiere[] = [];
+  for (const s of page.airingSchedules) {
+    if (!isRecord(s) || typeof s.airingAt !== 'number' || !isRecord(s.media) || s.media.isAdult === true) continue;
+    if (typeof s.media.id !== 'number') continue;
+    out.push({ id: s.media.id, title: pickTitle(s.media.title).title, imageUrl: coverOf(s.media.coverImage), airingAt: s.airingAt });
+  }
+  return out;
+});
