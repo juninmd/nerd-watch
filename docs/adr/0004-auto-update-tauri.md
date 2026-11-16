@@ -36,8 +36,9 @@ e a versão instalada não tem como saber que existe versão nova.
 - O instalador leva **um executável** do servidor (`bun build --compile`, ver
   [ADR 0005](0005-desktop-sidecar.md)) e o cliente em `public/`. Nada de `node_modules` e nada de
   Bun instalado na máquina.
-- Publicar release passa a ser consequência de mergear commit convencional em `main`; PR com
-  título fora do padrão não gera versão.
+- Publicar release passa a ser consequência de mergear commit convencional em `main`; título de
+  squash fora do padrão vira patch (o código entrou em `main` e ficar sem versão é pior do que uma
+  release a mais). Só `docs`/`chore`/`test`/`ci`/`build`/`style` e `Merge ...` não publicam.
 - Nada disso muda o app web (`bun run dev`) nem o Docker: os dois caminhos seguem iguais.
 - Atualização automática pede confirmação: o app mostra a versão disponível e só instala/reinicia
   quando a pessoa aceita. Quem quiser controle manual desliga com `plugins.updater` vazio ou
