@@ -23,6 +23,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+.conn-version a {
+  margin-left: 8px;
+  font-weight: 600;
+}
+
 .conn-wide {
   grid-column: 1 / -1;
 }

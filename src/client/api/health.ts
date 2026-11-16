@@ -2,6 +2,8 @@ import { json } from './http.ts';
 
 export interface HealthResponse {
   ok: boolean;
+  /** Versão do app (package.json). Ausente em servidor antigo. */
+  version?: string;
   tmdbEnabled: boolean;
   openSubtitlesEnabled: boolean;
   torrentEnabled: boolean;

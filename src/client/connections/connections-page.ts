@@ -6,7 +6,7 @@ import { renderTelegramLogin } from '../channels/telegram-login.ts';
 import { mountTraktActions } from './trakt-actions.ts';
 import { listSources } from '../api/sources.ts';
 import { icon, type IconName } from '../ui/icons.ts';
-import { installedVersion, versionLabel } from '../platform/version.ts';
+import { mountVersionInfo } from '../platform/version-info.ts';
 
 interface Integration {
   title: string;
@@ -81,12 +81,7 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
 
   // Desktop: mostra a versão instalada (a mesma que o auto-update compara). No navegador fica oculto.
   const versionEl = host.querySelector('#conn-version') as HTMLElement;
-  void installedVersion().then((version) => {
-    const label = versionLabel(version);
-    if (!label) return;
-    versionEl.textContent = label;
-    versionEl.hidden = false;
-  });
+  void mountVersionInfo(versionEl);
 
   renderTelegramLogin(host.querySelector('#conn-telegram') as HTMLElement);
 

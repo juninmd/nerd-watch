@@ -1,5 +1,5 @@
 import { health } from '../api/index.ts';
-import { installedVersion, versionLabel } from '../platform/version.ts';
+import { mountVersionInfo } from '../platform/version-info.ts';
 import { icon, type IconName } from '../ui/icons.ts';
 import { notifySummary } from './settings-model.ts';
 import { openShortcutHelp } from './shortcuts.ts';
@@ -69,10 +69,5 @@ export const renderSettings = (host: HTMLElement): void => {
     });
 
   const versionEl = host.querySelector('#set-version') as HTMLElement;
-  void installedVersion().then((v) => {
-    const label = versionLabel(v);
-    if (!label) return;
-    versionEl.textContent = label;
-    versionEl.hidden = false;
-  });
+  void mountVersionInfo(versionEl);
 };
