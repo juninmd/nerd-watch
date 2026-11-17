@@ -29,6 +29,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 🔔 **Avisos de lançamento** | um aviso por lançamento da sua lista, por webhook ou [ntfy](docs/providers/notifications.md) (configurado no `.env`, desligado por padrão); antecedência de 0 a 7 dias |
 | 📅 **Assinar a agenda** | feed `.ics` em `/api/calendar.ics` (`?days=`, padrão 60, máx. 365) com os mesmos lançamentos; cada evento tem UID estável, então reassinar não duplica. Botão **Assinar no calendário** copia o link. Só alcança apps que rodam na mesma máquina, porque o servidor escuta em `127.0.0.1` |
 | ✨ **Animações** | troca de tela com transição (o destaque do menu desliza até o item novo), cards em cascata com inclinação 3D e brilho que segue o mouse, gráficos que crescem e números que contam, confete ao marcar como assistido. Tudo desliga com `prefers-reduced-motion` |
+| 🧭 **Menu lateral** | vertical e agrupado (Assistir, Descobrir, Fontes de vídeo), com Listas e Domínio público. O botão do topo recolhe para só ícones (a escolha fica no navegador). No celular, a barra inferior traz os atalhos principais e **Menu** abre a lista inteira |
 | ⌨️ **Ctrl K** | paleta de comandos (títulos, canais, ações) e atalhos `g`+letra (`?` mostra a lista) |
 | 🎲 **O que assistir hoje** | sorteia um título da sua lista "quero ver" (filtro de tipo e nota mínima); "Outro" não repete o anterior. Botão na Biblioteca ou na Ctrl K |
 | 📺 **Episódios** | navegação por temporada, sinopse por episódio com **spoiler oculto por padrão** |
