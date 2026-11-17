@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { chooseAudio, decidePlan } from '../../src/server/media/plan.ts';
+import { browserDecodable, chooseAudio, decidePlan } from '../../src/server/media/plan.ts';
 import { parseProbe, type ProbeInfo } from '../../src/server/media/probe-parse.ts';
 
 const LANGS = ['por', 'pt', 'eng', 'en'];
@@ -126,5 +126,23 @@ describe('chooseAudio: escolha da trilha', () => {
   test('a trilha pedida pelo usuário vence, se existir; inexistente cai no padrão', () => {
     expect(chooseAudio(tracks('jpn', 'eng'), LANGS, 0)).toBe(0);
     expect(chooseAudio(tracks('jpn', 'eng'), LANGS, 7)).toBe(1);
+  });
+});
+
+describe('browserDecodable: MP4 que toca só o áudio', () => {
+  const video = (v: Record<string, unknown>) => probeOf(v).video as NonNullable<ProbeInfo['video']>;
+
+  test('HEVC (padrão de celular/Telegram) não decodifica no navegador', () => {
+    expect(browserDecodable(video({ codec_name: 'hevc', pix_fmt: 'yuv420p' }))).toBe(false);
+  });
+
+  test('H.264 de 10 bits não decodifica; de 8 bits sim', () => {
+    expect(browserDecodable(video({ codec_name: 'h264', pix_fmt: 'yuv420p10le' }))).toBe(false);
+    expect(browserDecodable(video(H264_8BIT))).toBe(true);
+  });
+
+  test('VP9 e AV1 seguem direto', () => {
+    expect(browserDecodable(video({ codec_name: 'vp9', pix_fmt: 'yuv420p' }))).toBe(true);
+    expect(browserDecodable(video({ codec_name: 'av1', pix_fmt: 'yuv420p' }))).toBe(true);
   });
 });

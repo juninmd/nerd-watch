@@ -31,6 +31,15 @@ export const chooseAudio = (audio: AudioInfo[], preferredLangs: string[], reques
   return (audio.find((a) => a.isDefault) ?? (audio[0] as AudioInfo)).ordinal;
 };
 
+/**
+ * O `<video>` decodifica essa trilha? Um MP4 com HEVC (padrão de celular/Telegram) toca só o áudio e trava na
+ * miniatura, então a extensão sozinha não basta. Sem pix_fmt, assume que decodifica (não piora o que já tocava).
+ */
+export const browserDecodable = (video: NonNullable<ProbeInfo['video']>): boolean => {
+  if (video.codec === 'h264') return !/(10|12|16)(le|be)?$/.test(video.pixFmt);
+  return video.codec === 'vp9' || video.codec === 'av1' || video.codec === 'vp8';
+};
+
 /** Vídeo copiável: H.264 em 4:2:0 de 8 bits e progressivo. Qualquer dúvida (sem pix_fmt) cai em recodificar. */
 const videoCopyable = (video: NonNullable<ProbeInfo['video']>): boolean =>
   video.codec === 'h264' && (video.pixFmt === 'yuv420p' || video.pixFmt === 'yuvj420p') && !video.interlaced;
