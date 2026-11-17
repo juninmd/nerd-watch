@@ -162,6 +162,14 @@ export interface ArchiveSearchResponse {
   results: ArchiveMovieDto[];
 }
 
-export const searchArchive = (q = ''): Promise<ArchiveSearchResponse> =>
-  fetch(`/api/archive/search?q=${encodeURIComponent(q)}`).then((r) => json<ArchiveSearchResponse>(r));
+export const searchArchive = (q = '', collection = 'feature_films'): Promise<ArchiveSearchResponse> =>
+  fetch(`/api/archive/search?q=${encodeURIComponent(q)}&collection=${encodeURIComponent(collection)}`).then((r) => json<ArchiveSearchResponse>(r));
 
+
+export interface ArchiveCollectionDto {
+  id: string;
+  label: string;
+}
+
+export const getArchiveCollections = (): Promise<ArchiveCollectionDto[]> =>
+  fetch('/api/archive/collections').then((r) => json<{ collections: ArchiveCollectionDto[] }>(r)).then((d) => d.collections);

@@ -1,0 +1,67 @@
+.addon-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.addon-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 14px;
+}
+
+.addon-logo {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.addon-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.addon-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.addon-body h3 {
+  margin: 0;
+}
+
+.addon-desc {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+
+.addon-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.back-btn {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .addon-row {
+    flex-wrap: wrap;
+  }
+  .addon-actions {
+    flex-direction: row;
+    width: 100%;
+  }
+}
