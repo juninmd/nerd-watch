@@ -5,6 +5,7 @@ import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { titlePath } from '../ui/title-link.ts';
 import { paletteKeyLabel } from '../app/shortcut-keys.ts';
+import { countByKind, filterByKind, SEARCH_KINDS, type SearchKind } from './search-filter.ts';
 
 /** Selo da fonte: tmdb usa o tipo (filme/série); as demais fontes dizem de onde vem. */
 const SOURCE_BADGE: Partial<Record<CatalogSource, string>> = {
@@ -35,8 +36,10 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
       <input type="search" name="q" class="input input-pill grow" placeholder="Nome do filme, série ou novela" autocomplete="off" aria-label="Buscar no catálogo" value="${escapeHtml(query)}" />
       <button class="btn btn-primary btn-sm" type="submit">buscar</button>
     </form>
+    <div class="chip-row" id="search-kinds" role="group" aria-label="tipo de resultado" hidden></div>
     <div id="results"></div>
   `;
+  const kindsEl = host.querySelector('#search-kinds') as HTMLElement;
   const results = host.querySelector('#results') as HTMLElement;
   (host.querySelector('#search-form') as HTMLFormElement).addEventListener('submit', (e) => {
     e.preventDefault();
@@ -49,6 +52,7 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
     return;
   }
 
+  kindsEl.hidden = true;
   results.innerHTML = `<div class="grid">${Array.from({ length: 8 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div>`;
 
   search(query)
@@ -57,8 +61,29 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
         results.innerHTML = `<div class="empty-state"><div class="big" aria-hidden="true">${icon('search')}</div>nada encontrado para "${escapeHtml(query)}"<p class="hint">confira a grafia ou tente o nome original do título</p></div>`;
         return;
       }
-      results.innerHTML = `<div class="grid">${data.results.map(resultCard).join('')}</div>`;
-
+      // Filtro por tipo no cliente (padrão de "Descobrir" de apps de streaming): sem nova chamada à API.
+      let kind: SearchKind = 'all';
+      const counts = countByKind(data.results);
+      const paint = () => {
+        const shown = filterByKind(data.results, kind);
+        results.innerHTML = `<div class="grid">${shown.map(resultCard).join('')}</div>`;
+        wire();
+      };
+      kindsEl.hidden = false;
+      kindsEl.innerHTML = SEARCH_KINDS.filter((k) => k.id === 'all' || counts[k.id] > 0)
+        .map((k) => `<button type="button" class="chip${k.id === kind ? ' active' : ''}" data-kind="${k.id}" aria-pressed="${k.id === kind}">${k.label} <span class="count">${counts[k.id]}</span></button>`)
+        .join('');
+      kindsEl.addEventListener('click', (e) => {
+        const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-kind]');
+        if (!btn) return;
+        kind = btn.dataset.kind as SearchKind;
+        for (const b of kindsEl.querySelectorAll<HTMLElement>('[data-kind]')) {
+          b.classList.toggle('active', b === btn);
+          b.setAttribute('aria-pressed', String(b === btn));
+        }
+        paint();
+      });
+      const wire = () => {
       for (const el of results.querySelectorAll<HTMLElement>('.card')) {
         const source = el.dataset.source as CatalogSource;
         const mediaType = el.dataset.media as 'movie' | 'tv';
@@ -94,6 +119,8 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
             .catch(() => showToast('não foi possível adicionar'));
         });
       }
+      };
+      paint();
     })
     .catch(() => {
       results.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>falha na busca, tente de novo</div>`;
