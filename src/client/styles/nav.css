@@ -1,0 +1,82 @@
+/*
+ * Menu lateral vertical agrupado. Expandido no desktop (ícone + rótulo + grupos) e compacto por preferência
+ * (só ícones, `nw:nav-compact`). No celular a mesma lista vira a gaveta de layout.css, então aqui nada muda.
+ * Vem depois de effects.css e layout.css para ganhar deles na barra de destaque do item ativo.
+ */
+.nav-collapse {
+  display: none;
+}
+
+@media (min-width: 881px) {
+  .shell {
+    grid-template-columns: var(--sidebar-w) 1fr;
+    transition: grid-template-columns 0.3s var(--ease);
+  }
+
+  .shell.nav-compact {
+    grid-template-columns: 88px 1fr;
+  }
+
+  .side-brand {
+    gap: 10px;
+    padding-inline: 4px;
+  }
+
+  .nav-collapse {
+    display: grid;
+    place-items: center;
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: transparent;
+    color: var(--text-dim);
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+
+  @media (hover: hover) {
+    .nav-collapse:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+  }
+
+  /* Compacto: volta ao trilho de ícones, com um fio separando os grupos. */
+  .shell.nav-compact .side-brand {
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 10px;
+  }
+
+  .shell.nav-compact .brand-name,
+  .shell.nav-compact .nav-label,
+  .shell.nav-compact .navlink .label,
+  .shell.nav-compact .side-btn span,
+  .shell.nav-compact .side-btn kbd {
+    display: none;
+  }
+
+  .shell.nav-compact .nav-collapse {
+    margin-left: 0;
+  }
+
+  .shell.nav-compact .nav {
+    gap: 0;
+  }
+
+  .shell.nav-compact .nav-group {
+    gap: 6px;
+    padding-block: 8px;
+  }
+
+  .shell.nav-compact .nav-group + .nav-group {
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .shell.nav-compact .navlink,
+  .shell.nav-compact .side-btn {
+    justify-content: center;
+    padding: 0;
+  }
+}

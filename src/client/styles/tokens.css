@@ -53,9 +53,28 @@
 
   /* Movimento: uma curva e três durações, usadas por todas as telas. */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Movimento: uma curva e três durações, usadas por todas as telas. */
   --dur-fast: 0.15s;
   --dur: 0.3s;
   --dur-slow: 0.55s;
+
+  /* Escala tipográfica: use estes degraus em vez de tamanhos soltos em telas novas. */
+  --text-xs: 12px;
+  --text-sm: 13.5px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: clamp(24px, 3.2vw, 32px);
+  --text-display: clamp(30px, 4.4vw, 46px);
+
+  /* Espaço e anel de foco compartilhados. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 40px;
+  --ring: 0 0 0 4px rgba(124, 92, 255, 0.22);
 
   --sidebar-w: 248px;
 }
@@ -99,6 +118,7 @@
   --scrim: rgba(20, 18, 43, 0.35);
   --hero-fade: 238, 237, 246;
 }
+
 
 * {
   box-sizing: border-box;

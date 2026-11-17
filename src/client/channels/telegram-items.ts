@@ -70,7 +70,7 @@ export const orderItems = <T extends { messageId: string; postedAt?: string | nu
   order: ItemOrder,
 ): T[] => {
   if (order === 'name' || order === 'name-desc') {
-    const key = (i: T) => normalizeSearch(itemTitle(i));
+    const key = (i: T) => normalizeSearch(itemTitle({ ...i, caption: i.caption ?? null }));
     const sorted = [...items].sort((a, b) => key(a).localeCompare(key(b), 'pt-BR', { numeric: true }) || Number(a.messageId) - Number(b.messageId));
     return order === 'name' ? sorted : sorted.reverse();
   }
