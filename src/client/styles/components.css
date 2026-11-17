@@ -384,3 +384,25 @@
 .back-link:hover {
   color: var(--text);
 }
+
+.section-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.refresh-btn.is-loading svg {
+  animation: refresh-spin 0.9s linear infinite;
+}
+
+@keyframes refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refresh-btn.is-loading svg {
+    animation: none;
+  }
+}
