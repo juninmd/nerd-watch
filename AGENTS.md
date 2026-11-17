@@ -4,7 +4,7 @@
 
 - Stack: Bun, TypeScript, Hono, SQLite (`bun:sqlite`), client vanilla (sem framework).
 - Lint & Validation: `bun run check` (`biome` + `tsc --noEmit` + `bun test`).
-- Catálogo: TMDB (requer `TMDB_API_KEY`) + Internet Archive (coleções de domínio público) + Wikimedia Commons (sem chave). Addons do Stremio só por link colado (`docs/providers/stremio-addons.md`).
+- Catálogo: TMDB (requer `TMDB_API_KEY`) + Internet Archive (coleções de domínio público e licença livre marcada) + Wikimedia Commons (sem chave). Addons do Stremio só por link colado (`docs/providers/stremio-addons.md`).
 - Local-first: tudo fica em `data/nerd-watch.db` (SQLite); nada é enviado a servidores próprios.
 - Mapa do código e receitas ("onde ponho X"): [ARCHITECTURE.md](ARCHITECTURE.md). Leia antes de criar arquivo.
 

@@ -14,7 +14,7 @@ export const renderPublicDomain = (host: HTMLElement): void => {
     <h1 class="view-title">Domínio público</h1>
     <p class="view-subtitle">
       Filmes e vídeos de domínio público ou licença livre, de fontes que publicam a licença de cada item: coleções do
-      Internet Archive (longas clássicos, cinema mudo, Prelinger, NASA) e a Wikimedia Commons (inclui os filmes abertos da
+      Internet Archive (longas clássicos, cinema mudo, film noir, ficção científica e terror, animação, TV clássica, Prelinger, NASA) e a Wikimedia Commons (inclui os filmes abertos da
       Blender Foundation). Sem chave de API. Confira sempre a licença mostrada em cada item.
     </p>
     <div class="chip-row" id="pd-sources" role="group" aria-label="fonte do acervo"></div>
