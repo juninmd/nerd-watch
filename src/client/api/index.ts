@@ -5,6 +5,7 @@
 export * from './backup.ts';
 export * from './calendar.ts';
 export * from './catalog.ts';
+export * from './credentials.ts';
 export * from './commons.ts';
 export * from './health.ts';
 export * from './http.ts';

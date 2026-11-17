@@ -44,6 +44,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Conta e dados',
     items: [
       { path: '/data', label: 'Importar e backup', icon: 'database', key: 'd' },
+      { path: '/credentials', label: 'Credenciais', icon: 'key', key: 'k' },
       { path: '/settings', label: 'Ajustes e avisos', icon: 'sliders', key: 'j' },
     ],
   },

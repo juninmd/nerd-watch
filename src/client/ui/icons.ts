@@ -26,6 +26,7 @@ const PATHS = {
   upload: '<path d="M12 20V9M7 13l5-5 5 5M5 4h14"/>',
   alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h0"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/>',
   keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h0M10 10h0M14 10h0M18 10h0M7 14h10"/>',
   skipNext: '<path d="M6 5l9 7-9 7z" fill="currentColor" stroke="none"/><path d="M19 5v14"/>',
   skipPrev: '<path d="M18 5l-9 7 9 7z" fill="currentColor" stroke="none"/><path d="M5 5v14"/>',

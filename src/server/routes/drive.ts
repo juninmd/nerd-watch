@@ -1,12 +1,11 @@
 import { Hono } from 'hono';
 import { config, driveClientConfigured, driveConnected } from '../config/config.ts';
 import { updateEnvVar } from '../config/env-file.ts';
+import { GOOGLE_CLIENT_ID_RE, GOOGLE_CLIENT_SECRET_RE } from '../credentials/registry.ts';
 import { completeAuthFlow, disconnectDrive, getFlowState, startAuthFlow } from '../providers/drive/oauth.ts';
 
 export const driveRoutes = new Hono();
 
-const CLIENT_ID_RE = /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/i;
-const CLIENT_SECRET_RE = /^[A-Za-z0-9_-]{10,120}$/;
 
 const status = () => ({ clientConfigured: driveClientConfigured(), connected: driveConnected() });
 
@@ -20,8 +19,8 @@ driveRoutes.post('/settings', async (c) => {
 
   const clientId = typeof body.clientId === 'string' ? body.clientId.trim() : undefined;
   const clientSecret = typeof body.clientSecret === 'string' ? body.clientSecret.trim() : undefined;
-  if (clientId !== undefined && !CLIENT_ID_RE.test(clientId)) return c.json({ error: 'client ID inválido (termina em .apps.googleusercontent.com)' }, 400);
-  if (clientSecret !== undefined && !CLIENT_SECRET_RE.test(clientSecret)) return c.json({ error: 'client secret inválido' }, 400);
+  if (clientId !== undefined && !GOOGLE_CLIENT_ID_RE.test(clientId)) return c.json({ error: 'client ID inválido (termina em .apps.googleusercontent.com)' }, 400);
+  if (clientSecret !== undefined && !GOOGLE_CLIENT_SECRET_RE.test(clientSecret)) return c.json({ error: 'client secret inválido' }, 400);
 
   // Outro client ID invalida o refresh token guardado (ele pertence ao client que o emitiu).
   if (clientId !== undefined && clientId !== config.drive.clientId && config.drive.refreshToken) await disconnectDrive();

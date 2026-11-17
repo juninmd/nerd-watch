@@ -15,6 +15,7 @@ describe('resolveRoute', () => {
       '/public-domain': 'publicDomain',
       '/telegram': 'channels',
       '/connections': 'connections',
+      '/credentials': 'credentials',
       '/addons': 'addons',
     };
     for (const [path, id] of Object.entries(fixed)) expect(idOf(path)).toBe(id);
