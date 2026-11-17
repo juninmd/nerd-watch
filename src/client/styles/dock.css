@@ -10,7 +10,7 @@
   align-items: center;
   gap: 14px;
   padding: 10px clamp(16px, 2.6vw, 36px);
-  background: rgba(14, 16, 26, 0.94);
+  background: var(--glass-strong);
   backdrop-filter: blur(16px);
   border-top: 1px solid var(--border);
 }

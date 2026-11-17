@@ -3,7 +3,7 @@ import { type Binaries, binaryStatus } from './binaries.ts';
 import { cacheKey, cachePath, removeOrphanParts, touchCache } from './cache.ts';
 import { startLive } from './live.ts';
 import { isPlayableVideo } from './playable.ts';
-import { type Plan, decidePlan } from './plan.ts';
+import { type Plan, browserDecodable, decidePlan } from './plan.ts';
 import { createProber } from './probe.ts';
 import type { ProbeInfo } from './probe-parse.ts';
 import { type Slots, createSlots } from './process.ts';
@@ -90,13 +90,18 @@ export const createMediaService = (opts: { settings: MediaSettings; locate: Loca
   const analyze = async (channelId: string, messageId: string, audioParam: string | undefined): Promise<Analysis> => {
     const located = await locate(channelId, messageId);
     if (!located) return { kind: 'na' };
-    if (isPlayableVideo(located.name)) return { kind: 'direct' };
+    const native = isPlayableVideo(located.name);
     const status = binaryStatus(settings);
-    if (!status.ok) return { kind: 'unavailable', reason: status.reason };
+    // Sem ffmpeg, o contêiner nativo segue direto como antes; só os demais ficam indisponíveis.
+    if (!status.ok) return native ? { kind: 'direct' } : { kind: 'unavailable', reason: status.reason };
     const probe = await proberFor(status.bins).probe(
       located.file,
       `${located.file}|${located.size}|${located.mtimeMs}`,
     );
+    if (native) {
+      // MP4/WebM com codec que o navegador não decodifica (ex.: HEVC) toca só o áudio: vai para a transcodificação.
+      if (!probe?.video || browserDecodable(probe.video)) return { kind: 'direct' };
+    }
     if (!probe) throw new MediaError(409, 'não foi possível ler os dados desse arquivo');
     const plan = decidePlan(probe, { preferredLangs: settings.audioLangs, audioOrdinal: parseOrdinal(audioParam) });
     if (plan.path === 'unavailable') return { kind: 'unavailable', reason: plan.reason };

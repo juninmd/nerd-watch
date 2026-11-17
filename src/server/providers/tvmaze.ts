@@ -146,3 +146,78 @@ export const tvmazeShowDetails = withCache(60 * MINUTES, async (id: number): Pro
     runtimeMinutes: normalizeRuntimeMinutes(raw.averageRuntime ?? raw.runtime),
   };
 });
+
+/** Campos de apresentação de um show (canal, links, nota, gêneros) usados pela ficha da Agenda. */
+export interface TvmazeShowExtras {
+  /** Streaming (`webChannel`) ou emissora de TV (`network`). */
+  channel: { name: string; url: string | null; web: boolean } | null;
+  officialUrl: string | null;
+  pageUrl: string | null;
+  summary: string | null;
+  rating: number | null;
+  genres: string[];
+  anime: boolean;
+  imdbId: string | null;
+  premiered: string | null;
+}
+
+const IMDB_RE = /^tt\d{5,10}$/;
+
+export const showExtras = (show: Record<string, unknown>): TvmazeShowExtras => {
+  const place = isRecord(show.webChannel) ? { raw: show.webChannel, web: true } : isRecord(show.network) ? { raw: show.network, web: false } : null;
+  const channel = place && typeof place.raw.name === 'string' ? { name: place.raw.name, url: httpsUrlOrNull(place.raw.officialSite), web: place.web } : null;
+  const genres = normalizeGenres(show.genres) ?? [];
+  const lang = typeof show.language === 'string' ? show.language : '';
+  return {
+    channel,
+    officialUrl: httpsUrlOrNull(show.officialSite),
+    pageUrl: httpsUrlOrNull(show.url),
+    summary: htmlToText(typeof show.summary === 'string' ? show.summary : null),
+    rating: isRecord(show.rating) && typeof show.rating.average === 'number' ? show.rating.average : null,
+    genres,
+    anime: genres.includes('Anime') || (show.type === 'Animation' && lang === 'Japanese'),
+    imdbId: isRecord(show.externals) && typeof show.externals.imdb === 'string' && IMDB_RE.test(show.externals.imdb) ? show.externals.imdb : null,
+    premiered: typeof show.premiered === 'string' && DATE_RE.test(show.premiered) ? show.premiered : null,
+  };
+};
+
+/** `/shows/:id` sem episódios: leve o bastante para a ficha de um item da Agenda. */
+export const tvmazeShowInfo = withCache(60 * MINUTES, async (id: number): Promise<TvmazeShowExtras & { name: string }> => {
+  const raw = await get(`/shows/${id}`);
+  if (!isRecord(raw) || typeof raw.name !== 'string') throw unexpected();
+  return { name: raw.name, ...showExtras(raw) };
+});
+
+export interface TvmazeScheduleItem {
+  extras: TvmazeShowExtras;
+  showId: number;
+  showName: string;
+  imageUrl: string | null;
+  date: string;
+  season: number;
+  number: number;
+  episodeName: string;
+}
+
+/** `/schedule/web?date=`: episódios de streaming do dia no mundo todo. Só estreias de temporada/série (episódio 1). */
+export const tvmazeWebPremieres = withCache(3 * 60 * MINUTES, async (date: string): Promise<TvmazeScheduleItem[]> => {
+  const data = await get('/schedule/web', { date });
+  if (!Array.isArray(data)) throw unexpected();
+  const out: TvmazeScheduleItem[] = [];
+  for (const raw of data) {
+    if (!isRecord(raw) || raw.number !== 1 || typeof raw.season !== 'number') continue;
+    const embedded = isRecord(raw._embedded) && isRecord(raw._embedded.show) ? raw._embedded.show : null;
+    if (!embedded || typeof embedded.id !== 'number' || typeof embedded.name !== 'string') continue;
+    out.push({
+      showId: embedded.id,
+      showName: embedded.name,
+      imageUrl: imageOf(embedded.image),
+      extras: showExtras(embedded),
+      date,
+      season: raw.season,
+      number: 1,
+      episodeName: typeof raw.name === 'string' ? raw.name : '',
+    });
+  }
+  return out;
+});

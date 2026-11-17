@@ -1,7 +1,9 @@
+import pkg from '../../package.json' with { type: 'json' };
 import { Hono } from 'hono';
 import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled, torrentEnabled } from './config/config.ts';
 import { createAccess } from './http/access-guard.ts';
-import { originAllowed, requestAllowed } from './http/security.ts';
+import { buildSinks } from './notify/sinks.ts';
+import { APP_CSP, HARDENING_HEADERS, originAllowed, requestAllowed } from './http/security.ts';
 import { createStaticHandler } from './http/static.ts';
 import { searchRoutes } from './routes/search.ts';
 import { tmdbRoutes } from './routes/tmdb.ts';
@@ -21,9 +23,12 @@ import { backupRoutes } from './routes/backup.ts';
 import { telegramRoutes } from './routes/telegram.ts';
 import { telegramSettingsRoutes } from './routes/telegram-settings.ts';
 import { driveRoutes } from './routes/drive.ts';
+import { credentialsRoutes } from './routes/credentials.ts';
 import { sourcesRoutes } from './routes/sources.ts';
 import { playbackRoutes } from './routes/playback.ts';
 import { traktRoutes } from './routes/trakt.ts';
+import { commonsRoutes } from './routes/commons.ts';
+import { stremioRoutes } from './routes/stremio.ts';
 import { createMediaRoutes } from './routes/media.ts';
 import { createMediaService } from './media/service.ts';
 import { localLocator } from './media/local-locator.ts';
@@ -54,6 +59,16 @@ app.use('*', async (c, next) => {
     });
   }
   await next();
+  try {
+    for (const [name, value] of Object.entries(HARDENING_HEADERS)) {
+      if (!c.res.headers.has(name)) c.res.headers.set(name, value);
+    }
+    if (c.res.headers.get('Content-Type')?.startsWith('text/html') && !c.res.headers.has('Content-Security-Policy')) {
+      c.res.headers.set('Content-Security-Policy', APP_CSP);
+    }
+  } catch {
+    // Response vinda de fetch tem cabeçalhos imutáveis: segue sem o endurecimento extra.
+  }
 });
 
 if (config.access.token !== undefined) {
@@ -65,10 +80,16 @@ if (config.access.token !== undefined) {
 app.get('/api/health', (c) =>
   c.json({
     ok: true,
+    // Versão do servidor: no navegador/Docker não há `getVersion()` do Tauri, então a UI lê daqui.
+    version: pkg.version,
     tmdbEnabled: tmdbEnabled(),
     openSubtitlesEnabled: openSubtitlesEnabled(),
     torrentEnabled: torrentEnabled(),
     telegramBotEnabled: telegramBotEnabled(),
+    // Só indicadores: as URLs e o token nunca saem do servidor. A tela Ajustes usa isto para mostrar o estado.
+    notifyEnabled: buildSinks(config.notify).length > 0,
+    notifyLeadDays: config.notify.leadDays,
+    accessEnabled: Boolean(config.access.token),
   }),
 );
 app.route('/api/search', searchRoutes);
@@ -90,9 +111,12 @@ app.route('/api/backup', backupRoutes);
 app.route('/api/telegram', telegramRoutes);
 app.route('/api/telegram/settings', telegramSettingsRoutes);
 app.route('/api/drive', driveRoutes);
+app.route('/api/credentials', credentialsRoutes);
 app.route('/api/sources', sourcesRoutes);
 app.route('/api/playback', playbackRoutes);
 app.route('/api/trakt', traktRoutes);
+app.route('/api/stremio', stremioRoutes);
+app.route('/api/commons', commonsRoutes);
 
 // Conversão de formatos (ffmpeg opcional): sem o binário, nada muda e a UI explica o motivo.
 const mediaCfg = mediaSettings();

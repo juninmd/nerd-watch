@@ -15,6 +15,8 @@ describe('resolveRoute', () => {
       '/public-domain': 'publicDomain',
       '/telegram': 'channels',
       '/connections': 'connections',
+      '/credentials': 'credentials',
+      '/addons': 'addons',
     };
     for (const [path, id] of Object.entries(fixed)) expect(idOf(path)).toBe(id);
   });
@@ -26,6 +28,9 @@ describe('resolveRoute', () => {
     expect(resolveRoute('/lists/minha-lista')).toMatchObject({ def: { id: 'listDetail' }, params: ['minha-lista'] });
     expect(resolveRoute('/watch/canal-1/42')).toMatchObject({ def: { id: 'watch' }, params: ['canal-1', '42'] });
     expect(idOf('/watch/canal-1/start')).toBe('watch');
+    expect(resolveRoute('/addons/abc')).toMatchObject({ def: { id: 'addonBrowse' }, params: ['abc'] });
+    expect(resolveRoute('/addons/abc/movie/tt1%3A1%3A2')).toMatchObject({ def: { id: 'addonItem' }, params: ['abc', 'movie', 'tt1%3A1%3A2'] });
+    expect(resolveRoute('/commons/File%3AX.webm')).toMatchObject({ def: { id: 'commons' }, params: ['File%3AX.webm'] });
   });
 
   test('caminho desconhecido ou malformado não casa com nada', () => {

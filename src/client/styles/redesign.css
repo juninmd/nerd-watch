@@ -1,0 +1,270 @@
+/* Redesign "sessão de cinema pessoal": peças novas do menu vertical, Ajustes, destaque "Continuar" e entradas em cascata. */
+
+.view-head {
+  position: relative;
+}
+
+.view-title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.view-head-action {
+  margin-top: 14px;
+}
+
+.section-head h2 {
+  font-family: var(--font-display);
+}
+
+/* Destaque "Continuar" da tela inicial: um toque para retomar. */
+.continue-hero {
+  --hue: 280;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+  padding: 28px;
+  min-height: 190px;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  color: #fff;
+  background: linear-gradient(120deg, hsl(var(--hue) 62% 30%), hsl(calc(var(--hue) + 55) 70% 22%));
+  box-shadow: var(--shadow-card);
+  animation: rise-in var(--dur-slow) var(--ease) both;
+}
+
+.continue-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -60% auto;
+  width: 60%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.22), transparent);
+  pointer-events: none;
+}
+
+.continue-body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.continue-meta {
+  font: 600 12px var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.continue-title {
+  margin: 0;
+  font-size: clamp(26px, 4vw, 42px);
+  font-weight: 800;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.continue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.hero-poster {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 104px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 16px 34px -14px rgba(0, 0, 0, 0.7);
+  transform: rotate(3deg);
+}
+
+@media (max-width: 560px) {
+  .continue-hero {
+    padding: 20px;
+  }
+  .hero-poster {
+    display: none;
+  }
+}
+
+/* Entrada em cascata: cartões e linhas aparecem com 40 ms de intervalo (só os 12 primeiros, o resto entra junto). */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.grid > *,
+.rail > *,
+.conn-grid > * {
+  animation: rise-in var(--dur-slow) var(--ease) both;
+}
+
+.grid > :nth-child(n + 2),
+.rail > :nth-child(n + 2),
+.conn-grid > :nth-child(n + 2) {
+  animation-delay: 40ms;
+}
+.grid > :nth-child(n + 3),
+.rail > :nth-child(n + 3),
+.conn-grid > :nth-child(n + 3) {
+  animation-delay: 80ms;
+}
+.grid > :nth-child(n + 4),
+.rail > :nth-child(n + 4),
+.conn-grid > :nth-child(n + 4) {
+  animation-delay: 120ms;
+}
+.grid > :nth-child(n + 5),
+.rail > :nth-child(n + 5),
+.conn-grid > :nth-child(n + 5) {
+  animation-delay: 160ms;
+}
+.grid > :nth-child(n + 6),
+.rail > :nth-child(n + 6),
+.conn-grid > :nth-child(n + 6) {
+  animation-delay: 200ms;
+}
+.grid > :nth-child(n + 9),
+.rail > :nth-child(n + 9) {
+  animation-delay: 280ms;
+}
+
+/* Conexões: galeria de fontes; o cartão sobe no hover. */
+@media (hover: hover) {
+  .conn-card {
+    transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .conn-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent-2);
+  }
+}
+
+.chip-status.off {
+  color: var(--text-faint);
+}
+
+/* Ajustes: seletor de tema (segmentado) e interruptor. */
+.seg {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 18px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+.seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.seg-btn[aria-checked="true"] {
+  background: var(--gradient);
+  color: #fff;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+}
+
+.switch-track {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: background var(--dur) var(--ease);
+}
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.switch input:checked + .switch-track {
+  background: var(--accent-2);
+  border-color: transparent;
+}
+
+.switch input:checked + .switch-track::after {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+code {
+  font: 12.5px var(--font-mono);
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+/* Tema claro: ajustes pontuais onde o escuro tinha cor fixa. */
+:root[data-theme="light"] .calendar-day-label {
+  color: #5b3fd9;
+}
+
+:root[data-theme="light"] body::before {
+  opacity: 0.55;
+}
+
+:root[data-theme="light"] .brand {
+  box-shadow: 0 8px 22px -8px rgba(200, 30, 69, 0.5);
+}
+
+.side-btn[hidden],
+.chip-status[hidden] {
+  display: none;
+}
+
+.conn-card > .conn-head ~ .hint {
+  margin: 14px 0 0;
+}

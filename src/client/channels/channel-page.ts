@@ -8,6 +8,7 @@ import {
   searchTelegramHistory,
   type TelegramChannelDetailDto,
 } from '../api/index.ts';
+import { backLinkHtml } from '../ui/back-link.ts';
 import { escapeHtml, paintPoster } from '../ui/card.ts';
 import { linkBadge, openLinkDialog } from './telegram-link.ts';
 import { getQueueOrder, type QueueOrder, savedPosition, setQueueOrder } from '../player/player-dock.ts';
@@ -17,7 +18,7 @@ import { resumePoint } from '../player/playback-store.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { canRefreshMode, handleLabel, MODE_INFO } from '../connections/source-modes.ts';
-import { filterItems, itemDescription, itemFileName, itemTitle, orderItems, watchPath } from './telegram-items.ts';
+import { filterItems, itemDescription, itemFileName, itemTitle, needsTitleLink, orderItems, watchPath } from './telegram-items.ts';
 import { formatDuration } from '../ui/time-format.ts';
 import { getListMode, setListMode } from './list-mode.ts';
 import { mediaUrl } from '../platform/tauri.ts';
@@ -54,6 +55,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   const order = getQueueOrder();
   const items = orderItems(d.items, order);
   host.innerHTML = `
+    ${backLinkHtml('#/telegram', 'Canais')}
     <div class="hero">
       <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(mediaUrl(d.posterUrl))}')"` : ''}></div>
       <div class="scrim"></div>
@@ -245,6 +247,10 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       const wrap = document.createElement('div');
       wrap.className = 'tg-item';
       wrap.appendChild(card);
+      if (!needsTitleLink(item)) {
+        itemsHost.appendChild(wrap);
+        continue;
+      }
       const linkRow = document.createElement('div');
       linkRow.className = 'tg-item-link';
       linkRow.innerHTML = `${linkBadge(item.link ?? null)}<button class="btn btn-ghost btn-sm" type="button" aria-label="${escapeHtml(`vincular “${itemTitle(item)}” a um título`)}">${item.link ? 'alterar vínculo' : 'vincular a um título'}</button>`;

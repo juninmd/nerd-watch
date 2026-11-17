@@ -1,3 +1,4 @@
+import { backLinkHtml } from '../ui/back-link.ts';
 import { type CatalogSource, getTmdbTitle } from '../api/index.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { renderAddToList } from '../lists/add-to-list.ts';
@@ -50,6 +51,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
       .then((d) => {
         const year = d.releaseDate?.slice(0, 4) ?? '—';
         host.innerHTML = `
+          ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
             <div class="backdrop${d.backdropUrl ? '' : ' placeholder'}"${d.backdropUrl ? ` style="background-image:url('${d.backdropUrl}')"` : ''}></div>
             <div class="scrim"></div>

@@ -6,6 +6,7 @@
 @import "./styles/connections.css";
 @import "./styles/library.css";
 @import "./styles/lists.css";
+@import "./styles/addons.css";
 @import "./styles/dock.css";
 @import "./styles/captions.css";
 @import "./styles/watch.css";
@@ -13,7 +14,7 @@
 @import "./styles/views.css";
 @import "./styles/stats.css";
 @import "./styles/effects.css";
-@import "./styles/nav.css";
-@import "./styles/type.css";
 @import "./styles/touch.css";
 @import "./styles/media.css";
+@import "./styles/redesign.css";
+@import "./styles/calendar.css";

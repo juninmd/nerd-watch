@@ -24,7 +24,7 @@
 .hero .scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(10, 11, 18, 0.1) 0%, rgba(10, 11, 18, 0.75) 55%, var(--bg) 100%);
+  background: linear-gradient(180deg, rgba(var(--hero-fade), 0.1) 0%, rgba(var(--hero-fade), 0.75) 55%, var(--bg) 100%);
 }
 
 .hero-content {
@@ -367,7 +367,7 @@
 }
 
 .tg-link {
-  color: #a996ff;
+  color: var(--link);
   text-decoration: underline;
 }
 

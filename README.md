@@ -24,19 +24,20 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 🔖 **Onde você parou** | temporada e episódio atual por série, marcado com um clique |
 | ⏭️ **Próximos episódios** | no início, o próximo episódio não visto de cada série em andamento, pela última atividade (carrega até 12; posição de vídeo de canal segue em "Continuar assistindo") |
 | 🕘 **Histórico e revisão** | cada mudança de status e de progresso fica registrada (lista recolhível na página do título, no backup também); **Rever** volta um título assistido para "assistindo" e conta as revisões ("Visto N vezes") |
-| 🗓️ **Agenda** | próximos episódios e estreias de filme dos títulos que você acompanha, com faixa de 7 dias |
+| 🗓️ **Agenda** | próximos episódios e estreias dos títulos que você acompanha, com faixa de 7 dias, filtros por tipo (série, filme, anime) e por onde assistir, e cartões com sinopse, nota e links. O detalhe mostra streaming/cinema/TV, trailer e páginas oficiais (TVmaze, AniList e TMDB com `TMDB_API_KEY`; sem scraping, tudo cacheado e dentro dos limites de cada API) |
 | 📊 **Estatísticas** | `/stats` (atalho `g e`): conclusões, tempo assistido estimado, gêneros, notas, dia da semana e maior sequência de dias por ano, mais a fila "quero ver" com data de término no ritmo escolhido. **Mapa de atividade** do ano (um quadrado por dia), **composição da biblioteca** por status e **meta do ano** com anel de progresso e ritmo esperado (a meta fica só no navegador). Na tela inicial, a faixa **Seu ano** resume os números. Tempo usa a duração do catálogo (TMDB, TVmaze, AniList); o que não tem duração fica de fora e é contado. Datas seguem o fuso do navegador. **Compartilhar ano** gera um PNG no próprio navegador, só com totais. API: `GET /api/stats?year=&tz=&hpd=` |
 | 🔔 **Avisos de lançamento** | um aviso por lançamento da sua lista, por webhook ou [ntfy](docs/providers/notifications.md) (configurado no `.env`, desligado por padrão); antecedência de 0 a 7 dias |
 | 📅 **Assinar a agenda** | feed `.ics` em `/api/calendar.ics` (`?days=`, padrão 60, máx. 365) com os mesmos lançamentos; cada evento tem UID estável, então reassinar não duplica. Botão **Assinar no calendário** copia o link. Só alcança apps que rodam na mesma máquina, porque o servidor escuta em `127.0.0.1` |
 | ✨ **Animações** | troca de tela com transição (o destaque do menu desliza até o item novo), cards em cascata com inclinação 3D e brilho que segue o mouse, gráficos que crescem e números que contam, confete ao marcar como assistido. Tudo desliga com `prefers-reduced-motion` |
-| 🧭 **Menu lateral** | vertical e agrupado (Assistir, Descobrir, Fontes de vídeo), com Listas e Domínio público. O botão do topo recolhe para só ícones (a escolha fica no navegador). No celular, a barra inferior traz os atalhos principais e **Menu** abre a lista inteira |
 | ⌨️ **Ctrl K** | paleta de comandos (títulos, canais, ações) e atalhos `g`+letra (`?` mostra a lista) |
+| 🧭 **Menu lateral e tema** | menu vertical em quatro grupos (Assistir, Descobrir, Fontes de vídeo, Conta e dados); no celular vira gaveta. Tema escuro (padrão), claro ou do sistema (botão no menu, `v` ou Ajustes). **Importar e backup** (`/data`, `g d`) reúne backup JSON, CSV e MyAnimeList; **Ajustes e avisos** (`/settings`, `g j`) mostra tema, spoilers, atalhos, estado dos avisos de lançamento e **Sair** (só com `ACCESS_TOKEN`) |
 | 🎲 **O que assistir hoje** | sorteia um título da sua lista "quero ver" (filtro de tipo e nota mínima); "Outro" não repete o anterior. Botão na Biblioteca ou na Ctrl K |
 | 📺 **Episódios** | navegação por temporada, sinopse por episódio com **spoiler oculto por padrão** |
 | ✔️ **Marcar até aqui** | em um episódio, marca ele como "onde parei" e os anteriores (de todas as temporadas) ficam vistos de uma vez, com "Desfazer". O progresso é um marcador por série, então não há visto episódio a episódio |
 | 🎬 **Sinopse, nota e trailer** | via TMDB (filme e série) |
 | 📡 **Onde assistir** | streamings disponíveis na sua região (TMDB watch/providers) |
-| 🎞️ **Domínio público** | catálogo do Internet Archive (`feature_films`) — **assiste dentro do app**, sem chave nenhuma |
+| 🎞️ **Domínio público** | Internet Archive (longas, cinema mudo, Prelinger, NASA) e Wikimedia Commons — **assiste dentro do app**, sem chave nenhuma ([fontes e licenças](docs/providers/public-domain.md)) |
+| 🧩 **Addons do Stremio** | cole o link do `manifest.json` para usar catálogo, streams e legendas de um addon; instalação sempre manual ([docs](docs/providers/stremio-addons.md)) |
 | 🧲 **Torrent legal** | o torrent oficial que a própria Archive.org gera para cada item de domínio público |
 | ⚡ **Streaming P2P** | toca o torrent do acervo livre dentro do app, com seek — engine em processo, sem depender da banda do archive.org |
 | 💬 **Legendas sem chave** | busca em addons do protocolo do Stremio (padrão: o OpenSubtitles v3 oficial) — **não precisa de cadastro nem de chave** |
@@ -169,8 +170,10 @@ bun run desktop:build   # instalador NSIS assinado
 ### Auto-update e releases
 
 O app instalado checa `releases/latest/download/latest.json` no boot e, se houver versão nova
-assinada, instala e reinicia sozinho (o servidor Bun é derrubado antes). Erro de rede só aparece em
-`.cache/desktop.log` — o app segue na versão atual. Regras e limites: [ADR 0004](docs/adr/0004-auto-update-tauri.md).
+assinada, mostra um diálogo com a versão disponível e a instalada — baixar e reiniciar só acontece
+se a pessoa aceitar; "Depois" mantém a versão atual até o próximo boot (o servidor Bun é derrubado
+antes de instalar). Erro de rede só aparece em
+`.cache/desktop.log` - o app segue na versão atual. Regras e limites: [ADR 0004](docs/adr/0004-auto-update-tauri.md).
 
 Quem publica é o workflow [`.github/workflows/release.yml`](.github/workflows/release.yml), sem
 versão digitada à mão: **commit convencional em `main`** define o bump.
@@ -181,6 +184,7 @@ versão digitada à mão: **commit convencional em `main`** define o bump.
 | `fix:` / `perf:` / `refactor:` | patch |
 | `feat!:` / `BREAKING CHANGE:` | major |
 | `docs:` / `chore:` / `test:` / `ci:` / `Merge ...` | nada é publicado |
+| título fora do padrão convencional (squash) | patch |
 
 `bun run scripts/next-version.ts` mostra o que sairia; `workflow_dispatch` aceita `bump` forçado
 (`patch`/`minor`/`major`) para o primeiro release ou um hotfix.
@@ -378,6 +382,8 @@ Cada fonte é configurada em **Conexões** (ou no `.env`) e adicionada em **Cana
 | YouTube (só embed) | nada | [docs](docs/providers/youtube.md) |
 | Dailymotion (só embed) | nada | [docs](docs/providers/dailymotion.md) |
 | Internet Archive (coleção) | nada | [docs](docs/providers/archive-collection.md) |
+| Domínio público (Archive + Wikimedia Commons) | nada | [docs](docs/providers/public-domain.md) |
+| Addons do Stremio | link do manifest (colado por você) | [docs](docs/providers/stremio-addons.md) |
 | Torrent (magnet / `.torrent` colado) | nada | [docs](docs/providers/torrent.md) |
 
 Catálogos e sincronização: [TVmaze](docs/providers/tvmaze.md), [AniList](docs/providers/anilist.md),
@@ -430,8 +436,9 @@ taxa, ou uma tabela preenchida pelo usuário) para o importador de MAL passar a 
   (uma a cada 60 s por título, mesmo se a tentativa falhar). A atualização busca direto na TMDB, mas a lista de
   temporadas que a página mostra ainda vem do cache em memória (até 60 min); a Agenda já usa o dado novo.
   Status, nota, anotações e progresso nunca são alterados pelo refresh.
-- **Domínio público limitado à coleção `feature_films`** da Internet Archive — é a curadoria oficial
-  deles para conteúdo livre; dá para ampliar depois se quiser mais fontes.
+- **Domínio público limitado a uma lista fechada de fontes** (coleções `feature_films`, `silent_films`, `prelinger` e
+  `nasa` da Internet Archive, mais a Wikimedia Commons) — cada uma publica a licença dos itens; ver
+  [docs](docs/providers/public-domain.md).
 - **O torrent começa pelo derivado mais leve** (`_512kb`/`small`) para o vídeo abrir rápido, não pela
   melhor qualidade — o seletor na tela deixa você trocar para `large`/`1080p` a qualquer momento.
 - **Só MP4/WebM tocam no navegador.** Itens da Archive que só têm `.ogv`/`.avi`/`.mkv` aparecem sem o

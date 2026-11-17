@@ -48,15 +48,6 @@
   max-width: 520px;
 }
 
-.list-edit textarea {
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  padding: 8px 12px;
-  font: inherit;
-}
-
 .lists-new {
   margin: 4px 0 18px;
 }
@@ -125,10 +116,6 @@
   margin-top: 10px;
 }
 
-.back-link {
-  color: var(--text-dim);
-  font-size: 13px;
-}
 
 .list-items {
   list-style: none;

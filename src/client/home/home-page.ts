@@ -10,6 +10,8 @@ import { navigate } from '../app/router.ts';
 import { yearStrip } from '../stats/insights.ts';
 import { addDays, browserTimeZone, localIsoDate } from '../ui/time-format.ts';
 import { libraryItemPath, titlePath } from '../ui/title-link.ts';
+import { openPickDialog } from '../library/pick-dialog.ts';
+import { heroHtml, pickHero } from './home-hero.ts';
 
 const SKELETON = `
   <div class="section"><div class="skeleton" style="height:22px;width:220px;margin-bottom:14px"></div>
@@ -58,10 +60,12 @@ export const renderHome = (host: HTMLElement): void => {
   // dados chegassem jogaria esse foco fora.
   host.innerHTML = `
     <header class="view-head"><h1 class="view-title">Bem-vindo de volta</h1>
-    <p class="view-subtitle">O que você está assistindo, o que sai hoje e amanhã, o que chegou nos seus canais e clássicos de domínio público.</p></header>
+    <p class="view-subtitle">O que você está assistindo, o que sai hoje e amanhã, o que chegou nos seus canais e clássicos de domínio público.</p>
+    <button class="btn btn-ghost view-head-action" type="button" id="home-pick">${icon('dice', 'sm')} O que assistir hoje</button></header>
     <div id="home-body">${SKELETON}${SKELETON}</div>
   `;
   const body = host.querySelector('#home-body') as HTMLElement;
+  host.querySelector('#home-pick')?.addEventListener('click', openPickDialog);
 
   const today = new Date();
   const todayIso = localIsoDate(today);
@@ -83,8 +87,10 @@ export const renderHome = (host: HTMLElement): void => {
         ? ''
         : `<div class="banner warn">${icon('alert')}<span>Catálogo TMDB desligado — veja como ligar em <a href="#/connections">configurar conexões</a>. Domínio público, Telegram e sua biblioteca funcionam normalmente.</span></div>`;
 
+      const hero = pickHero(watching.items);
       body.innerHTML = `
         ${banner}
+        ${hero ? heroHtml(hero) : ''}
         ${yearStripHtml(stats ? yearStrip(stats, today.getMonth()) : null)}
         <div class="section">${sectionHead('play', 'Continuar assistindo', { href: '#/library', label: 'ver biblioteca' })}<div class="rail" id="watching-rail"></div></div>
         <div class="section" id="up-next-section">${sectionHead('play', 'Próximos episódios')}<div class="rail" id="up-next-rail"></div></div>
@@ -92,6 +98,8 @@ export const renderHome = (host: HTMLElement): void => {
         <div class="section">${sectionHead('send', 'Novo nos canais', { href: '#/telegram', label: 'ver canais' })}<div id="feed"></div></div>
         <div class="section">${sectionHead('film', 'Domínio público', { href: '#/public-domain', label: 'ver tudo' })}<div class="rail" id="archive-rail" aria-busy="true">${RAIL_SKELETON}</div></div>
       `;
+
+      host.querySelector('[data-hero="open"]')?.addEventListener('click', () => hero && navigate(libraryItemPath(hero)));
 
       const watchingRail = host.querySelector('#watching-rail') as HTMLElement;
       // Vídeos de canais começados vêm primeiro: é o que a pessoa largou por último.

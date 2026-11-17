@@ -33,6 +33,38 @@ const drive: DriveRuntimeConfig = {
   refreshToken: process.env.GOOGLE_DRIVE_REFRESH_TOKEN?.trim() || undefined,
 };
 
+interface TmdbRuntimeConfig {
+  apiKey?: string;
+  language: string;
+  region: string;
+}
+
+interface OpenSubtitlesRuntimeConfig {
+  apiKey?: string;
+  languages: string;
+}
+
+interface NotifyRuntimeConfig {
+  webhookUrl?: string;
+  ntfyUrl?: string;
+  discordUrl?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  leadDays: number;
+}
+
+/** Chaves editáveis pela tela Credenciais (`routes/credentials.ts`): mutáveis em runtime, como telegram e drive. */
+const tmdb: TmdbRuntimeConfig = {
+  apiKey: process.env.TMDB_API_KEY?.trim() || undefined,
+  language: process.env.TMDB_LANGUAGE?.trim() || 'pt-BR',
+  region: process.env.TMDB_REGION?.trim() || 'BR',
+};
+
+const opensubtitles: OpenSubtitlesRuntimeConfig = {
+  apiKey: process.env.OPENSUBTITLES_API_KEY?.trim() || undefined,
+  languages: process.env.OPENSUBTITLES_LANGUAGES?.trim() || 'pt-BR,pt,en',
+};
+
 const GOOGLE = {
   authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
   tokenUrl: 'https://oauth2.googleapis.com/token',
@@ -87,6 +119,15 @@ export const leadDaysEnv = (raw: string | undefined): number => {
  */
 export const listenHost = (raw: string | undefined): string => raw?.trim() || '127.0.0.1';
 
+const notify: NotifyRuntimeConfig = {
+  webhookUrl: parseHttpUrl(process.env.NOTIFY_WEBHOOK_URL),
+  ntfyUrl: parseHttpUrl(process.env.NOTIFY_NTFY_URL),
+  discordUrl: parseHttpUrl(process.env.NOTIFY_DISCORD_WEBHOOK_URL),
+  telegramBotToken: process.env.NOTIFY_TELEGRAM_BOT_TOKEN?.trim() || undefined,
+  telegramChatId: process.env.NOTIFY_TELEGRAM_CHAT_ID?.trim() || undefined,
+  leadDays: leadDaysEnv(process.env.NOTIFY_LEAD_DAYS),
+};
+
 export const config = {
   host: listenHost(process.env.HOST),
   port: Number(process.env.PORT ?? 7799),
@@ -94,24 +135,10 @@ export const config = {
    * Avisos de lançamento (ver `notify/`). Os destinos vêm SÓ do ambiente, nunca de request: a URL do ntfy/webhook
    * costuma carregar um token. Sem nenhuma URL válida o agendador nem sobe.
    */
-  notify: {
-    webhookUrl: parseHttpUrl(process.env.NOTIFY_WEBHOOK_URL),
-    ntfyUrl: parseHttpUrl(process.env.NOTIFY_NTFY_URL),
-    discordUrl: parseHttpUrl(process.env.NOTIFY_DISCORD_WEBHOOK_URL),
-    telegramBotToken: process.env.NOTIFY_TELEGRAM_BOT_TOKEN?.trim() || undefined,
-    telegramChatId: process.env.NOTIFY_TELEGRAM_CHAT_ID?.trim() || undefined,
-    leadDays: leadDaysEnv(process.env.NOTIFY_LEAD_DAYS),
-  },
+  notify,
   dbPath: process.env.DB_PATH ?? 'data/nerd-watch.db',
-  tmdb: {
-    apiKey: process.env.TMDB_API_KEY?.trim() || undefined,
-    language: process.env.TMDB_LANGUAGE?.trim() || 'pt-BR',
-    region: process.env.TMDB_REGION?.trim() || 'BR',
-  },
-  opensubtitles: {
-    apiKey: process.env.OPENSUBTITLES_API_KEY?.trim() || undefined,
-    languages: process.env.OPENSUBTITLES_LANGUAGES?.trim() || 'pt-BR,pt,en',
-  },
+  tmdb,
+  opensubtitles,
   /**
    * Busca de legendas. Duas fontes com naturezas diferentes: addons do protocolo do Stremio
    * (sem chave, devolvem a URL do arquivo) e a OpenSubtitles.com REST (com chave, com cota).

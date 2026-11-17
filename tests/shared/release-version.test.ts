@@ -39,9 +39,10 @@ describe('commitBump: o que não publica', () => {
     }
   });
 
-  test('commit fora do padrão convencional é ignorado', () => {
-    expect(commitBump({ subject: 'Reorganiza a arquitetura e acelera a casca (#64)' })).toBeNull();
-    expect(commitBump({ subject: 'feat:' })).toBeNull();
+  test('commit fora do padrão convencional vira patch (senão o código mesclado não sai em versão)', () => {
+    expect(commitBump({ subject: 'Reorganiza a arquitetura e acelera a casca (#64)' })).toBe('patch');
+    expect(commitBump({ subject: 'Cabeçalhos de segurança e CSP na casca do app (#78)' })).toBe('patch');
+    expect(commitBump({ subject: 'feat:' })).toBe('patch');
   });
 
   test('merge commit e commit de release não contam', () => {
@@ -67,6 +68,13 @@ describe('nextVersion: maior bump vence', () => {
 
   test('sem commit que peça release => null (nenhum release é criado)', () => {
     expect(nextVersion('0.1.0', [{ subject: 'docs: readme' }, { subject: 'chore: deps' }])).toBeNull();
+  });
+
+  test('só título de squash não convencional ainda publica patch', () => {
+    expect(nextVersion('0.6.2', [{ subject: 'chore(deps): bump the actions group (#77)' }, { subject: 'Cabeçalhos de segurança e CSP na casca do app (#78)' }])).toEqual({
+      version: '0.6.3',
+      bump: 'patch',
+    });
   });
 
   test('aceita a versão atual com prefixo v', () => {

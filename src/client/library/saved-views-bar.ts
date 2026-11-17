@@ -51,7 +51,7 @@ export const renderSavedViewsBar = (opts: SavedViewsBarOptions): SavedViewsBar =
           saving
             ? `<form class="views-form" data-save-form>
                 <label class="sr-only" for="${uid}-name">Nome da visão</label>
-                <input id="${uid}-name" class="input-pill" type="text" maxlength="40" required placeholder="nome da visão" autocomplete="off" />
+                <input id="${uid}-name" class="input input-pill" type="text" maxlength="40" required placeholder="nome da visão" autocomplete="off" />
                 <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
                 <button type="button" class="btn btn-ghost btn-sm" data-save-cancel>Cancelar</button>
               </form>`
@@ -81,7 +81,7 @@ export const renderSavedViewsBar = (opts: SavedViewsBarOptions): SavedViewsBar =
     if (!view || !slot) return;
     slot.innerHTML = `<form class="views-form" data-rename-form="${id}">
         <label class="sr-only" for="${uid}-rn">Novo nome da visão</label>
-        <input id="${uid}-rn" class="input-pill" type="text" maxlength="40" required value="${escapeHtml(view.name)}" autocomplete="off" />
+        <input id="${uid}-rn" class="input input-pill" type="text" maxlength="40" required value="${escapeHtml(view.name)}" autocomplete="off" />
         <button type="submit" class="btn btn-primary btn-sm">Salvar nome</button>
         <button type="button" class="btn btn-ghost btn-sm" data-rename-cancel>Cancelar</button>
       </form>`;

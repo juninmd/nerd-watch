@@ -5,13 +5,17 @@ import type { DockItem } from '../player/player-dock.ts';
  * Telegram não tem campo de título — usa a 1ª linha da legenda como título e o resto como descrição.
  * Sem corte: a tela do canal e a de reprodução mostram a mensagem inteira (o layout quebra a linha).
  */
-export const itemTitle = (item: Pick<TelegramItemDto, 'caption' | 'messageId'> & { fileName?: string | null }): string => {
+export const itemTitle = (item: { caption?: string | null; messageId: string } & { fileName?: string | null }): string => {
   const firstLine = item.caption?.split('\n').find((l) => l.trim().length > 0);
   if (firstLine) return firstLine.trim();
   // Sem legenda: o nome do arquivo (sem extensão) é melhor título que o id da mensagem.
   const file = item.fileName?.trim().replace(/\.[A-Za-z0-9]{2,5}$/, '').trim();
   return file || `Vídeo — mensagem ${item.messageId}`;
 };
+
+/** Legenda ou nome de arquivo = o vídeo já se identifica sozinho; vincular a um título só faz sentido sem isso (ou para manter um vínculo existente). */
+export const needsTitleLink = (item: { caption?: string | null; fileName?: string | null; link?: unknown }): boolean =>
+  Boolean(item.link) || !(item.caption?.trim() || item.fileName?.trim());
 
 export const itemDescription = (item: Pick<TelegramItemDto, 'caption'>): string | null => {
   if (!item.caption) return null;
@@ -66,7 +70,7 @@ export const orderItems = <T extends { messageId: string; postedAt?: string | nu
   order: ItemOrder,
 ): T[] => {
   if (order === 'name' || order === 'name-desc') {
-    const key = (i: T) => normalizeSearch(itemTitle({ ...i, caption: i.caption ?? null }));
+    const key = (i: T) => normalizeSearch(itemTitle(i));
     const sorted = [...items].sort((a, b) => key(a).localeCompare(key(b), 'pt-BR', { numeric: true }) || Number(a.messageId) - Number(b.messageId));
     return order === 'name' ? sorted : sorted.reverse();
   }

@@ -172,3 +172,37 @@ export const tmdbTrailerKey = withCache(60 * MINUTES, async (mediaType: MediaTyp
 });
 
 export { tmdbEnabled };
+
+export interface TmdbUpcomingMovie {
+  id: number;
+  title: string;
+  poster_path: string | null;
+  backdrop_path?: string | null;
+  overview?: string;
+  vote_average?: number;
+  genre_ids?: number[];
+  release_date: string;
+}
+
+/** id → nome dos gêneros de filme (a lista do discover só traz ids). */
+export const tmdbMovieGenres = withCache(24 * 60 * MINUTES, async (): Promise<Map<number, string>> => {
+  const data = await call<{ genres: Array<{ id: number; name: string }> }>('/genre/movie/list');
+  return new Map(data.genres.map((g) => [g.id, g.name]));
+});
+
+/** Série da TMDB a partir do id do IMDb (ponte para trailer e streaming de séries vindas da TVmaze). */
+export const tmdbTvIdByImdb = withCache(24 * 60 * MINUTES, async (imdbId: string): Promise<number | null> => {
+  const data = await call<{ tv_results?: Array<{ id: number }> }>(`/find/${imdbId}`, { external_source: 'imdb_id' });
+  return data.tv_results?.[0]?.id ?? null;
+});
+
+/** Filmes com estreia entre `from` e `to` (YYYY-MM-DD), por popularidade. Alimenta a Agenda sem depender da biblioteca. */
+export const tmdbUpcomingMovies = withCache(3 * 60 * MINUTES, async (from: string, to: string): Promise<TmdbUpcomingMovie[]> => {
+  const data = await call<{ results: TmdbUpcomingMovie[] }>('/discover/movie', {
+    'primary_release_date.gte': from,
+    'primary_release_date.lte': to,
+    sort_by: 'popularity.desc',
+    include_adult: 'false',
+  });
+  return data.results.filter((m) => m.release_date);
+});

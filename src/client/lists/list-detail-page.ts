@@ -1,5 +1,6 @@
 import { moveItem } from '../../server/lists/rules.ts';
 import { escapeHtml, posterCssUrl } from '../ui/card.ts';
+import { backLinkHtml } from '../ui/back-link.ts';
 import { icon } from '../ui/icons.ts';
 import { deleteList, getAllListItems, reorderList, removeTitleFromList, updateList, type ListItemDto, type ListSummaryDto } from '../api/lists.ts';
 import { navigate } from '../app/router.ts';
@@ -40,7 +41,7 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
       .join('');
     root.innerHTML = `
       <header class="view-head list-head">
-        <a class="back-link" href="#/lists">← Listas</a>
+        ${backLinkHtml('#/lists', 'Listas')}
         <h1 class="view-title">${escapeHtml(list.name)}</h1>
         ${list.description ? `<p class="view-subtitle">${escapeHtml(list.description)}</p>` : ''}
         <p class="list-meta">${total} título${total === 1 ? '' : 's'}</p>
@@ -53,9 +54,9 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
         editing
           ? `<form class="list-edit" id="list-edit-form">
               <label for="list-name-input">Nome</label>
-              <input id="list-name-input" class="input-pill" type="text" maxlength="80" required value="${escapeHtml(list.name)}" />
+              <input id="list-name-input" class="input input-pill" type="text" maxlength="80" required value="${escapeHtml(list.name)}" />
               <label for="list-desc-input">Descrição (opcional)</label>
-              <textarea id="list-desc-input" maxlength="500" rows="2">${escapeHtml(list.description ?? '')}</textarea>
+              <textarea id="list-desc-input" class="textarea" maxlength="500" rows="2">${escapeHtml(list.description ?? '')}</textarea>
               <div><button type="submit" class="btn btn-primary btn-sm">Salvar</button> <button type="button" class="btn btn-ghost btn-sm" id="list-edit-cancel">Cancelar</button></div>
             </form>`
           : ''

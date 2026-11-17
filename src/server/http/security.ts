@@ -37,3 +37,31 @@ export const requestAllowed = (method: string, host: string, origin: string, rem
   if (SAFE_METHODS.has(method)) return true;
   return originAllowed(origin, host);
 };
+
+/** Cabeçalhos de endurecimento em toda resposta: sem sniffing, sem referrer vazando, sem moldura de outro site. */
+export const HARDENING_HEADERS: Readonly<Record<string, string>> = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'X-Frame-Options': 'DENY',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+};
+
+/**
+ * CSP da casca (HTML). Script só do próprio app; imagem e mídia aceitam http e https (fontes diretas só em http tocam no `<video>`); iframe (embeds de YouTube/PeerTube) só https.
+ * `ipc:` e `ipc.localhost` são a ponte do Tauri no desktop; `api.github.com` só serve para ver se há release nova.
+ */
+export const APP_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' http: https: data: blob:",
+  "media-src 'self' http: https: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' ipc: http://ipc.localhost https://api.github.com",
+  'frame-src https:',
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');

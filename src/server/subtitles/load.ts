@@ -16,7 +16,7 @@ export const setHostResolver = (next?: HostResolver): void => {
 type HostCheck = 'public' | 'private' | 'unresolved';
 
 /** Todo endereço que o nome resolve tem que ser público; um só privado reprova. Literal IP já foi checado. */
-const checkResolvedHost = async (rawUrl: string): Promise<HostCheck> => {
+export const checkResolvedHost = async (rawUrl: string): Promise<HostCheck> => {
   const host = new URL(rawUrl).hostname.toLowerCase().replace(/^[|]$/g, '').replace(/.$/, '');
   if (isIpLiteral(host)) return 'public';
   let addresses: string[];

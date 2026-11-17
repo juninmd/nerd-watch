@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { archiveSearchPublicDomain, pickSubtitleUrl } from '../../src/server/providers/archive.ts';
+import { archiveSearchPublicDomain, PUBLIC_DOMAIN_LICENSE_CLAUSE, pickSubtitleUrl } from '../../src/server/providers/archive.ts';
 
 describe('pickSubtitleUrl', () => {
   test('encontra .srt pelo format "SubRip"', () => {
@@ -48,5 +48,25 @@ describe('archiveSearchPublicDomain', () => {
     // parênteses, `:` e o "OR" maiúsculo do termo injetado viram texto literal minúsculo dentro do
     // grupo já escopado — não conseguem fechar o "(" nem introduzir uma cláusula OR/campo novos.
     expect(capturedQuery).toBe('collection:(feature_films) AND mediatype:(movies) AND (injecao teste unico or mediatype texts)');
+  });
+
+  const capture = async (collection: Parameters<typeof archiveSearchPublicDomain>[2], term: string): Promise<string> => {
+    let q = '';
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      q = new URL(input as string | URL).searchParams.get('q') ?? '';
+      return new Response(JSON.stringify({ response: { docs: [] } }), { headers: { 'content-type': 'application/json' } });
+    }) as unknown as typeof fetch;
+    await archiveSearchPublicDomain(term, 5, collection);
+    return q;
+  };
+
+  test('coleções de envio livre só devolvem itens com licença de domínio público/CC0 declarada', async () => {
+    for (const c of ['moviesandfilms', 'animationandcartoons', 'classic_cartoons', 'classic_tv'] as const) {
+      expect(await capture(c, `filtro-${c}`)).toContain(PUBLIC_DOMAIN_LICENSE_CLAUSE);
+    }
+  });
+
+  test('coleções curadas não ganham o filtro de licença', async () => {
+    expect(await capture('Film_Noir', 'sem-filtro-noir')).not.toContain('licenseurl');
   });
 });

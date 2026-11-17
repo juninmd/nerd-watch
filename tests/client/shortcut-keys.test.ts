@@ -22,10 +22,15 @@ describe('resolveKey', () => {
     expect(resolveKey('z', true)).toEqual({ kind: 'none' });
   });
 
-  test('"s" alterna spoilers e "?" abre a ajuda — só sem o prefixo pendente', () => {
+  test('"v" alterna o tema, e só sem o prefixo pendente', () => {
+    expect(resolveKey('v', false)).toEqual({ kind: 'theme' });
+    expect(resolveKey('v', true)).toEqual({ kind: 'none' });
+  });
+
+  test('"s" alterna spoilers (e depois do "g" vai à busca); "?" abre a ajuda', () => {
     expect(resolveKey('s', false)).toEqual({ kind: 'spoilers' });
     expect(resolveKey('?', false)).toEqual({ kind: 'help' });
-    expect(resolveKey('s', true)).toEqual({ kind: 'none' });
+    expect(resolveKey('s', true)).toEqual({ kind: 'go', path: '/search' });
   });
 });
 

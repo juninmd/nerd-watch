@@ -8,7 +8,12 @@ const EXACT_LABELS: Record<string, string> = {
   '/stats': 'Estatísticas',
   '/telegram': 'Canais',
   '/connections': 'Conexões',
+  '/data': 'Importar e backup',
+  '/credentials': 'Credenciais',
+  '/settings': 'Ajustes e avisos',
+  '/lists': 'Listas',
   '/public-domain': 'Domínio público',
+  '/addons': 'Addons do Stremio',
   '/search': 'Busca',
 };
 
@@ -23,6 +28,8 @@ export const routeLabel = (path: string, query: URLSearchParams): string => {
   if (path.startsWith('/telegram/')) return 'Canal do Telegram';
   if (path.startsWith('/watch/')) return 'Assistir';
   if (path.startsWith('/title/')) return 'Título';
+  if (path.startsWith('/addons/')) return 'Addon do Stremio';
+  if (path.startsWith('/commons/')) return 'Wikimedia Commons';
   return 'Página não encontrada';
 };
 

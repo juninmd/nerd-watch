@@ -1,7 +1,8 @@
 /* Controles de formulário, barra de ferramentas, seleção em massa e diálogo modal. */
 
 .input,
-.select {
+.select,
+.textarea {
   width: 100%;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
@@ -13,15 +14,54 @@
   transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 
-.input::placeholder {
+.input::placeholder,
+.textarea::placeholder {
   color: var(--text-faint);
 }
 
 .input:focus-visible,
-.select:focus-visible {
+.select:focus-visible,
+.textarea:focus-visible {
   outline: none;
   border-color: var(--accent-2);
   box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.22);
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Erro de validação: mesmo anel do foco, na cor de perigo. */
+.input:user-invalid,
+.select:user-invalid,
+.textarea:user-invalid,
+.input[aria-invalid="true"],
+.select[aria-invalid="true"],
+.textarea[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.input:user-invalid:focus-visible,
+.select:user-invalid:focus-visible,
+.textarea:user-invalid:focus-visible,
+.input[aria-invalid="true"]:focus-visible,
+.select[aria-invalid="true"]:focus-visible,
+.textarea[aria-invalid="true"]:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 28%, transparent);
+}
+
+.textarea {
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+
+/* Variante compacta para controles dentro de painéis (legendas, filtros). */
+.input-sm {
+  padding: 6px 10px;
+  font-size: 13px;
 }
 
 .input-pill {
