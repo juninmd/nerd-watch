@@ -62,7 +62,7 @@ const COLOR_OPTIONS: Array<[string, string]> = [
 ];
 
 const select = (name: string, value: string, options: Array<[string, string]>): string =>
-  `<select data-style="${name}">${options.map(([v, label]) => `<option value="${v}"${v === value ? ' selected' : ''}>${label}</option>`).join('')}</select>`;
+  `<select class="select input-sm" data-style="${name}">${options.map(([v, label]) => `<option value="${v}"${v === value ? ' selected' : ''}>${label}</option>`).join('')}</select>`;
 
 const styleControls = (style: CaptionStyle): string => `
   <label>Tamanho ${select('size', style.size, SIZE_OPTIONS)}</label>

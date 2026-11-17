@@ -311,22 +311,6 @@
   color: var(--text-dim);
 }
 
-.torrent-file-select {
-  appearance: none;
-  background: var(--surface-hover);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  padding: 8px 10px;
-}
-
-.torrent-file-select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
 /* Vínculo vídeo do canal ↔ biblioteca: a linha abaixo de cada vídeo e o diálogo de escolha. */
 .tg-item { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 /* A legenda do Telegram é o texto do card: mostra tudo, quebrando linha em vez de cortar com "…". */

@@ -13,7 +13,7 @@ export const renderPublicDomain = (host: HTMLElement): void => {
     </p>
     <div class="chip-row" style="margin-bottom:20px">
       <input type="search" id="pd-search" placeholder="Buscar no acervo (ex: Chaplin, terror, faroeste)..."
-        class="input input-pill grow" />
+        class="input input-pill grow" aria-label="Buscar no acervo" />
     </div>
     <div id="pd-grid"><div class="grid">${Array.from({ length: 12 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div></div>
   `;

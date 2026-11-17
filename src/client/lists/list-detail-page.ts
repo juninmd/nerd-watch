@@ -53,9 +53,9 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
         editing
           ? `<form class="list-edit" id="list-edit-form">
               <label for="list-name-input">Nome</label>
-              <input id="list-name-input" class="input-pill" type="text" maxlength="80" required value="${escapeHtml(list.name)}" />
+              <input id="list-name-input" class="input input-pill" type="text" maxlength="80" required value="${escapeHtml(list.name)}" />
               <label for="list-desc-input">Descrição (opcional)</label>
-              <textarea id="list-desc-input" maxlength="500" rows="2">${escapeHtml(list.description ?? '')}</textarea>
+              <textarea id="list-desc-input" class="textarea" maxlength="500" rows="2">${escapeHtml(list.description ?? '')}</textarea>
               <div><button type="submit" class="btn btn-primary btn-sm">Salvar</button> <button type="button" class="btn btn-ghost btn-sm" id="list-edit-cancel">Cancelar</button></div>
             </form>`
           : ''
