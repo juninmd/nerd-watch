@@ -371,3 +371,16 @@
 .tg-link-episode label { display: flex; flex-direction: column; gap: 4px; flex: 1; font-size: 0.9rem; }
 .tg-link-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .tg-link-error:empty { display: none; }
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.back-link:hover {
+  color: var(--text);
+}
