@@ -31,6 +31,19 @@ describe('GET /api/archive/search', () => {
     expect(body.results[0].year).toBe('1994');
   });
 
+  test('coleção escolhida entra na query; fora da lista é 400 e não chega à rede', async () => {
+    const urls: string[] = [];
+    globalThis.fetch = (async (url: URL) => {
+      urls.push(String(url));
+      return jsonResponse({ response: { docs: [] } });
+    }) as unknown as typeof fetch;
+    expect((await archiveRoutes.request('/search?q=colecao-teste&collection=prelinger')).status).toBe(200);
+    expect(decodeURIComponent(urls[0] as string)).toContain('collection:(prelinger)');
+    expect((await archiveRoutes.request('/search?collection=opensource_movies')).status).toBe(400);
+    expect((await archiveRoutes.request('/search?collection=x)%20OR%20(a')).status).toBe(400);
+    expect(urls).toHaveLength(1);
+  });
+
   test('502 quando o Internet Archive está fora do ar', async () => {
     globalThis.fetch = (async () => jsonResponse({}, 500)) as unknown as typeof fetch;
     const res = await archiveRoutes.request('/search?q=fora-do-ar-teste-rota');

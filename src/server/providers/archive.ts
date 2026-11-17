@@ -4,14 +4,29 @@ import { isPlayableVideo } from '../media/playable.ts';
 const MINUTES = 60_000;
 
 /**
- * Internet Archive: sem chave, gratuito. Restrito à coleção `feature_films`,
- * curada pela própria Archive.org como domínio público / licença livre — é o
+ * Internet Archive: sem chave, gratuito. Restrito às coleções de `PUBLIC_DOMAIN_COLLECTIONS`
+ * (a principal é `feature_films`), curadas pela própria Archive.org como domínio público / licença livre — é o
  * que garante que o player embutido e o torrent oficial abaixo são legais.
  * https://archive.org/details/feature_films
  */
 const SEARCH_URL = 'https://archive.org/advancedsearch.php';
 const METADATA_URL = 'https://archive.org/metadata';
-const PUBLIC_DOMAIN_COLLECTION = 'feature_films';
+
+/**
+ * Coleções da Archive aceitas no catálogo de domínio público. Lista fechada: o `collection` entra na query do Solr,
+ * e só entra o que a própria Archive/agência publica como domínio público (verificadas em 2026-11: todas devolvem
+ * `mediatype:movies`). Coleções abertas a upload (ex.: `opensource_movies`, `community`) ficam de fora de propósito.
+ */
+export const PUBLIC_DOMAIN_COLLECTIONS = {
+  feature_films: 'Longas clássicos',
+  silent_films: 'Cinema mudo',
+  prelinger: 'Prelinger (filmes de arquivo)',
+  nasa: 'NASA',
+} as const;
+export type PublicDomainCollection = keyof typeof PUBLIC_DOMAIN_COLLECTIONS;
+const DEFAULT_COLLECTION: PublicDomainCollection = 'feature_films';
+
+export const isPublicDomainCollection = (value: string): value is PublicDomainCollection => Object.hasOwn(PUBLIC_DOMAIN_COLLECTIONS, value);
 
 export interface ArchiveDoc {
   identifier: string;
@@ -103,9 +118,9 @@ const sanitizeSearchTerm = (raw: string): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
-export const archiveSearchPublicDomain = withCache(15 * MINUTES, async (query: string, limit = 24): Promise<ArchiveMovie[]> => {
+export const archiveSearchPublicDomain = withCache(15 * MINUTES, async (query: string, limit = 24, collection: PublicDomainCollection = DEFAULT_COLLECTION): Promise<ArchiveMovie[]> => {
   const trimmed = sanitizeSearchTerm(query);
-  const scoped = `collection:(${PUBLIC_DOMAIN_COLLECTION}) AND mediatype:(movies)`;
+  const scoped = `collection:(${collection}) AND mediatype:(movies)`;
   const q = trimmed ? `${scoped} AND (${trimmed})` : scoped;
   const url = new URL(SEARCH_URL);
   url.searchParams.set('q', q);

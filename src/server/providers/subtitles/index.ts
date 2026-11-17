@@ -4,6 +4,7 @@ import { archiveMovieDetails } from '../archive.ts';
 import { isFetchableSubtitleUrl } from '../../subtitles/url-guard.ts';
 import { searchSubtitles as searchOpenSubtitlesRest, requestSubtitleDownload, openSubtitlesEnabled } from '../opensubtitles.ts';
 import { canonicalLanguage, languageAccepted, languageRank, normalizeLanguage } from './languages.ts';
+import { subtitleAddonBases } from './addon-list.ts';
 import { type AddonSubtitle, addonContentId, fetchAddonSubtitles, fetchManifest, supportsSubtitles } from './stremio-addon.ts';
 import type { MediaType } from '../../types.ts';
 
@@ -93,6 +94,15 @@ interface AddonSearchOutcome {
   unavailable: string[];
 }
 
+/** Só o domínio vai para a interface: o caminho de um addon instalado pode carregar token. */
+const hostLabel = (baseUrl: string | undefined): string => {
+  try {
+    return new URL(baseUrl ?? '').host;
+  } catch {
+    return 'addon';
+  }
+};
+
 const searchAddons = async (
   imdbId: string,
   type: 'movie' | 'series',
@@ -101,9 +111,10 @@ const searchAddons = async (
 ): Promise<AddonSearchOutcome> => {
   const contentId = addonContentId(imdbId, season, episode);
   const accepted = acceptedLanguages();
+  const bases = await subtitleAddonBases();
 
   const settled = await Promise.allSettled(
-    config.subtitles.addons.map(async (baseUrl) => {
+    bases.map(async (baseUrl) => {
       const manifest = await fetchManifest(baseUrl);
       if (!supportsSubtitles(manifest)) throw new Error(`${manifest.name || baseUrl} não serve legendas`);
       const addonSubtitles = await fetchAddonSubtitles(baseUrl, type, contentId);
@@ -138,7 +149,7 @@ const searchAddons = async (
       responded.push(outcome.value.name);
       results.push(...outcome.value.results);
     } else {
-      unavailable.push(`${config.subtitles.addons[index] ?? 'addon'}: ${outcome.reason?.message ?? outcome.reason}`);
+      unavailable.push(`${hostLabel(bases[index])}: ${outcome.reason?.message ?? outcome.reason}`);
     }
   });
   return { results, responded, unavailable };
@@ -180,7 +191,7 @@ const sortByPreference = (results: SubtitleResult[]): SubtitleResult[] => {
 };
 
 export const searchAllSubtitles = async (opts: SubtitleSearchOptions): Promise<SubtitleSearchOutcome> => {
-  const configuredAddons = config.subtitles.addons;
+  const configuredAddons = await subtitleAddonBases();
   const restEnabled = openSubtitlesEnabled();
 
   if (configuredAddons.length === 0 && !restEnabled) {
@@ -191,7 +202,7 @@ export const searchAllSubtitles = async (opts: SubtitleSearchOptions): Promise<S
   if (!imdbId && !restEnabled) {
     // Nenhum addon responde sem id do IMDb (o protocolo só aceita `tt…`), e sem chave a REST
     // também não. Dizer "desligado" aqui mandaria o usuário configurar o que já está configurado.
-    return { results: [], sources: [], unavailable: [...configuredAddons], enabled: false, reason: 'no_imdb_id', imdbId: null };
+    return { results: [], sources: [], unavailable: configuredAddons.map(hostLabel), enabled: false, reason: 'no_imdb_id', imdbId: null };
   }
 
   const unavailable: string[] = [];
@@ -266,7 +277,7 @@ const findAddonSubtitle = async (
   const type = payload.mediaType === 'tv' ? 'series' : 'movie';
   const contentId = addonContentId(imdbId, payload.season, payload.episode);
 
-  for (const baseUrl of config.subtitles.addons) {
+  for (const baseUrl of await subtitleAddonBases()) {
     let manifestName: string;
     try {
       manifestName = (await fetchManifest(baseUrl)).name || baseUrl;
@@ -339,7 +350,7 @@ export const resolveAddonFileUrl = async (params: {
   season?: number | null;
   episode?: number | null;
 }): Promise<AddonFileResolution> => {
-  const baseUrl = config.subtitles.addons.find((a) => a === params.source);
+  const baseUrl = (await subtitleAddonBases()).find((a) => a === params.source);
   if (!baseUrl) return { ok: false, reason: 'source_error' };
 
   const contentId = addonContentId(params.imdbId, params.season, params.episode);
