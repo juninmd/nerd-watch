@@ -9,6 +9,7 @@ const EXACT_LABELS: Record<string, string> = {
   '/telegram': 'Canais',
   '/connections': 'Conexões',
   '/data': 'Importar e backup',
+  '/credentials': 'Credenciais',
   '/settings': 'Ajustes e avisos',
   '/lists': 'Listas',
   '/public-domain': 'Domínio público',

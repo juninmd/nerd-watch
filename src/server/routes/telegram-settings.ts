@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { config, telegramBotEnabled, telegramPersonalEnabled } from '../config/config.ts';
+import { API_HASH_RE, BOT_TOKEN_RE } from '../credentials/registry.ts';
 import { updateEnvVar } from '../config/env-file.ts';
 import { getKnownPersonalAccount, getKnownPersonalAvatar, logoutPersonalSession, verifyPersonalSession } from '../providers/telegram/personal.ts';
 import { cancelLogin, getLoginState, startLogin, submitLoginPassword } from '../providers/telegram/qr-login.ts';
@@ -42,7 +43,7 @@ telegramSettingsRoutes.post('/', async (c) => {
 
   if (body.botToken !== undefined) {
     const token = String(body.botToken).trim();
-    if (!/^\d+:[A-Za-z0-9_-]{20,}$/.test(token)) return c.json({ error: 'token do bot inválido (formato esperado: 123456:ABC-...)' }, 400);
+    if (!BOT_TOKEN_RE.test(token)) return c.json({ error: 'token do bot inválido (formato esperado: 123456:ABC-...)' }, 400);
     updateEnvVar('TELEGRAM_BOT_TOKEN', token);
     config.telegram.botToken = token;
     startTelegramBotPoller();
@@ -57,7 +58,7 @@ telegramSettingsRoutes.post('/', async (c) => {
 
   if (body.apiHash !== undefined) {
     const apiHash = String(body.apiHash).trim();
-    if (!/^[a-f0-9]{32}$/i.test(apiHash)) return c.json({ error: 'api_hash inválido (deve ter 32 caracteres hexadecimais)' }, 400);
+    if (!API_HASH_RE.test(apiHash)) return c.json({ error: 'api_hash inválido (deve ter 32 caracteres hexadecimais)' }, 400);
     updateEnvVar('TELEGRAM_API_HASH', apiHash);
     config.telegram.apiHash = apiHash;
   }

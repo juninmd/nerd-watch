@@ -26,6 +26,7 @@ const PAGES = {
   watch: () => import('../player/watch-page.ts'),
   connections: () => import('../connections/connections-page.ts'),
   data: () => import('../connections/data-page.ts'),
+  credentials: () => import('../credentials/credentials-page.ts'),
   settings: () => import('./settings-page.ts'),
 } as const;
 
@@ -90,6 +91,7 @@ export const ROUTES: readonly RouteDef[] = [
   },
   { id: 'connections', pattern: /^\/connections$/, open: async () => (await PAGES.connections()).renderConnections },
   { id: 'data', pattern: /^\/data$/, open: async () => (await PAGES.data()).renderData },
+  { id: 'credentials', pattern: /^\/credentials$/, open: async () => (await PAGES.credentials()).renderCredentials },
   { id: 'settings', pattern: /^\/settings$/, open: async () => (await PAGES.settings()).renderSettings },
 ];
 

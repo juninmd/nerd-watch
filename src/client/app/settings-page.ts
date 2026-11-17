@@ -36,7 +36,7 @@ export const renderSettings = (host: HTMLElement): void => {
       </section>
       <section class="conn-card" id="set-notify">
         <div class="conn-head"><span class="conn-ic">${icon('bell')}</span><div><h2>Avisos de lançamento</h2><p id="set-notify-text">Consultando o servidor…</p></div><span class="chip-status off" id="set-notify-chip" hidden></span></div>
-        <p class="hint">Os destinos e a antecedência (0 a 7 dias) ficam no <code>.env</code>, nunca no navegador: <code>NOTIFY_WEBHOOK_URL</code>, <code>NOTIFY_NTFY_URL</code>, <code>NOTIFY_DISCORD_WEBHOOK_URL</code>, <code>NOTIFY_TELEGRAM_*</code> e <code>NOTIFY_LEAD_DAYS</code>. Detalhes em docs/providers/notifications.md.</p>
+        <p class="hint">Os destinos ficam no <code>.env</code>, nunca no navegador: edite em <a href="#/credentials">Credenciais</a> ou direto no arquivo. A antecedência (0 a 7 dias) só pelo <code>.env</code>: <code>NOTIFY_WEBHOOK_URL</code>, <code>NOTIFY_NTFY_URL</code>, <code>NOTIFY_DISCORD_WEBHOOK_URL</code>, <code>NOTIFY_TELEGRAM_*</code> e <code>NOTIFY_LEAD_DAYS</code>. Detalhes em docs/providers/notifications.md.</p>
       </section>
       <section class="conn-card" id="set-session" hidden>
         <div class="conn-head"><span class="conn-ic">${icon('shield')}</span><div><h2>Acesso por token</h2><p>Este servidor pede login. Sair encerra a sessão em todos os aparelhos.</p></div></div>
