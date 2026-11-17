@@ -200,6 +200,7 @@ img {
   .card,
   .navlink,
   .select,
+  .textarea,
   .input-pill,
   .input {
     border: 1px solid ButtonText;

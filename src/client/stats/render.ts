@@ -62,7 +62,7 @@ export const renderKpis = (s: StatsSummary): string =>
 export const renderGoal = (s: StatsSummary, goal: number | null, today: string): string => {
   const field = `
     <label class="goal-field">Meta de conclusões em ${s.year}
-      <input id="stats-goal" type="number" inputmode="numeric" min="${GOAL_MIN}" max="${GOAL_MAX}" step="1" value="${goal ?? ''}" placeholder="ex.: 24">
+      <input class="input" id="stats-goal" type="number" inputmode="numeric" min="${GOAL_MIN}" max="${GOAL_MAX}" step="1" value="${goal ?? ''}" placeholder="ex.: 24">
     </label>`;
   if (goal === null) {
     return `

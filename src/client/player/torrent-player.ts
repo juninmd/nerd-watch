@@ -98,7 +98,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
           )}</option>`,
       )
       .join('');
-    return `<select class="torrent-file-select" id="torrent-file" style="width:100%;margin-bottom:8px">${options}</select>`;
+    return `<select class="select input-sm" id="torrent-file" style="margin-bottom:8px">${options}</select>`;
   };
 
   const playing = (result: TorrentOpenResponse) => {

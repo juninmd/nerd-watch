@@ -12,15 +12,11 @@
   font-size: 13px;
   color: var(--text-dim);
 }
-.stats-field select {
+.stats-field .select {
   min-width: 150px;
-  min-height: 40px;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  font: inherit;
+}
+.goal-field .input {
+  width: 120px;
 }
 .stats-root {
   position: relative;
@@ -371,16 +367,6 @@
   margin-top: 12px;
   font-size: 13px;
   color: var(--text-dim);
-}
-.goal-field input {
-  width: 120px;
-  min-height: 40px;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  font: inherit;
 }
 .stat-ico {
   display: inline-grid;

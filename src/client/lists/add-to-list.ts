@@ -23,7 +23,7 @@ export const renderAddToList = (titleId: string): HTMLElement => {
       </fieldset>
       <form class="atl-new">
         <label class="sr-only" for="${uid}-new">Nome da nova lista</label>
-        <input id="${uid}-new" class="input-pill" type="text" maxlength="80" placeholder="nova lista…" autocomplete="off" />
+        <input id="${uid}-new" class="input input-pill" type="text" maxlength="80" placeholder="nova lista…" autocomplete="off" />
         <button type="submit" class="btn btn-ghost btn-sm">Criar e adicionar</button>
       </form>
       <p class="atl-status" role="status" aria-live="polite"></p>

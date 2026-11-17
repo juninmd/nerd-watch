@@ -155,10 +155,10 @@ export const renderStats = (host: HTMLElement, query: URLSearchParams): void => 
     </header>
     <div class="stats-toolbar" role="group" aria-label="Filtros das estatísticas">
       <label class="stats-field">Ano
-        <select id="stats-year"><option value="${year}" selected>${year}</option></select>
+        <select class="select" id="stats-year"><option value="${year}" selected>${year}</option></select>
       </label>
       <label class="stats-field">Ritmo da fila
-        <select id="stats-hpd">${HPD_OPTIONS.map((h) => `<option value="${h}"${h === hpd ? ' selected' : ''}>${h.toString().replace('.', ',')} h por dia</option>`).join('')}</select>
+        <select class="select" id="stats-hpd">${HPD_OPTIONS.map((h) => `<option value="${h}"${h === hpd ? ' selected' : ''}>${h.toString().replace('.', ',')} h por dia</option>`).join('')}</select>
       </label>
       <button class="btn btn-ghost btn-sm" id="stats-share" type="button">${icon('download', 'sm')} Compartilhar ano</button>
     </div>

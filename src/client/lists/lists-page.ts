@@ -33,7 +33,7 @@ export const renderLists = (host: HTMLElement): void => {
     </header>
     <form class="lists-new" id="lists-new">
       <label class="sr-only" for="lists-new-name">Nome da nova lista</label>
-      <input id="lists-new-name" class="input-pill" type="text" maxlength="80" required placeholder="nome da nova lista" autocomplete="off" />
+      <input id="lists-new-name" class="input input-pill" type="text" maxlength="80" required placeholder="nome da nova lista" autocomplete="off" />
       <button type="submit" class="btn btn-primary btn-sm">${icon('plus', 'sm')} criar lista</button>
     </form>
     <div id="lists-grid" class="list-grid"><div class="skeleton" style="aspect-ratio:2/1"></div></div>

@@ -88,8 +88,7 @@ video::cue {
 
 .player-captions .captions-item:focus-visible,
 .player-captions .captions-chip:focus-visible,
-.player-captions .captions-btn:focus-visible,
-.player-captions select:focus-visible {
+.player-captions .captions-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -154,19 +153,9 @@ video::cue {
   gap: 4px;
 }
 
-.player-captions select {
-  padding: 2px 4px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-soft);
-  color: var(--text);
-  font: inherit;
-}
-
 @media (pointer: coarse) {
   .player-captions .captions-item,
-  .player-captions .captions-chip,
-  .player-captions select {
+  .player-captions .captions-chip {
     min-height: 44px;
   }
 }
