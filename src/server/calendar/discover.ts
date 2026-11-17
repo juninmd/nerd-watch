@@ -1,15 +1,17 @@
 import { addDaysIso, todayIso } from '../lib/date.ts';
 import { tmdbEnabled } from '../config/config.ts';
 import { anilistPremieres } from '../providers/anilist.ts';
-import { tmdbImageUrl, tmdbUpcomingMovies } from '../providers/tmdb.ts';
+import { tmdbImageUrl, tmdbMovieGenres, tmdbUpcomingMovies } from '../providers/tmdb.ts';
 import { tvmazeWebPremieres } from '../providers/tvmaze.ts';
 import type { CalendarEntry } from '../repo/calendar.ts';
+import { buildInfo, clip, type CalendarInfo } from './info.ts';
 
 /** TVmaze exige uma chamada por dia: o teto mantém a Agenda dentro do limite de 20 chamadas/10 s. */
 export const DISCOVER_MAX_DAYS = 14;
 
 export interface DiscoverEntry extends Omit<CalendarEntry, 'titleId' | 'posterPath'> {
   posterUrl: string | null;
+  info: CalendarInfo;
 }
 
 export interface DiscoverResult {
@@ -41,6 +43,17 @@ export const discoverUpcoming = async (days: number, from = todayIso()): Promise
           seasonNumber: s.season,
           episodeNumber: s.number,
           episodeName: s.episodeName || null,
+          info: buildInfo({
+            name: s.showName,
+            origin: s.extras.anime ? 'anime' : 'serie',
+            where: s.extras.channel ? (s.extras.channel.web ? 'stream' : 'tv') : 'desconhecido',
+            providers: s.extras.channel ? [{ name: s.extras.channel.name, url: s.extras.channel.url }] : [],
+            pageUrl: s.extras.pageUrl,
+            officialUrl: s.extras.officialUrl,
+            synopsis: clip(s.extras.summary),
+            rating: s.extras.rating,
+            genres: s.extras.genres,
+          }),
         })),
       ),
     ],
@@ -58,6 +71,18 @@ export const discoverUpcoming = async (days: number, from = todayIso()): Promise
           seasonNumber: 1,
           episodeNumber: 1,
           episodeName: null,
+          info: buildInfo({
+            name: a.title,
+            origin: 'anime',
+            where: a.streaming.length ? 'stream' : 'desconhecido',
+            providers: a.streaming,
+            pageUrl: a.siteUrl,
+            trailerKey: a.trailerKey,
+            synopsis: clip(a.overview),
+            rating: a.score,
+            genres: a.genres,
+            backdropUrl: a.bannerUrl,
+          }),
         })),
       ),
     ],
@@ -65,7 +90,7 @@ export const discoverUpcoming = async (days: number, from = todayIso()): Promise
   if (tmdbEnabled()) {
     jobs.push([
       'TMDB',
-      tmdbUpcomingMovies(from, to).then((list) =>
+      Promise.all([tmdbUpcomingMovies(from, to), tmdbMovieGenres().catch(() => new Map<number, string>())]).then(([list, genreNames]) =>
         list.map((m): DiscoverEntry => ({
           kind: 'movie',
           titleSource: 'tmdb',
@@ -77,6 +102,17 @@ export const discoverUpcoming = async (days: number, from = todayIso()): Promise
           seasonNumber: null,
           episodeNumber: null,
           episodeName: null,
+          info: buildInfo({
+            name: m.title,
+            year: m.release_date.slice(0, 4),
+            origin: 'filme',
+            where: 'cinema',
+            pageUrl: `https://www.themoviedb.org/movie/${m.id}`,
+            synopsis: clip(m.overview?.trim() || null),
+            rating: m.vote_average ? Math.round(m.vote_average * 10) / 10 : null,
+            genres: (m.genre_ids ?? []).flatMap((id) => genreNames.get(id) ?? []),
+            backdropUrl: tmdbImageUrl(m.backdrop_path ?? null, 'w780'),
+          }),
         })),
       ),
     ]);
