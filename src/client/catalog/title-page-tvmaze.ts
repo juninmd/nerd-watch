@@ -1,3 +1,4 @@
+import { backLinkHtml } from '../ui/back-link.ts';
 import { getTvmazeTitle, type TvmazeDetailDto } from '../api/index.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
@@ -49,6 +50,7 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
       .then((d) => {
         const year = d.premiered?.slice(0, 4) ?? '—';
         host.innerHTML = `
+          ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
             <div class="backdrop" style="filter:blur(24px) brightness(0.5);transform:scale(1.1)"></div>
             <div class="scrim"></div>

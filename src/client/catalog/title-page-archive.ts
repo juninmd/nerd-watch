@@ -1,3 +1,4 @@
+import { backLinkHtml } from '../ui/back-link.ts';
 import { getArchiveTitle } from '../api/index.ts';
 import { icon } from '../ui/icons.ts';
 import { renderInlinePlayer } from '../player/inline-player.ts';
@@ -18,6 +19,7 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
     getArchiveTitle(identifier)
       .then((d) => {
         host.innerHTML = `
+          ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
             <div class="backdrop" style="filter:blur(24px) brightness(0.5);transform:scale(1.1)"></div>
             <div class="scrim"></div>
