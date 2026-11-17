@@ -1,0 +1,49 @@
+/*
+ * Tipografia aplicada: títulos com a face display e quebra equilibrada, números alinhados em colunas.
+ * Fica depois de effects.css e nav.css para valer sobre eles.
+ */
+.view-title {
+  font-size: var(--text-xl);
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+}
+
+.view-title,
+.section-head h2,
+.wordmark,
+.empty-state .view-title {
+  font-family: var(--font-display);
+  text-wrap: balance;
+}
+
+.section-head h2 {
+  font-size: var(--text-lg);
+  letter-spacing: -0.015em;
+}
+
+.view-subtitle {
+  font-size: var(--text-md);
+  text-wrap: pretty;
+}
+
+.stat-value,
+.stat-value-sm,
+.chart-row-value,
+.rewatch-count,
+.upnext-count,
+kbd {
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-value,
+.stat-value-sm {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Anel de foco único para campos de busca e filtros. */
+.cmd:focus-visible,
+.input:focus-visible,
+.select:focus-visible {
+  box-shadow: var(--ring);
+}

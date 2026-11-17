@@ -34,6 +34,28 @@
 
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Display: pilha de sistema (sem baixar fonte, a casca continua offline) que pega a face de títulos mais forte de cada SO. */
+  --font-display: "Avenir Next", "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* Escala tipográfica: use estes degraus em vez de tamanhos soltos em telas novas. */
+  --text-xs: 12px;
+  --text-sm: 13.5px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: clamp(24px, 3.2vw, 32px);
+  --text-display: clamp(30px, 4.4vw, 46px);
+
+  /* Espaço, raio grande e anel de foco compartilhados. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 40px;
+  --radius-xl: 28px;
+  --ring: 0 0 0 4px rgba(124, 92, 255, 0.22);
 }
 
 * {
