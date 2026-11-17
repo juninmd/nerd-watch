@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { canRefreshMode, MODE_INFO, originLabel } from '../../src/client/connections/source-modes.ts';
-import { itemDescription, itemFileName, itemTitle, orderItems, pickNextChannel, toDockItem, watchPath } from '../../src/client/channels/telegram-items.ts';
+import { itemDescription, itemFileName, itemTitle, needsTitleLink, orderItems, pickNextChannel, toDockItem, watchPath } from '../../src/client/channels/telegram-items.ts';
 
 describe('itemTitle / itemDescription', () => {
   test('a primeira linha não vazia é o título e o resto vira descrição, mantendo as quebras', () => {
@@ -109,5 +109,16 @@ describe('orderItems por data e nome', () => {
   });
   test('sem legenda o título vem do nome do arquivo', () => {
     expect(itemTitle({ messageId: '3', caption: null, fileName: 'Ep 01.mp4' })).toBe('Ep 01');
+  });
+});
+
+describe('needsTitleLink', () => {
+  test('vídeo com legenda ou nome de arquivo já tem título: não oferece vincular', () => {
+    expect(needsTitleLink({ caption: 'Naruto ep 1' })).toBe(false);
+    expect(needsTitleLink({ fileName: 'ep1.mkv' })).toBe(false);
+  });
+  test('sem legenda nem arquivo oferece vincular; vínculo existente continua editável', () => {
+    expect(needsTitleLink({ caption: '  ', fileName: null })).toBe(true);
+    expect(needsTitleLink({ caption: 'x', link: { status: 'linked' } })).toBe(true);
   });
 });
