@@ -20,7 +20,7 @@ export const renderSettings = (host: HTMLElement): void => {
     <div class="conn-grid">
       <section class="conn-card">
         <div class="conn-head"><span class="conn-ic">${icon('moon')}</span><div><h2>Tema</h2><p>Escuro é o padrão. "Sistema" acompanha o seu aparelho.</p></div></div>
-        <div class="seg" role="radiogroup" aria-label="Tema">
+        <div class="seg-control" role="radiogroup" aria-label="Tema">
           ${THEME_PREFS.map(
             (p) => `<button type="button" class="seg-btn" role="radio" aria-checked="${p === pref}" data-theme-pref="${p}">${icon(THEME_ICON[p], 'sm')} ${THEME_LABEL[p]}</button>`,
           ).join('')}

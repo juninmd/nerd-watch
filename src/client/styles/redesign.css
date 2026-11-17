@@ -158,7 +158,7 @@
 }
 
 /* Ajustes: seletor de tema (segmentado) e interruptor. */
-.seg {
+.seg-control {
   display: inline-flex;
   gap: 4px;
   margin-top: 18px;
@@ -267,4 +267,10 @@ code {
 
 .conn-card > .conn-head ~ .hint {
   margin: 14px 0 0;
+}
+
+/* "terça-feira" não parte no hífen: o cartão encolhe a fonte em vez de quebrar a palavra. */
+#kpi-weekday .stat-value {
+  font-size: clamp(20px, 1.9vw, 26px);
+  white-space: nowrap;
 }
