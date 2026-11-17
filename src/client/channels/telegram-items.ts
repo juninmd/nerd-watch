@@ -13,6 +13,10 @@ export const itemTitle = (item: { caption?: string | null; messageId: string } &
   return file || `Vídeo — mensagem ${item.messageId}`;
 };
 
+/** Legenda ou nome de arquivo = o vídeo já se identifica sozinho; vincular a um título só faz sentido sem isso (ou para manter um vínculo existente). */
+export const needsTitleLink = (item: { caption?: string | null; fileName?: string | null; link?: unknown }): boolean =>
+  Boolean(item.link) || !(item.caption?.trim() || item.fileName?.trim());
+
 export const itemDescription = (item: Pick<TelegramItemDto, 'caption'>): string | null => {
   if (!item.caption) return null;
   const rest = item.caption
