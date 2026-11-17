@@ -36,7 +36,8 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | ✔️ **Marcar até aqui** | em um episódio, marca ele como "onde parei" e os anteriores (de todas as temporadas) ficam vistos de uma vez, com "Desfazer". O progresso é um marcador por série, então não há visto episódio a episódio |
 | 🎬 **Sinopse, nota e trailer** | via TMDB (filme e série) |
 | 📡 **Onde assistir** | streamings disponíveis na sua região (TMDB watch/providers) |
-| 🎞️ **Domínio público** | catálogo do Internet Archive (`feature_films`) — **assiste dentro do app**, sem chave nenhuma |
+| 🎞️ **Domínio público** | Internet Archive (longas, cinema mudo, Prelinger, NASA) e Wikimedia Commons — **assiste dentro do app**, sem chave nenhuma ([fontes e licenças](docs/providers/public-domain.md)) |
+| 🧩 **Addons do Stremio** | cole o link do `manifest.json` para usar catálogo, streams e legendas de um addon; instalação sempre manual ([docs](docs/providers/stremio-addons.md)) |
 | 🧲 **Torrent legal** | o torrent oficial que a própria Archive.org gera para cada item de domínio público |
 | ⚡ **Streaming P2P** | toca o torrent do acervo livre dentro do app, com seek — engine em processo, sem depender da banda do archive.org |
 | 💬 **Legendas sem chave** | busca em addons do protocolo do Stremio (padrão: o OpenSubtitles v3 oficial) — **não precisa de cadastro nem de chave** |
@@ -381,6 +382,8 @@ Cada fonte é configurada em **Conexões** (ou no `.env`) e adicionada em **Cana
 | YouTube (só embed) | nada | [docs](docs/providers/youtube.md) |
 | Dailymotion (só embed) | nada | [docs](docs/providers/dailymotion.md) |
 | Internet Archive (coleção) | nada | [docs](docs/providers/archive-collection.md) |
+| Domínio público (Archive + Wikimedia Commons) | nada | [docs](docs/providers/public-domain.md) |
+| Addons do Stremio | link do manifest (colado por você) | [docs](docs/providers/stremio-addons.md) |
 | Torrent (magnet / `.torrent` colado) | nada | [docs](docs/providers/torrent.md) |
 
 Catálogos e sincronização: [TVmaze](docs/providers/tvmaze.md), [AniList](docs/providers/anilist.md),
@@ -433,8 +436,9 @@ taxa, ou uma tabela preenchida pelo usuário) para o importador de MAL passar a 
   (uma a cada 60 s por título, mesmo se a tentativa falhar). A atualização busca direto na TMDB, mas a lista de
   temporadas que a página mostra ainda vem do cache em memória (até 60 min); a Agenda já usa o dado novo.
   Status, nota, anotações e progresso nunca são alterados pelo refresh.
-- **Domínio público limitado à coleção `feature_films`** da Internet Archive — é a curadoria oficial
-  deles para conteúdo livre; dá para ampliar depois se quiser mais fontes.
+- **Domínio público limitado a uma lista fechada de fontes** (coleções `feature_films`, `silent_films`, `prelinger` e
+  `nasa` da Internet Archive, mais a Wikimedia Commons) — cada uma publica a licença dos itens; ver
+  [docs](docs/providers/public-domain.md).
 - **O torrent começa pelo derivado mais leve** (`_512kb`/`small`) para o vídeo abrir rápido, não pela
   melhor qualidade — o seletor na tela deixa você trocar para `large`/`1080p` a qualquer momento.
 - **Só MP4/WebM tocam no navegador.** Itens da Archive que só têm `.ogv`/`.avi`/`.mkv` aparecem sem o

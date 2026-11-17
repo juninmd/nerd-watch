@@ -1,15 +1,19 @@
 import { Hono } from 'hono';
 import { getDb } from '../db/database.ts';
-import { archiveMovieDetails, archiveSearchPublicDomain } from '../providers/archive.ts';
+import { archiveMovieDetails, archiveSearchPublicDomain, isPublicDomainCollection, PUBLIC_DOMAIN_COLLECTIONS } from '../providers/archive.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { upsertTitle } from '../repo/titles.ts';
 
 export const archiveRoutes = new Hono();
 
+archiveRoutes.get('/collections', (c) => c.json({ collections: Object.entries(PUBLIC_DOMAIN_COLLECTIONS).map(([id, label]) => ({ id, label })) }));
+
 archiveRoutes.get('/search', async (c) => {
   const query = c.req.query('q')?.trim() ?? '';
+  const collection = c.req.query('collection') ?? 'feature_films';
+  if (!isPublicDomainCollection(collection)) return c.json({ error: 'coleção não suportada' }, 400);
   try {
-    const results = await archiveSearchPublicDomain(query, 24);
+    const results = await archiveSearchPublicDomain(query, 24, collection);
     return c.json({ results });
   } catch {
     return c.json({ error: 'Internet Archive indisponível no momento' }, 502);

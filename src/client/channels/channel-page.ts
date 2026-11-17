@@ -8,6 +8,7 @@ import {
   searchTelegramHistory,
   type TelegramChannelDetailDto,
 } from '../api/index.ts';
+import { backLinkHtml } from '../ui/back-link.ts';
 import { escapeHtml, paintPoster } from '../ui/card.ts';
 import { linkBadge, openLinkDialog } from './telegram-link.ts';
 import { getQueueOrder, type QueueOrder, savedPosition, setQueueOrder } from '../player/player-dock.ts';
@@ -54,6 +55,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   const order = getQueueOrder();
   const items = orderItems(d.items, order);
   host.innerHTML = `
+    ${backLinkHtml('#/telegram', 'Canais')}
     <div class="hero">
       <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(mediaUrl(d.posterUrl))}')"` : ''}></div>
       <div class="scrim"></div>

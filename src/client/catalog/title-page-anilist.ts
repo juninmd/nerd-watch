@@ -1,3 +1,4 @@
+import { backLinkHtml } from '../ui/back-link.ts';
 import { getAnilistTitle, type AnilistDetailDto } from '../api/index.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
@@ -32,6 +33,7 @@ export const renderAnilistDetail = (host: HTMLElement, id: string): void => {
         const status = d.status ? (STATUS_LABEL[d.status] ?? d.status.toLowerCase()) : null;
         const subtitle = d.romaji && d.romaji !== d.title ? d.romaji : null;
         host.innerHTML = `
+          ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
             <div class="backdrop" style="filter:blur(24px) brightness(0.5);transform:scale(1.1)"></div>
             <div class="scrim"></div>

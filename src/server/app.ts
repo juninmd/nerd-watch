@@ -27,6 +27,8 @@ import { credentialsRoutes } from './routes/credentials.ts';
 import { sourcesRoutes } from './routes/sources.ts';
 import { playbackRoutes } from './routes/playback.ts';
 import { traktRoutes } from './routes/trakt.ts';
+import { commonsRoutes } from './routes/commons.ts';
+import { stremioRoutes } from './routes/stremio.ts';
 import { createMediaRoutes } from './routes/media.ts';
 import { createMediaService } from './media/service.ts';
 import { localLocator } from './media/local-locator.ts';
@@ -113,6 +115,8 @@ app.route('/api/credentials', credentialsRoutes);
 app.route('/api/sources', sourcesRoutes);
 app.route('/api/playback', playbackRoutes);
 app.route('/api/trakt', traktRoutes);
+app.route('/api/stremio', stremioRoutes);
+app.route('/api/commons', commonsRoutes);
 
 // Conversão de formatos (ffmpeg opcional): sem o binário, nada muda e a UI explica o motivo.
 const mediaCfg = mediaSettings();

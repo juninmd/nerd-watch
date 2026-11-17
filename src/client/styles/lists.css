@@ -125,10 +125,6 @@
   margin-top: 10px;
 }
 
-.back-link {
-  color: var(--text-dim);
-  font-size: 13px;
-}
 
 .list-items {
   list-style: none;

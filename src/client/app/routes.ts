@@ -28,6 +28,10 @@ const PAGES = {
   data: () => import('../connections/data-page.ts'),
   credentials: () => import('../credentials/credentials-page.ts'),
   settings: () => import('./settings-page.ts'),
+  addons: () => import('../addons/addons-page.ts'),
+  addonBrowse: () => import('../addons/addon-browse-page.ts'),
+  addonItem: () => import('../addons/addon-item-page.ts'),
+  commons: () => import('../catalog/commons-page.ts'),
 } as const;
 
 export type RouteId = keyof typeof PAGES;
@@ -92,6 +96,31 @@ export const ROUTES: readonly RouteDef[] = [
   { id: 'connections', pattern: /^\/connections$/, open: async () => (await PAGES.connections()).renderConnections },
   { id: 'data', pattern: /^\/data$/, open: async () => (await PAGES.data()).renderData },
   { id: 'credentials', pattern: /^\/credentials$/, open: async () => (await PAGES.credentials()).renderCredentials },
+  { id: 'addons', pattern: /^\/addons$/, open: async () => (await PAGES.addons()).renderAddons },
+  {
+    id: 'addonBrowse',
+    pattern: /^\/addons\/([^/]+)$/,
+    open: async (params) => {
+      const { renderAddonBrowse } = await PAGES.addonBrowse();
+      return (host) => renderAddonBrowse(host, param(params, 0));
+    },
+  },
+  {
+    id: 'addonItem',
+    pattern: /^\/addons\/([^/]+)\/([^/]+)\/(.+)$/,
+    open: async (params) => {
+      const { renderAddonItem } = await PAGES.addonItem();
+      return (host) => renderAddonItem(host, param(params, 0), param(params, 1), param(params, 2));
+    },
+  },
+  {
+    id: 'commons',
+    pattern: /^\/commons\/(.+)$/,
+    open: async (params) => {
+      const { renderCommonsVideo } = await PAGES.commons();
+      return (host) => renderCommonsVideo(host, param(params, 0));
+    },
+  },
   { id: 'settings', pattern: /^\/settings$/, open: async () => (await PAGES.settings()).renderSettings },
 ];
 

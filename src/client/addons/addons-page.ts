@@ -1,0 +1,102 @@
+import { type AddonDto, installAddon, listAddons, removeAddon } from '../api/stremio.ts';
+import { navigate } from '../app/router.ts';
+import { showToast } from '../app/state.ts';
+import { escapeHtml } from '../ui/card.ts';
+import { backButtonHtml, wireBackButton } from '../ui/back-button.ts';
+import { icon } from '../ui/icons.ts';
+import { addonPath, canBrowse, resourceLabel } from './addon-links.ts';
+
+const addonRow = (a: AddonDto): string => `
+  <li class="addon-row" data-id="${escapeHtml(a.id)}">
+    <div class="addon-logo" aria-hidden="true">${a.logo ? `<img src="${escapeHtml(a.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : icon('plug')}</div>
+    <div class="addon-body">
+      <h3>${escapeHtml(a.name)} ${a.version ? `<small>v${escapeHtml(a.version)}</small>` : ''}</h3>
+      <p class="hint">${escapeHtml(a.host)}</p>
+      ${a.description ? `<p class="addon-desc">${escapeHtml(a.description)}</p>` : ''}
+      <div class="chip-row">${a.resources.map((r) => `<span class="chip-status">${escapeHtml(resourceLabel(r))}</span>`).join('')}</div>
+    </div>
+    <div class="addon-actions">
+      ${canBrowse(a) ? `<button type="button" class="btn btn-primary btn-sm" data-browse>explorar</button>` : ''}
+      <button type="button" class="btn btn-ghost btn-sm" data-remove aria-label="remover ${escapeHtml(a.name)}">${icon('trash', 'sm')} remover</button>
+    </div>
+  </li>`;
+
+export const renderAddons = (host: HTMLElement): void => {
+  host.innerHTML = `
+    <header class="view-head">
+      ${backButtonHtml()}
+      <h1 class="view-title">Addons do Stremio</h1>
+      <p class="view-subtitle">
+        Cole o link do <code>manifest.json</code> de um addon (ou <code>stremio://…</code>) para usar o catálogo, os detalhes, os streams e as
+        legendas dele aqui dentro. Não há addon pré-instalado nem lista automática: você instala só o que escolher, e o conteúdo e a licença
+        dele são responsabilidade de quem o publica. O link fica guardado só neste computador e não entra no backup.
+      </p>
+    </header>
+    <form id="addon-form" class="chip-row form-row" novalidate>
+      <input type="text" inputmode="url" id="addon-url" class="input input-pill grow" placeholder="https://…/manifest.json" autocomplete="off" spellcheck="false" aria-label="link do manifest do addon" aria-describedby="addon-err" />
+      <button class="btn btn-primary btn-sm" type="submit" id="addon-add">${icon('plus', 'sm')} instalar</button>
+    </form>
+    <p class="field-err" id="addon-err" role="alert"></p>
+    <ul class="addon-list" id="addon-list" aria-live="polite"></ul>
+  `;
+  wireBackButton(host, '/connections');
+
+  const form = host.querySelector('#addon-form') as HTMLFormElement;
+  const input = host.querySelector('#addon-url') as HTMLInputElement;
+  const submit = host.querySelector('#addon-add') as HTMLButtonElement;
+  const err = host.querySelector('#addon-err') as HTMLElement;
+  const listEl = host.querySelector('#addon-list') as HTMLElement;
+
+  const paint = (addons: AddonDto[]) => {
+    listEl.innerHTML = addons.length
+      ? addons.map(addonRow).join('')
+      : `<li class="empty-state"><div class="big">${icon('plug')}</div>nenhum addon instalado ainda</li>`;
+  };
+  const load = () =>
+    listAddons()
+      .then(paint)
+      .catch(() => {
+        listEl.innerHTML = `<li class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar os addons</li>`;
+      });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const url = input.value.trim();
+    if (!url) {
+      err.textContent = 'cole o link do manifest do addon';
+      input.focus();
+      return;
+    }
+    err.textContent = '';
+    submit.disabled = true;
+    installAddon(url)
+      .then((a) => {
+        input.value = '';
+        showToast(`Addon "${a.name}" instalado`);
+        return load();
+      })
+      .catch((error: Error) => {
+        err.textContent = error.message;
+        input.focus();
+      })
+      .finally(() => {
+        submit.disabled = false;
+      });
+  });
+
+  listEl.addEventListener('click', (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.addon-row');
+    const id = row?.dataset.id;
+    if (!row || !id) return;
+    if ((e.target as HTMLElement).closest('[data-browse]')) navigate(addonPath(id));
+    if ((e.target as HTMLElement).closest('[data-remove]')) {
+      const name = row.querySelector('h3')?.textContent?.trim() ?? 'addon';
+      if (!confirm(`Remover o addon "${name}"? Nada do seu histórico muda; para voltar a usar, cole o link de novo.`)) return;
+      removeAddon(id)
+        .then(load)
+        .catch(() => showToast('Não foi possível remover o addon'));
+    }
+  });
+
+  load();
+};

@@ -110,6 +110,15 @@ CREATE TABLE IF NOT EXISTS torrent_sources (
   added_at TEXT NOT NULL
 );
 
+-- Addons do Stremio instalados à mão (link do manifest colado pelo usuário). A URL pode carregar token: só o servidor a lê.
+CREATE TABLE IF NOT EXISTS stremio_addons (
+  id TEXT PRIMARY KEY,
+  manifest_url TEXT NOT NULL UNIQUE,
+  base_url TEXT NOT NULL,
+  manifest TEXT NOT NULL,
+  added_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS library_history (
   id TEXT PRIMARY KEY,
   title_id TEXT NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
