@@ -25,6 +25,7 @@ const staticActions = (): PaletteEntry[] => [
   { id: 'telegram-import', group: 'Ações', title: 'Importar meus canais do Telegram', run: () => navigate('/telegram?import=1') },
   { id: 'go-search', group: 'Ações', title: 'Buscar títulos no catálogo', keys: 'g s', run: () => navigate('/search') },
   { id: 'go-pd', group: 'Ações', title: 'Explorar o domínio público', keys: 'g p', run: () => navigate('/public-domain') },
+  { id: 'go-addons', group: 'Ações', title: 'Gerenciar addons do Stremio', keys: 'g o', run: () => navigate('/addons') },
   { id: 'backup', group: 'Ações', title: 'Exportar ou importar backup', keys: 'g d', run: () => navigate('/data?focus=backup') },
   { id: 'go-settings', group: 'Ações', title: 'Ajustes e avisos', keys: 'g j', run: () => navigate('/settings') },
   { id: 'theme', group: 'Ações', title: 'Alternar tema (escuro, claro, sistema)', run: () => setThemePref(nextThemePref(getThemePref())) },

@@ -17,3 +17,5 @@
 - [Tauri Updater](https://v2.tauri.app/plugin/updater/) - Auto-update assinado lendo `latest.json` da release.
 - [Conventional Commits 1.0](https://www.conventionalcommits.org/pt-br/v1.0.0/) - Regra que decide a versão publicada.
 - [Bun](https://bun.sh/docs) - Runtime e bundler do servidor e do cliente.
+- [Stremio Addons](https://stremio-addons.net/) - Diretório e documentação dos addons; o app só instala por link de manifest colado pelo usuário.
+- [Wikimedia Commons API](https://www.mediawiki.org/wiki/API:Main_page) - Vídeos livres com licença por arquivo.

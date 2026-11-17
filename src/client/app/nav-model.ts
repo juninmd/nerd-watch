@@ -37,6 +37,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { path: '/telegram', label: 'Canais e player', icon: 'send', key: 't' },
       { path: '/connections', label: 'Conexões', icon: 'plug', key: 'c' },
+      { path: '/addons', label: 'Addons Stremio', icon: 'puzzle', key: 'o' },
     ],
   },
   {
