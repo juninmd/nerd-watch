@@ -1,4 +1,7 @@
-import { type CatalogSource, getCalendar, getCalendarDiscover, type CalendarEntryDto } from '../api/index.ts';
+import { type CalendarInfoDto, type CatalogSource, getCalendar, getCalendarDiscover, type CalendarEntryDto } from '../api/index.ts';
+import { type AgendaEntry, cardHtml, entryKey, originOf, spotlightHtml } from './calendar-card.ts';
+import { openCalendarDetail } from './calendar-detail.ts';
+import { loadInfo, seedInfo } from './calendar-info.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from '../app/router.ts';
@@ -23,14 +26,10 @@ const groupByDay = <T extends { date: string }>(entries: T[]): Map<string, T[]> 
   return map;
 };
 
-const entryRow = (e: Omit<CalendarEntryDto, 'titleId'>): string => `
-  <div class="calendar-item" data-source="${e.titleSource}" data-source-id="${escapeHtml(e.titleSourceId)}" data-media="${e.mediaType}" tabindex="0" role="link">
-    <div class="thumb"${e.posterUrl ? ` style="background-image:url('${e.posterUrl}')"` : ''}>${e.posterUrl ? '' : icon('film')}</div>
-    <div class="info">
-      <div class="t">${escapeHtml(e.titleName)}</div>
-      <div class="s">${e.kind === 'episode' ? `T${e.seasonNumber} · Ep ${e.episodeNumber}${e.episodeName ? ` — ${escapeHtml(e.episodeName)}` : ''}` : 'estreia do filme'}</div>
-    </div>
-  </div>`;
+type OriginFilter = 'todos' | 'serie' | 'filme' | 'anime';
+type WhereFilter = 'todos' | 'stream' | 'cinema';
+const ORIGIN_CHIPS: Array<[OriginFilter, string]> = [['todos', 'Tudo'], ['serie', 'Séries'], ['filme', 'Filmes'], ['anime', 'Animes']];
+const WHERE_CHIPS: Array<[WhereFilter, string]> = [['todos', 'Qualquer lugar'], ['stream', 'Streaming'], ['cinema', 'Cinema']];
 
 export const renderCalendar = (host: HTMLElement): void => {
   let days = 30;
@@ -38,6 +37,11 @@ export const renderCalendar = (host: HTMLElement): void => {
   let entries: CalendarEntryDto[] = [];
   let discover: Omit<CalendarEntryDto, 'titleId'>[] = [];
   let discoverFailed: string[] = [];
+  let originFilter: OriginFilter = 'todos';
+  let whereFilter: WhereFilter = 'todos';
+  const infos = new Map<string, CalendarInfoDto>();
+  const infoOf = (e: AgendaEntry): CalendarInfoDto | null => e.info ?? infos.get(entryKey(e)) ?? null;
+  const lookup = new Map<string, AgendaEntry>();
 
   host.innerHTML = `
     <header class="view-head">
@@ -46,11 +50,17 @@ export const renderCalendar = (host: HTMLElement): void => {
       <div style="margin-top:12px"><button class="btn btn-ghost btn-sm" id="subscribe" type="button">Assinar no calendário</button></div>
     </header>
     <div class="week-strip" id="week" role="group" aria-label="Próximos 7 dias"></div>
-    <div class="chip-row" id="ranges" style="margin-bottom:22px"></div>
+    <div class="chip-row" id="ranges" style="margin-bottom:10px"></div>
+    <div class="chip-row" id="origins" style="margin-bottom:10px" role="group" aria-label="Filtrar por tipo"></div>
+    <div class="chip-row" id="wheres" style="margin-bottom:22px" role="group" aria-label="Filtrar por onde assistir"></div>
+    <div id="spot"></div>
     <div id="entries"><div class="skeleton" style="height:200px"></div></div>
   `;
 
   const rangesEl = host.querySelector('#ranges') as HTMLElement;
+  const originsEl = host.querySelector('#origins') as HTMLElement;
+  const wheresEl = host.querySelector('#wheres') as HTMLElement;
+  const spotEl = host.querySelector('#spot') as HTMLElement;
   const entriesEl = host.querySelector('#entries') as HTMLElement;
   const weekEl = host.querySelector('#week') as HTMLElement;
 
@@ -79,15 +89,20 @@ export const renderCalendar = (host: HTMLElement): void => {
 
   const renderEntries = () => {
     const horizon = localIsoDate(new Date(Date.now() + days * 86_400_000));
-    const inRange = entries.filter((e) => e.date <= horizon);
+    const passes = (e: AgendaEntry): boolean => {
+      const info = infoOf(e);
+      if (originFilter !== 'todos' && originOf(e, info) !== originFilter) return false;
+      return whereFilter === 'todos' || info?.where === whereFilter;
+    };
+    const inRange = entries.filter((e) => e.date <= horizon && passes(e));
     const shown = dayFilter ? inRange.filter((e) => e.date === dayFilter) : inRange;
     const horizonIso = horizon;
-    const found = (dayFilter ? discover.filter((e) => e.date === dayFilter) : discover.filter((e) => e.date <= horizonIso)).filter(
+    const found = (dayFilter ? discover.filter((e) => e.date === dayFilter) : discover.filter((e) => e.date <= horizonIso)).filter(passes).filter(
       (e) => !shown.some((s) => s.titleSource === e.titleSource && s.titleSourceId === e.titleSourceId && s.date === e.date),
     );
     const groups = (list: Omit<CalendarEntryDto, 'titleId'>[]) =>
       Array.from(groupByDay(list).entries())
-        .map(([date, items]) => `<div class="calendar-day-group"><div class="calendar-day-label">${dayLabel(date)}</div><div class="calendar-list">${items.map(entryRow).join('')}</div></div>`)
+        .map(([date, items]) => `<div class="calendar-day-group"><div class="calendar-day-label">${dayLabel(date)}</div><div class="calendar-list">${items.map((e) => cardHtml(e, infoOf(e))).join('')}</div></div>`)
         .join('');
     const warn = discoverFailed.length ? `<div class="empty-state">fontes indisponíveis agora: ${escapeHtml(discoverFailed.join(', '))}</div>` : '';
     const discoverBlock = found.length
@@ -107,16 +122,64 @@ export const renderCalendar = (host: HTMLElement): void => {
     }
     entriesEl.innerHTML = (shown.length ? groups(shown) : '') + discoverBlock;
 
-    for (const el of entriesEl.querySelectorAll<HTMLElement>('.calendar-item')) {
-      const { source, sourceId, media } = el.dataset;
-      if (!source || !sourceId || !media) continue;
-      const go = () => navigate(titlePath(source as CatalogSource, source === 'archive' ? '_' : (media as 'movie' | 'tv'), sourceId));
-      el.addEventListener('click', go);
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') go();
-      });
-    }
+    for (const e of [...shown, ...found]) lookup.set(entryKey(e), e);
+    renderSpot([...shown, ...found]);
+    observeMissingInfo();
   };
+
+  /** Destaque: o primeiro item com capa larga entre os visíveis. */
+  const renderSpot = (list: AgendaEntry[]) => {
+    const pick = list.find((e) => infoOf(e)?.backdropUrl);
+    const info = pick ? infoOf(pick) : null;
+    spotEl.innerHTML = pick && info ? spotlightHtml(pick, info) : '';
+  };
+
+  // Cartões da biblioteca nascem sem ficha: busca ao entrarem na tela e troca só o cartão.
+  const observer =
+    typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver(
+          (hits) => {
+            for (const hit of hits) {
+              if (!hit.isIntersecting) continue;
+              const el = hit.target as HTMLElement;
+              observer?.unobserve(el);
+              const e = lookup.get(el.dataset.key ?? '');
+              if (!e) continue;
+              void loadInfo(e).then((info) => {
+                if (!info || !el.isConnected) return;
+                infos.set(entryKey(e), info);
+                el.outerHTML = cardHtml(e, info);
+                if (!spotEl.firstElementChild) renderSpot([e]);
+              });
+            }
+          },
+          { rootMargin: '200px' },
+        );
+  const observeMissingInfo = () => {
+    for (const el of entriesEl.querySelectorAll<HTMLElement>('[data-needs-info]')) observer?.observe(el);
+  };
+
+  const openDetail = async (el: HTMLElement) => {
+    const e = lookup.get(el.dataset.key ?? '');
+    if (!e) return;
+    const info = infoOf(e) ?? (await loadInfo(e));
+    if (info) infos.set(entryKey(e), info);
+    const go = () => navigate(titlePath(e.titleSource as CatalogSource, e.titleSource === 'archive' ? '_' : e.mediaType, e.titleSourceId));
+    openCalendarDetail(e, info, go);
+  };
+
+  const onActivate = (ev: Event) => {
+    const target = ev.target as HTMLElement;
+    if (target.closest('a')) return;
+    const el = target.closest<HTMLElement>('.cal-card, .cal-spot');
+    if (el) void openDetail(el);
+  };
+  entriesEl.addEventListener('click', onActivate);
+  spotEl.addEventListener('click', onActivate);
+  entriesEl.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' && (ev.target as HTMLElement).classList.contains('cal-card')) onActivate(ev);
+  });
 
   const load = () => {
     entriesEl.innerHTML = `<div class="skeleton" style="height:200px"></div>`;
@@ -127,6 +190,7 @@ export const renderCalendar = (host: HTMLElement): void => {
         entries = data.entries;
         const d = await discoverP;
         discover = d.entries;
+        for (const e of d.entries) if (e.info) seedInfo(e, e.info);
         discoverFailed = d.failed;
         renderWeek();
         renderEntries();
@@ -143,6 +207,22 @@ export const renderCalendar = (host: HTMLElement): void => {
     renderWeek();
     renderEntries();
   });
+
+  const chips = (el: HTMLElement, list: Array<[string, string]>, current: () => string, set: (v: string) => void) => {
+    const paint = () => {
+      el.innerHTML = list.map(([v, label]) => `<button class="chip${v === current() ? ' active' : ''}" type="button" data-v="${v}" aria-pressed="${v === current()}">${label}</button>`).join('');
+    };
+    el.addEventListener('click', (ev) => {
+      const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-v]');
+      if (!btn) return;
+      set(btn.dataset.v ?? 'todos');
+      paint();
+      renderEntries();
+    });
+    paint();
+  };
+  chips(originsEl, ORIGIN_CHIPS, () => originFilter, (v) => (originFilter = v as OriginFilter));
+  chips(wheresEl, WHERE_CHIPS, () => whereFilter, (v) => (whereFilter = v as WhereFilter));
 
   rangesEl.innerHTML = RANGES.map((r) => `<button class="chip${r === days ? ' active' : ''}" type="button" data-days="${r}">${r} dias</button>`).join('');
   rangesEl.addEventListener('click', (e) => {

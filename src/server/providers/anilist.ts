@@ -1,6 +1,7 @@
 import { withCache } from '../lib/cache.ts';
 import { CatalogRequestError, htmlToText, httpsUrlOrNull } from '../lib/catalog-text.ts';
 import { normalizeGenres, normalizeRuntimeMinutes } from '../stats/catalog-fields.ts';
+import { validTrailerKey } from '../calendar/info.ts';
 import { createRateLimiter, RateLimitExceededError } from '../lib/rate-limit.ts';
 
 /**
@@ -54,6 +55,9 @@ query ($id: Int!) {
     genres
     description(asHtml: false)
     nextAiringEpisode { airingAt episode }
+    bannerImage
+    trailer { id site }
+    externalLinks { site url type }
   }
 }`;
 
@@ -172,6 +176,7 @@ export interface AnilistDetails extends AnilistSearchItem {
   runtimeMinutes: number | null;
   /** Próximo episódio ainda não exibido; `null` quando o anime terminou ou não há data. */
   nextAiringEpisode: { airingAt: number; episode: number } | null;
+  extras: AnilistExtras;
 }
 
 export const anilistDetails = withCache(60 * MINUTES, async (id: number): Promise<AnilistDetails> => {
@@ -190,6 +195,7 @@ export const anilistDetails = withCache(60 * MINUTES, async (id: number): Promis
     genres: normalizeGenres(media.genres) ?? [],
     runtimeMinutes: normalizeRuntimeMinutes(media.duration),
     nextAiringEpisode: airingAt !== null && episode !== null ? { airingAt, episode } : null,
+    extras: anilistExtras(media),
   };
 });
 
@@ -199,16 +205,40 @@ query ($from: Int!, $to: Int!) {
     airingSchedules(airingAt_greater: $from, airingAt_lesser: $to, episode: 1, sort: TIME) {
       airingAt
       episode
-      media { id title { romaji english native } coverImage { large } isAdult countryOfOrigin }
+      media {
+        id title { romaji english native } coverImage { large } isAdult countryOfOrigin
+        siteUrl bannerImage trailer { id site } externalLinks { site url type } genres averageScore description(asHtml: false)
+      }
     }
   }
 }`;
 
-export interface AnilistPremiere {
+/** Trailer (só YouTube), serviços de streaming e capa larga, comuns à estreia e ao detalhe. */
+export interface AnilistExtras {
+  trailerKey: string | null;
+  streaming: Array<{ name: string; url: string | null }>;
+  bannerUrl: string | null;
+}
+
+export const anilistExtras = (media: Raw): AnilistExtras => {
+  const trailer = isRecord(media.trailer) ? media.trailer : null;
+  const links = Array.isArray(media.externalLinks) ? media.externalLinks : [];
+  return {
+    trailerKey: trailer && trailer.site === 'youtube' ? validTrailerKey(trailer.id) : null,
+    streaming: links.flatMap((l) => (isRecord(l) && l.type === 'STREAMING' && typeof l.site === 'string' ? [{ name: l.site, url: httpsUrlOrNull(l.url) }] : [])),
+    bannerUrl: httpsUrlOrNull(media.bannerImage),
+  };
+};
+
+export interface AnilistPremiere extends AnilistExtras {
   id: number;
   title: string;
   imageUrl: string | null;
   airingAt: number;
+  siteUrl: string | null;
+  overview: string | null;
+  score: number | null;
+  genres: string[];
 }
 
 /** Estreias (episódio 1) de anime entre dois instantes em segundos Unix. */
@@ -220,7 +250,17 @@ export const anilistPremieres = withCache(3 * 60 * MINUTES, async (from: number,
   for (const s of page.airingSchedules) {
     if (!isRecord(s) || typeof s.airingAt !== 'number' || !isRecord(s.media) || s.media.isAdult === true) continue;
     if (typeof s.media.id !== 'number') continue;
-    out.push({ id: s.media.id, title: pickTitle(s.media.title).title, imageUrl: coverOf(s.media.coverImage), airingAt: s.airingAt });
+    out.push({
+      id: s.media.id,
+      title: pickTitle(s.media.title).title,
+      imageUrl: coverOf(s.media.coverImage),
+      airingAt: s.airingAt,
+      siteUrl: httpsUrlOrNull(s.media.siteUrl),
+      overview: descriptionText(s.media.description),
+      score: typeof s.media.averageScore === 'number' ? s.media.averageScore / 10 : null,
+      genres: normalizeGenres(s.media.genres) ?? [],
+      ...anilistExtras(s.media),
+    });
   }
   return out;
 });

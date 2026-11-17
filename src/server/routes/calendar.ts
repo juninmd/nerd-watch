@@ -1,4 +1,7 @@
 import { Hono } from 'hono';
+import { calendarInfoFor, isDetailSource } from '../calendar/detail.ts';
+import { CatalogRequestError } from '../lib/catalog-text.ts';
+import { TmdbNotConfiguredError, TmdbRequestError } from '../providers/tmdb.ts';
 import { discoverUpcoming } from '../calendar/discover.ts';
 import { buildCalendarIcs } from '../calendar/ics.ts';
 import { getDb } from '../db/database.ts';
@@ -33,6 +36,23 @@ calendarRoutes.get('/discover', async (c) => {
   const days = parseCalendarDays(c.req.query('days'));
   const { entries, failed } = await discoverUpcoming(days);
   return c.json({ days, entries, failed });
+});
+
+/** Ficha sob demanda de um item (trailer, onde assistir, links). Chave inválida ou fonte desconhecida é 400, nunca vai à rede. */
+calendarRoutes.get('/detail', async (c) => {
+  const source = c.req.query('source') ?? '';
+  const id = c.req.query('id') ?? '';
+  const media = c.req.query('media') === 'movie' ? 'movie' : 'tv';
+  if (!isDetailSource(source) || !/^\d{1,10}$/.test(id)) return c.json({ error: 'source e id válidos são obrigatórios' }, 400);
+  try {
+    c.header('Cache-Control', 'private, max-age=300');
+    return c.json({ info: await calendarInfoFor(source, Number(id), media) });
+  } catch (err) {
+    if (err instanceof CatalogRequestError) return c.json({ error: err.message }, err.status as 404 | 429 | 502);
+    if (err instanceof TmdbNotConfiguredError) return c.json({ error: err.message }, 503);
+    if (err instanceof TmdbRequestError) return c.json({ error: err.message }, err.status === 404 ? 404 : 502);
+    throw err;
+  }
 });
 
 /** Feed .ics para assinar no calendário: mesmos dados e validação de `days` do JSON. Montado em `/api` como `/api/calendar.ics`. */
