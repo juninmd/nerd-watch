@@ -13,4 +13,5 @@ export * from './library.ts';
 export * from './stats.ts';
 export * from './subtitles.ts';
 export * from './telegram.ts';
+export * from './tvmaze.ts';
 export * from './torrent.ts';

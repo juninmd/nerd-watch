@@ -20,7 +20,8 @@ const limiter = createRateLimiter('TVmaze', 20, 10_000);
 /** Só para testes: esvazia a janela do limite de chamadas. */
 export const resetTvmazeRateLimitForTests = (): void => limiter.reset();
 
-const get = async (path: string, params: Record<string, string> = {}): Promise<unknown> => {
+/** `embed` aceita lista: a TVmaze quer `embed[]=a&embed[]=b` (um único `embed=a` só vale sozinho). */
+export const tvmazeGet = async (path: string, params: Record<string, string | string[]> = {}): Promise<unknown> => {
   try {
     limiter.acquire();
   } catch (err) {
@@ -28,7 +29,10 @@ const get = async (path: string, params: Record<string, string> = {}): Promise<u
     throw err;
   }
   const url = new URL(`${BASE}${path}`);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  for (const [k, v] of Object.entries(params)) {
+    if (Array.isArray(v)) for (const item of v) url.searchParams.append(`${k}[]`, item);
+    else url.searchParams.set(k, v);
+  }
 
   let res: Response;
   try {
@@ -46,11 +50,11 @@ const get = async (path: string, params: Record<string, string> = {}): Promise<u
   }
 };
 
-const unexpected = (): CatalogRequestError => new CatalogRequestError(502, 'TVmaze devolveu uma resposta inesperada');
+export const unexpected = (): CatalogRequestError => new CatalogRequestError(502, 'TVmaze devolveu uma resposta inesperada');
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+export const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
-const imageOf = (raw: unknown): string | null => {
+export const imageOf = (raw: unknown): string | null => {
   if (!isRecord(raw)) return null;
   return httpsUrlOrNull(raw.medium) ?? httpsUrlOrNull(raw.original);
 };
@@ -83,7 +87,7 @@ const toSummary = (show: Record<string, unknown>): TvmazeShowSummary => {
 
 /** `/search/shows?q=` devolve `[{ score, show }]`. */
 export const tvmazeSearchShows = withCache(15 * MINUTES, async (query: string): Promise<TvmazeShowSummary[]> => {
-  const data = await get('/search/shows', { q: query });
+  const data = await tvmazeGet('/search/shows', { q: query });
   if (!Array.isArray(data)) throw unexpected();
   return data.flatMap((hit) => (isRecord(hit) && isRecord(hit.show) ? [toSummary(hit.show)] : []));
 });
@@ -127,7 +131,7 @@ const toEpisode = (raw: unknown): TvmazeEpisode | null => {
 
 /** `/shows/:id?embed=episodes`: a documentação usa `embed=episodes` (sem colchetes). */
 export const tvmazeShowDetails = withCache(60 * MINUTES, async (id: number): Promise<TvmazeShowDetails> => {
-  const raw = await get(`/shows/${id}`, { embed: 'episodes' });
+  const raw = await tvmazeGet(`/shows/${id}`, { embed: 'episodes' });
   if (!isRecord(raw)) throw unexpected();
   const summary = toSummary(raw);
   const embedded = isRecord(raw._embedded) && Array.isArray(raw._embedded.episodes) ? raw._embedded.episodes : [];
@@ -183,7 +187,7 @@ export const showExtras = (show: Record<string, unknown>): TvmazeShowExtras => {
 
 /** `/shows/:id` sem episódios: leve o bastante para a ficha de um item da Agenda. */
 export const tvmazeShowInfo = withCache(60 * MINUTES, async (id: number): Promise<TvmazeShowExtras & { name: string }> => {
-  const raw = await get(`/shows/${id}`);
+  const raw = await tvmazeGet(`/shows/${id}`);
   if (!isRecord(raw) || typeof raw.name !== 'string') throw unexpected();
   return { name: raw.name, ...showExtras(raw) };
 });
@@ -201,7 +205,7 @@ export interface TvmazeScheduleItem {
 
 /** `/schedule/web?date=`: episódios de streaming do dia no mundo todo. Só estreias de temporada/série (episódio 1). */
 export const tvmazeWebPremieres = withCache(3 * 60 * MINUTES, async (date: string): Promise<TvmazeScheduleItem[]> => {
-  const data = await get('/schedule/web', { date });
+  const data = await tvmazeGet('/schedule/web', { date });
   if (!Array.isArray(data)) throw unexpected();
   const out: TvmazeScheduleItem[] = [];
   for (const raw of data) {
