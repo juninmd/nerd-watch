@@ -48,6 +48,9 @@ const store = playbackSync.store;
 
 export const savedPosition = (key: string): StoredPosition | undefined => store.get(key);
 export const continueWatching = (limit?: number) => store.inProgress(limit);
+/** Só a posição salva some (e o apagamento é sincronizado); o vídeo continua no canal/biblioteca. */
+export const removeFromContinueWatching = (key: string): void => store.clear(key);
+export const clearContinueWatching = (): number => store.clearInProgress();
 
 const metaOf = (item: DockItem): ResumeMeta => ({ title: item.title, subtitle: item.subtitle, poster: item.poster, channelId: item.channelId, messageId: item.messageId, route: item.route });
 

@@ -2,7 +2,7 @@ import { healthSources } from '../api/health.ts';
 import { type CalendarEntryDto, type CatalogSource, getCalendar, getStats, health, listLibrary, listUpNext, searchArchive } from '../api/index.ts';
 import { watchPath } from '../channels/telegram-items.ts';
 import { escapeHtml, renderCard } from '../ui/card.ts';
-import { continueWatchingCards, refreshResumeCards } from '../player/continue-watching.ts';
+import { confirmClearContinueWatching, continueWatchingCards, refreshResumeCards } from '../player/continue-watching.ts';
 import { renderTelegramFeed } from '../channels/telegram-feed.ts';
 import { icon, type IconName } from '../ui/icons.ts';
 import { paletteKeyLabel } from '../app/shortcut-keys.ts';
@@ -105,7 +105,7 @@ export const renderHome = (host: HTMLElement): void => {
         ${hero ? heroHtml(hero) : ''}
         ${statusHtml(homeKpis({ watching: watching.items.length, queued: upNext.items.length, entries: calendar.entries, todayIso }), sourceRows(h, probes.sources))}
         ${yearStripHtml(stats ? yearStrip(stats, today.getMonth()) : null)}
-        <div class="section">${sectionHead('play', 'Continuar assistindo', { href: '#/library', label: 'ver biblioteca' })}<div class="rail" id="watching-rail"></div></div>
+        <div class="section">${sectionHead('play', 'Continuar assistindo', { href: '#/library', label: 'ver biblioteca' }).replace('</div>', '<button class="btn btn-ghost resume-clear" type="button" id="resume-clear" hidden>limpar tudo</button></div>')}<div class="rail" id="watching-rail"></div></div>
         <div class="section" id="up-next-section">${sectionHead('play', 'Próximos episódios')}<div class="rail" id="up-next-rail"></div></div>
         <div class="section">${sectionHead('calendar', 'Hoje e amanhã', { href: '#/agenda', label: 'ver agenda' })}<div id="upcoming"></div></div>
         <div class="section">${sectionHead('send', 'Novo nos canais', { href: '#/telegram', label: 'ver canais' })}<div id="feed"></div></div>
@@ -121,6 +121,18 @@ export const renderHome = (host: HTMLElement): void => {
       if (watching.items.length === 0 && resumeCards.length === 0) {
         watchingRail.innerHTML = `<div class="empty-state" style="flex:1">nada em andamento — busque algo (<kbd>${paletteKeyLabel(navigator.platform)}</kbd>) e marque como "assistindo"</div>`;
       }
+      const clearBtn = host.querySelector('#resume-clear') as HTMLButtonElement;
+      const syncClearBtn = () => {
+        clearBtn.hidden = watchingRail.querySelector('.resume-card') === null;
+      };
+      syncClearBtn();
+      watchingRail.addEventListener('click', () => queueMicrotask(syncClearBtn));
+      clearBtn.addEventListener('click', () => {
+        if (confirmClearContinueWatching() > 0) {
+          refreshResumeCards(watchingRail);
+          syncClearBtn();
+        }
+      });
       // A sincronização pode trazer posições de outro aparelho depois que a tela já renderizou.
       const onPlaybackChanged = () => {
         if (!watchingRail.isConnected) {
@@ -128,6 +140,7 @@ export const renderHome = (host: HTMLElement): void => {
           return;
         }
         refreshResumeCards(watchingRail);
+        syncClearBtn();
       };
       window.addEventListener(PLAYBACK_CHANGED_EVENT, onPlaybackChanged);
       for (const item of watching.items) {
