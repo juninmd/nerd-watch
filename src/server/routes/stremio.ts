@@ -4,6 +4,7 @@ import { assertKnownKeys, guardInput, readJsonObject } from '../http/json-body.t
 import { ValidationError } from '../lib/validation-error.ts';
 import { AddonError } from '../providers/stremio/client.ts';
 import { fetchCatalog, fetchManifestFrom, fetchMeta, fetchStreams } from '../providers/stremio/protocol.ts';
+import { streamsForTitle } from '../providers/stremio/title-streams.ts';
 import { parseAddonUrl } from '../providers/stremio/url.ts';
 import { deleteAddon, getAddon, type InstalledAddon, listAddons, saveAddon } from '../repo/stremio-addons.ts';
 
@@ -47,6 +48,34 @@ stremioRoutes.post('/addons', (c) =>
     const manifest = await fetchManifestFrom(parsed.manifestUrl);
     const addon = saveAddon(await getDb(), { manifestUrl: parsed.manifestUrl, baseUrl: parsed.baseUrl, manifest });
     return c.json(toDto(addon), 201);
+  }),
+);
+
+/** Saúde do addon: rebusca o manifest; o cliente mostra "ok" ou a mensagem fixa do erro. */
+stremioRoutes.get('/addons/:id/status', (c) =>
+  withAddon(c, async (addon) => {
+    try {
+      await fetchManifestFrom(addon.manifestUrl);
+      return c.json({ ok: true, error: null });
+    } catch (err) {
+      if (err instanceof AddonError || err instanceof ValidationError) return c.json({ ok: false, error: err.message });
+      throw err;
+    }
+  }),
+);
+
+/** Streams de todos os addons para um título do TMDB (ex.: Brazuca, que não tem catálogo). */
+stremioRoutes.get('/streams', (c) =>
+  guardInput(c, async () => {
+    const tmdbId = Number(c.req.query('tmdbId'));
+    const mediaType = c.req.query('mediaType');
+    if (!Number.isInteger(tmdbId) || tmdbId <= 0 || (mediaType !== 'movie' && mediaType !== 'tv')) throw new ValidationError('informe tmdbId e mediaType (movie|tv)');
+    const num = (k: string): number | null => {
+      const v = c.req.query(k);
+      return v && /^\d{1,4}$/.test(v) ? Number(v) : null;
+    };
+    const addons = listAddons(await getDb());
+    return c.json(await streamsForTitle(addons, { mediaType, tmdbId, season: num('season'), episode: num('episode') }));
   }),
 );
 

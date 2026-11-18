@@ -6,6 +6,7 @@ import { icon } from '../ui/icons.ts';
 import { renderRefreshMetadata } from '../library/refresh-metadata.ts';
 import { trailerFrameHtml } from '../player/trailer-embed.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
+import { renderTitleStreams } from '../addons/title-streams-panel.ts';
 import { renderSubtitlesPanel } from '../player/subtitles.ts';
 import { renderTitleError } from './title-error.ts';
 import { whereToWatchHtml } from './where-to-watch.ts';
@@ -90,6 +91,10 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
                 <div id="refresh-metadata" style="margin-top:12px"></div>
               </div>
               <div class="side-card">
+                <h3>Streams dos addons</h3>
+                <div id="addon-streams-panel"></div>
+              </div>
+              <div class="side-card">
                 <h3>Legendas</h3>
                 <div id="subtitles-panel"></div>
               </div>
@@ -124,6 +129,13 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
         if (mediaType === 'tv') {
           renderSeasons(host.querySelector('#seasons-section') as HTMLElement, id, d.seasons, d.titleId, d.library, load);
         }
+
+        renderTitleStreams(host.querySelector('#addon-streams-panel') as HTMLElement, {
+          tmdbId: Number(id),
+          mediaType,
+          season: mediaType === 'tv' ? (d.library?.current_season ?? null) : null,
+          episode: mediaType === 'tv' ? (d.library?.current_episode ?? null) : null,
+        });
 
         const subtitlesHost = host.querySelector('#subtitles-panel') as HTMLElement;
         subtitlesHost.appendChild(
