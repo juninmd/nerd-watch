@@ -11,3 +11,11 @@ describe('versão instalada na UI', () => {
     expect(versionLabel('')).toBeNull();
   });
 });
+
+describe('estado de versão (Ajustes)', () => {
+  test('sem versão em uso, não há o que mostrar', async () => {
+    const { resolveVersionStatus } = await import('../../src/client/platform/version-info.ts');
+    // Sem Tauri e sem servidor, não há versão em uso: nada a mostrar.
+    expect(await resolveVersionStatus()).toBeNull();
+  });
+});

@@ -104,6 +104,15 @@
   color: var(--success);
 }
 
+.chip-status.update {
+  color: #fff;
+  background: var(--gradient);
+}
+
+.conn-card.has-update {
+  border-color: var(--accent-2);
+}
+
 .conn-actions {
   display: flex;
   flex-wrap: wrap;
