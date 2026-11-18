@@ -1,5 +1,5 @@
 import { health } from '../api/index.ts';
-import { mountVersionInfo } from '../platform/version-info.ts';
+import { resolveVersionStatus } from '../platform/version-info.ts';
 import { icon, type IconName } from '../ui/icons.ts';
 import { notifySummary } from './settings-model.ts';
 import { openShortcutHelp } from './shortcuts.ts';
@@ -38,12 +38,15 @@ export const renderSettings = (host: HTMLElement): void => {
         <div class="conn-head"><span class="conn-ic">${icon('bell')}</span><div><h2>Avisos de lançamento</h2><p id="set-notify-text">Consultando o servidor…</p></div><span class="chip-status off" id="set-notify-chip" hidden></span></div>
         <p class="hint">Os destinos ficam no <code>.env</code>, nunca no navegador: edite em <a href="#/credentials">Credenciais</a> ou direto no arquivo. A antecedência (0 a 7 dias) só pelo <code>.env</code>: <code>NOTIFY_WEBHOOK_URL</code>, <code>NOTIFY_NTFY_URL</code>, <code>NOTIFY_DISCORD_WEBHOOK_URL</code>, <code>NOTIFY_TELEGRAM_*</code> e <code>NOTIFY_LEAD_DAYS</code>. Detalhes em docs/providers/notifications.md.</p>
       </section>
+      <section class="conn-card" id="set-version-card">
+        <div class="conn-head"><span class="conn-ic">${icon('download')}</span><div><h2>Versão do app</h2><p id="set-version-text">Consultando versão…</p></div><span class="chip-status update" id="set-version-chip" hidden></span></div>
+        <div class="conn-actions" id="set-version-actions" hidden></div>
+      </section>
       <section class="conn-card" id="set-session" hidden>
         <div class="conn-head"><span class="conn-ic">${icon('shield')}</span><div><h2>Acesso por token</h2><p>Este servidor pede login. Sair encerra a sessão em todos os aparelhos.</p></div></div>
         <div class="conn-actions"><button class="btn btn-ghost" id="set-logout" type="button">${icon('logout', 'sm')} Sair</button></div>
       </section>
-    </div>
-    <p class="hint conn-version" id="set-version" hidden></p>`;
+    </div>`;
 
   for (const btn of host.querySelectorAll<HTMLButtonElement>('[data-theme-pref]')) {
     btn.addEventListener('click', () => {
@@ -68,6 +71,24 @@ export const renderSettings = (host: HTMLElement): void => {
       (host.querySelector('#set-notify-text') as HTMLElement).textContent = 'Não foi possível consultar o servidor.';
     });
 
-  const versionEl = host.querySelector('#set-version') as HTMLElement;
-  void mountVersionInfo(versionEl);
+  void mountVersion(host);
+};
+
+const mountVersion = async (host: HTMLElement): Promise<void> => {
+  const text = host.querySelector('#set-version-text') as HTMLElement;
+  const status = await resolveVersionStatus();
+  if (!status) {
+    text.textContent = 'Versão indisponível neste momento.';
+    return;
+  }
+  text.textContent = `${status.installed ? 'Versão instalada' : 'Versão do servidor'}: v${status.version}`;
+  if (!status.latest) return;
+  host.querySelector('#set-version-card')?.classList.add('has-update');
+  const chip = host.querySelector('#set-version-chip') as HTMLElement;
+  chip.textContent = `Nova v${status.latest.version}`;
+  chip.hidden = false;
+  text.textContent += ` · disponível: v${status.latest.version}`;
+  const actions = host.querySelector('#set-version-actions') as HTMLElement;
+  actions.innerHTML = `<a class="btn btn-primary" href="${status.latest.url}" target="_blank" rel="noopener noreferrer">${icon('download', 'sm')} Baixar v${status.latest.version}</a>`;
+  actions.hidden = false;
 };
