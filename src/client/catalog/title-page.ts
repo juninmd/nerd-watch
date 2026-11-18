@@ -14,6 +14,7 @@ import { renderArchiveDetail } from './title-page-archive.ts';
 import { renderAnilistDetail } from './title-page-anilist.ts';
 import { renderSeasons } from './title-page-seasons.ts';
 import { renderTvmazeDetail } from './title-page-tvmaze.ts';
+import { renderSourceCompare } from './source-compare-card.ts';
 
 const initials = (title: string): string =>
   title
@@ -90,6 +91,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
                 <div id="add-to-list" style="margin-top:12px"></div>
                 <div id="refresh-metadata" style="margin-top:12px"></div>
               </div>
+              ${mediaType === 'tv' ? '<div class="side-card"><h3>Fontes</h3><div id="source-compare"></div></div>' : ''}
               <div class="side-card">
                 <h3>Streams dos addons</h3>
                 <div id="addon-streams-panel"></div>
@@ -127,6 +129,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
         (host.querySelector('#refresh-metadata') as HTMLElement).appendChild(renderRefreshMetadata(d.titleId, () => load()));
 
         if (mediaType === 'tv') {
+          renderSourceCompare(host.querySelector('#source-compare') as HTMLElement, id);
           renderSeasons(host.querySelector('#seasons-section') as HTMLElement, id, d.seasons, d.titleId, d.library, load);
         }
 
