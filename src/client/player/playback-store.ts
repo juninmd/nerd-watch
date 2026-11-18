@@ -89,6 +89,16 @@ export const createPlaybackStore = (storage: StorageLike, now: () => number = Da
         })
         .sort((a, b) => b.position.at - a.position.at)
         .slice(0, limit),
+    /** Tira da lista "continuar" tudo que está em andamento; vídeos assistidos até o fim mantêm a marca. */
+    clearInProgress: (): number => {
+      const map = read();
+      const keys = Object.keys(map).filter((k) => resumePoint(map[k]) !== null);
+      for (const k of keys) delete map[k];
+      if (keys.length === 0) return 0;
+      write(map);
+      for (const k of keys) onWrite?.(k, 'delete');
+      return keys.length;
+    },
     clear: (key: string): void => {
       const map = read();
       delete map[key];
