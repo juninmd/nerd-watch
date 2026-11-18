@@ -1,16 +1,12 @@
 import { backLinkHtml } from '../ui/back-link.ts';
-import { getTvmazeTitle, type TvmazeDetailDto } from '../api/index.ts';
+import { getTvmazeMore, getTvmazeTitle, type TvmazeDetailDto, type TvmazeMoreDto } from '../api/index.ts';
+import { akasHtml, castHtml, channelsHtml, crewHtml, dateLabel, episodeBadgesHtml, externalLinksHtml, factsHtml, galleryHtml, metaByEpisode, nextPrevHtml, seasonSummaryHtml } from './tvmaze-view.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { renderSpoilerText } from '../ui/spoiler.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
 import { renderTitleError } from './title-error.ts';
 import { pluralize } from '../ui/pluralize.ts';
-
-const dateLabel = (iso: string | null): string => {
-  if (!iso) return 'data a confirmar';
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-};
 
 const episodeCount = (d: TvmazeDetailDto): number => d.seasons.reduce((n, s) => n + s.episodes.length, 0);
 
@@ -35,10 +31,32 @@ const fillEpisodes = (host: HTMLElement, d: TvmazeDetailDto): void => {
     for (const ep of s.episodes) {
       const row = document.createElement('div');
       row.className = 'episode-row';
-      row.innerHTML = `<div class="body"><div class="head"><span class="name">${ep.episodeNumber}. ${escapeHtml(ep.name)}</span><span class="date">${dateLabel(ep.airDate)}</span></div><div class="overview-slot"></div></div>`;
+      row.dataset.ep = `${s.seasonNumber}:${ep.episodeNumber}`;
+      row.innerHTML = `${ep.stillUrl ? `<img class="still" src="${escapeHtml(ep.stillUrl)}" alt="" loading="lazy" decoding="async" />` : ''}<div class="body"><div class="head"><span class="name">${ep.episodeNumber}. ${escapeHtml(ep.name)}</span><span class="date">${ep.airDate ? dateLabel(ep.airDate) : 'data a confirmar'}</span></div><div class="tvm-badges" data-badges></div><div class="overview-slot"></div></div>`;
       row.querySelector('.overview-slot')?.appendChild(renderSpoilerText(ep.overview || 'Sem sinopse.', 'overview'));
       list.appendChild(row);
     }
+  }
+};
+
+/** Segunda carga (elenco, equipe, galeria…): falha aqui só esconde as seções extras, a ficha básica já está na tela. */
+const fillMore = (host: HTMLElement, m: TvmazeMoreDto): void => {
+  const set = (sel: string, html: string) => {
+    const el = host.querySelector<HTMLElement>(sel);
+    if (el) el.innerHTML = html;
+  };
+  set('#tvm-chips', [...m.genres.map((g) => `<span class="tvm-chip">${escapeHtml(g)}</span>`)].join(''));
+  set('#tvm-main-extra', castHtml(m.cast) + crewHtml(m.crew) + galleryHtml(m.images));
+  set('#tvm-side-extra', nextPrevHtml(m) + channelsHtml(m) + factsHtml(m) + akasHtml(m));
+  set('#tvm-ext-links', externalLinksHtml(m));
+  const meta = metaByEpisode(m.episodes);
+  for (const row of host.querySelectorAll<HTMLElement>('[data-ep]')) {
+    const badges = row.querySelector<HTMLElement>('[data-badges]');
+    if (badges) badges.innerHTML = episodeBadgesHtml(meta.get(row.dataset.ep ?? ''));
+  }
+  for (const det of host.querySelectorAll<HTMLElement>('.tvmaze-season')) {
+    const n = Number(det.querySelector<HTMLElement>('[data-season]')?.dataset.season);
+    det.querySelector('.tvmaze-episodes')?.insertAdjacentHTML('beforebegin', seasonSummaryHtml(m, n));
   }
 };
 
@@ -65,6 +83,7 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
                   ${d.status ? `<span>${escapeHtml(d.status)}</span>` : ''}
                   <span>${pluralize(episodeCount(d), 'episódio', 'episódios')}</span>
                 </div>
+                <div class="tvm-chips" id="tvm-chips"></div>
                 <p class="hero-overview">${escapeHtml(d.overview || 'Sem sinopse disponível.')}</p>
               </div>
             </div>
@@ -73,14 +92,17 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
             <div>
               <div class="section-head"><h2>Episódios</h2></div>
               ${seasonsHtml(d)}
+              <div id="tvm-main-extra"></div>
             </div>
             <div>
               <div class="side-card">
                 <h3>Sua lista</h3>
                 <div id="status-actions"></div>
               </div>
+              <div id="tvm-side-extra"></div>
               <div class="side-card">
                 <h3>Fonte</h3>
+                <div id="tvm-ext-links" style="margin-bottom:10px"></div>
                 <a class="btn btn-ghost btn-sm" href="${escapeHtml(d.pageUrl ?? d.attribution.url)}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center;margin-bottom:8px">ver na TVmaze</a>
                 ${d.officialUrl ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(d.officialUrl)}" target="_blank" rel="noopener noreferrer" style="width:100%;justify-content:center">site oficial da série</a>` : ''}
                 <p class="hint" style="margin-top:10px">Dados: <a href="${escapeHtml(d.attribution.url)}" target="_blank" rel="noopener noreferrer">TVmaze</a>, licença ${escapeHtml(d.attribution.license ?? 'CC BY-SA')}.</p>
@@ -96,6 +118,9 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
         }
 
         fillEpisodes(host, d);
+        getTvmazeMore(id)
+          .then((m) => fillMore(host, m))
+          .catch(() => undefined);
 
         (host.querySelector('#status-actions') as HTMLElement).appendChild(
           renderStatusActions({

@@ -1,10 +1,11 @@
-import { addToLibrary, type CatalogSource, search, type SearchResultDto } from '../api/index.ts';
+import { addToLibrary, searchTvmazePeople, type CatalogSource, search, type SearchResultDto } from '../api/index.ts';
 import { escapeHtml, initials, paintPoster } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { titlePath } from '../ui/title-link.ts';
 import { paletteKeyLabel } from '../app/shortcut-keys.ts';
+import { personCardHtml } from './tvmaze-view.ts';
 import { countByKind, filterByKind, SEARCH_KINDS, type SearchKind } from './search-filter.ts';
 
 /** Selo da fonte: tmdb usa o tipo (filme/série); as demais fontes dizem de onde vem. */
@@ -38,6 +39,7 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
     </form>
     <div class="chip-row" id="search-kinds" role="group" aria-label="tipo de resultado" hidden></div>
     <div id="results"></div>
+    <div id="people-results"></div>
   `;
   const kindsEl = host.querySelector('#search-kinds') as HTMLElement;
   const results = host.querySelector('#results') as HTMLElement;
@@ -51,6 +53,15 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
     results.innerHTML = `<div class="empty-state"><div class="big" aria-hidden="true">${icon('search')}</div>digite o nome de um título acima — ou use <kbd>${paletteKeyLabel(navigator.platform)}</kbd> de qualquer tela</div>`;
     return;
   }
+
+  // Pessoas (elenco e equipe) da TVmaze: busca paralela e opcional, falha não atrapalha os títulos.
+  const peopleEl = host.querySelector('#people-results') as HTMLElement;
+  searchTvmazePeople(query)
+    .then(({ results: people }) => {
+      if (people.length === 0) return;
+      peopleEl.innerHTML = `<div class="section-head"><h2>Pessoas</h2></div><div class="tvm-people">${people.slice(0, 12).map((p) => personCardHtml(p, p.country, p.birthday ? p.birthday.slice(0, 4) : null)).join('')}</div>`;
+    })
+    .catch(() => undefined);
 
   kindsEl.hidden = true;
   results.innerHTML = `<div class="grid">${Array.from({ length: 8 }, () => '<div class="skeleton" style="aspect-ratio:2/3"></div>').join('')}</div>`;

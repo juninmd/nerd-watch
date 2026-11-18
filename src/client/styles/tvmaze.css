@@ -1,0 +1,244 @@
+/* Ficha TVmaze: elenco, equipe, galeria, ficha técnica e página de pessoa. Só tokens do tema. */
+.dim {
+  color: var(--text-dim);
+}
+
+.tvm-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.tvm-person {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--text);
+  min-width: 0;
+}
+
+.tvm-photo {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--gradient-soft);
+}
+
+.tvm-photo-empty {
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.tvm-photo.big {
+  width: 150px;
+  flex-shrink: 0;
+}
+
+.tvm-person-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.tvm-person-sub {
+  font-size: 12px;
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+
+.tvm-person-sub.dim {
+  color: var(--text-dim);
+}
+
+.tvm-person:focus-visible,
+.tvm-credit:focus-visible,
+.tvm-shot:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+@media (hover: hover) {
+  .tvm-person:hover .tvm-photo,
+  .tvm-shot:hover img {
+    filter: brightness(1.12);
+  }
+}
+
+.tvm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tvm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+a.tvm-chip:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+.hero-info .tvm-chips {
+  margin: 10px 0;
+}
+
+.tvm-crew {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.tvm-crew-row h3 {
+  font-size: 12px;
+  margin: 0 0 6px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tvm-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.tvm-shot {
+  display: block;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.tvm-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+.tvm-shot.poster img {
+  aspect-ratio: 2 / 3;
+}
+
+.tvm-facts {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.tvm-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.tvm-fact dt {
+  color: var(--text-dim);
+}
+
+.tvm-fact dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.tvm-akas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.tvm-next {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.tvm-next-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--signal);
+}
+
+.tvm-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.tvm-badges:empty {
+  display: none;
+}
+
+.tvm-rate {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.tvm-season-meta {
+  margin: 4px 0 10px;
+}
+
+.episode-row img.still {
+  object-fit: cover;
+}
+
+.tvm-person-head {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.tvm-credits {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.tvm-credit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+@media (max-width: 600px) {
+  .tvm-person-head {
+    flex-direction: column;
+  }
+  .tvm-photo.big {
+    width: 120px;
+  }
+}
