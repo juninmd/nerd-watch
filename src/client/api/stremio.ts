@@ -1,3 +1,4 @@
+import type { TorrentOpenResponse } from './torrent.ts';
 import { json } from './http.ts';
 
 export interface AddonCatalogDto {
@@ -42,6 +43,11 @@ export interface AddonStreamDto {
   kind: 'url' | 'youtube' | 'external' | 'torrent';
   title: string;
   url: string | null;
+  /** Só em `torrent`: infohash normalizado e o índice de arquivo sugerido pelo addon. */
+  infoHash: string | null;
+  fileIdx: number | null;
+  /** Nome do arquivo sugerido, quando o addon manda `behaviorHints.filename`. */
+  filename: string | null;
 }
 
 const seg = encodeURIComponent;
@@ -65,6 +71,17 @@ export const getAddonMeta = (id: string, type: string, itemId: string): Promise<
 
 export const getAddonStreams = (id: string, type: string, itemId: string): Promise<AddonStreamDto[]> =>
   fetch(`/api/stremio/addons/${seg(id)}/streams/${seg(type)}/${seg(itemId)}`).then((r) => json<{ streams: AddonStreamDto[] }>(r)).then((d) => d.streams);
+
+/**
+ * Abre o torrent de um stream no engine P2P local. O servidor reconsulta o addon e usa o infohash
+ * que ele responder — o cliente só manda a posição na lista (e, opcionalmente, outro arquivo).
+ */
+export const openAddonStream = (id: string, type: string, itemId: string, streamIndex: number, fileIndex?: number): Promise<TorrentOpenResponse> => {
+  const q = fileIndex === undefined ? '' : `?fileIndex=${fileIndex}`;
+  return fetch(`/api/stremio/addons/${seg(id)}/streams/${seg(type)}/${seg(itemId)}/${streamIndex}/open${q}`, { method: 'POST' }).then((r) =>
+    json<TorrentOpenResponse>(r),
+  );
+};
 
 export interface AddonStatusDto {
   ok: boolean;

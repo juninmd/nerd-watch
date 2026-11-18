@@ -1,5 +1,6 @@
 import { hasControlChar } from '../../lib/text-guards.ts';
 import { ValidationError } from '../../lib/validation-error.ts';
+import { addonTorrentRef } from '../../torrent/addon-torrent.ts';
 import { getAddonJson } from './client.ts';
 
 /**
@@ -159,7 +160,7 @@ export const fetchMeta = async (baseUrl: string, type: string, id: string): Prom
 
 /**
  * `url`: arquivo http(s) que o navegador toca; `youtube`: embed; `external`: link para abrir fora;
- * `torrent`: só `infoHash` — o app não abre torrent arbitrário (ver torrent/engine.ts), então fica listado como não suportado.
+ * `torrent`: `infoHash` (+ trackers) — toca no engine P2P local, igual a um magnet colado pelo usuário.
  */
 export type StreamKind = 'url' | 'youtube' | 'external' | 'torrent';
 
@@ -167,9 +168,19 @@ export interface AddonStream {
   kind: StreamKind;
   title: string;
   url: string | null;
+  /** Só em `torrent`: infohash v1 normalizado (40 hex) e o índice de arquivo sugerido pelo addon. */
+  infoHash: string | null;
+  fileIdx: number | null;
+  /** Nome do arquivo que o addon sugere (`behaviorHints.filename`), mostrado no seletor do player. */
+  filename: string | null;
+  /** Trackers já validados. Fica no servidor: não entra no DTO que vai para o cliente. */
+  trackers: string[];
 }
 
 const YT_ID = /^[\w-]{11}$/;
+
+/** Campos de torrent vazios: só o stream do tipo `torrent` carrega infohash. */
+const noTorrent = () => ({ infoHash: null, fileIdx: null, filename: null, trackers: [] as string[] });
 
 export const fetchStreams = async (baseUrl: string, type: string, id: string): Promise<AddonStream[]> => {
   const data = obj(await getAddonJson(`${baseUrl}/stream/${pathSegment(type)}/${pathSegment(id)}.json`));
@@ -180,10 +191,15 @@ export const fetchStreams = async (baseUrl: string, type: string, id: string): P
     const url = safeHttpUrl(s.url);
     const external = safeHttpUrl(s.externalUrl);
     const yt = typeof s.ytId === 'string' && YT_ID.test(s.ytId) ? s.ytId : null;
-    if (url) out.push({ kind: 'url', title, url });
-    else if (yt) out.push({ kind: 'youtube', title, url: `https://www.youtube-nocookie.com/embed/${yt}` });
-    else if (external) out.push({ kind: 'external', title, url: external });
-    else if (typeof s.infoHash === 'string') out.push({ kind: 'torrent', title, url: null });
+    const hints = obj(s.behaviorHints);
+    const torrent = addonTorrentRef({ infoHash: s.infoHash, sources: s.sources, name: hints.filename });
+    const torrentFields = torrent
+      ? { infoHash: torrent.infoHash, fileIdx: intOrNull(s.fileIdx), filename: str(hints.filename, 300) || null, trackers: torrent.trackers }
+      : noTorrent();
+    if (url) out.push({ kind: 'url', title, url, ...noTorrent() });
+    else if (yt) out.push({ kind: 'youtube', title, url: `https://www.youtube-nocookie.com/embed/${yt}`, ...noTorrent() });
+    else if (external) out.push({ kind: 'external', title, url: external, ...noTorrent() });
+    else if (torrent) out.push({ kind: 'torrent', title, url: null, ...torrentFields });
   }
   return out;
 };

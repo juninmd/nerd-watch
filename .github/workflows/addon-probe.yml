@@ -1,0 +1,32 @@
+name: Addon probe
+
+# Verificação de fumaça dos addons configurados no ambiente.
+#
+# O link do manifest é segredo do repositório (`ADDON_MANIFEST_URLS`): não aparece no código nem na
+# saída do script. Sem o segredo definido, o passo termina em 0 e não faz requisição nenhuma — por isso
+# ele não roda em PR de fork, onde segredos não existem.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: addon-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: dependências
+        run: bun install --frozen-lockfile
+      - name: addons configurados
+        env:
+          ADDON_MANIFEST_URLS: ${{ secrets.ADDON_MANIFEST_URLS }}
+          ADDON_PROBE_ITEM: ${{ vars.ADDON_PROBE_ITEM }}
+        run: bun run scripts/addon-probe.ts
