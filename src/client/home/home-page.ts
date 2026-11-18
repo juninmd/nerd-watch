@@ -1,3 +1,4 @@
+import { healthSources } from '../api/health.ts';
 import { type CalendarEntryDto, type CatalogSource, getCalendar, getStats, health, listLibrary, listUpNext, searchArchive } from '../api/index.ts';
 import { watchPath } from '../channels/telegram-items.ts';
 import { escapeHtml, renderCard } from '../ui/card.ts';
@@ -91,8 +92,9 @@ export const renderHome = (host: HTMLElement): void => {
     getCalendar(2).catch(() => ({ entries: [] as CalendarEntryDto[] })),
     listUpNext().catch(() => ({ items: [] })),
     getStats({ year: today.getFullYear(), tz: browserTimeZone(), hpd: 1 }).catch(() => null),
+    healthSources().catch(() => ({ sources: [] })),
   ])
-    .then(([h, watching, calendar, upNext, stats]) => {
+    .then(([h, watching, calendar, upNext, stats, probes]) => {
       const banner = h.tmdbEnabled
         ? ''
         : `<div class="banner warn">${icon('alert')}<span>Catálogo TMDB desligado — veja como ligar em <a href="#/connections">configurar conexões</a>. Domínio público, Telegram e sua biblioteca funcionam normalmente.</span></div>`;
@@ -101,7 +103,7 @@ export const renderHome = (host: HTMLElement): void => {
       body.innerHTML = `
         ${banner}
         ${hero ? heroHtml(hero) : ''}
-        ${statusHtml(homeKpis({ watching: watching.items.length, queued: upNext.items.length, entries: calendar.entries, todayIso }), sourceRows(h))}
+        ${statusHtml(homeKpis({ watching: watching.items.length, queued: upNext.items.length, entries: calendar.entries, todayIso }), sourceRows(h, probes.sources))}
         ${yearStripHtml(stats ? yearStrip(stats, today.getMonth()) : null)}
         <div class="section">${sectionHead('play', 'Continuar assistindo', { href: '#/library', label: 'ver biblioteca' })}<div class="rail" id="watching-rail"></div></div>
         <div class="section" id="up-next-section">${sectionHead('play', 'Próximos episódios')}<div class="rail" id="up-next-rail"></div></div>

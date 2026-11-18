@@ -1,4 +1,5 @@
 import type { CalendarEntryDto, HealthResponse } from '../api/index.ts';
+import type { SourceProbeDto } from '../api/health.ts';
 import { plural } from '../stats/model.ts';
 
 /** Faixa de números e saúde das fontes da tela inicial. Sem DOM: recebe o que a API já devolveu. */
@@ -51,7 +52,8 @@ export interface SourceRow {
 }
 
 /** Cada recurso opcional do servidor com o que falta ligar. Só reflete o que `/api/health` sabe. */
-export const sourceRows = (h: HealthResponse): SourceRow[] => [
+export const sourceRows = (h: HealthResponse, probes: SourceProbeDto[] = []): SourceRow[] => [
+  ...probes.map((p) => ({ label: p.label, ok: p.ok, detail: p.ok && p.ms !== null ? `${p.ms} ms` : 'sem resposta' })),
   { label: 'TMDB', ok: h.tmdbEnabled, detail: h.tmdbEnabled ? 'catálogo ligado' : 'defina TMDB_API_KEY' },
   { label: 'Legendas', ok: h.openSubtitlesEnabled, detail: h.openSubtitlesEnabled ? 'OpenSubtitles ligado' : 'sem chave do OpenSubtitles' },
   { label: 'Torrent', ok: h.torrentEnabled, detail: h.torrentEnabled ? 'P2P ligado' : 'desligado' },
