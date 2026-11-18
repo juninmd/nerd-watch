@@ -35,7 +35,17 @@ export interface TorrentPanelOptions {
   identifier: string;
   title: string;
   posterUrl?: string | null;
+  /** Como abrir o torrent. Padrão: item do Internet Archive pelo `identifier`; addons passam o opener deles. */
+  open?: (fileIndex?: number) => Promise<TorrentOpenResponse>;
+  /** Rótulo sob o título no player (de onde vieram os bytes). */
+  sourceLabel?: string;
+  /** Rodapé do botão inicial: o que o usuário está prestes a fazer. */
+  hint?: string;
+  /** Identidade no player global e rota de retorno (o Archive usa o título; addon usa o item do addon). */
+  player?: { channelId: string; messageId: string; route: string };
 }
+
+const ARCHIVE_HINT = 'Conecta direto nos peers que hospedam o torrent oficial da Internet Archive — não passa pela banda do archive.org.';
 
 interface PanelState {
   infoHash: string | null;
@@ -49,6 +59,8 @@ interface PanelState {
 export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   const wrap = document.createElement('div');
   const state: PanelState = { infoHash: null, timer: null, playerKey: null, disposed: false };
+  const open = opts.open ?? ((fileIndex?: number) => openTorrent(opts.identifier, fileIndex));
+  const playerRef = opts.player ?? { channelId: 'archive', messageId: opts.identifier, route: titlePath('archive', '_', opts.identifier) };
 
   /** Para a reprodução (poller + player). NÃO fecha o torrent: trocar de derivado o reaproveita. */
   const stopPlayback = () => {
@@ -81,8 +93,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
         ${icon('download', 'sm')} assistir via torrent (P2P)
       </button>
       <p class="hint" style="margin:8px 0 0">
-        Conecta direto nos peers que hospedam o torrent oficial da Internet Archive —
-        não passa pela banda do archive.org.
+        ${escapeHtml(opts.hint ?? ARCHIVE_HINT)}
       </p>
     `;
     (wrap.querySelector('#torrent-start') as HTMLButtonElement).addEventListener('click', () => void start());
@@ -120,12 +131,12 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
           key,
           src: result.streamUrl,
           title: opts.title,
-          subtitle: 'Internet Archive · P2P',
+          subtitle: opts.sourceLabel ?? 'Internet Archive · P2P',
           poster: opts.posterUrl ?? null,
-          channelId: 'archive',
-          messageId: opts.identifier,
+          channelId: playerRef.channelId,
+          messageId: playerRef.messageId,
           durationSeconds: null,
-          route: titlePath('archive', '_', opts.identifier),
+          route: playerRef.route,
         },
         minimizable: false,
       }),
@@ -168,7 +179,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
     stopPlayback();
     wrap.innerHTML = `<p class="hint">${escapeHtml(fileIndex === undefined ? 'buscando a metadata do torrent e os peers...' : 'trocando de arquivo...')}</p>`;
     try {
-      const result = await openTorrent(opts.identifier, fileIndex);
+      const result = await open(fileIndex);
       if (state.disposed) {
         closeTorrent(result.infoHash).catch(() => {});
         return;
@@ -190,7 +201,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
     .then((h) => {
       if (state.disposed) return;
       if (!h.torrentEnabled) {
-        wrap.innerHTML = '<p class="hint" style="margin:0">P2P desligado neste servidor (<code>TORRENT_ENABLED=false</code>). Use o torrent oficial ao lado para baixar.</p>';
+        wrap.innerHTML = '<p class="hint" style="margin:0">P2P desligado neste servidor (<code>TORRENT_ENABLED=false</code>).</p>';
         return;
       }
       idle();

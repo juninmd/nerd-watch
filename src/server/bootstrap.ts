@@ -1,6 +1,7 @@
 import { config } from './config/config.ts';
 import { startTelegramBotPoller } from './telegram/bot-poller.ts';
 import { registerAllSources } from './providers/sources/index.ts';
+import { seedAddonsFromConfig } from './providers/stremio/seed.ts';
 import { startMetadataRefreshJob } from './metadata/refresh-service.ts';
 import { installShutdownHandlers } from './media/process.ts';
 import { cleanupMediaCache } from './media/service.ts';
@@ -21,6 +22,13 @@ export const startBackgroundJobs = (): void => {
   startMetadataRefreshJob();
   installShutdownHandlers();
   void cleanupMediaCache(mediaSettings());
+
+  // Addons configurados no ambiente: o link fica fora do repositório e a instalação manual continua valendo.
+  void seedAddonsFromConfig(config.addons.manifestUrls)
+    .then((added) => {
+      if (added > 0) console.log(`addons: ${added} instalado(s) a partir do ambiente`);
+    })
+    .catch((err: unknown) => console.warn('[addons] semear do ambiente falhou:', err instanceof Error ? err.name : 'erro'));
 
   // Avisos de lançamento: só sobe com um destino configurado por env (nunca por request).
   const notifySinks = buildSinks({

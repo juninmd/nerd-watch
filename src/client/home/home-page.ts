@@ -1,8 +1,10 @@
 import { healthSources } from '../api/health.ts';
 import { type CalendarEntryDto, type CatalogSource, getCalendar, getStats, health, listLibrary, listUpNext, searchArchive } from '../api/index.ts';
+import { listAddons } from '../api/stremio.ts';
+import { addonPath } from '../addons/addon-links.ts';
 import { watchPath } from '../channels/telegram-items.ts';
 import { escapeHtml, renderCard } from '../ui/card.ts';
-import { continueWatchingCards, refreshResumeCards } from '../player/continue-watching.ts';
+import { confirmClearContinueWatching, continueWatchingCards, refreshResumeCards } from '../player/continue-watching.ts';
 import { renderTelegramFeed } from '../channels/telegram-feed.ts';
 import { icon, type IconName } from '../ui/icons.ts';
 import { paletteKeyLabel } from '../app/shortcut-keys.ts';
@@ -105,10 +107,11 @@ export const renderHome = (host: HTMLElement): void => {
         ${hero ? heroHtml(hero) : ''}
         ${statusHtml(homeKpis({ watching: watching.items.length, queued: upNext.items.length, entries: calendar.entries, todayIso }), sourceRows(h, probes.sources))}
         ${yearStripHtml(stats ? yearStrip(stats, today.getMonth()) : null)}
-        <div class="section">${sectionHead('play', 'Continuar assistindo', { href: '#/library', label: 'ver biblioteca' })}<div class="rail" id="watching-rail"></div></div>
+        <div class="section">${sectionHead('play', 'Continuar assistindo', { href: '#/library', label: 'ver biblioteca' }).replace('</div>', '<button class="btn btn-ghost resume-clear" type="button" id="resume-clear" hidden>limpar tudo</button></div>')}<div class="rail" id="watching-rail"></div></div>
         <div class="section" id="up-next-section">${sectionHead('play', 'Próximos episódios')}<div class="rail" id="up-next-rail"></div></div>
         <div class="section">${sectionHead('calendar', 'Hoje e amanhã', { href: '#/agenda', label: 'ver agenda' })}<div id="upcoming"></div></div>
         <div class="section">${sectionHead('send', 'Novo nos canais', { href: '#/telegram', label: 'ver canais' })}<div id="feed"></div></div>
+        <div class="section" id="addons-section" hidden>${sectionHead('puzzle', 'Dos seus addons', { href: '#/addons', label: 'gerenciar' })}<div class="rail" id="addons-rail"></div></div>
         <div class="section">${sectionHead('film', 'Domínio público', { href: '#/public-domain', label: 'ver tudo' })}<div class="rail" id="archive-rail" aria-busy="true">${RAIL_SKELETON}</div></div>
       `;
 
@@ -121,6 +124,18 @@ export const renderHome = (host: HTMLElement): void => {
       if (watching.items.length === 0 && resumeCards.length === 0) {
         watchingRail.innerHTML = `<div class="empty-state" style="flex:1">nada em andamento — busque algo (<kbd>${paletteKeyLabel(navigator.platform)}</kbd>) e marque como "assistindo"</div>`;
       }
+      const clearBtn = host.querySelector('#resume-clear') as HTMLButtonElement;
+      const syncClearBtn = () => {
+        clearBtn.hidden = watchingRail.querySelector('.resume-card') === null;
+      };
+      syncClearBtn();
+      watchingRail.addEventListener('click', () => queueMicrotask(syncClearBtn));
+      clearBtn.addEventListener('click', () => {
+        if (confirmClearContinueWatching() > 0) {
+          refreshResumeCards(watchingRail);
+          syncClearBtn();
+        }
+      });
       // A sincronização pode trazer posições de outro aparelho depois que a tela já renderizou.
       const onPlaybackChanged = () => {
         if (!watchingRail.isConnected) {
@@ -128,6 +143,7 @@ export const renderHome = (host: HTMLElement): void => {
           return;
         }
         refreshResumeCards(watchingRail);
+        syncClearBtn();
       };
       window.addEventListener(PLAYBACK_CHANGED_EVENT, onPlaybackChanged);
       for (const item of watching.items) {
@@ -180,6 +196,29 @@ export const renderHome = (host: HTMLElement): void => {
       }
 
       renderTelegramFeed(host.querySelector('#feed') as HTMLElement);
+
+      // Addons instalados: atalho para o catálogo/streams de cada um. Sem addon, a seção nem aparece.
+      void listAddons()
+        .then((addons) => {
+          const section = host.querySelector<HTMLElement>('#addons-section');
+          const rail = host.querySelector<HTMLElement>('#addons-rail');
+          if (!section || !rail?.isConnected || addons.length === 0) return;
+          section.hidden = false;
+          for (const addon of addons) {
+            const tile = document.createElement('button');
+            tile.type = 'button';
+            tile.className = 'addon-tile';
+            tile.innerHTML = `
+              <span class="addon-logo">${addon.logo ? `<img src="${escapeHtml(addon.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : icon('puzzle')}</span>
+              <span class="addon-tile-name">${escapeHtml(addon.name)}</span>
+              <span class="addon-tile-meta">${escapeHtml(addon.catalogs.length > 0 ? `${addon.catalogs.length} catálogo(s)` : addon.host)}</span>`;
+            tile.addEventListener('click', () => navigate(addonPath(addon.id)));
+            rail.appendChild(tile);
+          }
+        })
+        .catch(() => {
+          /* addon é extra: sem resposta, o resto da tela continua */
+        });
 
       const archiveRail = host.querySelector('#archive-rail') as HTMLElement;
       void archivePromise.then((archive) => {

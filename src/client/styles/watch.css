@@ -318,6 +318,43 @@
   scroll-snap-align: start;
 }
 
+.resume-card {
+  position: relative;
+}
+
+.resume-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.resume-card:hover .resume-remove,
+.resume-card:focus-within .resume-remove,
+.resume-remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .resume-remove {
+    opacity: 1;
+  }
+}
+
+.resume-clear {
+  margin-left: auto;
+}
+
 .resume-thumb {
   position: relative;
   display: grid;

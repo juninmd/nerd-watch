@@ -95,3 +95,39 @@ describe('createPlaybackStore', () => {
     expect(() => createPlaybackStore(throwing).save('x', 50, 100)).not.toThrow();
   });
 });
+
+describe('limpar continuar assistindo', () => {
+  const meta = { title: 't', subtitle: 's', poster: null, channelId: 'c', messageId: 'm' };
+  const setup = () => {
+    const writes: Array<[string, string]> = [];
+    const store = createPlaybackStore(memoryStorage(), () => 1, (k, op) => writes.push([k, op]));
+    store.save('a', 100, 3600, meta);
+    store.save('b', 200, 3600, meta);
+    store.save('fim', 3500, 3600, meta);
+    writes.length = 0;
+    return { store, writes };
+  };
+
+  test('clear remove só aquele vídeo e avisa a sincronização (delete)', () => {
+    const { store, writes } = setup();
+    store.clear('a');
+    expect(store.inProgress().map((i) => i.key)).toEqual(['b']);
+    expect(writes).toEqual([['a', 'delete']]);
+  });
+
+  test('clearInProgress apaga os em andamento e preserva o assistido até o fim', () => {
+    const { store, writes } = setup();
+    expect(store.clearInProgress()).toBe(2);
+    expect(store.inProgress()).toEqual([]);
+    expect(store.get('fim')?.done).toBe(true);
+    expect(writes.sort()).toEqual([['a', 'delete'], ['b', 'delete']]);
+  });
+
+  test('clearInProgress sem nada em andamento não grava nem sincroniza', () => {
+    const { store, writes } = setup();
+    store.clearInProgress();
+    writes.length = 0;
+    expect(store.clearInProgress()).toBe(0);
+    expect(writes).toEqual([]);
+  });
+});
