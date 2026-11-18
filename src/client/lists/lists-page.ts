@@ -100,7 +100,7 @@ export const renderLists = (host: HTMLElement): void => {
       .catch((err: unknown) => showToast(err instanceof Error ? err.message : 'não foi possível criar a lista'));
   });
 
-  // Falha aqui só esconde a seção: as listas comuns não dependem dela.
+  // Falha aqui não derruba as listas comuns, mas a seção avisa em vez de sumir sem explicação.
   void Promise.all([listSavedViews(), listLibrary()])
     .then(([views, lib]) => {
       const smart = smartLists(views.items, lib.items);
@@ -108,7 +108,11 @@ export const renderLists = (host: HTMLElement): void => {
       (host.querySelector('#lists-smart-grid') as HTMLElement).innerHTML = smart.map(smartCardHtml).join('');
       (host.querySelector('#lists-smart') as HTMLElement).hidden = false;
     })
-    .catch(() => {});
+    .catch(() => {
+      (host.querySelector('#lists-smart-grid') as HTMLElement).innerHTML =
+        `<div class="empty-state" style="grid-column:1/-1"><div class="big" aria-hidden="true">${icon('alert')}</div>não foi possível carregar as listas inteligentes agora</div>`;
+      (host.querySelector('#lists-smart') as HTMLElement).hidden = false;
+    });
 
   void load(0);
 };
