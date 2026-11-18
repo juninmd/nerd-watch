@@ -173,3 +173,10 @@ export interface ArchiveCollectionDto {
 
 export const getArchiveCollections = (): Promise<ArchiveCollectionDto[]> =>
   fetch('/api/archive/collections').then((r) => json<{ collections: ArchiveCollectionDto[] }>(r)).then((d) => d.collections);
+
+export interface SourceCompareDto {
+  match: { id: string; name: string } | null;
+  rows: Array<{ field: string; label: string; tmdb: string; tvmaze: string; differs: boolean }>;
+}
+
+export const compareTmdbTv = (id: string): Promise<SourceCompareDto> => fetch(`/api/tmdb/tv/${id}/compare`).then((r) => json<SourceCompareDto>(r));

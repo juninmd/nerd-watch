@@ -11,6 +11,9 @@ import {
   tmdbTrailerKey,
   tmdbWatchProviders,
 } from '../providers/tmdb.ts';
+import { compareSources, pickTvmazeMatch } from '../compare/source-compare.ts';
+import { tvmazeSearchShows } from '../providers/tvmaze.ts';
+import { CatalogRequestError } from '../lib/catalog-text.ts';
 import type { MediaType } from '../types.ts';
 
 export const tmdbRoutes = new Hono();
@@ -22,6 +25,26 @@ const handleProviderError = (c: Context, err: unknown) => {
   if (err instanceof TmdbRequestError) return c.json({ error: err.message }, err.status === 404 ? 404 : 502);
   throw err;
 };
+
+/** Compara a série com a TVmaze (status, estreia, nota). Sem correspondência segura, devolve `match: null` em vez de chutar. */
+tmdbRoutes.get('/tv/:id/compare', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id)) return c.json({ error: 'parâmetros inválidos' }, 400);
+  try {
+    const d = await tmdbTitleDetails('tv', id);
+    const year = d.release_date?.slice(0, 4) ?? null;
+    const hits = await tvmazeSearchShows(d.title).catch((err) => {
+      if (err instanceof CatalogRequestError) return [];
+      throw err;
+    });
+    const match = pickTvmazeMatch(d.title, year, hits);
+    if (!match) return c.json({ match: null, rows: [] });
+    const rows = compareSources({ status: d.status, year, rating: d.vote_average || null }, { status: match.status, year: match.year, rating: match.rating });
+    return c.json({ match: { id: String(match.id), name: match.name }, rows });
+  } catch (err) {
+    return handleProviderError(c, err);
+  }
+});
 
 tmdbRoutes.get('/:mediaType/:id', async (c) => {
   const mediaType = c.req.param('mediaType');
