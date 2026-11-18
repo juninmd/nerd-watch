@@ -349,3 +349,29 @@ code {
   color: var(--signal);
   font: 700 var(--text-xs) var(--font-mono);
 }
+
+/* Ficha: comparação TMDB x TVmaze. Divergência em amarelo (aviso, não erro). */
+.sc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.sc-table th,
+.sc-table td {
+  padding: 6px 4px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-soft);
+}
+.sc-table thead th {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+.sc-table tr.is-diff td {
+  color: var(--warning);
+  font-weight: 600;
+}
+.sc-note {
+  margin: 10px 0 0;
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+}
