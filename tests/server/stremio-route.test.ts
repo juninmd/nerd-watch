@@ -148,12 +148,19 @@ describe('catálogo, meta e streams', () => {
     expect(meta).toMatchObject({ name: 'Filme', description: 'sinopse', genres: ['Drama'], videos: [{ id: 'tt1:1:2', season: 1, episode: 2 }] });
   });
 
-  test('streams: só http(s) toca; torrent fica listado sem URL', async () => {
+  test('streams: só http(s) toca; torrent só entra com infohash válido', async () => {
     const id = await setup();
     const { streams } = await (await stremioRoutes.request(`/addons/${id}/streams/movie/tt1`)).json();
-    expect(streams.map((s: { kind: string }) => s.kind)).toEqual(['url', 'youtube', 'torrent', 'external']);
-    expect(streams[0]).toEqual({ kind: 'url', title: 'HD · Arquivo', url: 'https://cdn.example.com/v.mp4' });
-    expect(streams[2].url).toBeNull();
+    // O `infoHash: 'abc'` do fixture não é um infohash: o stream sai da lista em vez de virar torrent quebrado.
+    expect(streams.map((s: { kind: string }) => s.kind)).toEqual(['url', 'youtube', 'external']);
+    expect(streams[0]).toEqual({
+      kind: 'url',
+      title: 'HD · Arquivo',
+      url: 'https://cdn.example.com/v.mp4',
+      infoHash: null,
+      fileIdx: null,
+      filename: null,
+    });
   });
 
   test('addon inexistente é 404; id com barra é recusado', async () => {

@@ -56,6 +56,47 @@
   margin-bottom: 12px;
 }
 
+/* Stream de torrent na página do item: botão + nome do arquivo sugerido pelo addon. */
+.stream-torrent .hint {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* Atalho dos addons instalados no Início: mesma linguagem visual dos cards, sem capa. */
+.addon-tile {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.addon-tile:hover {
+  border-color: var(--accent, rgba(255, 255, 255, 0.35));
+}
+
+.addon-tile .addon-logo {
+  width: 40px;
+  height: 40px;
+}
+
+.addon-tile-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.addon-tile-meta {
+  font-size: 0.85em;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 720px) {
   .addon-row {
     flex-wrap: wrap;

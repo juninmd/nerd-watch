@@ -21,11 +21,46 @@ Tela **Addons Stremio** (`#/addons`, atalho `g o`). Implementa o [protocolo de a
 |---|---|
 | `catalog` | explorar o catálogo, com busca (`search`) e paginação (`skip`) quando o addon declara |
 | `meta` | sinopse, gêneros e episódios |
-| `stream` | `url` http(s) toca no player do app; `ytId` toca em embed; `externalUrl` abre fora; `infoHash` (torrent) fica listado como não suportado, porque o app só abre torrents do Internet Archive |
+| `stream` | `url` http(s) toca no player do app; `ytId` toca em embed; `externalUrl` abre fora; `infoHash` (torrent) toca no motor P2P local, igual a um magnet colado em Conexões |
 | `subtitles` | os addons instalados que declaram `subtitles` entram na busca de legendas junto com `SUBTITLE_ADDONS` |
+
+### Stream por torrent (`infoHash`)
+
+Addons de torrent publicam `infoHash` (+ `fileIdx`, `sources` e `behaviorHints.filename`) em vez de uma
+URL de arquivo. O app toca isso no mesmo motor P2P do Internet Archive:
+
+- o infohash é validado (40 hex) e vira um magnet canônico (`xt` + `dn` + um `tr` por tracker). `dht:`
+  e esquemas que não são tracker saem; tracker em loopback/LAN também;
+- **o cliente nunca manda infohash**: ele manda só a posição do stream na lista, e o servidor reconsulta
+  o addon para pegar o que ele respondeu agora;
+- `fileIdx` escolhe o arquivo; se o podcast/mkv não tocar no navegador, a lista mostra o erro e o
+  usuário escolhe outro stream;
+- vale `TORRENT_ENABLED=false` (o botão some), `TORRENT_MAX_ACTIVE` (LRU) e o sweeper de ociosidade:
+  sair da tela fecha o torrent, nada fica semeando;
+- o texto do título/trackers vem de terceiros: passa por `cleanName`, `safeTrackers` e `escapeHtml`.
+
+## Addon configurado por ambiente (sem domínio no repositório)
+
+`ADDON_MANIFEST_URLS` (uma ou mais URLs separadas por vírgula) instala addons no boot, para quem quer
+um addon sempre presente sem colar o link na mão. Regras:
+
+- o valor vem do `.env` ou de um segredo do repositório (`ADDON_MANIFEST_URLS`), porque o caminho do
+  manifest pode carregar token;
+- nada acontece sem a variável: a instalação manual pela tela continua sendo o caminho padrão;
+- o link passa pela mesma validação da instalação manual (host público, sem query, `/manifest.json`) e
+  é idempotente — reiniciar não duplica;
+- falha de um addon é registrada só pelo host e não impede o boot.
+
+No CI, `bun run scripts/addon-probe.ts` (workflow `Addon probe`) confere os addons configurados com o
+segredo e imprime apenas nome/recursos/contagem de streams — nunca o endereço.
 
 ## API local
 
-`GET/POST /api/stremio/addons`, `DELETE /api/stremio/addons/:id`, `GET /api/stremio/addons/:id/{catalog/:type/:catalogId | meta/:type/:itemId | streams/:type/:itemId}`.
+`GET/POST /api/stremio/addons`, `DELETE /api/stremio/addons/:id`,
+`GET /api/stremio/addons/:id/{catalog/:type/:catalogId | meta/:type/:itemId | streams/:type/:itemId}` e
+`POST /api/stremio/addons/:id/streams/:type/:itemId/:index/open?fileIndex=N` (abre o torrent no motor
+P2P e devolve o mesmo contrato de `POST /api/torrent/open`).
 
-Não verificado contra addons reais nesta sessão: coberto por testes com `fetch` falso e por typecheck.
+Coberto por testes com `fetch` falso, WebTorrent falso e sem rede; a verificação contra addons reais é o
+workflow `Addon probe`, que depende do segredo.
+

@@ -153,10 +153,22 @@ export const config = {
     languages: process.env.OPENSUBTITLES_LANGUAGES?.trim() || 'pt-BR,pt,en',
   },
   /**
-   * Engine de torrent P2P. Escopo deliberadamente restrito ao acervo de domínio público da
-   * Internet Archive (ver `torrent/engine.ts`): o app monta a URL do .torrent a partir do
-   * `identifier` do item, nunca aceita magnet/.torrent arbitrário — assim ele não vira um
-   * player de catálogo comercial.
+   * Addons instalados no boot a partir do ambiente (`ADDON_MANIFEST_URLS`, separados por vírgula).
+   * O link pode carregar token no caminho, então ele vive no `.env`/segredo — nunca no repositório.
+   * Sem a variável o app segue como sempre: instalação só manual, pela tela de addons.
+   */
+  addons: {
+    manifestUrls: (process.env.ADDON_MANIFEST_URLS?.trim() || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 20),
+  },
+  /**
+   * Engine de torrent P2P. Dois caminhos: o player P2P do Internet Archive (o app monta a URL do
+   * .torrent a partir do `identifier` do item) e o provider genérico, que aceita o magnet ou a URL
+   * .torrent que VOCÊ cola (ver docs/providers/torrent.md). Addons instalados também tocam torrent:
+   * o infohash vem do addon, passa pelo mesmo normalizador do magnet e cai neste engine.
    */
   torrent: {
     enabled: process.env.TORRENT_ENABLED !== 'false',

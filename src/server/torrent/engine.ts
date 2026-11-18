@@ -378,6 +378,18 @@ export const openArchiveTorrent = async (identifier: string, fileIndex?: number)
   return applyFileIndex(handle, fileIndex);
 };
 
+/**
+ * Abre um vídeo de um torrent que veio de addon, a partir do magnet já normalizado por
+ * `addonTorrentRef` (`torrent/addon-torrent.ts`). Usa a mesma chave do provider genérico, então um
+ * torrent que já está aberto por outro caminho é reaproveitado em vez de baixar duas vezes.
+ */
+export const openP2pVideo = async (infoHash: string, magnet: string, fileIndex?: number): Promise<OpenTorrentResult> => {
+  if (!torrentEnabled()) throw new TorrentDisabledError();
+  const key = `torrent:${infoHash}`;
+  const handle = await openShared(key, () => openFresh(magnet, key, false));
+  return applyFileIndex(handle, fileIndex);
+};
+
 export interface TorrentFileInfo {
   index: number;
   /** Caminho dentro do torrent, normalizado pelo parser (é o que o webtorrent usa no disco). */

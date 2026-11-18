@@ -37,7 +37,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | 🎬 **Sinopse, nota e trailer** | via TMDB (filme e série) |
 | 📡 **Onde assistir** | streamings disponíveis na sua região (TMDB watch/providers) |
 | 🎞️ **Domínio público** | Internet Archive (longas, cinema mudo, Prelinger, NASA) e Wikimedia Commons — **assiste dentro do app**, sem chave nenhuma ([fontes e licenças](docs/providers/public-domain.md)) |
-| 🧩 **Addons do Stremio** | cole o link do `manifest.json` para usar catálogo, streams e legendas de um addon; instalação sempre manual ([docs](docs/providers/stremio-addons.md)) |
+| 🧩 **Addons do Stremio** | cole o link do `manifest.json` para usar catálogo, streams (URL, embed ou **torrent P2P**) e legendas de um addon; instalação manual ou por `ADDON_MANIFEST_URLS` ([docs](docs/providers/stremio-addons.md)) |
 | 🧲 **Torrent legal** | o torrent oficial que a própria Archive.org gera para cada item de domínio público |
 | ⚡ **Streaming P2P** | toca o torrent do acervo livre dentro do app, com seek — engine em processo, sem depender da banda do archive.org |
 | 💬 **Legendas sem chave** | busca em addons do protocolo do Stremio (padrão: o OpenSubtitles v3 oficial) — **não precisa de cadastro nem de chave** |
@@ -197,7 +197,7 @@ O mapa das pastas e as receitas de "onde ponho isso" estão em [ARCHITECTURE.md]
 Hono (Bun) — server local, só escuta em 127.0.0.1
   ├─ front  → public/  (bundle Bun: um chunk por tela, CSS único, /assets/* com hash e brotli)
   ├─ SQLite → data/nerd-watch.db (sua lista, progresso, cache de episódios)
-  ├─ torrents → .cache/torrents (engine WebTorrent em processo: acervo do Archive + o que você colar em Conexões)
+  ├─ torrents → .cache/torrents (engine WebTorrent em processo: acervo do Archive, o que você colar em Conexões e streams P2P de addons)
   └─ providers → TMDB (com chave) + Internet Archive (sem chave) + Telegram (opcional) + Google Drive (opcional)
                  + legendas via addons do protocolo Stremio (sem chave)
 ```
@@ -220,8 +220,8 @@ Duas coisas que valem saber:
   id, nunca a URL de destino: o servidor reencontra a legenda numa busca cacheada e só fala com
   hosts que estão em `SUBTITLE_ADDONS`. Sem isso o endpoint seria um proxy aberto.
 
-Aqui não existe `stream`/`catalog` do protocolo — só `subtitles`. Puxar addon de stream traria os
-indexadores de catálogo comercial, que é justamente o que o app não faz.
+A busca de legenda usa só `subtitles`; a tela **Addons** (abaixo) é que expõe `catalog`, `meta` e
+`stream` — nada é instalado nem descoberto sozinho, e o app não indexa catálogo nenhum.
 
 O servidor valida `Host` (bloqueia DNS rebinding) e `Origin` em métodos que mudam estado (bloqueia CSRF),
 no mesmo padrão de segurança usado no manga-lens.
@@ -383,7 +383,7 @@ Cada fonte é configurada em **Conexões** (ou no `.env`) e adicionada em **Cana
 | Dailymotion (só embed) | nada | [docs](docs/providers/dailymotion.md) |
 | Internet Archive (coleção) | nada | [docs](docs/providers/archive-collection.md) |
 | Domínio público (Archive + Wikimedia Commons) | nada | [docs](docs/providers/public-domain.md) |
-| Addons do Stremio | link do manifest (colado por você) | [docs](docs/providers/stremio-addons.md) |
+| Addons do Stremio | link do manifest (colado por você, ou `ADDON_MANIFEST_URLS`) | [docs](docs/providers/stremio-addons.md) |
 | Torrent (magnet / `.torrent` colado) | nada | [docs](docs/providers/torrent.md) |
 
 Catálogos e sincronização: [TVmaze](docs/providers/tvmaze.md), [AniList](docs/providers/anilist.md),

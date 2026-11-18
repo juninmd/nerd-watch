@@ -1,6 +1,7 @@
-import { type AddonMetaDto, type AddonStreamDto, getAddonMeta, getAddonStreams } from '../api/stremio.ts';
+import { type AddonMetaDto, type AddonStreamDto, getAddonMeta, getAddonStreams, openAddonStream } from '../api/stremio.ts';
 import { renderInlinePlayer } from '../player/inline-player.ts';
 import { parkPlayer, stopIfOnPage } from '../player/player-dock.ts';
+import { renderTorrentPanel } from '../player/torrent-player.ts';
 import { renderSubtitlesPanel } from '../player/subtitles.ts';
 import { backButtonHtml, wireBackButton } from '../ui/back-button.ts';
 import { escapeHtml } from '../ui/card.ts';
@@ -19,7 +20,10 @@ const streamRow = (s: AddonStreamDto, i: number): string => {
     case 'external':
       return `<li><a class="btn btn-ghost btn-sm stream-btn" href="${escapeHtml(s.url ?? '')}" target="_blank" rel="noopener noreferrer">${icon('forward', 'sm')} ${title} (abre fora do app)</a></li>`;
     default:
-      return `<li class="hint">${title}: stream por torrent/magnet não é suportado (o app só abre torrents do Internet Archive).</li>`;
+      return `<li class="stream-torrent">
+        <button type="button" class="btn btn-primary btn-sm stream-btn" data-torrent="${i}">${icon('download', 'sm')} ${title}</button>
+        <p class="hint">${escapeHtml(s.filename ?? 'torrent')} · P2P</p>
+      </li>`;
   }
 };
 
@@ -127,6 +131,27 @@ const paint = (
     b.addEventListener('click', () => {
       const s = streams?.[Number(b.dataset.play)];
       if (s) play(s);
+    });
+  }
+  for (const b of host.querySelectorAll<HTMLButtonElement>('[data-torrent]')) {
+    b.addEventListener('click', () => {
+      const index = Number(b.dataset.torrent);
+      if (!streams?.[index]) return;
+      stopIfOnPage();
+      note.textContent = '';
+      playerHost.innerHTML = '';
+      // Mesmo painel P2P do Internet Archive: stats de peers, troca de arquivo e fechamento ao sair da tela.
+      playerHost.appendChild(
+        renderTorrentPanel({
+          identifier: currentId,
+          title: meta.name,
+          posterUrl: meta.poster,
+          open: (fileIndex) => openAddonStream(addonId, type, currentId, index, fileIndex),
+          sourceLabel: 'Addon · P2P',
+          hint: 'O servidor conecta direto nos peers deste torrent e serve os pedaços ao player; nada fica semeando ao sair da tela.',
+          player: { channelId: 'addon', messageId: currentId, route: addonItemPath(addonId, type, itemId) },
+        }),
+      );
     });
   }
   for (const b of host.querySelectorAll<HTMLButtonElement>('[data-ep]')) {
