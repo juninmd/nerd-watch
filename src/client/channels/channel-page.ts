@@ -19,11 +19,12 @@ import { resumePoint } from '../player/playback-store.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { canRefreshMode, handleLabel, MODE_INFO } from '../connections/source-modes.ts';
-import { filterItems, itemDescription, itemFileName, itemTitle, needsTitleLink, orderItems, watchPath } from './telegram-items.ts';
+import { filterItems, itemTitle, needsTitleLink, orderItems, watchPath } from './telegram-items.ts';
 import { formatDuration } from '../ui/time-format.ts';
 import { getListMode, setListMode } from './list-mode.ts';
 import { mediaUrl } from '../platform/tauri.ts';
 import { collapsePinsOnPhone, pinsCardHtml, topicTabsHtml } from './channel-side.ts';
+import { channelSkeletonHtml, videoCardHtml } from './channel-card.ts';
 import { ALL, buildTopicTabs, groupByTab, itemsInTab } from './channel-topics.ts';
 
 /** Quantos cards aparecem de cada vez: milhares de vídeos carregados não viram milhares de nós no DOM. */
@@ -41,7 +42,7 @@ interface ListState {
 }
 
 export const renderTelegramChannel = (host: HTMLElement, titleId: string): void => {
-  host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  host.innerHTML = channelSkeletonHtml();
   const ui: ListState = { q: '', list: getListMode(), shown: PAGE_SIZE, topic: ALL, metaTried: false };
 
   const load = () => {
@@ -92,7 +93,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     </div>
     <div class="detail-grid">
       <div>
-        <div class="section-head"><h2>Vídeos</h2>${d.items.length > 1 ? `<select class="select" id="tg-order" aria-label="Ordem dos vídeos"><option value="newest"${order === 'newest' ? ' selected' : ''}>Mais recentes primeiro</option><option value="oldest"${order === 'oldest' ? ' selected' : ''}>Mais antigos primeiro</option><option value="name"${order === 'name' ? ' selected' : ''}>Nome (A–Z)</option><option value="name-desc"${order === 'name-desc' ? ' selected' : ''}>Nome (Z–A)</option></select>` : ''}${d.items.length ? `<button class="btn btn-ghost btn-sm" id="tg-view" type="button" aria-pressed="${ui.list}">${ui.list ? 'ver em grade' : 'ver em lista'}</button>` : ''}${canRefreshMode(d.mode) ? `<button class="btn btn-ghost btn-sm" id="tg-refresh" type="button">${icon('download', 'sm')} atualizar</button>` : ''}</div>
+        <div class="section-head tg-toolbar"><h2>Vídeos</h2>${d.items.length > 1 ? `<select class="select" id="tg-order" aria-label="Ordem dos vídeos"><option value="newest"${order === 'newest' ? ' selected' : ''}>Mais recentes primeiro</option><option value="oldest"${order === 'oldest' ? ' selected' : ''}>Mais antigos primeiro</option><option value="name"${order === 'name' ? ' selected' : ''}>Nome (A–Z)</option><option value="name-desc"${order === 'name-desc' ? ' selected' : ''}>Nome (Z–A)</option></select>` : ''}${d.items.length ? `<div class="tg-view-toggle" role="group" aria-label="Modo de exibição"><button class="tg-view-btn" id="tg-view-grid" type="button" aria-pressed="${!ui.list}" aria-label="Ver em grade" title="Grade">${icon('grid', 'sm')}</button><button class="tg-view-btn" id="tg-view-list" type="button" aria-pressed="${ui.list}" aria-label="Ver em lista" title="Lista">${icon('list', 'sm')}</button></div>` : ''}${canRefreshMode(d.mode) ? `<button class="btn btn-ghost btn-sm" id="tg-refresh" type="button">${icon('download', 'sm')} atualizar</button>` : ''}</div>
         ${d.mode === 'bot' ? `<p class="hint">modo bot só recebe vídeos postados a partir de agora — sem histórico retroativo.</p>` : ''}
         ${d.items.some((i) => i.link?.status === 'suggested') ? `<div class="tg-links-bar" role="region" aria-label="Sugestões de vínculo"><span>${d.items.filter((i) => i.link?.status === 'suggested').length} sugestão(ões) de vínculo para confirmar</span><button class="btn btn-ghost btn-sm" id="tg-accept" type="button">aceitar sugestões</button></div>` : ''}
         <div class="tg-search">
@@ -100,7 +101,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
           <span class="hint" id="tg-count" role="status" aria-live="polite"></span>
         </div>
         ${topicTabsHtml(tabs, ui.topic, d.items.length)}
-        <div id="tg-items" class="${ui.list ? 'tg-list' : 'grid'}"></div>
+        <div id="tg-items" class="${ui.list ? 'tg-list' : 'tg-grid'}"></div>
         <div id="tg-empty"></div>
         <div id="tg-more" class="tg-more"></div>
       </div>
@@ -254,23 +255,8 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       card.tabIndex = 0;
       card.setAttribute('role', 'button');
       card.setAttribute('aria-label', `reproduzir: ${itemTitle(item)}${resumeAt !== null ? ` (continuar de ${formatDuration(resumeAt)})` : ''}`);
-      const fileName = itemFileName(item);
       if (ui.list) card.classList.add('card-row');
-      const description = itemDescription(item);
-      card.innerHTML = `
-        <div class="poster${item.thumbnailUrl ? '' : ' placeholder'}">
-          ${item.thumbnailUrl ? '' : `<span class="initials">${icon('film')}</span>`}
-          ${item.durationSeconds ? `<span class="badge badge-corner">${formatDuration(item.durationSeconds)}</span>` : ''}
-          ${resumeAt !== null ? `<span class="badge badge-watching resume-badge">continuar ${formatDuration(resumeAt)}</span>` : ''}
-          ${watched ? `<span class="badge badge-watched resume-badge">assistido</span>` : ''}
-        </div>
-        <div class="meta">
-          <div class="title">${escapeHtml(itemTitle(item))}</div>
-          ${description ? `<p class="tg-card-desc">${escapeHtml(description)}</p>` : ''}
-          ${fileName ? `<div class="sub tg-file">${escapeHtml(fileName)}</div>` : ''}
-          ${item.postedAt ? `<div class="sub">${new Date(item.postedAt).toLocaleDateString('pt-BR')}</div>` : ''}
-        </div>
-      `;
+      card.innerHTML = videoCardHtml(item, resumeAt, watched);
       // Miniatura como <img> preguiçosa (o mesmo paintPoster da biblioteca): só baixa perto da tela.
       if (item.thumbnailUrl) paintPoster(card.querySelector('.poster') as HTMLElement, item.thumbnailUrl, itemTitle(item));
       card.addEventListener('click', () => play(i));
@@ -348,11 +334,14 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     });
   }
   collapsePinsOnPhone(host);
-  host.querySelector('#tg-view')?.addEventListener('click', () => {
-    ui.list = !ui.list;
-    setListMode(ui.list);
-    renderDetail(host, d, reload, ui);
-  });
+  for (const [id, list] of [['#tg-view-grid', false], ['#tg-view-list', true]] as const) {
+    host.querySelector(id)?.addEventListener('click', () => {
+      if (ui.list === list) return;
+      ui.list = list;
+      setListMode(list);
+      renderDetail(host, d, reload, ui);
+    });
+  }
   renderItems();
 
   const deleteBtn = host.querySelector('#tg-delete') as HTMLButtonElement;
