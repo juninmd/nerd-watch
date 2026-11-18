@@ -22,6 +22,7 @@ const PATHS = {
   back: '<path d="M15 6l-6 6 6 6"/>',
   forward: '<path d="M9 6l6 6-6 6"/>',
   list: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
   select: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/>',
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   film: '<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M8 3l4 3 4-3"/>',

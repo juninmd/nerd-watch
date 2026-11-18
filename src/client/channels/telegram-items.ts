@@ -102,3 +102,11 @@ export const filterItems = <T extends { caption: string | null }>(items: T[], qu
     return words.every((word) => text.includes(word));
   });
 };
+
+/** Data de upload para o card ("17 nov. 2026"); `iso` vai no atributo datetime. Data inválida ou ausente = sem linha. */
+export const uploadDate = (postedAt: string | null | undefined): { label: string; iso: string } | null => {
+  if (!postedAt) return null;
+  const d = new Date(postedAt);
+  if (Number.isNaN(d.getTime())) return null;
+  return { label: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }), iso: d.toISOString() };
+};
