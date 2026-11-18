@@ -1,6 +1,9 @@
 import { escapeHtml, posterCssUrl } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { createList, listLists, type ListSummaryDto } from '../api/lists.ts';
+import { listLibrary } from '../api/library.ts';
+import { listSavedViews } from '../api/saved-views.ts';
+import { smartLists, type SmartList } from './smart-lists.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 
@@ -24,6 +27,18 @@ const cardHtml = (list: ListSummaryDto): string => {
     </a>`;
 };
 
+/** Mesmo cartão das listas comuns, com a regra no lugar do contador seco; leva à biblioteca já filtrada. */
+const smartCardHtml = (l: SmartList): string => {
+  const covers = l.covers.length
+    ? l.covers.map((c) => `<span class="list-cover"${c ? ` style="${escapeHtml(`background-image:${posterCssUrl(c)}`)}"` : ''} aria-hidden="true"></span>`).join('')
+    : '<span class="list-cover empty" aria-hidden="true"></span>';
+  return `<a class="list-card" href="#/library?view=${encodeURIComponent(l.id)}" aria-label="${escapeHtml(l.name)}, ${plural(l.count)}, lista inteligente">
+      <span class="list-mosaic">${covers}</span>
+      <span class="list-name">${escapeHtml(l.name)}</span>
+      <span class="list-sub">${plural(l.count)} · ${escapeHtml(l.rule)}</span>
+    </a>`;
+};
+
 /** Listas próprias: grade de cartões com capas, criação rápida e "carregar mais" (sem lista de tamanho ilimitado na tela). */
 export const renderLists = (host: HTMLElement): void => {
   host.innerHTML = `
@@ -37,7 +52,12 @@ export const renderLists = (host: HTMLElement): void => {
       <button type="submit" class="btn btn-primary btn-sm">${icon('plus', 'sm')} criar lista</button>
     </form>
     <div id="lists-grid" class="list-grid"><div class="skeleton" style="aspect-ratio:2/1"></div></div>
-    <div id="lists-more"></div>`;
+    <div id="lists-more"></div>
+    <section id="lists-smart" hidden>
+      <h2 class="view-title" style="font-size:var(--text-lg)">Listas inteligentes</h2>
+      <p class="view-subtitle">Visões salvas da biblioteca. Elas se atualizam sozinhas conforme você marca e avalia. Crie novas na <a href="#/library">biblioteca</a>.</p>
+      <div id="lists-smart-grid" class="list-grid"></div>
+    </section>`;
 
   const grid = host.querySelector('#lists-grid') as HTMLElement;
   const more = host.querySelector('#lists-more') as HTMLElement;
@@ -79,6 +99,20 @@ export const renderLists = (host: HTMLElement): void => {
       })
       .catch((err: unknown) => showToast(err instanceof Error ? err.message : 'não foi possível criar a lista'));
   });
+
+  // Falha aqui não derruba as listas comuns, mas a seção avisa em vez de sumir sem explicação.
+  void Promise.all([listSavedViews(), listLibrary()])
+    .then(([views, lib]) => {
+      const smart = smartLists(views.items, lib.items);
+      if (smart.length === 0) return;
+      (host.querySelector('#lists-smart-grid') as HTMLElement).innerHTML = smart.map(smartCardHtml).join('');
+      (host.querySelector('#lists-smart') as HTMLElement).hidden = false;
+    })
+    .catch(() => {
+      (host.querySelector('#lists-smart-grid') as HTMLElement).innerHTML =
+        `<div class="empty-state" style="grid-column:1/-1"><div class="big" aria-hidden="true">${icon('alert')}</div>não foi possível carregar as listas inteligentes agora</div>`;
+      (host.querySelector('#lists-smart') as HTMLElement).hidden = false;
+    });
 
   void load(0);
 };
