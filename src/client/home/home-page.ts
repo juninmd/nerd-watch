@@ -12,6 +12,7 @@ import { addDays, browserTimeZone, localIsoDate } from '../ui/time-format.ts';
 import { libraryItemPath, titlePath } from '../ui/title-link.ts';
 import { openPickDialog } from '../library/pick-dialog.ts';
 import { heroHtml, pickHero } from './home-hero.ts';
+import { homeKpis, sourceRows } from './home-status.ts';
 
 const SKELETON = `
   <div class="section"><div class="skeleton" style="height:22px;width:220px;margin-bottom:14px"></div>
@@ -36,6 +37,15 @@ const upcomingRows = (entries: CalendarEntryDto[], todayIso: string): string =>
       </div>`,
     )
     .join('');
+
+/** Faixa de números do dia e saúde das fontes: o que fazer agora e o que falta ligar, sem sair do início. */
+const statusHtml = (kpis: ReturnType<typeof homeKpis>, rows: ReturnType<typeof sourceRows>): string => `
+  <div class="home-kpis">
+    ${kpis.map((k) => `<div class="home-kpi"><strong>${escapeHtml(k.value)}</strong><span>${escapeHtml(k.label)}</span>${k.hint ? `<small>${escapeHtml(k.hint)}</small>` : ''}</div>`).join('')}
+    <details class="home-sources"><summary>${rows.filter((r) => r.ok).length} de ${rows.length} recursos ligados</summary>
+      <ul>${rows.map((r) => `<li class="${r.ok ? 'is-ok' : 'is-off'}"><span>${escapeHtml(r.label)}</span><small>${escapeHtml(r.detail)}</small></li>`).join('')}</ul>
+    </details>
+  </div>`;
 
 const RAIL_SKELETON = Array.from({ length: 7 }, () => '<div class="skeleton" style="width:168px;aspect-ratio:2/3;flex:0 0 168px"></div>').join('');
 
@@ -91,6 +101,7 @@ export const renderHome = (host: HTMLElement): void => {
       body.innerHTML = `
         ${banner}
         ${hero ? heroHtml(hero) : ''}
+        ${statusHtml(homeKpis({ watching: watching.items.length, queued: upNext.items.length, entries: calendar.entries, todayIso }), sourceRows(h))}
         ${yearStripHtml(stats ? yearStrip(stats, today.getMonth()) : null)}
         <div class="section">${sectionHead('play', 'Continuar assistindo', { href: '#/library', label: 'ver biblioteca' })}<div class="rail" id="watching-rail"></div></div>
         <div class="section" id="up-next-section">${sectionHead('play', 'Próximos episódios')}<div class="rail" id="up-next-rail"></div></div>
