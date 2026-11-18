@@ -43,6 +43,8 @@ export interface TelegramItemDto {
   link?: TelegramItemLinkDto | null;
   /** Nome do arquivo no Telegram (conta pessoal/bot); origens sem nome devolvem null. */
   fileName?: string | null;
+  /** Tópico do fórum; ausente/nulo = fora de tópico. */
+  topicId?: string | null;
 }
 
 export interface TelegramItemLinkDto {
@@ -60,7 +62,15 @@ export interface TelegramItemLinkDto {
 export interface TelegramChannelDetailDto extends TelegramChannelDto {
   library: LibraryEntryDto | null;
   items: TelegramItemDto[];
+  /** Tópicos do fórum e mensagens fixadas (conta pessoal). Vazios até a primeira sincronização. */
+  topics?: Array<{ topicId: string; title: string; pinned: boolean }>;
+  pins?: Array<{ messageId: string; text: string | null; postedAt: string | null }>;
+  syncedAt?: string | null;
 }
+
+/** Busca no Telegram os tópicos e as mensagens fixadas e guarda; o detalhe do canal passa a devolvê-los. */
+export const syncTelegramChannelMeta = (titleId: string): Promise<{ syncedAt: string | null }> =>
+  fetch(`/api/telegram/channels/${titleId}/sync-meta`, { method: 'POST' }).then((r) => json<{ syncedAt: string | null }>(r));
 
 /** `fillThumbs`: a página do canal espera as miniaturas que faltam; a tela de reprodução só quer a lista. */
 export const getTelegramChannel = (titleId: string, opts: { fillThumbs?: boolean } = {}): Promise<TelegramChannelDetailDto> =>
