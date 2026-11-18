@@ -31,6 +31,7 @@ const PAGES = {
   addons: () => import('../addons/addons-page.ts'),
   addonBrowse: () => import('../addons/addon-browse-page.ts'),
   addonItem: () => import('../addons/addon-item-page.ts'),
+  tvmazePerson: () => import('../catalog/person-page.ts'),
   commons: () => import('../catalog/commons-page.ts'),
 } as const;
 
@@ -111,6 +112,14 @@ export const ROUTES: readonly RouteDef[] = [
     open: async (params) => {
       const { renderAddonItem } = await PAGES.addonItem();
       return (host) => renderAddonItem(host, param(params, 0), param(params, 1), param(params, 2));
+    },
+  },
+  {
+    id: 'tvmazePerson',
+    pattern: /^\/person\/tvmaze\/(\d{1,10})$/,
+    open: async (params) => {
+      const { renderTvmazePerson } = await PAGES.tvmazePerson();
+      return (host) => renderTvmazePerson(host, param(params, 0));
     },
   },
   {

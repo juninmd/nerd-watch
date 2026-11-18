@@ -30,6 +30,8 @@ describe('resolveRoute', () => {
     expect(idOf('/watch/canal-1/start')).toBe('watch');
     expect(resolveRoute('/addons/abc')).toMatchObject({ def: { id: 'addonBrowse' }, params: ['abc'] });
     expect(resolveRoute('/addons/abc/movie/tt1%3A1%3A2')).toMatchObject({ def: { id: 'addonItem' }, params: ['abc', 'movie', 'tt1%3A1%3A2'] });
+    expect(resolveRoute('/person/tvmaze/14072')).toMatchObject({ def: { id: 'tvmazePerson' }, params: ['14072'] });
+    expect(resolveRoute('/person/tvmaze/abc')).toBeNull();
     expect(resolveRoute('/commons/File%3AX.webm')).toMatchObject({ def: { id: 'commons' }, params: ['File%3AX.webm'] });
   });
 

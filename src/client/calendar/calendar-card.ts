@@ -1,6 +1,8 @@
 import type { CalendarEntryDto, CalendarInfoDto, CalendarOrigin } from '../api/index.ts';
 import { escapeHtml } from '../ui/card.ts';
+import { releaseIn } from '../home/home-status.ts';
 import { icon } from '../ui/icons.ts';
+import { localIsoDate } from '../ui/time-format.ts';
 
 export type AgendaEntry = Omit<CalendarEntryDto, 'titleId'>;
 
@@ -31,6 +33,12 @@ export const ratingText = (rating: number | null | undefined): string => (rating
 
 const ratingBadge = (rating: number | null): string => (rating ? `<span class="cal-rating" title="Nota">★ ${ratingText(rating)}</span>` : '');
 
+/** "hoje", "amanhã" ou "em N dias"; some depois da data, para não poluir o que já saiu. */
+const countdownBadge = (date: string): string => {
+  const when = releaseIn(date, localIsoDate(new Date()));
+  return when ? `<span class="cal-countdown">${when}</span>` : '';
+};
+
 const extLink = (url: string, label: string, cls = 'cal-link'): string =>
   `<a class="${cls}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
 
@@ -56,6 +64,7 @@ export const cardHtml = (e: AgendaEntry, info: CalendarInfoDto | null): string =
         <span class="cal-pill origin-${origin}">${ORIGIN_LABEL[origin]}</span>
         ${where ? `<span class="cal-pill where-${info?.where}">${escapeHtml(where)}</span>` : ''}
         ${ratingBadge(info?.rating ?? null)}
+        ${countdownBadge(e.date)}
       </div>
       <h3 class="cal-title">${escapeHtml(e.titleName)}</h3>
       <div class="cal-ep">${escapeHtml(episodeLine(e))}</div>

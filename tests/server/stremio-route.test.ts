@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { openDb, resetDbForTests } from '../../src/server/db/database.ts';
+import { getDb, openDb, resetDbForTests } from '../../src/server/db/database.ts';
+import { streamsForTitle } from '../../src/server/providers/stremio/title-streams.ts';
+import { listAddons } from '../../src/server/repo/stremio-addons.ts';
 import { setAddonFetch } from '../../src/server/providers/stremio/client.ts';
 import { stremioRoutes } from '../../src/server/routes/stremio.ts';
 import { setHostResolver } from '../../src/server/subtitles/load.ts';
@@ -175,5 +177,56 @@ describe('catálogo, meta e streams', () => {
     setAddonFetch(async () => new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/latest' } }));
     const res = await stremioRoutes.request(`/addons/${id}/streams/movie/tt1`);
     expect(res.status).toBe(400);
+  });
+});
+
+describe('addon só de streams (sem catálogo, como o Brazuca)', () => {
+  const base = 'https://addon.example.com/TOKEN-SECRETO';
+  const streamOnly = { id: 'org.stream', name: 'Só stream', resources: [{ name: 'stream', types: ['movie', 'series'], idPrefixes: ['tt'] }], types: ['movie', 'series'], catalogs: [] };
+  const setup = async () => {
+    serve({
+      [MANIFEST_URL]: () => json(streamOnly),
+      [`${base}/stream/movie/tt0133093.json`]: () => json({ streams: [{ infoHash: 'c9e15763f722f23e98a29decdfae341b98d53056', title: 'torrent' }] }),
+      [`${base}/stream/series/tt0944947%3A1%3A1.json`]: () => json({ streams: [{ url: 'https://cdn.example.com/e.mp4', title: 'ep' }] }),
+    });
+    await install();
+    return listAddons(await getDb());
+  };
+
+  test('busca streams pelo IMDb do TMDB, filme e série (sem progresso = 1x1)', async () => {
+    const addons = await setup();
+    const movie = await streamsForTitle(addons, { mediaType: 'movie', tmdbId: 603, season: null, episode: null }, async () => 'tt0133093');
+    expect(movie.addons[0]).toMatchObject({ name: 'Só stream', error: null, streams: [{ kind: 'torrent', url: null }] });
+    const tv = await streamsForTitle(addons, { mediaType: 'tv', tmdbId: 1399, season: null, episode: null }, async () => 'tt0944947');
+    expect(tv.addons[0]?.streams[0]?.kind).toBe('url');
+  });
+
+  test('sem IMDb não consulta addon; falha de um addon vira erro com mensagem fixa', async () => {
+    const addons = await setup();
+    calls = [];
+    expect(await streamsForTitle(addons, { mediaType: 'movie', tmdbId: 1, season: null, episode: null }, async () => null)).toEqual({ imdbId: null, addons: [] });
+    expect(calls).toHaveLength(0);
+    const out = await streamsForTitle(addons, { mediaType: 'movie', tmdbId: 1, season: null, episode: null }, async () => 'tt9999999');
+    expect(out.addons[0]?.error).toBe('o addon respondeu 404');
+  });
+
+  test('addon sem recurso stream não entra', async () => {
+    serve({ [MANIFEST_URL]: () => json({ ...streamOnly, resources: ['subtitles'] }) });
+    await install();
+    const out = await streamsForTitle(listAddons(await getDb()), { mediaType: 'movie', tmdbId: 1, season: null, episode: null }, async () => 'tt1234567');
+    expect(out.addons).toEqual([]);
+  });
+
+  test('status: ok quando o manifest responde, erro com mensagem fixa quando não', async () => {
+    await setup();
+    const { id } = (await (await stremioRoutes.request('/addons')).json()).addons[0];
+    expect(await (await stremioRoutes.request(`/addons/${id}/status`)).json()).toEqual({ ok: true, error: null });
+    serve({ [MANIFEST_URL]: () => json({}, 500) });
+    expect(await (await stremioRoutes.request(`/addons/${id}/status`)).json()).toEqual({ ok: false, error: 'o addon respondeu 500' });
+  });
+
+  test('/streams valida parâmetros', async () => {
+    expect((await stremioRoutes.request('/streams?tmdbId=x&mediaType=movie')).status).toBe(400);
+    expect((await stremioRoutes.request('/streams?tmdbId=1&mediaType=anime')).status).toBe(400);
   });
 });

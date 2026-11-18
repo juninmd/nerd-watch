@@ -64,3 +64,6 @@ P2P e devolve o mesmo contrato de `POST /api/torrent/open`).
 Coberto por testes com `fetch` falso, WebTorrent falso e sem rede; a verificação contra addons reais é o
 workflow `Addon probe`, que depende do segredo.
 
+## Addon só de streams (sem catálogo)
+
+Addons como o Brazuca declaram só `stream` e `catalogs: []`: não listam títulos, então "explorar" não aparece. A tela de addons diz isso e mostra o status (manifest respondendo ou erro). Na página de um filme/série do TMDB, o painel "Streams dos addons" resolve o IMDb (`tt…`) e consulta cada addon com `stream` (`GET /api/stremio/streams`). Streams de torrent (`infoHash`) tocam no motor P2P local.

@@ -4,6 +4,8 @@ import { CatalogRequestError } from '../lib/catalog-text.ts';
 import { getDb } from '../db/database.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { replaceEpisodes, setCatalogStats, upsertSeason, upsertTitle } from '../repo/titles.ts';
+import { tvmazeShowMore } from '../providers/tvmaze-more.ts';
+import { tvmazePersonDetails, tvmazeSearchPeople } from '../providers/tvmaze-people.ts';
 import { TVMAZE_ATTRIBUTION, tvmazeSearchShows, tvmazeShowDetails, type TvmazeEpisode } from '../providers/tvmaze.ts';
 
 export const tvmazeRoutes = new Hono();
@@ -21,6 +23,37 @@ tvmazeRoutes.get('/search', async (c) => {
   if (!query) return c.json({ error: 'parâmetro "q" é obrigatório' }, 400);
   try {
     return c.json({ results: await tvmazeSearchShows(query), attribution: TVMAZE_ATTRIBUTION });
+  } catch (err) {
+    return providerError(c, err);
+  }
+});
+
+tvmazeRoutes.get('/people/search', async (c) => {
+  const query = c.req.query('q')?.trim() ?? '';
+  if (!query) return c.json({ error: 'parâmetro "q" é obrigatório' }, 400);
+  try {
+    return c.json({ results: await tvmazeSearchPeople(query), attribution: TVMAZE_ATTRIBUTION });
+  } catch (err) {
+    return providerError(c, err);
+  }
+});
+
+tvmazeRoutes.get('/person/:id', async (c) => {
+  const id = c.req.param('id');
+  if (!ID_RE.test(id)) return c.json({ error: 'id inválido' }, 400);
+  try {
+    return c.json({ ...(await tvmazePersonDetails(Number(id))), attribution: TVMAZE_ATTRIBUTION });
+  } catch (err) {
+    return providerError(c, err);
+  }
+});
+
+/** Elenco, equipe, galeria, akas, canais, ids externos e próximos episódios: separado do detalhe para não atrasar a primeira pintura. */
+tvmazeRoutes.get('/:id/more', async (c) => {
+  const id = c.req.param('id');
+  if (!ID_RE.test(id)) return c.json({ error: 'id inválido' }, 400);
+  try {
+    return c.json({ ...(await tvmazeShowMore(Number(id))), attribution: TVMAZE_ATTRIBUTION });
   } catch (err) {
     return providerError(c, err);
   }

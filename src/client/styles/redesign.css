@@ -274,3 +274,78 @@ code {
   font-size: clamp(20px, 1.9vw, 26px);
   white-space: nowrap;
 }
+
+/* Início: faixa de números e recursos ligados. */
+.home-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0 0 28px;
+}
+.home-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.home-kpi strong {
+  font: 800 var(--text-xl) var(--font-display);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.home-kpi span,
+.home-kpi small {
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+}
+.home-sources {
+  padding: 14px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-sm);
+}
+.home-sources summary {
+  cursor: pointer;
+  color: var(--text-dim);
+}
+.home-sources ul {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.home-sources li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.home-sources li::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--success);
+}
+.home-sources li.is-off::before {
+  background: var(--warning);
+}
+.home-sources li span {
+  flex: 1;
+}
+.home-sources small {
+  color: var(--text-faint);
+}
+
+/* Agenda: contagem regressiva no cartão (cor de progresso, não de ação). */
+.cal-countdown {
+  margin-left: auto;
+  color: var(--signal);
+  font: 700 var(--text-xs) var(--font-mono);
+}
