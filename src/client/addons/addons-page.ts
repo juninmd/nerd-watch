@@ -1,10 +1,10 @@
-import { type AddonDto, installAddon, listAddons, removeAddon } from '../api/stremio.ts';
+import { type AddonDto, getAddonStatus, installAddon, listAddons, removeAddon } from '../api/stremio.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { backButtonHtml, wireBackButton } from '../ui/back-button.ts';
 import { icon } from '../ui/icons.ts';
-import { addonPath, canBrowse, resourceLabel } from './addon-links.ts';
+import { addonPath, canBrowse, capabilitySummary, resourceLabel } from './addon-links.ts';
 
 const addonRow = (a: AddonDto): string => `
   <li class="addon-row" data-id="${escapeHtml(a.id)}">
@@ -13,6 +13,8 @@ const addonRow = (a: AddonDto): string => `
       <h3>${escapeHtml(a.name)} ${a.version ? `<small>v${escapeHtml(a.version)}</small>` : ''}</h3>
       <p class="hint">${escapeHtml(a.host)}</p>
       ${a.description ? `<p class="addon-desc">${escapeHtml(a.description)}</p>` : ''}
+      <p class="hint addon-summary">${escapeHtml(capabilitySummary(a))}</p>
+      <p class="hint addon-status" data-status>verificando…</p>
       <div class="chip-row">${a.resources.map((r) => `<span class="chip-status">${escapeHtml(resourceLabel(r))}</span>`).join('')}</div>
     </div>
     <div class="addon-actions">
@@ -51,6 +53,16 @@ export const renderAddons = (host: HTMLElement): void => {
     listEl.innerHTML = addons.length
       ? addons.map(addonRow).join('')
       : `<li class="empty-state"><div class="big">${icon('plug')}</div>nenhum addon instalado ainda</li>`;
+    for (const a of addons) {
+      const el = listEl.querySelector<HTMLElement>(`.addon-row[data-id="${CSS.escape(a.id)}"] [data-status]`);
+      getAddonStatus(a.id)
+        .then((s) => {
+          if (el) el.textContent = s.ok ? 'status: respondendo' : `status: erro — ${s.error ?? 'sem resposta'}`;
+        })
+        .catch(() => {
+          if (el) el.textContent = 'status: não foi possível verificar';
+        });
+    }
   };
   const load = () =>
     listAddons()

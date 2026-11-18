@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { addonItemPath, addonPath, canBrowse, resourceLabel } from '../../src/client/addons/addon-links.ts';
+import { addonItemPath, addonPath, canBrowse, capabilitySummary, resourceLabel } from '../../src/client/addons/addon-links.ts';
 import { resolveRoute } from '../../src/client/app/routes.ts';
 import type { AddonDto } from '../../src/client/api/stremio.ts';
 
@@ -21,5 +21,17 @@ describe('addon-links', () => {
   test('rótulos de recurso conhecidos e desconhecidos', () => {
     expect(resourceLabel('subtitles')).toBe('legendas');
     expect(resourceLabel('addon_catalog')).toBe('addon_catalog');
+  });
+});
+
+describe('capabilitySummary', () => {
+  test('addon só de stream explica que não lista títulos', () => {
+    expect(capabilitySummary(addon({ resources: ['stream'] }))).toContain('não lista títulos');
+  });
+  test('addon com catálogo conta quantos', () => {
+    expect(capabilitySummary(addon({ resources: ['catalog'], catalogs: [{ type: 'movie', id: 't', name: 'T', searchable: false, paged: false }] }))).toContain('1 catálogo');
+  });
+  test('declara catalog sem catálogo listado', () => {
+    expect(capabilitySummary(addon({ resources: ['catalog'] }))).toContain('não listou nenhum');
   });
 });

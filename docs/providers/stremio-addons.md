@@ -29,3 +29,7 @@ Tela **Addons Stremio** (`#/addons`, atalho `g o`). Implementa o [protocolo de a
 `GET/POST /api/stremio/addons`, `DELETE /api/stremio/addons/:id`, `GET /api/stremio/addons/:id/{catalog/:type/:catalogId | meta/:type/:itemId | streams/:type/:itemId}`.
 
 Não verificado contra addons reais nesta sessão: coberto por testes com `fetch` falso e por typecheck.
+
+## Addon só de streams (sem catálogo)
+
+Addons como o Brazuca declaram só `stream` e `catalogs: []`: não listam títulos, então "explorar" não aparece. A tela de addons diz isso e mostra o status (manifest respondendo ou erro). Na página de um filme/série do TMDB, o painel "Streams dos addons" resolve o IMDb (`tt…`) e consulta cada addon com `stream` (`GET /api/stremio/streams`). Streams só de torrent (`infoHash`) são listados como não suportados.

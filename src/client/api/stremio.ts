@@ -65,3 +65,22 @@ export const getAddonMeta = (id: string, type: string, itemId: string): Promise<
 
 export const getAddonStreams = (id: string, type: string, itemId: string): Promise<AddonStreamDto[]> =>
   fetch(`/api/stremio/addons/${seg(id)}/streams/${seg(type)}/${seg(itemId)}`).then((r) => json<{ streams: AddonStreamDto[] }>(r)).then((d) => d.streams);
+
+export interface AddonStatusDto {
+  ok: boolean;
+  error: string | null;
+}
+
+export const getAddonStatus = (id: string): Promise<AddonStatusDto> => fetch(`/api/stremio/addons/${seg(id)}/status`).then((r) => json<AddonStatusDto>(r));
+
+export interface TitleStreamsDto {
+  imdbId: string | null;
+  addons: Array<{ addonId: string; name: string; host: string; streams: AddonStreamDto[]; error: string | null }>;
+}
+
+export const getTitleStreams = (opts: { tmdbId: number; mediaType: 'movie' | 'tv'; season?: number | null; episode?: number | null }): Promise<TitleStreamsDto> => {
+  const q = new URLSearchParams({ tmdbId: String(opts.tmdbId), mediaType: opts.mediaType });
+  if (opts.season) q.set('season', String(opts.season));
+  if (opts.episode) q.set('episode', String(opts.episode));
+  return fetch(`/api/stremio/streams?${q}`).then((r) => json<TitleStreamsDto>(r));
+};
