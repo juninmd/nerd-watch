@@ -16,3 +16,12 @@ export interface HealthResponse {
 }
 
 export const health = (): Promise<HealthResponse> => fetch('/api/health').then((r) => json<HealthResponse>(r));
+
+export interface SourceProbeDto {
+  id: string;
+  label: string;
+  ok: boolean;
+  ms: number | null;
+}
+
+export const healthSources = (): Promise<{ sources: SourceProbeDto[] }> => fetch('/api/health/sources').then((r) => json<{ sources: SourceProbeDto[] }>(r));

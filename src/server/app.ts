@@ -1,3 +1,4 @@
+import { cachedProbe, probeSources } from './health/probe.ts';
 import pkg from '../../package.json' with { type: 'json' };
 import { Hono } from 'hono';
 import { config, openSubtitlesEnabled, telegramBotEnabled, tmdbEnabled, torrentEnabled } from './config/config.ts';
@@ -92,6 +93,9 @@ app.get('/api/health', (c) =>
     accessEnabled: Boolean(config.access.token),
   }),
 );
+// Latência das fontes públicas: atrás do guard de acesso (só `/api/health` exato é público) e com cache de 60 s.
+const sourceHealth = cachedProbe(() => probeSources());
+app.get('/api/health/sources', async (c) => c.json({ sources: await sourceHealth() }));
 app.route('/api/search', searchRoutes);
 app.route('/api/tmdb', tmdbRoutes);
 app.route('/api/archive', archiveRoutes);
