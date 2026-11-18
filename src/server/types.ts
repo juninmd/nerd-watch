@@ -96,6 +96,8 @@ export interface TelegramItemRow {
   /** 1 = o Telegram marcou o vídeo como servível em streaming; 0 = não; null = sem atributo de vídeo (ex.: modo público). */
   supports_streaming: number | null;
   file_name: string | null;
+  /** Tópico do fórum a que o vídeo pertence; nulo fora de tópico. */
+  topic_id: string | null;
   /** Vínculo com a biblioteca (ver db/migrate-telegram-links.ts). Tudo nulo = sem vínculo. */
   title_id: string | null;
   season_number: number | null;

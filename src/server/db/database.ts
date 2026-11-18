@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { config } from '../config/config.ts';
 import { migrateAddTelegramItemLink } from './migrate-telegram-links.ts';
+import { migrateAddTelegramTopics } from './migrate-telegram-topics.ts';
 import { LIBRARY_HISTORY_KINDS, TELEGRAM_CHANNEL_MODES } from '../types.ts';
 import { LISTS_SCHEMA } from './schema-lists.ts';
 
@@ -319,6 +320,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   db.exec(MIGRATIONS);
   migrateAddRewatchCount(db);
   migrateAddTelegramItemLink(db);
+  migrateAddTelegramTopics(db);
   return db;
 };
 

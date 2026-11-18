@@ -5,12 +5,15 @@ import type { DockItem } from '../player/player-dock.ts';
  * Telegram não tem campo de título — usa a 1ª linha da legenda como título e o resto como descrição.
  * Sem corte: a tela do canal e a de reprodução mostram a mensagem inteira (o layout quebra a linha).
  */
-export const itemTitle = (item: { caption?: string | null; messageId: string } & { fileName?: string | null }): string => {
+export const itemTitle = (item: { caption?: string | null; messageId: string; fileName?: string | null; postedAt?: string | null }): string => {
   const firstLine = item.caption?.split('\n').find((l) => l.trim().length > 0);
   if (firstLine) return firstLine.trim();
   // Sem legenda: o nome do arquivo (sem extensão) é melhor título que o id da mensagem.
   const file = item.fileName?.trim().replace(/\.[A-Za-z0-9]{2,5}$/, '').trim();
-  return file || `Vídeo — mensagem ${item.messageId}`;
+  if (file) return file;
+  // Sem legenda nem arquivo: data + id distinguem os vídeos na lista (só o id não diz quando foi postado).
+  const posted = item.postedAt ? new Date(item.postedAt) : null;
+  return posted && !Number.isNaN(posted.getTime()) ? `Vídeo de ${posted.toLocaleDateString('pt-BR')} · mensagem ${item.messageId}` : `Vídeo — mensagem ${item.messageId}`;
 };
 
 /** Legenda ou nome de arquivo = o vídeo já se identifica sozinho; vincular a um título só faz sentido sem isso (ou para manter um vínculo existente). */

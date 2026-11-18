@@ -10,7 +10,17 @@ export interface TelegramPersonalItem {
   height?: number | null;
   supportsStreaming?: boolean | null;
   fileName?: string | null;
+  /** Tópico do fórum (id da mensagem que abre o tópico); nulo fora de fórum e no "Geral". */
+  topicId?: string | null;
 }
+
+/** Em fórum, a resposta ao tópico traz `replyToTopId` (ou só `replyToMsgId` quando responde direto à abertura do tópico). */
+export const topicOf = (msg: Pick<Api.Message, 'replyTo'>): string | null => {
+  const reply = msg.replyTo;
+  if (!(reply instanceof Api.MessageReplyHeader) || !reply.forumTopic) return null;
+  const id = reply.replyToTopId ?? reply.replyToMsgId;
+  return id ? String(id) : null;
+};
 
 /** Mensagem vira item de vídeo; devolve null para o que não é vídeo (foto, texto, áudio). */
 export const toItem = (msg: Api.Message): TelegramPersonalItem | null => {
@@ -29,5 +39,6 @@ export const toItem = (msg: Api.Message): TelegramPersonalItem | null => {
     height: videoAttr?.h ?? null,
     supportsStreaming: videoAttr ? videoAttr.supportsStreaming === true : null,
     fileName: nameAttr?.fileName || null,
+    topicId: topicOf(msg),
   };
 };

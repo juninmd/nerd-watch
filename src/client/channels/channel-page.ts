@@ -6,6 +6,7 @@ import {
   refreshTelegramChannel,
   refreshTelegramLinks,
   searchTelegramHistory,
+  syncTelegramChannelMeta,
   type TelegramChannelDetailDto,
 } from '../api/index.ts';
 import { backLinkHtml } from '../ui/back-link.ts';
@@ -22,6 +23,8 @@ import { filterItems, itemDescription, itemFileName, itemTitle, needsTitleLink, 
 import { formatDuration } from '../ui/time-format.ts';
 import { getListMode, setListMode } from './list-mode.ts';
 import { mediaUrl } from '../platform/tauri.ts';
+import { collapsePinsOnPhone, pinsCardHtml, topicTabsHtml } from './channel-side.ts';
+import { ALL, buildTopicTabs, groupByTab, itemsInTab } from './channel-topics.ts';
 
 /** Quantos cards aparecem de cada vez: milhares de vídeos carregados não viram milhares de nós no DOM. */
 const PAGE_SIZE = 60;
@@ -31,18 +34,29 @@ interface ListState {
   q: string;
   list: boolean;
   shown: number;
+  /** Aba de subgrupo ativa (`ALL` = todos agrupados). */
+  topic: string;
+  /** Já tentou sincronizar tópicos/fixadas nesta visita: não repete a cada reload. */
+  metaTried: boolean;
 }
 
 export const renderTelegramChannel = (host: HTMLElement, titleId: string): void => {
   host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
-  const ui: ListState = { q: '', list: getListMode(), shown: PAGE_SIZE };
+  const ui: ListState = { q: '', list: getListMode(), shown: PAGE_SIZE, topic: ALL, metaTried: false };
 
   const load = () => {
     // Recalcula o vínculo automático com a biblioteca atual antes de mostrar a lista (idempotente, sem falhar a tela).
     refreshTelegramLinks(titleId)
       .catch(() => undefined)
       .then(() => getTelegramChannel(titleId, { fillThumbs: true }))
-      .then((d) => renderDetail(host, d, load, ui))
+      .then((d) => {
+        renderDetail(host, d, load, ui);
+        // Tópicos e fixadas vêm do Telegram: busca uma vez por visita (conta pessoal) e redesenha só se algo mudou.
+        if (d.mode === 'personal' && !d.syncedAt && !ui.metaTried) {
+          ui.metaTried = true;
+          syncTelegramChannelMeta(titleId).then(load, () => undefined);
+        }
+      })
       .catch(() => {
         host.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar esse canal</div>`;
       });
@@ -54,6 +68,8 @@ export const renderTelegramChannel = (host: HTMLElement, titleId: string): void 
 const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: () => void, ui: ListState): void => {
   const order = getQueueOrder();
   const items = orderItems(d.items, order);
+  const tabs = buildTopicTabs(d.items, d.topics ?? []);
+  if (ui.topic !== ALL && !tabs.some((t) => t.id === ui.topic)) ui.topic = ALL;
   host.innerHTML = `
     ${backLinkHtml('#/telegram', 'Canais')}
     <div class="hero">
@@ -66,6 +82,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
           <div class="hero-meta">
             <span class="badge badge-archive">${MODE_INFO[d.mode].badge}</span>
             <span>${d.itemCount} vídeo${d.itemCount === 1 ? '' : 's'}</span>
+            ${tabs.length ? `<span>${tabs.length} subgrupo${tabs.length === 1 ? '' : 's'}</span>` : ''}
             ${d.link ? `<a class="tg-link" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(d.link.replace('https://', ''))}</a>` : ''}
           </div>
           ${d.description ? `<p class="hero-overview tg-description">${escapeHtml(d.description)}</p>` : ''}
@@ -82,17 +99,19 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
           <input type="search" class="input input-pill" id="tg-q" placeholder="buscar no título e na descrição dos vídeos" autocomplete="off" aria-label="Buscar nos vídeos deste canal" value="${escapeHtml(ui.q)}" />
           <span class="hint" id="tg-count" role="status" aria-live="polite"></span>
         </div>
+        ${topicTabsHtml(tabs, ui.topic, d.items.length)}
         <div id="tg-items" class="${ui.list ? 'tg-list' : 'grid'}"></div>
         <div id="tg-empty"></div>
         <div id="tg-more" class="tg-more"></div>
       </div>
-      <div>
+      <aside class="tg-side">
+        ${pinsCardHtml(d.handle, d.pins ?? [], tabs)}
         <div class="side-card">
           <h3>Sua lista</h3>
           <div id="status-actions"></div>
         </div>
         <button class="btn btn-ghost btn-sm" id="tg-delete" style="width:100%;justify-content:center;margin-top:12px;color:var(--danger)">${icon('trash', 'sm')} remover canal</button>
-      </div>
+      </aside>
     </div>
   `;
 
@@ -184,7 +203,16 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   };
 
   const renderItems = () => {
-    const matches = filterItems(orderItems(d.items, order), ui.q);
+    const inTab = itemsInTab(orderItems(d.items, order), ui.topic);
+    const grouped = ui.topic === ALL && tabs.length > 0 ? groupByTab(inTab, tabs) : null;
+    // Em "Todos" os vídeos saem agrupados por subgrupo; cada grupo ganha um cabeçalho ligado ao canal.
+    const headings = new Map<string, string>();
+    for (const g of grouped ?? []) {
+      const first = g.items[0];
+      if (first) headings.set(first.messageId, `${g.tab.title} · ${g.items.length}`);
+    }
+    const base = grouped ? grouped.flatMap((g) => g.items) : inTab;
+    const matches = filterItems(base, ui.q);
     current = matches;
     const visible = matches.slice(0, ui.shown);
     itemsHost.replaceChildren();
@@ -208,7 +236,16 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       emptyHost.replaceChildren();
     }
 
+    let lastHeading = '';
     for (const [i, item] of visible.entries()) {
+      const heading = grouped ? headings.get(item.messageId) : undefined;
+      if (heading && heading !== lastHeading) {
+        lastHeading = heading;
+        const h = document.createElement('h3');
+        h.className = 'tg-topic-head';
+        h.textContent = `${d.title} › ${heading}`;
+        itemsHost.appendChild(h);
+      }
       const saved = savedPosition(`${d.titleId}:${item.messageId}`);
       const resumeAt = resumePoint(saved);
       const watched = saved?.done === true;
@@ -302,6 +339,15 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     setQueueOrder((e.target as HTMLSelectElement).value as QueueOrder);
     renderDetail(host, d, reload, ui);
   });
+  // Aba de subgrupo ou tópico fixado da barra lateral: troca o filtro e redesenha só a lista.
+  for (const el of host.querySelectorAll<HTMLElement>('[data-topic]')) {
+    el.addEventListener('click', () => {
+      ui.topic = el.dataset.topic ?? ALL;
+      ui.shown = PAGE_SIZE;
+      renderDetail(host, d, reload, ui);
+    });
+  }
+  collapsePinsOnPhone(host);
   host.querySelector('#tg-view')?.addEventListener('click', () => {
     ui.list = !ui.list;
     setListMode(ui.list);

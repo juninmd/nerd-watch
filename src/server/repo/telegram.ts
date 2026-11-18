@@ -144,16 +144,17 @@ export interface NewTelegramItem {
   height?: number | null;
   supportsStreaming?: boolean | null;
   fileName?: string | null;
+  topicId?: string | null;
 }
 
 export const upsertTelegramItems = (db: Database, channelId: string, items: NewTelegramItem[]): TelegramItemRow[] => {
   const insert = db.query(
-    `INSERT INTO telegram_items (id, channel_id, message_id, caption, duration_seconds, thumbnail_url, posted_at, file_ref, width, height, supports_streaming, file_name)
-     VALUES ($id, $channelId, $messageId, $caption, $durationSeconds, $thumbnailUrl, $postedAt, $fileRef, $width, $height, $supportsStreaming, $fileName)
+    `INSERT INTO telegram_items (id, channel_id, message_id, caption, duration_seconds, thumbnail_url, posted_at, file_ref, width, height, supports_streaming, file_name, topic_id)
+     VALUES ($id, $channelId, $messageId, $caption, $durationSeconds, $thumbnailUrl, $postedAt, $fileRef, $width, $height, $supportsStreaming, $fileName, $topicId)
      ON CONFLICT (channel_id, message_id) DO UPDATE SET
        caption = excluded.caption, duration_seconds = excluded.duration_seconds,
        thumbnail_url = excluded.thumbnail_url, posted_at = excluded.posted_at, file_ref = excluded.file_ref,
-       width = excluded.width, height = excluded.height, supports_streaming = excluded.supports_streaming, file_name = excluded.file_name`,
+       width = excluded.width, height = excluded.height, supports_streaming = excluded.supports_streaming, file_name = excluded.file_name, topic_id = COALESCE(excluded.topic_id, topic_id)`,
   );
   const tx = db.transaction((rows: NewTelegramItem[]) => {
     for (const item of rows) {
@@ -170,6 +171,7 @@ export const upsertTelegramItems = (db: Database, channelId: string, items: NewT
         $height: item.height ?? null,
         $supportsStreaming: item.supportsStreaming == null ? null : item.supportsStreaming ? 1 : 0,
         $fileName: item.fileName ?? null,
+        $topicId: item.topicId ?? null,
       });
     }
   });

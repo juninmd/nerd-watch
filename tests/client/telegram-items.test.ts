@@ -11,6 +11,8 @@ describe('itemTitle / itemDescription', () => {
 
   test('sem legenda usa o id da mensagem; legenda de uma linha não tem descrição', () => {
     expect(itemTitle({ messageId: '9', caption: null })).toBe('Vídeo — mensagem 9');
+    expect(itemTitle({ messageId: '9', caption: null, postedAt: '2026-11-12T15:00:00Z' })).toBe('Vídeo de 12/11/2026 · mensagem 9');
+    expect(itemTitle({ messageId: '9', caption: null, postedAt: 'lixo' })).toBe('Vídeo — mensagem 9');
     expect(itemDescription({ caption: 'só o título' })).toBeNull();
     expect(itemDescription({ caption: null })).toBeNull();
   });

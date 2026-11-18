@@ -23,6 +23,7 @@ import { listPersonalChannels } from '../providers/telegram/personal-channels.ts
 import { TelegramPersonalNotConfiguredError, fetchPersonalChannelItems, streamPersonalItem, telegramPersonalEnabled } from '../providers/telegram/personal.ts';
 import { TelegramFloodWaitError, floodWaitResponse } from '../providers/telegram/flood-wait.ts';
 import { parseTelegramRef } from '../providers/telegram/ref.ts';
+import { getChannelMeta } from '../repo/telegram-topics.ts';
 import { loadLinkedTitles } from '../repo/telegram-links.ts';
 import { fetchPersonalVideoPage } from '../providers/telegram/personal.ts';
 import { itemMediaDto } from '../telegram/item-dto.ts';
@@ -140,6 +141,7 @@ telegramRoutes.post('/channels', async (c) => {
         height: i.height,
         supportsStreaming: i.supportsStreaming,
         fileName: i.fileName,
+        topicId: i.topicId,
       })),
     );
     // Sem isso o canal recém-importado só ganha miniaturas depois de um "atualizar" (o modo público já faz igual).
@@ -171,7 +173,9 @@ telegramRoutes.get('/channels/:id', async (c) => {
   return c.json({
     ...toChannelResponse(channel, items.length),
     library: getLibraryEntryByTitle(db, channel.id),
+    ...getChannelMeta(db, channel.id),
     items: items.map((i) => ({
+      topicId: i.topic_id,
       link: itemLinkDto(i, linkedTitles),
       messageId: i.message_id,
       caption: i.caption,
@@ -287,6 +291,7 @@ telegramRoutes.post('/channels/:id/refresh', async (c) => {
               height: i.height,
               supportsStreaming: i.supportsStreaming,
               fileName: i.fileName,
+              topicId: i.topicId,
             })),
           );
     await syncChannelInfo(db, channel);

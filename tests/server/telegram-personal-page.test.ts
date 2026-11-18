@@ -101,6 +101,7 @@ describe('fetchPersonalVideoPage', () => {
         height: null,
         supportsStreaming: null,
         fileName: null,
+        topicId: null,
       },
     ]);
   });

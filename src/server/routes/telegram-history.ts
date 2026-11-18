@@ -5,7 +5,9 @@ import { PrivateChannelNotFoundError } from '../providers/telegram/peer.ts';
 import { TelegramFloodWaitError, floodWaitResponse } from '../providers/telegram/flood-wait.ts';
 import { TelegramPersonalNotConfiguredError } from '../providers/telegram/personal.ts';
 import { TelegramChannelNotFoundError } from '../providers/telegram/public.ts';
+import { fetchPersonalChannelMeta } from '../providers/telegram/personal-meta.ts';
 import { getTelegramChannel } from '../repo/telegram.ts';
+import { getChannelMeta, replaceChannelMeta } from '../repo/telegram-topics.ts';
 import { hasHistory, loadMoreHistory, searchHistory } from '../telegram/history.ts';
 
 export const SEARCH_MAX_CHARS = 100;
@@ -49,6 +51,23 @@ telegramHistoryRoutes.post('/:id/search', async (c) => {
   try {
     const outcome = await searchHistory(db, channel, query);
     return outcome.ok ? c.json(outcome.value) : c.json({ error: outcome.error }, outcome.status);
+  } catch (err) {
+    if (err instanceof TelegramFloodWaitError) return floodWaitResponse(c, err);
+    const { error, status } = failure(err);
+    return c.json({ error }, status);
+  }
+});
+
+/** Tópicos do fórum e mensagens fixadas: só a conta pessoal enxerga (o modo público não expõe nenhum dos dois). */
+telegramHistoryRoutes.post('/:id/sync-meta', async (c) => {
+  const db = await getDb();
+  const channel = getTelegramChannel(db, c.req.param('id'));
+  if (!channel) return c.json({ error: 'canal não encontrado' }, 404);
+  if (channel.mode !== 'personal') return c.json({ topics: [], pins: [], syncedAt: null });
+  if (!telegramPersonalEnabled()) return c.json({ error: 'conta pessoal do Telegram não configurada — entre com o QR code em Conexões' }, 501);
+  try {
+    replaceChannelMeta(db, channel.id, await fetchPersonalChannelMeta(channel.handle));
+    return c.json(getChannelMeta(db, channel.id));
   } catch (err) {
     if (err instanceof TelegramFloodWaitError) return floodWaitResponse(c, err);
     const { error, status } = failure(err);
