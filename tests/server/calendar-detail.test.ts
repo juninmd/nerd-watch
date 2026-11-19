@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, describe, expect, mock, setSystemTime, test } from 'bun:test';
 import { calendarRoutes } from '../../src/server/routes/calendar.ts';
 import { resetAnilistRateLimitForTests } from '../../src/server/providers/anilist.ts';
 import { resetTvmazeRateLimitForTests } from '../../src/server/providers/tvmaze.ts';
@@ -81,7 +81,11 @@ describe('GET /api/calendar/detail', () => {
 });
 
 describe('GET /api/calendar/discover com ficha', () => {
+  // tvmazeWebPremieres is cached per date for the whole process; a date no other test uses keeps test order from mattering.
+  afterEach(() => setSystemTime());
+
   test('estreia da TVmaze já traz onde assistir e origem', async () => {
+    setSystemTime(new Date('2031-03-14T12:00:00'));
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       if (String(input).includes('/schedule/web')) return Response.json([{ name: 'Piloto', season: 1, number: 1, _embedded: { show } }]);
       return new Response('x', { status: 500 });
