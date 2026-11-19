@@ -53,7 +53,7 @@ export const renderSeasons = (
 
   container.innerHTML = `
     <div class="section-head"><h2>Episódios</h2></div>
-    <div class="season-tabs" id="season-tabs"></div>
+    <div class="season-tabs" id="season-tabs" role="group" aria-label="Temporadas"></div>
     <div id="episode-list"></div>
   `;
 
@@ -62,23 +62,27 @@ export const renderSeasons = (
 
   const renderTabs = () => {
     tabsEl.innerHTML = real
-      .map((s) => `<button class="chip${s.seasonNumber === activeSeason ? ' active' : ''}" data-season="${s.seasonNumber}">${escapeHtml(s.name)}</button>`)
+      .map((s) => `<button type="button" class="chip${s.seasonNumber === activeSeason ? ' active' : ''}" data-season="${s.seasonNumber}" aria-pressed="${s.seasonNumber === activeSeason}">${escapeHtml(s.name)}</button>`)
       .join('');
     tabsEl.querySelectorAll<HTMLButtonElement>('.chip').forEach((btn) => {
       btn.addEventListener('click', () => {
         activeSeason = Number(btn.dataset.season);
         renderTabs();
+        // O re-render troca os botões; sem devolver o foco, quem usa teclado perde a posição a cada troca.
+        tabsEl.querySelector<HTMLButtonElement>('.chip.active')?.focus();
         loadEpisodes();
       });
     });
   };
 
   const loadEpisodes = () => {
+    listEl.setAttribute('aria-busy', 'true');
     listEl.innerHTML = Array.from({ length: 4 }, () => '<div class="skeleton" style="height:96px;margin-bottom:10px"></div>').join('');
     const requestedSeason = activeSeason;
     getTmdbSeason(tmdbId, requestedSeason)
       .then((data) => {
         if (requestedSeason !== activeSeason) return;
+        listEl.removeAttribute('aria-busy');
         if (data.episodes.length === 0) {
           listEl.innerHTML = `<div class="empty-state"><div class="big">${icon('film')}</div>sem episódios listados para esta temporada</div>`;
           return;
@@ -130,7 +134,8 @@ export const renderSeasons = (
       })
       .catch(() => {
         if (requestedSeason !== activeSeason) return;
-        listEl.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar os episódios</div>`;
+        listEl.removeAttribute('aria-busy');
+        listEl.innerHTML = `<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar os episódios</div>`;
       });
   };
 
