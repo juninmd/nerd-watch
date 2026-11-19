@@ -25,6 +25,7 @@ permissions:
 jobs:
   version:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       changed: ${{ steps.next.outputs.changed }}
       version: ${{ steps.next.outputs.version }}
@@ -43,6 +44,7 @@ jobs:
     needs: version
     if: needs.version.outputs.changed == 'true'
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
