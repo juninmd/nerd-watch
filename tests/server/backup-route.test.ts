@@ -77,6 +77,77 @@ describe('POST /api/backup/import', () => {
     expect(restoredItem).toBeTruthy();
   });
 
+  test('preserva gêneros, duração, metadados de refresh e vínculos/tópicos de itens do Telegram', async () => {
+    const dbA = await getDb();
+    const title = upsertTitle(dbA, {
+      source: 'tmdb',
+      sourceId: '99',
+      mediaType: 'tv',
+      title: 'Série Rica',
+    });
+    dbA
+      .query('UPDATE titles SET genres = ?, runtime_minutes = ?, metadata_status = ?, metadata_refreshed_at = ? WHERE id = ?')
+      .run(JSON.stringify(['Drama', 'Ficção científica']), 52, 'Returning Series', '2026-05-01T12:00:00.000Z', title.id);
+
+    const ch = upsertTelegramChannel(dbA, { handle: 'canal_links', mode: 'public' });
+    upsertTelegramItems(dbA, ch.id, [{ messageId: '200', caption: 'S01E02', durationSeconds: 3000, topicId: '42' }]);
+    dbA
+      .query(
+        `UPDATE telegram_items
+         SET title_id = ?, season_number = 1, episode_number = 2, episode_end = 3,
+             link_status = 'linked', link_source = 'manual', link_confidence = 1
+         WHERE channel_id = ? AND message_id = '200'`,
+      )
+      .run(title.id, ch.id);
+
+    const dump = await (await backupRoutes.request('/')).json();
+    resetDbForTests(openDb(':memory:'));
+
+    const res = await backupRoutes.request('/import', { method: 'POST', body: JSON.stringify(dump) });
+    expect(res.status).toBe(200);
+
+    const dbB = await getDb();
+    const restoredTitle = dbB
+      .query<{ genres: string | null; runtime_minutes: number | null; metadata_status: string | null; metadata_refreshed_at: string | null }, [string]>(
+        'SELECT genres, runtime_minutes, metadata_status, metadata_refreshed_at FROM titles WHERE id = ?',
+      )
+      .get(title.id);
+    expect(restoredTitle).toEqual({
+      genres: JSON.stringify(['Drama', 'Ficção científica']),
+      runtime_minutes: 52,
+      metadata_status: 'Returning Series',
+      metadata_refreshed_at: '2026-05-01T12:00:00.000Z',
+    });
+
+    const restoredItem = dbB
+      .query<
+        {
+          topic_id: string | null;
+          title_id: string | null;
+          season_number: number | null;
+          episode_number: number | null;
+          episode_end: number | null;
+          link_status: string | null;
+          link_source: string | null;
+          link_confidence: number | null;
+        },
+        [string]
+      >(
+        'SELECT topic_id, title_id, season_number, episode_number, episode_end, link_status, link_source, link_confidence FROM telegram_items WHERE message_id = ?',
+      )
+      .get('200');
+    expect(restoredItem).toEqual({
+      topic_id: '42',
+      title_id: title.id,
+      season_number: 1,
+      episode_number: 2,
+      episode_end: 3,
+      link_status: 'linked',
+      link_source: 'manual',
+      link_confidence: 1,
+    });
+  });
+
   test('400 em JSON sem o formato esperado', async () => {
     const res = await backupRoutes.request('/import', { method: 'POST', body: JSON.stringify({ nada: 'a ver' }) });
     expect(res.status).toBe(400);

@@ -111,13 +111,15 @@ export interface ImportCounts {
  *  entrada de biblioteca criados depois do backup. */
 export const importBackup = (db: Database, backup: BackupData): ImportCounts => {
   const insertTitle = db.query(
-    `INSERT INTO titles (id, source, source_id, media_type, title, original_title, overview, poster_path, backdrop_path, release_date, vote_average, created_at)
-     VALUES ($id, $source, $source_id, $media_type, $title, $original_title, $overview, $poster_path, $backdrop_path, $release_date, $vote_average, $created_at)
+    `INSERT INTO titles (id, source, source_id, media_type, title, original_title, overview, poster_path, backdrop_path, release_date, vote_average, created_at, metadata_status, metadata_refreshed_at, genres, runtime_minutes)
+     VALUES ($id, $source, $source_id, $media_type, $title, $original_title, $overview, $poster_path, $backdrop_path, $release_date, $vote_average, $created_at, $metadata_status, $metadata_refreshed_at, $genres, $runtime_minutes)
      ON CONFLICT (id) DO UPDATE SET
        source = excluded.source, source_id = excluded.source_id, media_type = excluded.media_type, title = excluded.title,
        original_title = excluded.original_title, overview = excluded.overview, poster_path = excluded.poster_path,
        backdrop_path = excluded.backdrop_path, release_date = excluded.release_date, vote_average = excluded.vote_average,
-       created_at = excluded.created_at`,
+       created_at = excluded.created_at, metadata_status = excluded.metadata_status,
+       metadata_refreshed_at = excluded.metadata_refreshed_at, genres = excluded.genres,
+       runtime_minutes = excluded.runtime_minutes`,
   );
   const insertSeason = db.query(
     `INSERT INTO seasons (id, title_id, season_number, name, overview, air_date, poster_path)
@@ -155,12 +157,16 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
        mode = excluded.mode, handle = excluded.handle, cursor = excluded.cursor, created_at = excluded.created_at`,
   );
   const insertTelegramItem = db.query(
-    `INSERT INTO telegram_items (id, channel_id, message_id, caption, duration_seconds, thumbnail_url, posted_at, file_ref, width, height, supports_streaming, file_name)
-     VALUES ($id, $channel_id, $message_id, $caption, $duration_seconds, $thumbnail_url, $posted_at, $file_ref, $width, $height, $supports_streaming, $file_name)
+    `INSERT INTO telegram_items (id, channel_id, message_id, caption, duration_seconds, thumbnail_url, posted_at, file_ref, width, height, supports_streaming, file_name, topic_id, title_id, season_number, episode_number, episode_end, link_status, link_source, link_confidence)
+     VALUES ($id, $channel_id, $message_id, $caption, $duration_seconds, $thumbnail_url, $posted_at, $file_ref, $width, $height, $supports_streaming, $file_name, $topic_id, $title_id, $season_number, $episode_number, $episode_end, $link_status, $link_source, $link_confidence)
      ON CONFLICT (channel_id, message_id) DO UPDATE SET
        caption = excluded.caption, duration_seconds = excluded.duration_seconds,
        thumbnail_url = excluded.thumbnail_url, posted_at = excluded.posted_at, file_ref = excluded.file_ref,
-       width = excluded.width, height = excluded.height, supports_streaming = excluded.supports_streaming, file_name = excluded.file_name`,
+       width = excluded.width, height = excluded.height, supports_streaming = excluded.supports_streaming,
+       file_name = excluded.file_name, topic_id = excluded.topic_id, title_id = excluded.title_id,
+       season_number = excluded.season_number, episode_number = excluded.episode_number,
+       episode_end = excluded.episode_end, link_status = excluded.link_status,
+       link_source = excluded.link_source, link_confidence = excluded.link_confidence`,
   );
 
   const tx = db.transaction((data: BackupData) => {
@@ -178,6 +184,11 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
         $release_date: t.release_date,
         $vote_average: t.vote_average,
         $created_at: t.created_at,
+        // Backups anteriores às colunas de estatísticas/refresh não as trazem: entram nulas.
+        $metadata_status: t.metadata_status ?? null,
+        $metadata_refreshed_at: t.metadata_refreshed_at ?? null,
+        $genres: t.genres ?? null,
+        $runtime_minutes: t.runtime_minutes ?? null,
       });
     }
     for (const s of data.seasons) {
@@ -245,11 +256,19 @@ export const importBackup = (db: Database, backup: BackupData): ImportCounts => 
           $thumbnail_url: i.thumbnail_url,
           $posted_at: i.posted_at,
           $file_ref: i.file_ref,
-          // Backups anteriores às colunas de mídia não as trazem: ficam nulas até o canal ser atualizado.
+          // Backups anteriores às colunas de mídia/vínculo/tópico não as trazem: ficam nulas.
           $width: i.width ?? null,
           $height: i.height ?? null,
           $supports_streaming: i.supports_streaming ?? null,
           $file_name: i.file_name ?? null,
+          $topic_id: i.topic_id ?? null,
+          $title_id: i.title_id ?? null,
+          $season_number: i.season_number ?? null,
+          $episode_number: i.episode_number ?? null,
+          $episode_end: i.episode_end ?? null,
+          $link_status: i.link_status ?? null,
+          $link_source: i.link_source ?? null,
+          $link_confidence: i.link_confidence ?? null,
         });
       }
     }
