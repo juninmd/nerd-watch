@@ -27,6 +27,13 @@ quadros do Descobrir e busca de legendas. Abrir o addon pelo botão "explorar" c
 - Tudo que o addon devolve é normalizado: imagens e streams só `http(s)`; `ytId` vira embed `youtube-nocookie`; o resto é descartado. No HTML, tudo passa por `escapeHtml`.
 - Limite de 20 addons instalados.
 
+### Lista longa de streams
+
+Addon de torrent responde até **500 streams** por título (teto do banco dele, sem `skip`). A tela mostra
+os **8 primeiros** de cada addon e um botão "mostrar todos (N)"; acima de 500 a lista avisa que veio no
+teto do addon. Isso evita montar centenas de cartões no DOM de uma vez e deixa a comparação entre addons
+legível.
+
 ## O que cada recurso faz no app
 
 ### Manifest: o que o app guarda
