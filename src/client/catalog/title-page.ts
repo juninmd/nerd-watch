@@ -56,6 +56,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
     stopIfOnPageIn(host);
     getTmdbTitle(mediaType, id)
       .then((d) => {
+        if (!host.isConnected) return;
         const year = d.releaseDate?.slice(0, 4) ?? '—';
         // Fechamento defensivo: algo pode ter começado a tocar entre o início do `load` e a resposta da TMDB.
         releaseTorrentPlayers(host);
@@ -63,17 +64,17 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
         host.innerHTML = `
           ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
-            <div class="backdrop${d.backdropUrl ? '' : ' placeholder'}"${d.backdropUrl ? ` style="background-image:url('${d.backdropUrl}')"` : ''}></div>
+            <div class="backdrop${d.backdropUrl ? '' : ' placeholder'}"${d.backdropUrl ? ` style="background-image:url('${escapeHtml(d.backdropUrl)}')"` : ''}></div>
             <div class="scrim"></div>
             <div class="hero-content">
-              <div class="hero-poster"${d.posterUrl ? ` style="background-image:url('${d.posterUrl}')"` : ''}>
-                ${d.posterUrl ? '' : `<div style="display:grid;place-items:center;height:100%;background:var(--gradient-soft);font-size:34px;font-weight:800">${initials(d.title)}</div>`}
+              <div class="hero-poster"${d.posterUrl ? ` style="background-image:url('${escapeHtml(d.posterUrl)}')"` : ''}>
+                ${d.posterUrl ? '' : `<div style="display:grid;place-items:center;height:100%;background:var(--gradient-soft);font-size:34px;font-weight:800">${escapeHtml(initials(d.title))}</div>`}
               </div>
               <div class="hero-info">
                 <h1>${escapeHtml(d.title)}</h1>
                 <div class="hero-meta">
                   <span>${mediaType === 'tv' ? 'Série' : 'Filme'}</span>
-                  <span>${year}</span>
+                  <span>${escapeHtml(year)}</span>
                   ${d.voteAverage ? `<span>⭐ ${d.voteAverage.toFixed(1)}</span>` : ''}
                   <span>${escapeHtml(d.status)}</span>
                 </div>

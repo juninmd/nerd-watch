@@ -105,7 +105,7 @@ export const renderSeasons = (
           const row = document.createElement('div');
           row.className = `episode-row${isCurrent ? ' current' : ''}${watched ? ' watched' : ''}`;
           row.innerHTML = `
-            <div class="still"${ep.stillUrl ? ` style="background-image:url('${ep.stillUrl}')"` : ''}></div>
+            <div class="still"${ep.stillUrl ? ` style="background-image:url('${escapeHtml(ep.stillUrl)}')"` : ''}></div>
             <div class="body">
               <div class="head">
                 <span class="name"><button type="button" class="ep-title" aria-expanded="false">${ep.episodeNumber}. ${escapeHtml(ep.name)}</button>${watched ? ' <span class="seen">visto</span>' : ''}</span>
