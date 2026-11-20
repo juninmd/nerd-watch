@@ -129,7 +129,22 @@ stremioRoutes.get('/addons/:id/streams/:type/:itemId', (c) =>
     const streams = await fetchStreams(addon.baseUrl, c.req.param('type'), c.req.param('itemId'));
     // `trackers` fica no servidor: o cliente não precisa dele para tocar, e o addon não dita o que vai ao navegador.
     return c.json({
-      streams: streams.map((s) => ({ kind: s.kind, title: s.title, url: s.url, infoHash: s.infoHash, fileIdx: s.fileIdx, filename: s.filename })),
+      streams: streams.map((s) => ({
+        kind: s.kind,
+        title: s.title,
+        name: s.name,
+        description: s.description,
+        url: s.url,
+        infoHash: s.infoHash,
+        fileIdx: s.fileIdx,
+        filename: s.filename,
+        videoSize: s.videoSize,
+        notWebReady: s.notWebReady,
+        bingeGroup: s.bingeGroup,
+        countryWhitelist: s.countryWhitelist,
+        subtitleLangs: s.subtitleLangs,
+        trackerCount: s.trackerCount,
+      })),
     });
   }),
 );

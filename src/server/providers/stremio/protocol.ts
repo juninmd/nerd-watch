@@ -134,7 +134,13 @@ export interface MetaDetail extends MetaPreview {
   videos: MetaVideo[];
 }
 
-const intOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null);
+const INT_STR = /^\d{1,6}$/;
+/** Alguns addons devolvem `season`/`episode` como string (`"1"`) em vez de número: ambos viram inteiro válido. */
+const intOrNull = (v: unknown): number | null => {
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 0) return v;
+  if (typeof v === 'string' && INT_STR.test(v.trim())) return Number(v.trim());
+  return null;
+};
 
 export const fetchMeta = async (baseUrl: string, type: string, id: string): Promise<MetaDetail | null> => {
   const data = obj(await getAddonJson(`${baseUrl}/meta/${pathSegment(type)}/${pathSegment(id)}.json`));
@@ -166,40 +172,98 @@ export type StreamKind = 'url' | 'youtube' | 'external' | 'torrent';
 
 export interface AddonStream {
   kind: StreamKind;
+  /** Rótulo resumido (`name · description`) mantido para compatibilidade e acessibilidade. */
   title: string;
+  /** Nome curto enviado pelo addon (ex.: `Torrentio\n1080p`). */
+  name: string;
+  /** Descrição detalhada enviada pelo addon (`description` ou `title`), preservando quebras de linha. */
+  description: string;
   url: string | null;
   /** Só em `torrent`: infohash v1 normalizado (40 hex) e o índice de arquivo sugerido pelo addon. */
   infoHash: string | null;
   fileIdx: number | null;
   /** Nome do arquivo que o addon sugere (`behaviorHints.filename`), mostrado no seletor do player. */
   filename: string | null;
+  /** Tamanho em bytes informado em `behaviorHints.videoSize`, quando presente. */
+  videoSize: number | null;
+  /** `behaviorHints.notWebReady`: sinaliza que o container/codec pode não tocar direto no navegador. */
+  notWebReady: boolean;
+  /** `behaviorHints.bingeGroup`: grupo/qualidade de continuidade sugerido pelo addon. */
+  bingeGroup: string | null;
+  /** `behaviorHints.countryWhitelist`: códigos de país permitidos, quando o addon restringe por região. */
+  countryWhitelist: string[];
+  /** Idiomas de legendas embutidas declarados em `stream.subtitles`. */
+  subtitleLangs: string[];
+  /** Quantidade de trackers validados (as URLs dos trackers continuam só no servidor). */
+  trackerCount: number;
   /** Trackers já validados. Fica no servidor: não entra no DTO que vai para o cliente. */
   trackers: string[];
 }
 
 const YT_ID = /^[\w-]{11}$/;
+const MAX_VIDEO_SIZE = 1024 * 1024 * 1024 * 1024; // 1 TB
 
 /** Campos de torrent vazios: só o stream do tipo `torrent` carrega infohash. */
-const noTorrent = () => ({ infoHash: null, fileIdx: null, filename: null, trackers: [] as string[] });
+const noTorrent = () => ({ infoHash: null, fileIdx: null, filename: null, trackerCount: 0, trackers: [] as string[] });
+
+const videoSizeOrNull = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= MAX_VIDEO_SIZE ? Math.floor(v) : null;
+
+const subtitleLangsOf = (raw: unknown): string[] => {
+  const langs = new Set<string>();
+  for (const item of list(raw, 20)) {
+    const lang = str(obj(item).lang, 24);
+    if (lang) langs.add(lang);
+  }
+  return [...langs];
+};
+
+const countriesOf = (raw: unknown): string[] => {
+  const out = new Set<string>();
+  for (const item of list(raw, 20)) {
+    const code = str(item, 8).toUpperCase();
+    if (/^[A-Z]{2,3}$/.test(code)) out.add(code);
+  }
+  return [...out];
+};
 
 export const fetchStreams = async (baseUrl: string, type: string, id: string): Promise<AddonStream[]> => {
   const data = obj(await getAddonJson(`${baseUrl}/stream/${pathSegment(type)}/${pathSegment(id)}.json`));
   const out: AddonStream[] = [];
   for (const raw of list(data.streams, 100)) {
     const s = obj(raw);
-    const title = [str(s.name, 80), str(s.title ?? s.description, 300)].filter(Boolean).join(' · ') || 'stream';
+    const name = str(s.name, 120);
+    const description = str(s.description ?? s.title, 800);
+    const title = [name.replace(/\s+/g, ' '), description.replace(/\s+/g, ' ').slice(0, 300)].filter(Boolean).join(' · ') || 'stream';
     const url = safeHttpUrl(s.url);
     const external = safeHttpUrl(s.externalUrl);
     const yt = typeof s.ytId === 'string' && YT_ID.test(s.ytId) ? s.ytId : null;
     const hints = obj(s.behaviorHints);
+    const filename = str(hints.filename, 300) || null;
+    const common = {
+      title,
+      name,
+      description,
+      videoSize: videoSizeOrNull(hints.videoSize),
+      notWebReady: hints.notWebReady === true,
+      bingeGroup: str(hints.bingeGroup, 160) || null,
+      countryWhitelist: countriesOf(hints.countryWhitelist),
+      subtitleLangs: subtitleLangsOf(s.subtitles),
+    };
     const torrent = addonTorrentRef({ infoHash: s.infoHash, sources: s.sources, name: hints.filename });
     const torrentFields = torrent
-      ? { infoHash: torrent.infoHash, fileIdx: intOrNull(s.fileIdx), filename: str(hints.filename, 300) || null, trackers: torrent.trackers }
-      : noTorrent();
-    if (url) out.push({ kind: 'url', title, url, ...noTorrent() });
-    else if (yt) out.push({ kind: 'youtube', title, url: `https://www.youtube-nocookie.com/embed/${yt}`, ...noTorrent() });
-    else if (external) out.push({ kind: 'external', title, url: external, ...noTorrent() });
-    else if (torrent) out.push({ kind: 'torrent', title, url: null, ...torrentFields });
+      ? {
+          infoHash: torrent.infoHash,
+          fileIdx: intOrNull(s.fileIdx),
+          filename,
+          trackerCount: torrent.trackers.length,
+          trackers: torrent.trackers,
+        }
+      : { ...noTorrent(), filename };
+    if (url) out.push({ kind: 'url', url, ...noTorrent(), filename, ...common });
+    else if (yt) out.push({ kind: 'youtube', url: `https://www.youtube-nocookie.com/embed/${yt}`, ...noTorrent(), ...common });
+    else if (external) out.push({ kind: 'external', url: external, ...noTorrent(), filename, ...common });
+    else if (torrent) out.push({ kind: 'torrent', url: null, ...torrentFields, ...common });
   }
   return out;
 };

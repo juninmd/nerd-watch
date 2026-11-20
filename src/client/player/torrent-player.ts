@@ -47,6 +47,8 @@ export interface TorrentPanelOptions {
   hint?: string;
   /** Identidade no player global e rota de retorno (o Archive usa o título; addon usa o item do addon). */
   player?: { channelId: string; messageId: string; route: string };
+  /** Inicia o torrent logo ao montar (ex.: quando o usuário acabou de clicar num stream de addon). */
+  autoStart?: boolean;
   /** Chamado quando o painel é liberado (troca de fonte, re-render ou rota) para limpar o DOM que o hospeda. */
   onRelease?: () => void;
 }
@@ -213,10 +215,13 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
         wrap.innerHTML = '<p class="hint" style="margin:0">P2P desligado neste servidor (<code>TORRENT_ENABLED=false</code>).</p>';
         return;
       }
-      idle();
+      if (opts.autoStart) void start();
+      else idle();
     })
     .catch(() => {
-      if (!state.disposed) idle();
+      if (state.disposed) return;
+      if (opts.autoStart) void start();
+      else idle();
     });
 
   return wrap;

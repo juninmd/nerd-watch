@@ -17,10 +17,18 @@ const toClientStream = (stream: AddonStream, index: number): TitleStream => ({
   index,
   kind: stream.kind,
   title: stream.title,
+  name: stream.name,
+  description: stream.description,
   url: stream.url,
   infoHash: stream.infoHash,
   fileIdx: stream.fileIdx,
   filename: stream.filename,
+  videoSize: stream.videoSize,
+  notWebReady: stream.notWebReady,
+  bingeGroup: stream.bingeGroup,
+  countryWhitelist: stream.countryWhitelist,
+  subtitleLangs: stream.subtitleLangs,
+  trackerCount: stream.trackerCount,
 });
 
 export interface AddonStreamsResult {

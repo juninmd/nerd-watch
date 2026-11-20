@@ -1,59 +1,44 @@
-import { type AddonMetaDto, type AddonStreamDto, getAddonMeta, getAddonStreams, openAddonStream } from '../api/stremio.ts';
+import {
+  type AddonMetaDto,
+  type AddonStreamDto,
+  getAddonMeta,
+  getAddonStreams,
+  getTitleStreams,
+  openAddonStream,
+} from '../api/stremio.ts';
 import { renderInlinePlayer } from '../player/inline-player.ts';
-import { parkPlayer, stopIfOnPage } from '../player/player-dock.ts';
-import { renderTorrentPanel } from '../player/torrent-player.ts';
+import { stopIfOnPage } from '../player/player-dock.ts';
+import { releaseTorrentPlayers, renderTorrentPanel } from '../player/torrent-player.ts';
 import { renderSubtitlesPanel } from '../player/subtitles.ts';
 import { backButtonHtml, wireBackButton } from '../ui/back-button.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
+import { episodeLabel, listEpisodes, parseImdbEpisodeId } from './addon-episode.ts';
 import { addonItemPath, addonPath } from './addon-links.ts';
+import { streamCardHtml } from './stream-card.ts';
+import { mountStreams } from './title-streams-panel.ts';
 
-/** Id de episódio no protocolo (`tt1:1:2`) → o IMDb `tt…` serve para buscar legenda, e o `S/E` entra junto. */
-const IMDB = /^(tt\d+)(?::(\d+):(\d+))?$/;
-
-const streamRow = (s: AddonStreamDto, i: number): string => {
-  const title = escapeHtml(s.title);
-  switch (s.kind) {
-    case 'url':
-    case 'youtube':
-      return `<li><button type="button" class="btn btn-primary btn-sm stream-btn" data-play="${i}">${icon('play', 'sm')} ${title}</button></li>`;
-    case 'external':
-      return `<li><a class="btn btn-ghost btn-sm stream-btn" href="${escapeHtml(s.url ?? '')}" target="_blank" rel="noopener noreferrer">${icon('forward', 'sm')} ${title} (abre fora do app)</a></li>`;
-    default:
-      return `<li class="stream-torrent">
-        <button type="button" class="btn btn-primary btn-sm stream-btn" data-torrent="${i}">${icon('download', 'sm')} ${title}</button>
-        <p class="hint">${escapeHtml(s.filename ?? 'torrent')} · P2P</p>
-      </li>`;
-  }
-};
+const streamRow = (s: AddonStreamDto, i: number): string =>
+  streamCardHtml(s, {
+    buttonAttrs: s.kind === 'torrent' ? `data-torrent="${i}"` : `data-play="${i}"`,
+  });
 
 export const renderAddonItem = (host: HTMLElement, addonId: string, type: string, itemId: string): void => {
   host.innerHTML = `${backButtonHtml()}<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
   wireBackButton(host, addonPath(addonId));
 
-  const load = (currentId: string) => {
-    parkPlayer();
-    Promise.all([getAddonMeta(addonId, type, itemId), getAddonStreams(addonId, type, currentId).catch(() => null)])
-      .then(([meta, streams]) => paint(host, addonId, type, itemId, currentId, meta, streams, load))
-      .catch(() => {
-        host.innerHTML = `${backButtonHtml()}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar este item do addon</div>`;
-        wireBackButton(host, addonPath(addonId));
-      });
-  };
-  load(itemId);
+  getAddonMeta(addonId, type, itemId)
+    .then((meta) => mountItem(host, addonId, type, itemId, meta))
+    .catch(() => {
+      host.innerHTML = `${backButtonHtml()}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar este item do addon</div>`;
+      wireBackButton(host, addonPath(addonId));
+    });
 };
 
-const paint = (
-  host: HTMLElement,
-  addonId: string,
-  type: string,
-  itemId: string,
-  currentId: string,
-  meta: AddonMetaDto,
-  streams: AddonStreamDto[] | null,
-  reload: (id: string) => void,
-): void => {
-  const episodes = meta.videos.filter((v) => v.season !== null || v.episode !== null);
+const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: string, meta: AddonMetaDto): void => {
+  const episodes = listEpisodes(meta);
+  const route = addonItemPath(addonId, type, itemId);
+
   host.innerHTML = `
     <header class="view-head">
       ${backButtonHtml()}
@@ -67,20 +52,17 @@ const paint = (
         <p>${escapeHtml(meta.description || 'Sem sinopse disponível.')}</p>
       </div>
       <div>
-        <div class="side-card">
-          <h3>Streams do addon</h3>
-          ${
-            streams === null
-              ? `<p class="hint" role="alert">este addon não respondeu aos streams agora; tente de novo mais tarde.</p>`
-              : streams.length === 0
-                ? `<p class="hint">nenhum stream para este item.</p>`
-                : `<ul class="stream-list">${streams.map(streamRow).join('')}</ul>`
-          }
+        <div class="side-card" id="addon-streams-card">
+          <h3 id="addon-streams-title">Streams do addon</h3>
+          <div id="addon-streams"><div class="skeleton" style="height:56px"></div></div>
         </div>
         ${
           episodes.length
-            ? `<div class="side-card"><h3>Episódios</h3><ul class="stream-list">${episodes
-                .map((v) => `<li><button type="button" class="btn btn-ghost btn-sm stream-btn" data-ep="${escapeHtml(v.id)}"${v.id === currentId ? ' aria-current="true"' : ''}>${v.season !== null ? `T${v.season} ` : ''}${v.episode !== null ? `E${v.episode} ` : ''}${escapeHtml(v.title)}</button></li>`)
+            ? `<div class="side-card"><h3>Episódios</h3><ul class="stream-list" id="addon-episodes">${episodes
+                .map(
+                  (v) =>
+                    `<li><button type="button" class="btn btn-ghost btn-sm stream-btn" data-ep="${escapeHtml(v.id)}">${escapeHtml(episodeLabel(v))}</button></li>`,
+                )
                 .join('')}</ul></div>`
             : ''
         }
@@ -89,34 +71,53 @@ const paint = (
     </div>`;
   wireBackButton(host, addonPath(addonId));
 
-  const imdb = IMDB.exec(currentId);
-  (host.querySelector('#addon-subs') as HTMLElement).appendChild(renderSubtitlesPanel({ query: meta.name }));
-
   const playerHost = host.querySelector('#addon-player') as HTMLElement;
   const note = host.querySelector('#addon-player-note') as HTMLElement;
+  const streamsCard = host.querySelector('#addon-streams-card') as HTMLElement;
+  const streamsTitle = host.querySelector('#addon-streams-title') as HTMLElement;
+  const streamsBox = host.querySelector('#addon-streams') as HTMLElement;
+  const episodesBox = host.querySelector('#addon-episodes') as HTMLElement | null;
 
-  const play = (s: AddonStreamDto) => {
+  (host.querySelector('#addon-subs') as HTMLElement).appendChild(renderSubtitlesPanel({ query: meta.name }));
+
+  let seq = 0;
+
+  const reveal = (el: HTMLElement) => {
+    el.scrollIntoView({ block: 'nearest' });
+  };
+
+  const resetPlayer = () => {
+    stopIfOnPage();
+    releaseTorrentPlayers();
     note.textContent = '';
+    playerHost.innerHTML = '';
+  };
+
+  const playStream = (currentId: string, label: string, s: AddonStreamDto) => {
+    resetPlayer();
+    const imdb = parseImdbEpisodeId(currentId);
     if (s.kind === 'youtube' && s.url) {
-      stopIfOnPage();
-      playerHost.innerHTML = `<div class="player-frame"><iframe src="${escapeHtml(s.url)}" allowfullscreen title="${escapeHtml(meta.name)}"></iframe></div>`;
+      playerHost.innerHTML = `<div class="player-frame"><iframe src="${escapeHtml(s.url)}" allowfullscreen title="${escapeHtml(label)}"></iframe></div>`;
+      reveal(playerHost);
       return;
     }
     if (!s.url) return;
-    playerHost.innerHTML = '';
     playerHost.appendChild(
       renderInlinePlayer({
         item: {
           key: `stremio:${addonId}:${currentId}`,
           src: s.url,
-          title: meta.name,
+          title: label,
           subtitle: 'Addon do Stremio',
           poster: meta.poster,
           channelId: 'stremio',
           messageId: currentId,
           durationSeconds: null,
-          route: addonItemPath(addonId, type, itemId),
-          captions: { query: meta.name, ...(imdb ? { season: imdb[2] ? Number(imdb[2]) : null, episode: imdb[3] ? Number(imdb[3]) : null } : {}) },
+          route,
+          captions: {
+            query: meta.name,
+            ...(imdb ? { season: imdb.season, episode: imdb.episode } : {}),
+          },
         },
         minimizable: true,
         onUnsupported: () => {
@@ -125,38 +126,107 @@ const paint = (
         },
       }),
     );
+    reveal(playerHost);
   };
 
-  for (const b of host.querySelectorAll<HTMLButtonElement>('[data-play]')) {
-    b.addEventListener('click', () => {
-      const s = streams?.[Number(b.dataset.play)];
-      if (s) play(s);
+  const playTorrent = (currentId: string, label: string, index: number) => {
+    resetPlayer();
+    let panel: HTMLElement | null = null;
+    panel = renderTorrentPanel({
+      identifier: currentId,
+      title: label,
+      posterUrl: meta.poster,
+      open: (fileIndex) => openAddonStream(addonId, type, currentId, index, fileIndex),
+      sourceLabel: 'Addon · P2P',
+      hint: 'O servidor conecta direto nos peers deste torrent e serve os pedaços ao player; nada fica semeando ao sair da tela.',
+      player: { channelId: 'addon', messageId: currentId, route },
+      autoStart: true,
+      onRelease: () => panel?.remove(),
     });
-  }
-  for (const b of host.querySelectorAll<HTMLButtonElement>('[data-torrent]')) {
-    b.addEventListener('click', () => {
-      const index = Number(b.dataset.torrent);
-      if (!streams?.[index]) return;
-      stopIfOnPage();
-      note.textContent = '';
-      playerHost.innerHTML = '';
-      // Mesmo painel P2P do Internet Archive: stats de peers, troca de arquivo e fechamento ao sair da tela.
-      playerHost.appendChild(
-        renderTorrentPanel({
-          identifier: currentId,
-          title: meta.name,
+    playerHost.appendChild(panel);
+    reveal(playerHost);
+  };
+
+  const loadStreams = async (currentId: string, scroll: boolean): Promise<void> => {
+    const mine = ++seq;
+    const ep = episodes.find((v) => v.id === currentId);
+    const label = ep ? `${meta.name} · ${episodeLabel(ep)}` : meta.name;
+
+    if (episodesBox) {
+      for (const b of episodesBox.querySelectorAll<HTMLButtonElement>('[data-ep]')) {
+        if (b.dataset.ep === currentId) b.setAttribute('aria-current', 'true');
+        else b.removeAttribute('aria-current');
+      }
+    }
+
+    if (scroll) resetPlayer();
+    streamsTitle.textContent = ep ? `Streams — ${episodeLabel(ep)}` : 'Streams do addon';
+    streamsBox.innerHTML = '<div class="skeleton" style="height:56px"></div>';
+    streamsBox.setAttribute('aria-busy', 'true');
+    if (scroll) reveal(streamsCard);
+
+    const ownStreams = await getAddonStreams(addonId, type, currentId).catch(() => null);
+    if (mine !== seq || !streamsBox.isConnected) return;
+
+    if (ownStreams && ownStreams.length > 0) {
+      streamsBox.removeAttribute('aria-busy');
+      streamsBox.innerHTML = `<ul class="stream-list">${ownStreams.map(streamRow).join('')}</ul>`;
+      streamsBox.onclick = (event) => {
+        const playBtn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-play]');
+        if (playBtn) {
+          const s = ownStreams[Number(playBtn.dataset.play)];
+          if (s) playStream(currentId, label, s);
+          return;
+        }
+        const torBtn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-torrent]');
+        if (torBtn) {
+          const idx = Number(torBtn.dataset.torrent);
+          if (ownStreams[idx]) playTorrent(currentId, label, idx);
+        }
+      };
+      return;
+    }
+
+    // Addon só de catálogo/meta (ex.: Cinemeta) não devolve stream próprio: consulta os outros addons de stream instalados.
+    const imdb = parseImdbEpisodeId(currentId);
+    if (imdb && (type === 'movie' || imdb.episode !== null || episodes.length === 0)) {
+      const mediaType = type === 'movie' ? 'movie' : 'tv';
+      const fallback = await getTitleStreams({
+        imdbId: imdb.imdbId,
+        mediaType,
+        season: imdb.season,
+        episode: imdb.episode,
+      }).catch(() => null);
+      if (mine !== seq || !streamsBox.isConnected) return;
+      streamsBox.removeAttribute('aria-busy');
+      if (fallback && fallback.addons.length > 0) {
+        mountStreams(streamsBox, fallback, {
+          title: label,
           posterUrl: meta.poster,
-          open: (fileIndex) => openAddonStream(addonId, type, currentId, index, fileIndex),
-          sourceLabel: 'Addon · P2P',
-          hint: 'O servidor conecta direto nos peers deste torrent e serve os pedaços ao player; nada fica semeando ao sair da tela.',
-          player: { channelId: 'addon', messageId: currentId, route: addonItemPath(addonId, type, itemId) },
-        }),
-      );
-    });
-  }
-  for (const b of host.querySelectorAll<HTMLButtonElement>('[data-ep]')) {
-    b.addEventListener('click', () => {
-      if (b.dataset.ep) reload(b.dataset.ep);
-    });
-  }
+          route,
+          playerHost,
+          captions: { query: meta.name, mediaType, season: imdb.season, episode: imdb.episode },
+        });
+        return;
+      }
+    }
+
+    streamsBox.removeAttribute('aria-busy');
+    streamsBox.onclick = null;
+    if (episodes.length > 0 && currentId === itemId) {
+      streamsBox.innerHTML = '<p class="hint">Escolha um episódio abaixo para carregar os streams.</p>';
+    } else if (ownStreams === null) {
+      streamsBox.innerHTML = '<p class="hint" role="alert">este addon não respondeu aos streams agora; tente de novo mais tarde.</p>';
+    } else {
+      streamsBox.innerHTML = '<p class="hint">nenhum stream para este episódio.</p>';
+    }
+  };
+
+  episodesBox?.addEventListener('click', (event) => {
+    const btn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-ep]');
+    if (btn?.dataset.ep) void loadStreams(btn.dataset.ep, true);
+  });
+
+  // Em séries com episódios listados, já carrega o primeiro episódio ou o item raiz se for filme.
+  void loadStreams(itemId, false);
 };
