@@ -2,6 +2,7 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const ENV_PATH = '.env';
 
+const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PLAIN_VALUE = /^[A-Za-z0-9_@%+=:,./~-]*$/;
 
 /**
@@ -19,12 +20,17 @@ export const encodeEnvValue = (value: string): string => {
 
 /** Atualiza (ou insere) uma variável num arquivo `.env` local, preservando as demais linhas. Nunca loga o valor. */
 export const updateEnvVar = (key: string, value: string, path: string = ENV_PATH): void => {
-  if (/[\r\n]/.test(value)) throw new Error('valor inválido (não pode conter quebra de linha)');
+  if (!ENV_KEY.test(key)) throw new Error('nome de variável inválido');
+  if (/[\r\n\0]/.test(value)) throw new Error('valor inválido (não pode conter quebra de linha nem byte nulo)');
 
-  const lines = existsSync(path) ? readFileSync(path, 'utf-8').split('\n').filter((l, i, arr) => l !== '' || i !== arr.length - 1) : [];
-  const pattern = new RegExp(`^${key}=`);
-  const line = `${key}=${encodeEnvValue(value)}`;
-  const index = lines.findIndex((l) => pattern.test(l));
+  const lines = existsSync(path)
+    ? readFileSync(path, 'utf-8')
+        .split(/\r?\n/)
+        .filter((l, i, arr) => l !== '' || i !== arr.length - 1)
+    : [];
+  const prefix = `${key}=`;
+  const line = `${prefix}${encodeEnvValue(value)}`;
+  const index = lines.findIndex((l) => l.startsWith(prefix));
   if (index >= 0) lines[index] = line;
   else lines.push(line);
 

@@ -32,8 +32,18 @@ describe('updateEnvVar', () => {
     expect(lines).toEqual(['PORT=7799', 'TELEGRAM_BOT_TOKEN=new', 'DB_PATH=data/x.db']);
   });
 
-  test('rejeita valores com quebra de linha (evita injeção de outras variáveis)', () => {
+  test('rejeita valores com quebra de linha ou NUL e chaves inválidas', () => {
     expect(() => updateEnvVar('TELEGRAM_BOT_TOKEN', 'x\nEVIL=1', TEST_PATH)).toThrow();
+    expect(() => updateEnvVar('TELEGRAM_BOT_TOKEN', 'x\0y', TEST_PATH)).toThrow();
+    expect(() => updateEnvVar('BAD.KEY', '1', TEST_PATH)).toThrow();
+    expect(() => updateEnvVar('1NOPE', '1', TEST_PATH)).toThrow();
+    expect(() => updateEnvVar('A=B', '1', TEST_PATH)).toThrow();
+  });
+
+  test('normaliza CRLF existente sem deixar \\r solto nas linhas', () => {
+    writeFileSync(TEST_PATH, 'PORT=7799\r\nTELEGRAM_BOT_TOKEN=old\r\n');
+    updateEnvVar('TELEGRAM_BOT_TOKEN', 'new', TEST_PATH);
+    expect(readFileSync(TEST_PATH, 'utf-8')).toBe('PORT=7799\nTELEGRAM_BOT_TOKEN=new\n');
   });
 });
 
