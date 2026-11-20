@@ -34,6 +34,11 @@ import { createMediaRoutes } from './routes/media.ts';
 import { createMediaService } from './media/service.ts';
 import { localLocator } from './media/local-locator.ts';
 import { mediaSettings } from './media/settings.ts';
+import { createCastRoutes } from './routes/cast.ts';
+import { createCastService } from './cast/service.ts';
+import { createCastRelay } from './cast/relay.ts';
+import { createDlnaClient } from './cast/dlna-client.ts';
+import { listLanInterfaces } from './cast/network.ts';
 
 /**
  * Aplicação Hono, sem nada de processo: quem decide como ela é servida é o entrypoint.
@@ -125,6 +130,23 @@ app.route('/api/commons', commonsRoutes);
 // Conversão de formatos (ffmpeg opcional): sem o binário, nada muda e a UI explica o motivo.
 const mediaCfg = mediaSettings();
 app.route('/api/media', createMediaRoutes(createMediaService({ settings: mediaCfg, locate: localLocator })));
+
+// Transmissão para a TV na rede local (DLNA/UPnP + link/QR sob demanda): só abre porta na LAN enquanto há sessão.
+const castRelay = createCastRelay({
+  port: config.cast.port,
+  internalFetch: (req) => {
+    const headers = new Headers(req.headers);
+    headers.set('Host', `127.0.0.1:${config.port}`);
+    if (config.access.token) headers.set('Authorization', `Bearer ${config.access.token}`);
+    return app.fetch(new Request(req.url, { method: req.method, headers }));
+  },
+});
+const castService = createCastService({
+  relay: castRelay,
+  dlna: createDlnaClient(),
+  listInterfaces: () => listLanInterfaces(config.cast.host),
+});
+app.route('/api/cast', createCastRoutes(castService));
 
 // No app desktop o cliente vai embutido no Tauri, então este middleware só serve dev/Docker.
 app.use('/*', createStaticHandler(process.env.PUBLIC_DIR ?? './public'));

@@ -1,0 +1,249 @@
+/* Diálogo e controle remoto para enviar vídeo à TV via Wi-Fi / rede local. */
+.cast-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  background: var(--bg-soft);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+}
+
+.cast-dialog::backdrop {
+  background: rgb(0 0 0 / 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.cast-dialog button:focus-visible,
+.cast-dialog select:focus-visible,
+.cast-dialog input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cast-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cast-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cast-body {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.cast-video-title {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cast-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cast-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cast-section-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.cast-devices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cast-device {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cast-device:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+.cast-device-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cast-device-meta b {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cast-device-meta small {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.cast-remote {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.cast-remote-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cast-remote-head b {
+  font-size: 15px;
+}
+
+.cast-remote-status {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.cast-remote-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cast-remote-seek {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.cast-remote-time {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cast-remote-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cast-qr-box {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.cast-qr-img {
+  width: 128px;
+  height: 128px;
+  border-radius: 8px;
+  background: #fff;
+  padding: 4px;
+  display: block;
+}
+
+.cast-qr-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cast-url {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-dim);
+  word-break: break-all;
+  margin: 0;
+}
+
+.cast-url-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cast-iface-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.cast-iface-row select {
+  flex: 1;
+}
+
+.cast-err {
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.pc-row button[data-act="cast"].cast-active,
+.dock button[data-act="cast"].cast-active {
+  color: var(--accent-2);
+}
+
+@media (max-width: 520px) {
+  .cast-qr-box {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+}

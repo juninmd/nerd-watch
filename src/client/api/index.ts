@@ -4,6 +4,7 @@
  */
 export * from './backup.ts';
 export * from './calendar.ts';
+export * from './cast.ts';
 export * from './catalog.ts';
 export * from './credentials.ts';
 export * from './commons.ts';
