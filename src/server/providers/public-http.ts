@@ -40,7 +40,13 @@ export const fetchCapped = async (fetchFn: FetchFn, url: string, init: RequestIn
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetchFn(url, { ...init, redirect: 'manual', signal: controller.signal });
-    const declared = Number(res.headers.get('content-length'));
+    // Respostas fora de 2xx (redirects e erros) não têm corpo útil para os chamadores: cancela cedo sem baixar.
+    if (res.status < 200 || res.status >= 300) {
+      await res.body?.cancel().catch(() => undefined);
+      return { status: res.status, headers: res.headers, bytes: new Uint8Array() };
+    }
+    const declaredHeader = res.headers.get('content-length');
+    const declared = declaredHeader === null ? Number.NaN : Number(declaredHeader);
     if (Number.isFinite(declared) && declared > maxBytes) {
       await res.body?.cancel().catch(() => undefined);
       return { status: res.status, headers: res.headers, bytes: null };
