@@ -29,17 +29,27 @@ export class OpenSubtitlesRequestError extends Error {
 
 const call = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
   if (!config.opensubtitles.apiKey) throw new OpenSubtitlesNotConfiguredError();
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      'Api-Key': config.opensubtitles.apiKey,
-      'User-Agent': USER_AGENT,
-      'Content-Type': 'application/json',
-      ...init.headers,
-    },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) throw new OpenSubtitlesRequestError(res.status, `OpenSubtitles respondeu ${res.status}`);
+  let res: Response;
+  try {
+    // `redirect: 'error'` evita vazar `Api-Key` para outro host via redirecionamento.
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      redirect: 'error',
+      headers: {
+        'Api-Key': config.opensubtitles.apiKey,
+        'User-Agent': USER_AGENT,
+        'Content-Type': 'application/json',
+        ...init.headers,
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    throw new OpenSubtitlesRequestError(502, 'OpenSubtitles indisponível agora');
+  }
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new OpenSubtitlesRequestError(res.status, `OpenSubtitles respondeu ${res.status}`);
+  }
   return (await res.json()) as T;
 };
 
