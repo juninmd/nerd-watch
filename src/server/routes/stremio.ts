@@ -9,6 +9,8 @@ import { type AddonStream, fetchCatalog, fetchManifestFrom, fetchMeta, fetchStre
 import { streamsForTitle } from '../providers/stremio/title-streams.ts';
 import { parseAddonUrl } from '../providers/stremio/url.ts';
 import { deleteAddon, getAddon, type InstalledAddon, listAddons, saveAddon } from '../repo/stremio-addons.ts';
+import { subtitleFailureText } from './subtitles-vtt.ts';
+import { loadSubtitleAsVtt } from '../subtitles/load.ts';
 import { addonMagnet, type AddonTorrentRef } from '../torrent/addon-torrent.ts';
 import type { EpisodeHint } from '../torrent/episode-file.ts';
 import {
@@ -169,8 +171,34 @@ stremioRoutes.get('/addons/:id/streams/:type/:itemId', (c) =>
         bingeGroup: s.bingeGroup,
         countryWhitelist: s.countryWhitelist,
         subtitleLangs: s.subtitleLangs,
+        subtitles: s.subtitles.map(({ id, lang }) => ({ id, lang })),
         trackerCount: s.trackerCount,
       })),
+    });
+  }),
+);
+
+/**
+ * Legenda que o addon publica para um stream (`stream.subtitles`). O cliente manda a posição na lista,
+ * nunca a URL: o servidor reconsulta o addon, baixa a faixa com a mesma barreira das outras legendas
+ * (host público, teto de 2 MB, redirect checado) e devolve WebVTT.
+ */
+stremioRoutes.get('/addons/:id/subtitles/:type/:itemId/:streamIndex/:subIndex', (c) =>
+  withAddon(c, async (addon) => {
+    const streamIndex = c.req.param('streamIndex');
+    const subIndex = c.req.param('subIndex').replace(/\.vtt$/i, '');
+    if (!/^\d{1,3}$/.test(streamIndex) || !/^\d{1,3}$/.test(subIndex)) throw new ValidationError('legenda inválida');
+
+    const streams = await fetchStreams(addon.baseUrl, c.req.param('type'), c.req.param('itemId'));
+    const track = streams[Number(streamIndex)]?.subtitles[Number(subIndex)];
+    if (!track) throw new ValidationError('esta legenda não está mais na lista do addon; recarregue a página');
+
+    const loaded = await loadSubtitleAsVtt(track.url);
+    if (!loaded.ok) return c.json({ error: subtitleFailureText(loaded.reason) }, 502);
+    return c.body(loaded.vtt, 200, {
+      'Content-Type': 'text/vtt; charset=utf-8',
+      // A faixa é do addon; um cache curto evita rebaixar o mesmo arquivo a cada seek.
+      'Cache-Control': 'private, max-age=3600',
     });
   }),
 );

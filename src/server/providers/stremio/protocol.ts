@@ -229,6 +229,8 @@ export interface AddonStream {
   countryWhitelist: string[];
   /** Idiomas de legendas embutidas declarados em `stream.subtitles`. */
   subtitleLangs: string[];
+  /** Faixas de legenda que o próprio addon oferece para este stream (URL fica no servidor). */
+  subtitles: AddonSubtitle[];
   /** Quantidade de trackers validados (as URLs dos trackers continuam só no servidor). */
   trackerCount: number;
   /** Trackers já validados. Fica no servidor: não entra no DTO que vai para o cliente. */
@@ -244,13 +246,32 @@ const noTorrent = () => ({ infoHash: null, fileIdx: null, filename: null, tracke
 const videoSizeOrNull = (v: unknown): number | null =>
   typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= MAX_VIDEO_SIZE ? Math.floor(v) : null;
 
-const subtitleLangsOf = (raw: unknown): string[] => {
-  const langs = new Set<string>();
+/** Idiomas das faixas que passaram na normalização: faixa descartada não vira selo no card. */
+const subtitleLangsOf = (subtitles: readonly AddonSubtitle[]): string[] => [...new Set(subtitles.map((track) => track.lang))];
+
+/** Faixa de legenda publicada pelo addon para o stream. A URL nunca sai do servidor: o cliente pede por índice. */
+export interface AddonSubtitle {
+  id: string | null;
+  url: string;
+  lang: string;
+}
+
+/**
+ * Normaliza `stream.subtitles`. Só entra URL http(s) pública; a mesma URL repetida (o addon costuma
+ * mandar uma por episódio de pack) entra uma vez. Sem `lang` a faixa fica com `?` em vez de sumir:
+ * é melhor listar "desconhecido" do que esconder a legenda.
+ */
+const subtitlesOf = (raw: unknown): AddonSubtitle[] => {
+  const out: AddonSubtitle[] = [];
+  const seen = new Set<string>();
   for (const item of list(raw, 20)) {
-    const lang = str(obj(item).lang, 24);
-    if (lang) langs.add(lang);
+    const s = obj(item);
+    const url = safeHttpUrl(s.url);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    out.push({ id: str(s.id, 80) || null, url, lang: str(s.lang, 24) || '?' });
   }
-  return [...langs];
+  return out;
 };
 
 const countriesOf = (raw: unknown): string[] => {
@@ -275,6 +296,7 @@ export const fetchStreams = async (baseUrl: string, type: string, id: string): P
     const yt = typeof s.ytId === 'string' && YT_ID.test(s.ytId) ? s.ytId : null;
     const hints = obj(s.behaviorHints);
     const filename = str(hints.filename, 300) || null;
+    const subtitles = subtitlesOf(s.subtitles);
     const common = {
       title,
       name,
@@ -283,7 +305,8 @@ export const fetchStreams = async (baseUrl: string, type: string, id: string): P
       notWebReady: hints.notWebReady === true,
       bingeGroup: str(hints.bingeGroup, 160) || null,
       countryWhitelist: countriesOf(hints.countryWhitelist),
-      subtitleLangs: subtitleLangsOf(s.subtitles),
+      subtitleLangs: subtitleLangsOf(subtitles),
+      subtitles,
     };
     const torrent = addonTorrentRef({ infoHash: s.infoHash, sources: s.sources, name: hints.filename });
     const torrentFields = torrent

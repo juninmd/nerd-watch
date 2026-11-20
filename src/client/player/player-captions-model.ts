@@ -1,5 +1,15 @@
 /** Regras das legendas do player, sem DOM: de onde vêm, qual é a escolha e o que a tecla "c" faz. */
 
+/** Faixa de legenda publicada pelo addon do stream: já resolvida em `load()` (o JS não baixa nada antes de escolher). */
+export interface AddonCaptionTrack {
+  id: string;
+  label: string;
+  detail: string;
+  /** Código do idioma (`pt-BR`, `en`…), para a preferência do usuário casar. */
+  lang: string | null;
+  load(): Promise<string>;
+}
+
 /** Onde o item pode buscar legenda. Sem isto o menu só oferece o arquivo escolhido pelo usuário. */
 export interface CaptionContext {
   /** Título para busca textual (só a fonte que aceita texto livre usa). */
@@ -13,6 +23,8 @@ export interface CaptionContext {
   archiveId?: string;
   /** Só oferece a legenda do arquivo quando o detalhe do item diz que ela existe. */
   archiveHasSubtitle?: boolean;
+  /** Legendas que o próprio addon publica para o stream aberto (vêm antes das da busca). */
+  addonTracks?: AddonCaptionTrack[];
 }
 
 export const OFF = 'off';

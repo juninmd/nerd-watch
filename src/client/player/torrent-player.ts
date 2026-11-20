@@ -3,6 +3,7 @@ import { icon } from '../ui/icons.ts';
 import { titlePath } from '../ui/title-link.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { renderInlinePlayer } from './inline-player.ts';
+import type { CaptionContext } from './player-captions-model.ts';
 import { getNowPlaying, stopPlayer } from './player-dock.ts';
 
 const POLL_MS = 2000;
@@ -49,6 +50,8 @@ export interface TorrentPanelOptions {
   player?: { channelId: string; messageId: string; route: string };
   /** Inicia o torrent logo ao montar (ex.: quando o usuário acabou de clicar num stream de addon). */
   autoStart?: boolean;
+  /** Contexto de legendas para o player (o addon pode publicar faixas próprias para o stream). */
+  captions?: CaptionContext | null;
   /** Chamado quando o painel é liberado (troca de fonte, re-render ou rota) para limpar o DOM que o hospeda. */
   onRelease?: () => void;
 }
@@ -149,6 +152,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
           messageId: playerRef.messageId,
           durationSeconds: null,
           route: playerRef.route,
+          ...(opts.captions ? { captions: opts.captions } : {}),
         },
         minimizable: false,
       }),

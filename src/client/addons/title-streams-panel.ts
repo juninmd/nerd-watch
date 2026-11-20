@@ -6,6 +6,7 @@ import { releaseTorrentPlayers, renderTorrentPanel } from '../player/torrent-pla
 import { embedFrameHtml } from '../player/watch-embed.ts';
 import { currentRoute } from '../app/router.ts';
 import { escapeHtml } from '../ui/card.ts';
+import { addonCaptionTracks, withAddonTracks } from './addon-captions.ts';
 import { streamCardHtml } from './stream-card.ts';
 import { type AddonStreamGroup as Group, type AddonStreamItem as Stream, findAddonStream } from './stream-lookup.ts';
 
@@ -87,6 +88,8 @@ export const mountStreams = (container: HTMLElement, dto: TitleStreamsDto, view:
       return;
     }
     if (!s.url) return;
+    // Legendas que o addon publica para este stream entram no menu do player, antes das da busca.
+    const captions = withAddonTracks(view.captions, addonCaptionTracks({ addonId: g.addonId, type: g.type, contentId: g.contentId, streamIndex: s.index, subtitles: s.subtitles }));
     playerHost.appendChild(
       renderInlinePlayer({
         item: {
@@ -99,7 +102,7 @@ export const mountStreams = (container: HTMLElement, dto: TitleStreamsDto, view:
           messageId: g.contentId,
           durationSeconds: null,
           route: view.route,
-          captions: view.captions,
+          ...(captions ? { captions } : {}),
         },
         minimizable: true,
         onUnsupported: () => {
@@ -124,6 +127,7 @@ export const mountStreams = (container: HTMLElement, dto: TitleStreamsDto, view:
       hint: 'O servidor conecta direto nos peers deste torrent e serve os pedaços ao player; nada fica semeando ao sair da tela.',
       player: { channelId: 'addon', messageId: g.contentId, route: view.route },
       autoStart: true,
+      captions: withAddonTracks(view.captions, addonCaptionTracks({ addonId: g.addonId, type: g.type, contentId: g.contentId, streamIndex: s.index, subtitles: s.subtitles })),
       // Trocar de fonte em outro episódio libera este painel; sem isso sobraria um "parar" apontando para torrent fechado.
       onRelease: () => panel?.remove(),
     });

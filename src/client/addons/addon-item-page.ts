@@ -14,6 +14,7 @@ import { backButtonHtml, wireBackButton } from '../ui/back-button.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { episodeLabel, listEpisodes, parseImdbEpisodeId } from './addon-episode.ts';
+import { addonCaptionTracks } from './addon-captions.ts';
 import { addonItemPath, addonPath } from './addon-links.ts';
 import { groupEpisodes, filterEpisodes } from './episode-model.ts';
 import { streamCardHtml } from './stream-card.ts';
@@ -149,7 +150,7 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
     playerHost.innerHTML = '';
   };
 
-  const playStream = (currentId: string, label: string, s: AddonStreamDto) => {
+  const playStream = (currentId: string, label: string, s: AddonStreamDto, streamIndex: number) => {
     resetPlayer();
     const imdb = parseImdbEpisodeId(currentId);
     if (s.kind === 'youtube' && s.url) {
@@ -158,6 +159,7 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
       return;
     }
     if (!s.url) return;
+    const addonTracks = addonCaptionTracks({ addonId, type, contentId: currentId, streamIndex, subtitles: s.subtitles });
     playerHost.appendChild(
       renderInlinePlayer({
         item: {
@@ -173,6 +175,7 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
           captions: {
             query: meta.name,
             ...(imdb ? { season: imdb.season, episode: imdb.episode } : {}),
+            ...(addonTracks.length > 0 ? { addonTracks } : {}),
           },
         },
         minimizable: true,
@@ -233,8 +236,9 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
       streamsBox.onclick = (event) => {
         const playBtn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-play]');
         if (playBtn) {
-          const s = ownStreams[Number(playBtn.dataset.play)];
-          if (s) playStream(currentId, label, s);
+          const index = Number(playBtn.dataset.play);
+          const s = ownStreams[index];
+          if (s) playStream(currentId, label, s, index);
           return;
         }
         const torBtn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-torrent]');

@@ -74,6 +74,8 @@ export interface AddonStreamDto {
   bingeGroup?: string | null;
   countryWhitelist?: string[];
   subtitleLangs?: string[];
+  /** Faixas de legenda do próprio addon para este stream (sem URL: o servidor baixa por índice). */
+  subtitles?: Array<{ id: string | null; lang: string }>;
   trackerCount?: number;
 }
 
@@ -119,6 +121,16 @@ export const openAddonStream = (id: string, type: string, itemId: string, stream
     json<TorrentOpenResponse>(r),
   );
 };
+
+/**
+ * Legenda que o addon publica para o stream. O cliente manda a posição (stream e faixa), não a URL:
+ * o servidor reconsulta o addon e baixa o arquivo com a barreira de host público.
+ */
+export const fetchAddonSubtitleVtt = (id: string, type: string, itemId: string, streamIndex: number, subIndex: number): Promise<string> =>
+  fetch(`/api/stremio/addons/${seg(id)}/subtitles/${seg(type)}/${seg(itemId)}/${streamIndex}/${subIndex}`).then((r) => {
+    if (!r.ok) return json<{ error?: string }>(r).then((d) => Promise.reject(new Error(d.error ?? 'não foi possível carregar a legenda do addon')));
+    return r.text();
+  });
 
 export interface AddonStatusDto {
   ok: boolean;
