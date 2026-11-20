@@ -6,7 +6,8 @@ import { getDb } from '../db/database.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { replaceEpisodes, setCatalogStats, upsertSeason, upsertTitle } from '../repo/titles.ts';
 import { tvmazeShowMore } from '../providers/tvmaze-more.ts';
-import { tvmazePersonDetails, tvmazeSearchPeople } from '../providers/tvmaze-people.ts';
+import { tvmazePersonDetails, tvmazePersonShows, tvmazeSearchPeople } from '../providers/tvmaze-people.ts';
+import { wikipediaBio } from '../providers/wikipedia-bio.ts';
 import { TVMAZE_ATTRIBUTION, tvmazeSearchShows, tvmazeShowDetails, type TvmazeEpisode } from '../providers/tvmaze.ts';
 
 export const tvmazeRoutes = new Hono();
@@ -47,6 +48,25 @@ tvmazeRoutes.get('/person/:id', async (c) => {
   if (!ID_RE.test(id)) return c.json({ error: 'id inválido' }, 400);
   try {
     return c.json({ ...(await tvmazePersonDetails(Number(id))), attribution: TVMAZE_ATTRIBUTION });
+  } catch (err) {
+    return providerError(c, err);
+  }
+});
+
+/**
+ * Cartão da pessoa para o modal do elenco: séries com pôster (TVmaze) e mini bio (Wikipédia). O nome usado na busca
+ * da bio vem da TVmaze pelo id, nunca do cliente. Bio que falhar vira `null`: as séries ainda valem.
+ */
+tvmazeRoutes.get('/person/:id/card', async (c) => {
+  const id = c.req.param('id');
+  if (!ID_RE.test(id)) return c.json({ error: 'id inválido' }, 400);
+  try {
+    const [person, shows] = await Promise.all([tvmazePersonDetails(Number(id)), tvmazePersonShows(Number(id))]);
+    const bio = await wikipediaBio(person.name).catch((err: unknown) => {
+      console.warn(`[wikipedia] bio indisponível: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    });
+    return c.json({ person, shows, bio, attribution: TVMAZE_ATTRIBUTION });
   } catch (err) {
     return providerError(c, err);
   }

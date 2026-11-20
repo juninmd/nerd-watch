@@ -1,6 +1,6 @@
 import { withCache } from '../lib/cache.ts';
 import { httpsUrlOrNull } from '../lib/catalog-text.ts';
-import { isRecord, tvmazeGet, unexpected } from './tvmaze.ts';
+import { imageOf, isRecord, tvmazeGet, unexpected } from './tvmaze.ts';
 import { toPerson, type TvmazePerson } from './tvmaze-more.ts';
 
 const MINUTES = 60_000;
@@ -37,6 +37,43 @@ export const tvmazePersonDetails = withCache(6 * 60 * MINUTES, async (id: number
   const emb = isRecord(raw._embedded) ? raw._embedded : {};
   const credits = (key: string, roleKey: 'character' | 'type') => (Array.isArray(emb[key]) ? (emb[key] as unknown[]) : []).flatMap((c) => creditOf(c, roleKey));
   return { ...person, pageUrl: httpsUrlOrNull(raw.url), cast: credits('castcredits', 'character'), crew: credits('crewcredits', 'type') };
+});
+
+export interface TvmazePersonShow {
+  showId: number;
+  name: string;
+  year: string | null;
+  posterUrl: string | null;
+  rating: number | null;
+  /** Peso de popularidade (0–100): ordena do mais conhecido para o menos. */
+  weight: number;
+  role: string | null;
+  voice: boolean;
+}
+
+const MAX_PERSON_SHOWS = 12;
+
+/** Créditos de elenco com pôster, ano e nota numa chamada só (`embed[]=show&embed[]=character`), sem uma chamada por série. */
+export const tvmazePersonShows = withCache(6 * 60 * MINUTES, async (id: number): Promise<TvmazePersonShow[]> => {
+  const raw = await tvmazeGet(`/people/${id}/castcredits`, { embed: ['show', 'character'] });
+  if (!Array.isArray(raw)) throw unexpected();
+  const byShow = new Map<number, TvmazePersonShow>();
+  for (const c of raw) {
+    const emb = isRecord(c) && isRecord(c._embedded) ? c._embedded : null;
+    const show = emb && isRecord(emb.show) ? emb.show : null;
+    if (!show || typeof show.id !== 'number' || typeof show.name !== 'string' || byShow.has(show.id)) continue;
+    byShow.set(show.id, {
+      showId: show.id,
+      name: show.name,
+      year: typeof show.premiered === 'string' ? show.premiered.slice(0, 4) : null,
+      posterUrl: imageOf(show.image),
+      rating: isRecord(show.rating) && typeof show.rating.average === 'number' ? show.rating.average : null,
+      weight: typeof show.weight === 'number' ? show.weight : 0,
+      role: emb && isRecord(emb.character) && typeof emb.character.name === 'string' ? emb.character.name : null,
+      voice: isRecord(c) && c.voice === true,
+    });
+  }
+  return [...byShow.values()].sort((a, b) => b.weight - a.weight).slice(0, MAX_PERSON_SHOWS);
 });
 
 /** `/search/people?q=` devolve `[{ score, person }]`. */

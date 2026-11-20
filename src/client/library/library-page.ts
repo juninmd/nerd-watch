@@ -3,7 +3,7 @@ import { bulkLibrary, listLibrary, type LibraryItemDto } from '../api/index.ts';
 import { renderCard } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { openPickDialog } from './pick-dialog.ts';
-import { applyLibraryQuery, countByStatus, filterBySource, type SourceFilter, type StatusFilter } from './library-filter.ts';
+import { applyLibraryQuery, countByStatus, filterByName, filterBySource, type SourceFilter, type StatusFilter } from './library-filter.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { libraryItemPath } from '../ui/title-link.ts';
@@ -62,6 +62,7 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
   let status: StatusFilter = 'all';
   let source: SourceFilter = 'all';
   let sort: SavedViewSort = 'recent';
+  let nameQuery = '';
   let layout = loadLayout();
   let items: LibraryItemDto[] = [];
   let selecting = false;
@@ -75,6 +76,7 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
     <div id="lib-views"></div>
     <div class="toolbar">
       <div class="chip-row" id="lib-tabs" role="group" aria-label="Filtrar por status"></div>
+      <input class="input input-pill" id="lib-q" type="search" placeholder="Filtrar por nome" aria-label="Filtrar por nome" autocomplete="off" />
       <select class="select input-pill" id="lib-source" aria-label="Filtrar por origem">${SOURCES.map((s) => `<option value="${s.value}">${s.label}</option>`).join('')}</select>
       <select class="select input-pill" id="lib-sort" aria-label="Ordenar por">${SORTS.map((s) => `<option value="${s.value}">${s.label}</option>`).join('')}</select>
       <span class="toolbar-spacer"></span>
@@ -115,10 +117,10 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
   const listSel = renderBulkAddToList(() => [...picked]);
   (host.querySelector('#lib-to-list') as HTMLElement).appendChild(listSel);
 
-  const visible = (): LibraryItemDto[] => applyLibraryQuery(items, { status, source, sort });
+  const visible = (): LibraryItemDto[] => applyLibraryQuery(filterByName(items, nameQuery), { status, source, sort });
 
   const renderTabs = () => {
-    const counts = countByStatus(filterBySource(items, source));
+    const counts = countByStatus(filterBySource(filterByName(items, nameQuery), source));
     tabsEl.innerHTML = TABS.map(
       (t) => `<button class="chip${status === t.value ? ' active' : ''}" type="button" data-value="${t.value}" aria-pressed="${status === t.value}">${t.label} <span class="count">${counts[t.value]}</span></button>`,
     ).join('');
@@ -208,6 +210,8 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
     if (!(e.target as HTMLElement).closest('#lib-clear-filters')) return;
     status = 'all';
     source = 'all';
+    nameQuery = '';
+    (host.querySelector('#lib-q') as HTMLInputElement).value = '';
     (host.querySelector('#lib-source') as HTMLSelectElement).value = 'all';
     resetSelection();
     renderList();
@@ -220,6 +224,12 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-value]');
     if (!btn) return;
     status = btn.dataset.value as StatusFilter;
+    resetSelection();
+    renderList();
+  });
+
+  (host.querySelector('#lib-q') as HTMLInputElement).addEventListener('input', (e) => {
+    nameQuery = (e.target as HTMLInputElement).value;
     resetSelection();
     renderList();
   });

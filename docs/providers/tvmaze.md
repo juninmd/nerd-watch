@@ -18,10 +18,17 @@ Os dados são da TVmaze sob **CC BY-SA**: podem ser usados livremente desde que 
 | --- | --- |
 | `GET /api/tvmaze/search?q=` | resultados da busca direta |
 | `GET /api/tvmaze/:id` | grava título, temporadas e episódios (com data) e devolve o detalhe |
+| `GET /api/tvmaze/person/:id/card` | cartão do elenco: dados da pessoa, até 12 outras séries (castcredits, cache 6h) e mini bio da Wikipedia |
 
 A busca unificada (`GET /api/search`) já inclui os resultados da TVmaze, com o selo "série · TVmaze".
 
+## Mini bio (Wikipedia)
+
+O modal de elenco busca a bio no resumo REST da Wikipedia (`pt`, depois `en`), com User-Agent próprio, cache de 24h e limite de 30 pedidos a cada 10s. Só aceita página do tipo `standard` cujo texto fale de trabalho em tela (ator, atriz, actor, comedian...), para não mostrar homônimos. O texto é CC BY-SA e vem com crédito e link. Sem bio confiável, ou se a Wikipedia recusar (429), o cartão vem com `bio: null` e o modal diz isso.
+
 ## Limites conhecidos
+
+- A TVmaze só cobre TV: filmes não aparecem em "Outras séries".
 
 - Episódio sem número (especiais sem numeração) não é gravado: não há chave para ele na tabela de episódios.
 - Data de exibição fora do formato `AAAA-MM-DD` é descartada; o episódio aparece sem data e fica fora do calendário.

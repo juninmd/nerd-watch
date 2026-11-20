@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { TvmazeMoreDto } from '../../src/client/api/index.ts';
-import { akasHtml, castHtml, channelsHtml, crewHtml, episodeBadgesHtml, externalLinksHtml, factsOf, galleryHtml, groupCrew, metaByEpisode, nextPrevHtml } from '../../src/client/catalog/tvmaze-view.ts';
+import { akasHtml, channelsHtml, crewHtml, episodeTypeTag, externalLinksHtml, factsOf, galleryHtml, groupCrew, metaByEpisode, nextPrevHtml, personCardHtml, seasonSummaryText } from '../../src/client/catalog/tvmaze-view.ts';
 
 const person = (id: number, name: string, over: Record<string, unknown> = {}) => ({ id, name, imageUrl: null, country: null, birthday: null, deathday: null, gender: null, ...over });
 
@@ -13,14 +13,13 @@ const MORE = (over: Partial<TvmazeMoreDto> = {}): TvmazeMoreDto => ({
 
 describe('tvmaze-view', () => {
   test('escapa nome de pessoa e personagem vindos da API', () => {
-    const html = castHtml([{ person: person(1, '<img onerror=x>'), character: { name: '"><script>', imageUrl: null }, voice: false, self: false }]);
+    const html = personCardHtml(person(1, '<img onerror=x>'), '"><script>', null);
     expect(html).not.toContain('<img onerror');
     expect(html).not.toContain('<script>');
     expect(html).toContain('#/person/tvmaze/1');
   });
 
-  test('elenco vazio não gera seção', () => {
-    expect(castHtml([])).toBe('');
+  test('equipe e galeria vazias não geram seção', () => {
     expect(crewHtml([])).toBe('');
     expect(galleryHtml([])).toBe('');
   });
@@ -63,7 +62,23 @@ describe('tvmaze-view', () => {
   test('akas e notas por episódio', () => {
     expect(akasHtml(MORE({ akas: [{ name: 'Taht', country: 'Turkey' }] }))).toContain('Taht');
     const meta = metaByEpisode([{ id: 1, season: 2, number: 3, name: 'x', airdate: null, airstamp: null, runtime: 50, rating: 8.64, type: 'regular', url: null, imageUrl: null }]);
-    expect(episodeBadgesHtml(meta.get('2:3'))).toContain('★ 8.6');
-    expect(episodeBadgesHtml(meta.get('9:9'))).toBe('');
+    expect(meta.get('2:3')?.rating).toBe(8.64);
+    expect(meta.get('9:9')).toBeUndefined();
+  });
+
+  test('tipo de episódio vira selo só quando não é comum', () => {
+    expect(episodeTypeTag({ type: 'regular' })).toBeNull();
+    expect(episodeTypeTag(undefined)).toBeNull();
+    expect(episodeTypeTag({ type: 'significant_special' })).toBe('especial');
+    expect(episodeTypeTag({ type: 'insignificant_special' })).toBe('extra');
+  });
+
+  test('linha da temporada junta só o que a TVmaze preencheu', () => {
+    const seasons = [{ number: 1, name: null, episodeOrder: 25, premiereDate: '1998-09-21', endDate: null, imageUrl: null, summary: null, channel: 'CBS' }];
+    const text = seasonSummaryText({ seasons }, 1);
+    expect(text).toContain('25 episódios encomendados');
+    expect(text).toContain('CBS');
+    expect(text).not.toContain('final');
+    expect(seasonSummaryText({ seasons }, 2)).toBe('');
   });
 });

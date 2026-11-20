@@ -1,5 +1,5 @@
 import { backLinkHtml } from '../ui/back-link.ts';
-import { type CatalogSource, getTmdbTitle } from '../api/index.ts';
+import { type CatalogSource, getTmdbTitle, type TmdbDetailDto } from '../api/index.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { renderAddToList } from '../lists/add-to-list.ts';
 import { icon } from '../ui/icons.ts';
@@ -17,6 +17,16 @@ import { renderAnilistDetail } from './title-page-anilist.ts';
 import { renderSeasons } from './title-page-seasons.ts';
 import { renderTvmazeDetail } from './title-page-tvmaze.ts';
 import { renderSourceCompare } from './source-compare-card.ts';
+import { attachCollapsingHero } from '../ui/collapsing-hero.ts';
+import type { EpisodeMarker } from '../library/episode-progress.ts';
+import { progressFromMarker } from './episode-browser-model.ts';
+import { progressRingHtml } from './title-side-view.ts';
+
+/** Anel "seu progresso" pelo marcador da biblioteca; especiais (temporada 0) ficam fora da conta. */
+const tmdbProgressHtml = (d: TmdbDetailDto, marker: EpisodeMarker | null): string => {
+  const { watched, total } = progressFromMarker(d.seasons.map((s) => ({ number: s.seasonNumber, count: s.episodeCount })), marker);
+  return progressRingHtml(watched, total, marker ? `T${marker.season} · Ep ${marker.episode} é onde você parou` : null);
+};
 
 const initials = (title: string): string =>
   title
@@ -94,6 +104,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
               ${mediaType === 'movie' ? `<div class="empty-state"><div class="big">${icon('film')}</div>filmes protegidos por direitos autorais não são reproduzidos dentro do app — use os streamings ao lado, ou confira o acervo de <a href="#/public-domain">domínio público</a> se este título já for livre.</div>` : ''}
             </div>
             <div>
+              ${mediaType === 'tv' ? '<div id="prem-progress"></div>' : ''}
               <div class="side-card" id="where-card" tabindex="-1">${whereToWatchHtml(d.watchProviders)}</div>
               <div class="side-card">
                 <h3>Sua lista</h3>
@@ -113,6 +124,8 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
             </div>
           </div>
         `;
+
+        attachCollapsingHero(host.querySelector('.hero') as HTMLElement);
 
         for (const btn of host.querySelectorAll<HTMLElement>('[data-jump]')) {
           btn.addEventListener('click', () => {
@@ -140,7 +153,12 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
 
         if (mediaType === 'tv') {
           renderSourceCompare(host.querySelector('#source-compare') as HTMLElement, id);
-          renderSeasons(host.querySelector('#seasons-section') as HTMLElement, id, d.seasons, d.titleId, d.library, load);
+          const ring = host.querySelector('#prem-progress') as HTMLElement;
+          const lib = d.library;
+          ring.innerHTML = tmdbProgressHtml(d, lib?.current_season != null && lib.current_episode != null ? { season: lib.current_season, episode: lib.current_episode } : null);
+          renderSeasons(host.querySelector('#seasons-section') as HTMLElement, id, d.title, d.seasons, d.titleId, d.library, load, (m) => {
+            ring.innerHTML = tmdbProgressHtml(d, m);
+          });
         }
 
         renderTitleStreams(
