@@ -137,6 +137,10 @@ describe('POST /api/credentials/:key/test', () => {
       return new Response('{}');
     });
     expect(await (await req('/NOTIFY_DISCORD_WEBHOOK_URL/test', 'POST')).json()).toMatchObject({ ok: false });
+    config.notify.discordUrl = 'http://discord.com/api/webhooks/1/tok';
+    expect(await (await req('/NOTIFY_DISCORD_WEBHOOK_URL/test', 'POST')).json()).toMatchObject({ ok: false });
+    config.notify.discordUrl = 'https://discord.com/api/v10/users/@me';
+    expect(await (await req('/NOTIFY_DISCORD_WEBHOOK_URL/test', 'POST')).json()).toMatchObject({ ok: false });
     expect(called).toBe(false);
   });
 });

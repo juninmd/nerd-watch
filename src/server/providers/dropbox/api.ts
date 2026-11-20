@@ -117,5 +117,9 @@ export const downloadDropboxThumb = async (fileRef: string): Promise<Uint8Array 
     redirect: 'manual',
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  return res.ok ? readCapped(res, THUMB_MAX_BYTES) : null;
+  if (!res.ok) {
+    await res.body?.cancel();
+    return null;
+  }
+  return readCapped(res, THUMB_MAX_BYTES);
 };
