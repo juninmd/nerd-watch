@@ -24,14 +24,20 @@ const streamRow = (s: AddonStreamDto, i: number): string =>
   });
 
 export const renderAddonItem = (host: HTMLElement, addonId: string, type: string, itemId: string): void => {
-  host.innerHTML = `${backButtonHtml()}<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
-  wireBackButton(host, addonPath(addonId));
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = `${backButtonHtml()}<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  wireBackButton(root, addonPath(addonId));
 
   getAddonMeta(addonId, type, itemId)
-    .then((meta) => mountItem(host, addonId, type, itemId, meta))
+    .then((meta) => {
+      if (!root.isConnected) return;
+      mountItem(root, addonId, type, itemId, meta);
+    })
     .catch(() => {
-      host.innerHTML = `${backButtonHtml()}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar este item do addon</div>`;
-      wireBackButton(host, addonPath(addonId));
+      if (!root.isConnected) return;
+      root.innerHTML = `${backButtonHtml()}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar este item do addon</div>`;
+      wireBackButton(root, addonPath(addonId));
     });
 };
 

@@ -48,6 +48,7 @@ export const renderAddons = (host: HTMLElement): void => {
   const submit = host.querySelector('#addon-add') as HTMLButtonElement;
   const err = host.querySelector('#addon-err') as HTMLElement;
   const listEl = host.querySelector('#addon-list') as HTMLElement;
+  let loadSeq = 0;
 
   const paint = (addons: AddonDto[]) => {
     listEl.innerHTML = addons.length
@@ -57,19 +58,25 @@ export const renderAddons = (host: HTMLElement): void => {
       const el = listEl.querySelector<HTMLElement>(`.addon-row[data-id="${CSS.escape(a.id)}"] [data-status]`);
       getAddonStatus(a.id)
         .then((s) => {
-          if (el) el.textContent = s.ok ? 'status: respondendo' : `status: erro — ${s.error ?? 'sem resposta'}`;
+          if (el?.isConnected) el.textContent = s.ok ? 'status: respondendo' : `status: erro — ${s.error ?? 'sem resposta'}`;
         })
         .catch(() => {
-          if (el) el.textContent = 'status: não foi possível verificar';
+          if (el?.isConnected) el.textContent = 'status: não foi possível verificar';
         });
     }
   };
-  const load = () =>
-    listAddons()
-      .then(paint)
+  const load = () => {
+    const seq = ++loadSeq;
+    return listAddons()
+      .then((addons) => {
+        if (!listEl.isConnected || seq !== loadSeq) return;
+        paint(addons);
+      })
       .catch(() => {
+        if (!listEl.isConnected || seq !== loadSeq) return;
         listEl.innerHTML = `<li class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar os addons</li>`;
       });
+  };
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -83,16 +90,18 @@ export const renderAddons = (host: HTMLElement): void => {
     submit.disabled = true;
     installAddon(url)
       .then((a) => {
+        if (!listEl.isConnected) return;
         input.value = '';
         showToast(`Addon "${a.name}" instalado`);
         return load();
       })
       .catch((error: Error) => {
+        if (!listEl.isConnected) return;
         err.textContent = error.message;
         input.focus();
       })
       .finally(() => {
-        submit.disabled = false;
+        if (submit.isConnected) submit.disabled = false;
       });
   });
 
@@ -101,12 +110,19 @@ export const renderAddons = (host: HTMLElement): void => {
     const id = row?.dataset.id;
     if (!row || !id) return;
     if ((e.target as HTMLElement).closest('[data-browse]')) navigate(addonPath(id));
-    if ((e.target as HTMLElement).closest('[data-remove]')) {
+    const removeBtn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-remove]');
+    if (removeBtn) {
       const name = row.querySelector('h3')?.textContent?.trim() ?? 'addon';
       if (!confirm(`Remover o addon "${name}"? Nada do seu histórico muda; para voltar a usar, cole o link de novo.`)) return;
+      removeBtn.disabled = true;
       removeAddon(id)
-        .then(load)
-        .catch(() => showToast('Não foi possível remover o addon'));
+        .then(() => {
+          if (listEl.isConnected) void load();
+        })
+        .catch(() => {
+          if (removeBtn.isConnected) removeBtn.disabled = false;
+          if (listEl.isConnected) showToast('Não foi possível remover o addon');
+        });
     }
   });
 
