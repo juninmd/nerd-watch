@@ -332,6 +332,13 @@ export const getDb = async (): Promise<Database> => {
   return instance;
 };
 
+/** Fecha o singleton aberto (útil em scripts e encerramento limpo para soltar o WAL). */
+export const closeDb = (): void => {
+  if (!instance) return;
+  instance.close(true);
+  instance = undefined;
+};
+
 /** Só para testes de rota: injeta a instância que `getDb()` deve devolver (evita tocar `data/nerd-watch.db`). */
 export const resetDbForTests = (db?: Database): void => {
   instance = db;
