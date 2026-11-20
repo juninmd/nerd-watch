@@ -7,6 +7,25 @@ export interface AddonCatalogDto {
   name: string;
   searchable: boolean;
   paged: boolean;
+  /** Gêneros que o catálogo declara em `extra`; vazio = não filtra por gênero. */
+  genres: string[];
+  yearFilter: boolean;
+}
+
+/** Um catálogo de um addon instalado, já com o nome do addon: é o que a tela Descobrir lista. */
+export interface AddonBoardDto {
+  key: string;
+  addonId: string;
+  addonName: string;
+  logo: string | null;
+  host: string;
+  type: string;
+  catalogId: string;
+  name: string;
+  searchable: boolean;
+  paged: boolean;
+  genres: string[];
+  yearFilter: boolean;
 }
 
 /** O servidor nunca devolve o link do manifest (pode ter token no caminho): só o domínio. */
@@ -67,12 +86,22 @@ export const installAddon = (url: string): Promise<AddonDto> =>
 
 export const removeAddon = (id: string): Promise<void> => fetch(`/api/stremio/addons/${seg(id)}`, { method: 'DELETE' }).then((r) => json<unknown>(r).then(() => undefined));
 
-export const getAddonCatalog = (id: string, type: string, catalogId: string, opts: { search?: string; skip?: number } = {}): Promise<AddonItemDto[]> => {
+export const getAddonCatalog = (
+  id: string,
+  type: string,
+  catalogId: string,
+  opts: { search?: string; skip?: number; genre?: string; year?: string } = {},
+): Promise<AddonItemDto[]> => {
   const q = new URLSearchParams();
   if (opts.search) q.set('search', opts.search);
+  if (opts.genre) q.set('genre', opts.genre);
+  if (opts.year) q.set('year', opts.year);
   if (opts.skip) q.set('skip', String(opts.skip));
   return fetch(`/api/stremio/addons/${seg(id)}/catalog/${seg(type)}/${seg(catalogId)}?${q}`).then((r) => json<{ items: AddonItemDto[] }>(r)).then((d) => d.items);
 };
+
+/** Catálogos de todos os addons instalados (sem rede no servidor: sai do manifest guardado). */
+export const listBoards = (): Promise<AddonBoardDto[]> => fetch('/api/stremio/boards').then((r) => json<{ boards: AddonBoardDto[] }>(r)).then((d) => d.boards);
 
 export const getAddonMeta = (id: string, type: string, itemId: string): Promise<AddonMetaDto> =>
   fetch(`/api/stremio/addons/${seg(id)}/meta/${seg(type)}/${seg(itemId)}`).then((r) => json<AddonMetaDto>(r));

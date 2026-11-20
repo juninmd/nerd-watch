@@ -7,7 +7,7 @@ const addon = (id: string, catalogs: Array<{ type: string; id: string; searchabl
   manifestUrl: `https://${id}.example.com/manifest.json`,
   baseUrl: `https://${id}.example.com`,
   addedAt: '2026-01-01',
-  manifest: { id, name: `Addon ${id}`, version: '1', description: '', logo: null, types: ['movie'], resources, catalogs: catalogs.map((c) => ({ ...c, name: c.id, paged: false })) },
+  manifest: { id, name: `Addon ${id}`, version: '1', description: '', logo: null, types: ['movie'], resources, catalogs: catalogs.map((c) => ({ ...c, name: c.id, paged: false, genres: [], yearFilter: false })) },
 });
 
 const hit = (id: string) => ({ id, type: 'movie', name: `Filme ${id}`, poster: null, year: '2020' });

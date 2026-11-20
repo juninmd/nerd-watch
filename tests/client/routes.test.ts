@@ -17,6 +17,7 @@ describe('resolveRoute', () => {
       '/connections': 'connections',
       '/credentials': 'credentials',
       '/addons': 'addons',
+      '/descobrir': 'discover',
     };
     for (const [path, id] of Object.entries(fixed)) expect(idOf(path)).toBe(id);
   });

@@ -34,6 +34,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Descobrir',
     items: [
       { path: '/search', label: 'Buscar títulos', icon: 'search', key: 's', primary: true },
+      { path: '/descobrir', label: 'Catálogos dos addons', icon: 'grid', key: 'u' },
       { path: '/public-domain', label: 'Domínio público', icon: 'film', key: 'p' },
     ],
   },

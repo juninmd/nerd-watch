@@ -19,10 +19,21 @@ Tela **Addons Stremio** (`#/addons`, atalho `g o`). Implementa o [protocolo de a
 
 | Recurso | Uso |
 |---|---|
-| `catalog` | explorar o catálogo, com busca (`search`) e paginação (`skip`) quando o addon declara |
+| `catalog` | explorar o catálogo, com busca (`search`), gênero (`genre`), ano (`year`) e paginação (`skip`) — cada filtro só é oferecido quando o manifest o declara |
 | `meta` | sinopse, gêneros e episódios |
 | `stream` | `url` http(s) toca no player do app; `ytId` toca em embed; `externalUrl` abre fora; `infoHash` (torrent) toca no motor P2P local, igual a um magnet colado em Conexões |
 | `subtitles` | os addons instalados que declaram `subtitles` entram na busca de legendas junto com `SUBTITLE_ADDONS` |
+
+### Catálogos: Descobrir, gênero e ano
+
+- `#/descobrir` (atalho `g u`) monta um trilho por catálogo publicado pelos addons instalados
+  (`GET /api/stremio/boards`, sem rede no servidor: sai do manifest guardado). Filmes e séries vêm
+  primeiro, o total é limitado (8 trilhos, 14 itens cada) e um addon lento só deixa o próprio trilho
+  com aviso.
+- A tela de catálogo do addon mostra chips com os **gêneros que o próprio manifest declara**
+  (`extra[name=genre].options`). Gênero fora dessa lista é 400 em vez de virar catálogo vazio.
+- O filtro `year` segue a mesma regra: só passa se o manifest declarar `year`; o valor precisa ser
+  `AAAA`.
 
 ### Stream por torrent (`infoHash`)
 
@@ -56,7 +67,7 @@ segredo e imprime apenas nome/recursos/contagem de streams — nunca o endereço
 
 ## API local
 
-`GET/POST /api/stremio/addons`, `DELETE /api/stremio/addons/:id`,
+`GET/POST /api/stremio/addons`, `DELETE /api/stremio/addons/:id`, `GET /api/stremio/boards`,
 `GET /api/stremio/addons/:id/{catalog/:type/:catalogId | meta/:type/:itemId | streams/:type/:itemId}`,
 `GET /api/stremio/streams?mediaType=&tmdbId=|imdbId=&season=&episode=` (todas as fontes do título;
 cada grupo traz `type`, `contentId` e a posição `index` de cada stream) e

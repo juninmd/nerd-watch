@@ -29,6 +29,7 @@ const PAGES = {
   credentials: () => import('../credentials/credentials-page.ts'),
   settings: () => import('./settings-page.ts'),
   addons: () => import('../addons/addons-page.ts'),
+  discover: () => import('../addons/discover-page.ts'),
   addonBrowse: () => import('../addons/addon-browse-page.ts'),
   addonItem: () => import('../addons/addon-item-page.ts'),
   tvmazePerson: () => import('../catalog/person-page.ts'),
@@ -98,6 +99,7 @@ export const ROUTES: readonly RouteDef[] = [
   { id: 'data', pattern: /^\/data$/, open: async () => (await PAGES.data()).renderData },
   { id: 'credentials', pattern: /^\/credentials$/, open: async () => (await PAGES.credentials()).renderCredentials },
   { id: 'addons', pattern: /^\/addons$/, open: async () => (await PAGES.addons()).renderAddons },
+  { id: 'discover', pattern: /^\/descobrir$/, open: async () => (await PAGES.discover()).renderDiscover },
   {
     id: 'addonBrowse',
     pattern: /^\/addons\/([^/]+)$/,
