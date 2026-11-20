@@ -46,13 +46,58 @@ export const readPhoto = async (id: string): Promise<Photo | null> => {
   return null;
 };
 
-/** Baixa a foto de um CDN do Telegram (host na lista, sem seguir redirects, 2 MB no máximo). */
+/** Baixa a foto de um CDN do Telegram (host na lista, sem seguir redirects, 2 MB no máximo em streaming). */
 export const downloadPhoto = async (url: string): Promise<Uint8Array | null> => {
   if (!isTelegramPhotoUrl(url)) return null;
-  const res = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(10_000) });
-  if (!res.ok) return null;
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  return bytes.length > 0 && bytes.length <= MAX_BYTES ? bytes : null;
+  let res: Response;
+  try {
+    res = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(10_000) });
+  } catch {
+    return null;
+  }
+  if (!res.ok) {
+    await res.body?.cancel();
+    return null;
+  }
+  const declaredHeader = res.headers.get('content-length');
+  const declared = declaredHeader === null ? Number.NaN : Number(declaredHeader);
+  if (Number.isFinite(declared) && declared > MAX_BYTES) {
+    await res.body?.cancel();
+    return null;
+  }
+  if (!res.body) {
+    try {
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      return bytes.length > 0 && bytes.length <= MAX_BYTES ? bytes : null;
+    } catch {
+      return null;
+    }
+  }
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  }
+  if (total === 0) return null;
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
 };
 
 const MESSAGE_ID_RE = /^\d{1,19}$/;
