@@ -7,6 +7,7 @@
 
 const DAY_MS = 86_400_000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const UTC_ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 const MAX_CACHED_ZONES = 64;
@@ -96,6 +97,8 @@ const wallClockOffset = (ms: number, tz: string): number => {
 
 /** Dia civil (`YYYY-MM-DD`) de um instante, no fuso dado. */
 export const localDate = (at: Date | string, tz: string): string => {
+  // Em UTC, ISO terminado em Z já está no dia civil certo sem alocar Date nem consultar tabela de offsets.
+  if (tz === 'UTC' && typeof at === 'string' && UTC_ISO_RE.test(at)) return at.slice(0, 10);
   const date = typeof at === 'string' ? new Date(at) : at;
   const ms = date.getTime();
   // Fora de 1970–2100 (ou data inválida) vai pelo caminho exato: o atalho só cobre o que o histórico de fato guarda.
@@ -107,7 +110,9 @@ export const localDate = (at: Date | string, tz: string): string => {
 
 /** Número do dia desde a época (UTC, sem DST): base para diferença e soma de dias. */
 const dayNumber = (date: string): number => {
-  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const y = Number(date.slice(0, 4));
+  const m = Number(date.slice(5, 7));
+  const d = Number(date.slice(8, 10));
   return Math.round(Date.UTC(y, m - 1, d) / DAY_MS);
 };
 
@@ -117,8 +122,8 @@ export const yearOfDate = (date: string): number => Number(date.slice(0, 4));
 
 export const monthOfDate = (date: string): number => Number(date.slice(5, 7));
 
-/** Dia da semana de uma data civil: 0 = domingo … 6 = sábado (igual ao `Date.getDay`). */
-export const weekdayOf = (date: string): number => new Date(dayNumber(date) * DAY_MS).getUTCDay();
+/** Dia da semana de uma data civil: 0 = domingo … 6 = sábado (1970-01-01 foi quinta = 4). */
+export const weekdayOf = (date: string): number => (((dayNumber(date) + 4) % 7) + 7) % 7;
 
 /** `b - a` em dias civis (negativo se `b` vem antes). */
 export const dayDiff = (a: string, b: string): number => dayNumber(b) - dayNumber(a);
