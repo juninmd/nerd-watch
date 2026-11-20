@@ -1,11 +1,15 @@
 import { Hono } from 'hono';
+import { hasControlChar } from '../lib/text-guards.ts';
 import { ValidationError } from '../lib/validation-error.ts';
 import { commonsSearchVideos, commonsVideoDetails } from '../providers/commons.ts';
+
+const MAX_QUERY_LEN = 200;
 
 export const commonsRoutes = new Hono();
 
 commonsRoutes.get('/search', async (c) => {
   const query = c.req.query('q')?.trim() ?? '';
+  if (query.length > MAX_QUERY_LEN || hasControlChar(query)) return c.json({ error: 'consulta inválida' }, 400);
   try {
     return c.json({ results: await commonsSearchVideos(query, 24) });
   } catch {

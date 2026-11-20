@@ -1,6 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { Hono, type Context } from 'hono';
 import { CatalogRequestError } from '../lib/catalog-text.ts';
+import { hasControlChar } from '../lib/text-guards.ts';
 import { getDb } from '../db/database.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { replaceEpisodes, setCatalogStats, upsertSeason, upsertTitle } from '../repo/titles.ts';
@@ -11,6 +12,7 @@ import { TVMAZE_ATTRIBUTION, tvmazeSearchShows, tvmazeShowDetails, type TvmazeEp
 export const tvmazeRoutes = new Hono();
 
 const ID_RE = /^\d{1,10}$/;
+const MAX_QUERY_LEN = 200;
 
 /** Falha do catálogo vira a mensagem nossa com o status dele; qualquer outra exceção segue para o 500 do Hono. */
 const providerError = (c: Context, err: unknown) => {
@@ -21,6 +23,7 @@ const providerError = (c: Context, err: unknown) => {
 tvmazeRoutes.get('/search', async (c) => {
   const query = c.req.query('q')?.trim() ?? '';
   if (!query) return c.json({ error: 'parâmetro "q" é obrigatório' }, 400);
+  if (query.length > MAX_QUERY_LEN || hasControlChar(query)) return c.json({ error: 'consulta inválida' }, 400);
   try {
     return c.json({ results: await tvmazeSearchShows(query), attribution: TVMAZE_ATTRIBUTION });
   } catch (err) {
@@ -31,6 +34,7 @@ tvmazeRoutes.get('/search', async (c) => {
 tvmazeRoutes.get('/people/search', async (c) => {
   const query = c.req.query('q')?.trim() ?? '';
   if (!query) return c.json({ error: 'parâmetro "q" é obrigatório' }, 400);
+  if (query.length > MAX_QUERY_LEN || hasControlChar(query)) return c.json({ error: 'consulta inválida' }, 400);
   try {
     return c.json({ results: await tvmazeSearchPeople(query), attribution: TVMAZE_ATTRIBUTION });
   } catch (err) {
@@ -106,18 +110,21 @@ tvmazeRoutes.get('/:id', async (c) => {
   try {
     const show = await tvmazeShowDetails(Number(id));
     const db = await getDb();
-    const titleRow = upsertTitle(db, {
-      source: 'tvmaze',
-      sourceId: String(show.id),
-      mediaType: 'tv',
-      title: show.name,
-      overview: show.overview,
-      posterPath: show.imageUrl,
-      releaseDate: show.premiered,
-      voteAverage: show.rating,
-    });
-    setCatalogStats(db, titleRow.id, { genres: show.genres, runtimeMinutes: show.runtimeMinutes });
-    const seasons = persistSeasons(db, titleRow.id, show.episodes);
+    // Uma transação só para gravar título, estatísticas e todas as temporadas/episódios (evita N commits no SQLite).
+    const { titleRow, seasons } = db.transaction(() => {
+      const row = upsertTitle(db, {
+        source: 'tvmaze',
+        sourceId: String(show.id),
+        mediaType: 'tv',
+        title: show.name,
+        overview: show.overview,
+        posterPath: show.imageUrl,
+        releaseDate: show.premiered,
+        voteAverage: show.rating,
+      });
+      setCatalogStats(db, row.id, { genres: show.genres, runtimeMinutes: show.runtimeMinutes });
+      return { titleRow: row, seasons: persistSeasons(db, row.id, show.episodes) };
+    })();
 
     return c.json({
       titleId: titleRow.id,
