@@ -1,10 +1,26 @@
-import { goKeys } from './nav-model.ts';
+import { goKeys, NAV_ITEMS } from './nav-model.ts';
 
 /** Destinos do atalho "g + letra" (estilo GitHub). A paleta de comandos mostra as mesmas teclas. */
 export const GO_KEYS: Record<string, string> = goKeys();
 
 /** Rótulo da paleta de comandos para a tela: ⌘K em Mac/iOS (onde o Ctrl não existe), Ctrl K no resto. */
 export const paletteKeyLabel = (platform: string): string => (/mac|iphone|ipad|ipod/i.test(platform) ? '⌘K' : 'Ctrl K');
+
+/** Linhas da ajuda de atalhos (`?`): deriva a navegação de `NAV_ITEMS` para nunca desatualizar quando entra tela nova. */
+export const shortcutHelpRows = (platform: string): Array<[string, string]> => [
+  [`${paletteKeyLabel(platform)}  ou  /`, 'paleta de comandos'],
+  ...NAV_ITEMS.map((item): [string, string] => [`g  ${item.key}`, item.label]),
+  ['v', 'tema: escuro, claro, sistema'],
+  ['espaço  k', 'player: reproduzir / pausar'],
+  ['j  l', 'player: voltar / avançar 10 s'],
+  ['←  →', 'player: voltar / avançar 5 s'],
+  ['↑  ↓', 'player: volume'],
+  ['0 … 9', 'player: ir para 0% … 90%'],
+  ['m  f  c', 'player: mudo, tela cheia, legendas'],
+  ['<  >', 'player: velocidade menor / maior'],
+  ['n', 'player: próximo vídeo'],
+  ['?', 'esta ajuda'],
+];
 
 export type KeyOutcome =
   | { kind: 'palette' }
