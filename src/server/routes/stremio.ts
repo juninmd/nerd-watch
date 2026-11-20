@@ -10,6 +10,7 @@ import { streamsForTitle } from '../providers/stremio/title-streams.ts';
 import { parseAddonUrl } from '../providers/stremio/url.ts';
 import { deleteAddon, getAddon, type InstalledAddon, listAddons, saveAddon } from '../repo/stremio-addons.ts';
 import { addonMagnet, type AddonTorrentRef } from '../torrent/addon-torrent.ts';
+import type { EpisodeHint } from '../torrent/episode-file.ts';
 import {
   TorrentBadFileIndexError,
   TorrentDisabledError,
@@ -22,6 +23,12 @@ import { MagnetError } from '../torrent/magnet.ts';
 export const stremioRoutes = new Hono();
 
 const IMDB_ID_RE = /^tt\d{5,10}$/;
+/** Id de episódio do protocolo (`tt123:2:5`) → temporada e episódio, para achar o arquivo no pack. */
+const SERIES_EPISODE_RE = /:(\d{1,4}):(\d{1,4})$/;
+const episodeHintOf = (itemId: string): EpisodeHint | null => {
+  const m = SERIES_EPISODE_RE.exec(itemId);
+  return m ? { season: Number(m[1]), episode: Number(m[2]) } : null;
+};
 
 /** O manifest URL pode ter token no caminho: o cliente só recebe o domínio. */
 const toDto = (a: InstalledAddon) => ({
@@ -187,7 +194,10 @@ stremioRoutes.post('/addons/:id/streams/:type/:itemId/:index/open', (c) =>
     if (stream.kind !== 'torrent' || !stream.infoHash) throw new ValidationError('este stream não é um torrent');
 
     const ref: AddonTorrentRef = { infoHash: stream.infoHash, name: stream.filename ?? stream.title, trackers: stream.trackers };
-    const open = (index?: number) => openP2pVideo(ref.infoHash, addonMagnet(ref), index);
+    // Série: o id do protocolo carrega temporada/episódio, e o engine usa isso para achar o arquivo
+    // certo quando o pack não vem com `fileIdx`.
+    const episode = episodeHintOf(c.req.param('itemId'));
+    const open = (index?: number) => openP2pVideo(ref.infoHash, addonMagnet(ref), index, episode ?? undefined);
     let failure: unknown;
     try {
       // Sem escolha do usuário, o `fileIdx` do addon aponta o episódio certo do pack; trocar arquivo no painel manda `fileIndex`.
