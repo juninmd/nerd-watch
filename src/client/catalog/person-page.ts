@@ -31,10 +31,13 @@ const ageLabel = (p: TvmazePersonDto): string | null => {
 
 /** Página de uma pessoa da TVmaze: foto, dados e créditos de elenco e equipe (cada série leva à ficha dela). */
 export const renderTvmazePerson = (host: HTMLElement, id: string): void => {
-  host.innerHTML = `<div class="skeleton" style="height:240px;border-radius:20px"></div>`;
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = `<div class="skeleton" style="height:240px;border-radius:20px"></div>`;
   const load = () => {
     getTvmazePerson(id)
       .then((p) => {
+        if (!root.isConnected) return;
         const facts = [
           p.birthday ? `nasc. ${dateLabel(p.birthday)}` : null,
           p.deathday ? `faleceu em ${dateLabel(p.deathday)}` : null,
@@ -42,7 +45,7 @@ export const renderTvmazePerson = (host: HTMLElement, id: string): void => {
           p.country,
           p.gender,
         ].filter((f): f is string => Boolean(f));
-        host.innerHTML = `
+        root.innerHTML = `
           ${backLinkHtml('#/search', 'Voltar', true)}
           <div class="tvm-person-head">
             ${p.imageUrl ? `<img class="tvm-photo big" src="${escapeHtml(p.imageUrl)}" alt="" decoding="async" />` : `<span class="tvm-photo big tvm-photo-empty" aria-hidden="true">${escapeHtml(initials(p.name))}</span>`}
@@ -57,7 +60,9 @@ export const renderTvmazePerson = (host: HTMLElement, id: string): void => {
           ${p.cast.length + p.crew.length === 0 ? '<div class="empty-state">sem créditos listados</div>' : ''}
           <p class="hint">Dados: <a href="${escapeHtml(p.attribution.url)}" target="_blank" rel="noopener noreferrer">TVmaze</a>, licença ${escapeHtml(p.attribution.license ?? 'CC BY-SA')}.</p>`;
       })
-      .catch(() => renderTitleError(host, load));
+      .catch(() => {
+        if (root.isConnected) renderTitleError(root, load);
+      });
   };
   load();
 };

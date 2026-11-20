@@ -57,15 +57,16 @@ export const renderPublicDomain = (host: HTMLElement): void => {
         : searchArchive(q, source).then((data) => archiveCards(data.results));
     request
       .then((cards) => {
-        if (mine === seq) show(cards);
+        if (mine === seq && grid.isConnected) show(cards);
       })
       .catch(() => {
-        if (mine !== seq) return;
+        if (mine !== seq || !grid.isConnected) return;
         grid.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>${source === COMMONS ? 'Wikimedia Commons' : 'Internet Archive'} indisponível agora</div>`;
       });
   };
 
   const paintSources = (collections: ArchiveCollectionDto[]) => {
+    if (!sourcesEl.isConnected) return;
     const all = [...collections.map((c) => ({ id: c.id, label: `Archive: ${c.label}` })), { id: COMMONS, label: 'Wikimedia Commons' }];
     sourcesEl.innerHTML = all.map((s) => `<button type="button" class="chip${s.id === source ? ' active' : ''}" data-source="${escapeHtml(s.id)}" aria-pressed="${s.id === source}">${escapeHtml(s.label)}</button>`).join('');
   };
@@ -90,7 +91,9 @@ export const renderPublicDomain = (host: HTMLElement): void => {
   let debounce: ReturnType<typeof setTimeout>;
   input.addEventListener('input', () => {
     clearTimeout(debounce);
-    debounce = setTimeout(() => load(input.value.trim()), 350);
+    debounce = setTimeout(() => {
+      if (input.isConnected) load(input.value.trim());
+    }, 350);
   });
 
   load('');
