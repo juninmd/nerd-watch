@@ -18,8 +18,10 @@ const providersHtml = (info: CalendarInfoDto): string =>
 /** Detalhe do item: capa larga, sinopse, onde assistir, links e trailer (o iframe só carrega ao clicar). */
 export const openCalendarDetail = (e: AgendaEntry, info: CalendarInfoDto | null, onOpenTitle: () => void): void => {
   if (dialog?.open) dialog.close();
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const d = document.createElement('dialog');
   d.className = 'cal-dialog';
+  d.setAttribute('closedby', 'any');
   d.setAttribute('aria-labelledby', 'cal-dlg-title');
   const i = info;
   d.innerHTML = `
@@ -51,6 +53,7 @@ export const openCalendarDetail = (e: AgendaEntry, info: CalendarInfoDto | null,
   d.addEventListener('close', () => {
     d.remove();
     if (dialog === d) dialog = null;
+    if (opener?.isConnected) opener.focus();
   });
   d.addEventListener('click', (ev) => {
     if (ev.target === d) d.close();

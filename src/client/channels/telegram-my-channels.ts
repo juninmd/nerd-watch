@@ -11,6 +11,7 @@ const formatMembers = (n: number | null): string => (n === null ? '' : `${n.toLo
  * marcados (um por vez, com progresso).
  */
 export const openMyChannelsDialog = (onImported: () => void): void => {
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const dialog = document.createElement('dialog');
   dialog.className = 'dialog';
   dialog.setAttribute('closedby', 'any');
@@ -28,7 +29,10 @@ export const openMyChannelsDialog = (onImported: () => void): void => {
     </div>
   `;
   document.body.appendChild(dialog);
-  dialog.addEventListener('close', () => dialog.remove());
+  dialog.addEventListener('close', () => {
+    dialog.remove();
+    if (opener?.isConnected) opener.focus();
+  });
   // `closedby="any"` ainda não existe em todo navegador: clique no backdrop fecha via fallback.
   dialog.addEventListener('click', (e) => {
     if (e.target === dialog) dialog.close();
