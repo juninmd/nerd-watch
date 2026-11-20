@@ -5,6 +5,7 @@ import {
   castSeekTarget,
   castStatusLabel,
   formatDeviceSubtitle,
+  remotePlaybackView,
 } from '../../src/client/player/player-cast-model.ts';
 
 const baseItem: DockItem = {
@@ -49,5 +50,23 @@ describe('player-cast-model', () => {
     expect(castSeekTarget(95, 10, 100)).toBe(100);
     expect(castSeekTarget(30, 10, null)).toBe(40);
     expect(castSeekTarget(null, 10, 100)).toBe(10);
+  });
+
+  test('remotePlaybackView calcula progresso, rótulo e slider limitado a 0..1000', () => {
+    expect(remotePlaybackView({ state: 'PLAYING', positionSeconds: 90, durationSeconds: 180 })).toEqual({
+      playing: true,
+      statusLabel: 'Reproduzindo na TV',
+      hasDuration: true,
+      sliderValue: 500,
+      timeLabel: '1:30 / 3:00',
+    });
+    expect(remotePlaybackView({ state: 'PAUSED_PLAYBACK', positionSeconds: 250, durationSeconds: 180 }).sliderValue).toBe(1000);
+    expect(remotePlaybackView({ state: 'TRANSITIONING', positionSeconds: 0, durationSeconds: null })).toEqual({
+      playing: false,
+      statusLabel: 'Carregando na TV…',
+      hasDuration: false,
+      sliderValue: 0,
+      timeLabel: '0:00',
+    });
   });
 });

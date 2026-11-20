@@ -12,8 +12,7 @@ import {
 import { showToast } from '../app/state.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
-import { formatDuration } from '../ui/time-format.ts';
-import { canCastItem, castSeekTarget, castStatusLabel, formatDeviceSubtitle } from './player-cast-model.ts';
+import { canCastItem, castSeekTarget, formatDeviceSubtitle, remotePlaybackView } from './player-cast-model.ts';
 import type { DockItem } from './player-dock.ts';
 
 const POLL_MS = 3000;
@@ -86,10 +85,43 @@ export const createCastController = (host: CastHost): CastController => {
         .then((res) => {
           if (session?.id !== id) return;
           playback = res.playback;
-          paint();
+          updateRemoteDom();
         })
         .catch(() => {});
     }, POLL_MS);
+  };
+
+  /**
+   * Atualiza só o texto, a barra e o botão play/pausa do controle remoto durante o polling.
+   * Reconstruir `dialog.innerHTML` a cada 3 s derrubava o foco do teclado, fechava o `<select>` de rede
+   * e interrompia o arraste do slider de busca.
+   */
+  const updateRemoteDom = () => {
+    if (!dialog || !session?.device) return;
+    const remote = dialog.querySelector('.cast-remote');
+    if (!remote) return paint();
+    const view = remotePlaybackView(playback);
+    const seekEl = remote.querySelector<HTMLInputElement>('.cast-remote-seek');
+    if (Boolean(seekEl) !== view.hasDuration) return paint();
+
+    const statusEl = remote.querySelector('.cast-remote-status');
+    if (statusEl) statusEl.textContent = view.statusLabel;
+
+    const timeEl = remote.querySelector('.cast-remote-time');
+    if (timeEl) timeEl.textContent = view.timeLabel;
+
+    if (seekEl && document.activeElement !== seekEl) {
+      seekEl.value = String(view.sliderValue);
+    }
+
+    const toggleBtn = remote.querySelector<HTMLButtonElement>('[data-cast-toggle]');
+    if (toggleBtn) {
+      const nextAction = view.playing ? 'pause' : 'play';
+      if (toggleBtn.dataset.cast !== nextAction) {
+        toggleBtn.dataset.cast = nextAction;
+        toggleBtn.innerHTML = `${icon(view.playing ? 'pause' : 'play', 'sm')} ${view.playing ? 'Pausar' : 'Reproduzir'}`;
+      }
+    }
   };
 
   const copyText = (text: string, label: string) => {
@@ -100,31 +132,27 @@ export const createCastController = (host: CastHost): CastController => {
   };
 
   const paintRemote = (active: CastSessionDto): string => {
-    const pos = playback?.positionSeconds ?? 0;
-    const dur = playback?.durationSeconds ?? 0;
-    const playing = playback?.state === 'PLAYING';
-    const pct = dur > 0 ? Math.min(1000, Math.round((pos / dur) * 1000)) : 0;
-    const timeLabel = dur > 0 ? `${formatDuration(pos) ?? '0:00'} / ${formatDuration(dur) ?? '0:00'}` : (formatDuration(pos) ?? '0:00');
+    const view = remotePlaybackView(playback);
     return `
       <div class="cast-remote">
         <div class="cast-remote-head">
           <div>
             <b>${escapeHtml(active.device?.name ?? 'TV na rede local')}</b>
-            <div class="cast-remote-status">${escapeHtml(castStatusLabel(playback?.state))}</div>
+            <div class="cast-remote-status">${escapeHtml(view.statusLabel)}</div>
           </div>
           <button type="button" class="btn btn-ghost btn-sm" data-cast="stop" ${busy ? 'disabled' : ''}>${icon('stop', 'sm')} Parar</button>
         </div>
         ${
-          dur > 0
+          view.hasDuration
             ? `<div class="cast-remote-bar">
-                <input class="cast-remote-seek" type="range" min="0" max="1000" value="${pct}" aria-label="Posição na TV" />
-                <span class="cast-remote-time">${escapeHtml(timeLabel)}</span>
+                <input class="cast-remote-seek" type="range" min="0" max="1000" value="${view.sliderValue}" aria-label="Posição na TV" />
+                <span class="cast-remote-time">${escapeHtml(view.timeLabel)}</span>
               </div>`
-            : `<div class="cast-remote-time">${escapeHtml(timeLabel)}</div>`
+            : `<div class="cast-remote-time">${escapeHtml(view.timeLabel)}</div>`
         }
         <div class="cast-remote-actions">
           <button type="button" class="btn btn-ghost btn-sm" data-cast="back" aria-label="Voltar ${SEEK_STEP_S} segundos" ${busy ? 'disabled' : ''}>${icon('replay10', 'sm')} -10s</button>
-          <button type="button" class="btn btn-primary btn-sm" data-cast="${playing ? 'pause' : 'play'}" ${busy ? 'disabled' : ''}>${icon(playing ? 'pause' : 'play', 'sm')} ${playing ? 'Pausar' : 'Reproduzir'}</button>
+          <button type="button" class="btn btn-primary btn-sm" data-cast="${view.playing ? 'pause' : 'play'}" data-cast-toggle="1" ${busy ? 'disabled' : ''}>${icon(view.playing ? 'pause' : 'play', 'sm')} ${view.playing ? 'Pausar' : 'Reproduzir'}</button>
           <button type="button" class="btn btn-ghost btn-sm" data-cast="fwd" aria-label="Avançar ${SEEK_STEP_S} segundos" ${busy ? 'disabled' : ''}>${icon('forward10', 'sm')} +10s</button>
         </div>
       </div>`;

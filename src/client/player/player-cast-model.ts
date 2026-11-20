@@ -1,4 +1,5 @@
-import type { CastDeviceDto, DlnaTransportState } from '../api/cast.ts';
+import type { CastDeviceDto, CastPlaybackDto, DlnaTransportState } from '../api/cast.ts';
+import { formatDuration } from '../ui/time-format.ts';
 import type { DockItem } from './player-dock.ts';
 import { playerKindOf } from './watch-embed.ts';
 
@@ -34,4 +35,30 @@ export const castSeekTarget = (current: number | null, delta: number, duration: 
   const next = Math.max(0, base + delta);
   if (duration !== null && Number.isFinite(duration) && duration > 0) return Math.min(duration, next);
   return next;
+};
+
+export interface RemotePlaybackView {
+  playing: boolean;
+  statusLabel: string;
+  hasDuration: boolean;
+  sliderValue: number;
+  timeLabel: string;
+}
+
+/** Estado pronto para pintar o controle remoto da TV sem reconstruir o diálogo inteiro a cada poll. */
+export const remotePlaybackView = (playback: CastPlaybackDto | null | undefined): RemotePlaybackView => {
+  const pos = playback?.positionSeconds ?? 0;
+  const dur = playback?.durationSeconds ?? 0;
+  const hasDuration = Number.isFinite(dur) && dur > 0;
+  const sliderValue = hasDuration ? Math.max(0, Math.min(1000, Math.round((pos / dur) * 1000))) : 0;
+  const timeLabel = hasDuration
+    ? `${formatDuration(pos) ?? '0:00'} / ${formatDuration(dur) ?? '0:00'}`
+    : (formatDuration(pos) ?? '0:00');
+  return {
+    playing: playback?.state === 'PLAYING',
+    statusLabel: castStatusLabel(playback?.state),
+    hasDuration,
+    sliderValue,
+    timeLabel,
+  };
 };
