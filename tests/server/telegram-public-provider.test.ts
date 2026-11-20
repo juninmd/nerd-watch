@@ -1,6 +1,13 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { TelegramChannelNotFoundError, decodeEntities, isTelegramPhotoUrl, parsePublicChannelHtml, parsePublicChannelInfo } from '../../src/server/providers/telegram/public.ts';
+import {
+  TelegramChannelNotFoundError,
+  decodeEntities,
+  isTelegramPhotoUrl,
+  parsePublicChannelHtml,
+  parsePublicChannelInfo,
+  resolvePublicPlayUrl,
+} from '../../src/server/providers/telegram/public.ts';
 
 const FIXTURE = readFileSync(`${import.meta.dir}/../fixtures/telegram-public-channel.html`, 'utf-8');
 
@@ -77,9 +84,27 @@ describe('isTelegramPhotoUrl', () => {
     'https://telesco.pe.evil.com/x.jpg',
     'https://127.0.0.1/x.jpg',
     'file:///etc/passwd',
+    'https://user:pass@cdn1.telesco.pe/a.mp4',
     'não é url',
   ])('recusa %s', (url) => {
     expect(isTelegramPhotoUrl(url)).toBe(false);
+  });
+});
+
+describe('resolvePublicPlayUrl', () => {
+  const origFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  test('aceita vídeo em CDN do Telegram e descarta URL fora do domínio (evita open redirect)', async () => {
+    globalThis.fetch = (async () =>
+      new Response('<video src="https://cdn4.telesco.pe/file/ok.mp4?token=1&amp;a=2"></video>')) as unknown as typeof fetch;
+    expect(await resolvePublicPlayUrl('canal_ok', '9001')).toBe('https://cdn4.telesco.pe/file/ok.mp4?token=1&a=2');
+
+    globalThis.fetch = (async () =>
+      new Response('<video src="https://evil.example/phish.mp4"></video>')) as unknown as typeof fetch;
+    expect(await resolvePublicPlayUrl('canal_evil', '9002')).toBeNull();
   });
 });
 

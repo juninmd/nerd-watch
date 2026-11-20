@@ -51,11 +51,13 @@ export interface TelegramChannelInfo {
   description: string | null;
 }
 
-/** Só CDNs do próprio Telegram: a URL da foto vem de HTML de terceiros e o servidor a baixa depois (evita SSRF). */
+/** Só CDNs do próprio Telegram: a URL vem de HTML de terceiros e é usada para download ou redirect (evita SSRF/open redirect). */
 export const isTelegramPhotoUrl = (raw: string): boolean => {
   try {
     const u = new URL(raw);
-    return u.protocol === 'https:' && /(^|\.)(telesco\.pe|cdn-telegram\.org|telegram\.org|t\.me)$/.test(u.hostname);
+    if (u.protocol !== 'https:' || u.username || u.password) return false;
+    const host = u.hostname.toLowerCase().replace(/\.$/, '');
+    return /(^|\.)(telesco\.pe|cdn-telegram\.org|telegram\.org|t\.me)$/.test(host);
   } catch {
     return false;
   }
@@ -147,5 +149,6 @@ export const resolvePublicPlayUrl = withCache(5 * 60_000, async (handle: string,
   if (!res.ok) return null;
   const html = await res.text();
   const match = html.match(/<video src="([^"]+)"/);
-  return match ? decodeEntities(match[1] as string) : null;
+  const url = match ? decodeEntities(match[1] as string) : null;
+  return url && isTelegramPhotoUrl(url) ? url : null;
 });
