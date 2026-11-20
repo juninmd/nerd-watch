@@ -68,6 +68,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   const wrap = document.createElement('div');
   wrap.className = 'torrent-panel';
   const state: PanelState = { infoHash: null, timer: null, playerKey: null, disposed: false };
+  let openSeq = 0;
   const open = opts.open ?? ((fileIndex?: number) => openTorrent(opts.identifier, fileIndex));
   const playerRef = opts.player ?? { channelId: 'archive', messageId: opts.identifier, route: titlePath('archive', '_', opts.identifier) };
 
@@ -169,7 +170,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
     const poll = () => {
       getTorrentStatus(result.infoHash)
         .then((status) => {
-          if (state.disposed) return;
+          if (state.disposed || !statsEl.isConnected) return;
           statsEl.innerHTML = `
             <span class="badge">${status.numPeers} peer${status.numPeers === 1 ? '' : 's'}</span>
             <span class="badge">${formatBytes(status.downloadSpeed)}/s</span>
@@ -178,7 +179,7 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
           `;
         })
         .catch(() => {
-          if (state.disposed) return;
+          if (state.disposed || !statsEl.isConnected) return;
           statsEl.textContent = 'perdemos o torrent — use "parar" e tente de novo';
         });
     };
@@ -187,18 +188,19 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   };
 
   const start = async (fileIndex?: number) => {
+    const seq = ++openSeq;
     stopPlayback();
     wrap.innerHTML = `<p class="hint">${escapeHtml(fileIndex === undefined ? 'buscando a metadata do torrent e os peers...' : 'trocando de arquivo...')}</p>`;
     try {
       const result = await open(fileIndex);
-      if (state.disposed) {
-        closeTorrent(result.infoHash).catch(() => {});
+      if (state.disposed || seq !== openSeq) {
+        if (state.disposed || result.infoHash !== state.infoHash) closeTorrent(result.infoHash).catch(() => {});
         return;
       }
       state.infoHash = result.infoHash;
       playing(result);
     } catch (err) {
-      if (state.disposed) return;
+      if (state.disposed || seq !== openSeq) return;
       // A mensagem fica visível: antes o `idle()` seguinte apagava o erro no mesmo tick e a
       // falha era silenciosa (o botão só reaparecia como se nada tivesse acontecido).
       idle(err instanceof Error ? err.message : 'não foi possível abrir o torrent');
