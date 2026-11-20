@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import type { TmdbEpisode, TmdbSeasonSummary, TmdbTitleDetails } from '../providers/tmdb.ts';
+import { TmdbRequestError, type TmdbEpisode, type TmdbSeasonSummary, type TmdbTitleDetails } from '../providers/tmdb.ts';
 import { replaceEpisodes, updateTitleMetadata, upsertSeason } from '../repo/titles.ts';
 import type { MediaType, TitleRow } from '../types.ts';
 
@@ -22,6 +22,7 @@ export interface RefreshResult {
  */
 export const refreshTitle = async (deps: RefreshDeps, title: TitleRow): Promise<RefreshResult> => {
   const tmdbId = Number(title.source_id);
+  if (!Number.isInteger(tmdbId) || tmdbId <= 0) throw new TmdbRequestError(404, 'id TMDB inválido');
   const details = await deps.fetchDetails(title.media_type, tmdbId);
 
   const seasons: Array<{ meta: TmdbSeasonSummary; episodes: TmdbEpisode[] }> = [];
