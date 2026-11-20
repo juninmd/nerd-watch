@@ -319,7 +319,12 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
 
   if (channel.mode === 'public') {
     // Token do CDN público do Telegram já vem na própria URL e não é segredo nosso — redirect direto é seguro.
-    const url = await resolvePublicPlayUrl(channel.handle, messageId);
+    let url: string | null;
+    try {
+      url = await resolvePublicPlayUrl(channel.handle, messageId);
+    } catch {
+      return c.json({ error: 'não foi possível obter uma URL de reprodução válida agora' }, 502);
+    }
     if (!url) return c.json({ error: 'não foi possível obter uma URL de reprodução válida agora' }, 502);
     return c.redirect(url, 302);
   }
@@ -345,8 +350,16 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
 
     // Proxy: a URL da Bot API carrega o token do bot no path — nunca expor isso direto pro cliente.
     const range = c.req.header('Range');
-    const upstream = await fetchHeaders(fetch, resolved.url, { headers: range ? { Range: range } : {} }, 30_000);
-    if (!upstream.ok && upstream.status !== 206) return c.json({ error: `Telegram respondeu ${upstream.status}` }, 502);
+    let upstream: Response;
+    try {
+      upstream = await fetchHeaders(fetch, resolved.url, { headers: range ? { Range: range } : {} }, 30_000);
+    } catch {
+      return c.json({ error: 'não foi possível baixar o vídeo do Telegram agora' }, 502);
+    }
+    if (!upstream.ok && upstream.status !== 206) {
+      await upstream.body?.cancel();
+      return c.json({ error: `Telegram respondeu ${upstream.status}` }, 502);
+    }
 
     const headers = new Headers();
     for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
