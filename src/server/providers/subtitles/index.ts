@@ -116,10 +116,10 @@ const searchAddons = async (
   const settled = await Promise.allSettled(
     bases.map(async (baseUrl) => {
       const manifest = await fetchManifest(baseUrl);
-      if (!supportsSubtitles(manifest)) throw new Error(`${manifest.name || baseUrl} não serve legendas`);
+      const name = manifest.name || hostLabel(baseUrl);
+      if (!supportsSubtitles(manifest)) throw new Error(`${name} não serve legendas`);
       const addonSubtitles = await fetchAddonSubtitles(baseUrl, type, contentId);
 
-      const name = manifest.name || baseUrl;
       return {
         name,
         results: addonSubtitles
@@ -370,4 +370,4 @@ export const resolveAddonFileUrl = async (params: {
   return { ok: true, url: match.url };
 };
 
-export { canonicalLanguage };
+export { canonicalLanguage, subtitleAddonBases };
