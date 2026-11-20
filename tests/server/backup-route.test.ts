@@ -3,7 +3,7 @@ import { getDb, openDb, resetDbForTests } from '../../src/server/db/database.ts'
 import { upsertLibraryEntry } from '../../src/server/repo/library.ts';
 import { upsertSeason, upsertTitle } from '../../src/server/repo/titles.ts';
 import { upsertTelegramChannel, upsertTelegramItems } from '../../src/server/repo/telegram.ts';
-import { backupRoutes } from '../../src/server/routes/backup.ts';
+import { BACKUP_MAX_BYTES, backupRoutes } from '../../src/server/routes/backup.ts';
 
 beforeEach(() => {
   resetDbForTests(openDb(':memory:'));
@@ -17,6 +17,7 @@ describe('GET /api/backup', () => {
 
     const res = await backupRoutes.request('/');
     expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     const body = await res.json();
     expect(body.version).toBe(1);
     expect(body.titles).toHaveLength(1);
@@ -85,5 +86,14 @@ describe('POST /api/backup/import', () => {
   test('400 em corpo que não é JSON válido', async () => {
     const res = await backupRoutes.request('/import', { method: 'POST', body: 'não é json' });
     expect(res.status).toBe(400);
+  });
+
+  test('413 quando o Content-Length ultrapassa o limite de backup antes de ler o corpo', async () => {
+    const res = await backupRoutes.request('/import', {
+      method: 'POST',
+      headers: { 'Content-Length': String(BACKUP_MAX_BYTES + 1) },
+      body: '{}',
+    });
+    expect(res.status).toBe(413);
   });
 });
