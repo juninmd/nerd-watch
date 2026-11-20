@@ -50,7 +50,7 @@ export const renderDriveConnect = (host: HTMLElement): void => {
     timer = setTimeout(() => {
       getDriveOAuthState()
         .then((state) => {
-          if (gen !== generation) return;
+          if (gen !== generation || !host.isConnected) return;
           if (state.status === 'connected' || state.connected) {
             showToast('Google Drive conectado');
             return render();
@@ -63,7 +63,10 @@ export const renderDriveConnect = (host: HTMLElement): void => {
           poll(gen, startedAt);
         })
         .catch(() => {
-          if (gen === generation) poll(gen, startedAt);
+          if (gen !== generation || !host.isConnected) return;
+          // Servidor fora do ar durante a autorização: o teto de tempo vale também aqui, senão o polling nunca para.
+          if (Date.now() - startedAt > POLL_MAX_MS) return render();
+          poll(gen, startedAt);
         });
     }, POLL_MS);
   };
@@ -76,14 +79,22 @@ export const renderDriveConnect = (host: HTMLElement): void => {
         ${field('gd-client-secret', 'client secret', 'type="password" placeholder="GOCSPX-…" spellcheck="false"')}
         <button class="btn btn-primary" type="submit">Salvar${s.clientConfigured ? ' (substituir)' : ''}</button>
       </form>${GUIDE}`;
-    (body.querySelector('#gd-creds') as HTMLFormElement).addEventListener('submit', (e) => {
+    const form = body.querySelector('#gd-creds') as HTMLFormElement;
+    const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       const clientId = (body.querySelector('#gd-client-id') as HTMLInputElement).value.trim();
       const clientSecret = (body.querySelector('#gd-client-secret') as HTMLInputElement).value.trim();
       if (!clientId || !clientSecret) return showToast('preencha o client ID e o client secret');
+      if (submitBtn) submitBtn.disabled = true;
       saveDriveSettings({ clientId, clientSecret })
-        .then(() => render())
-        .catch((err) => showToast(err instanceof Error ? err.message : 'não foi possível salvar'));
+        .then(() => {
+          if (host.isConnected) render();
+        })
+        .catch((err) => {
+          if (submitBtn?.isConnected) submitBtn.disabled = false;
+          if (host.isConnected) showToast(err instanceof Error ? err.message : 'não foi possível salvar');
+        });
     });
   };
 
@@ -100,14 +111,15 @@ export const renderDriveConnect = (host: HTMLElement): void => {
       btn.disabled = true;
       startDriveOAuth()
         .then(({ authUrl }) => {
+          if (!host.isConnected) return;
           window.open(authUrl, '_blank', 'noopener');
           body.insertAdjacentHTML('beforeend', '<p class="hint" role="status">Conclua a autorização na aba que abriu — esta tela atualiza sozinha.</p>');
           stopPolling();
           poll(generation, Date.now());
         })
         .catch((err) => {
-          showToast(err instanceof Error ? err.message : 'não foi possível iniciar');
-          btn.disabled = false;
+          if (btn.isConnected) btn.disabled = false;
+          if (host.isConnected) showToast(err instanceof Error ? err.message : 'não foi possível iniciar');
         });
     });
   };
@@ -116,14 +128,20 @@ export const renderDriveConnect = (host: HTMLElement): void => {
     body.innerHTML = `
       <p class="hint">Conectado com acesso <b>somente leitura</b>. Adicione pastas em <a href="#/telegram">Canais</a> (opção "pasta do Google Drive").</p>
       <div class="conn-actions"><button class="btn btn-ghost" id="gd-disconnect" type="button">Desconectar</button></div>`;
-    (body.querySelector('#gd-disconnect') as HTMLButtonElement).addEventListener('click', () => {
+    const btn = body.querySelector('#gd-disconnect') as HTMLButtonElement;
+    btn.addEventListener('click', () => {
       if (!confirm('Desconectar o Google Drive? As pastas já importadas continuam na lista, mas não tocam até reconectar.')) return;
+      btn.disabled = true;
       disconnectDrive()
         .then(() => {
+          if (!host.isConnected) return;
           showToast('Google Drive desconectado');
           render();
         })
-        .catch(() => showToast('não foi possível desconectar'));
+        .catch(() => {
+          if (btn.isConnected) btn.disabled = false;
+          if (host.isConnected) showToast('não foi possível desconectar');
+        });
     });
   };
 
@@ -131,12 +149,14 @@ export const renderDriveConnect = (host: HTMLElement): void => {
     stopPolling();
     getDriveStatus()
       .then((s) => {
+        if (!host.isConnected) return;
         setChip(s.connected, s.connected ? 'conectado' : s.clientConfigured ? 'falta autorizar' : 'não configurado');
         if (s.connected) renderConnected();
         else if (s.clientConfigured) renderConnect();
         else renderForm(s);
       })
       .catch(() => {
+        if (!host.isConnected) return;
         setChip(false, 'indisponível');
         body.innerHTML = '<p class="hint">não foi possível consultar o servidor</p>';
       });

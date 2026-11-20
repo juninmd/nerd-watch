@@ -36,9 +36,9 @@ const run = async <T>(path: string, body: unknown, render: (value: T) => string,
   status.textContent = 'Trabalhando…';
   try {
     const value = await json<T>(await post(path, body));
-    status.textContent = render(value);
+    if (status.isConnected) status.textContent = render(value);
   } catch (err) {
-    status.textContent = err instanceof Error ? err.message : 'não foi possível concluir agora';
+    if (status.isConnected) status.textContent = err instanceof Error ? err.message : 'não foi possível concluir agora';
   }
 };
 
@@ -56,7 +56,7 @@ const draw = (host: HTMLElement): void => {
   const busy = (task: Promise<void>) => {
     for (const b of buttons) b.disabled = true;
     return task.finally(() => {
-      for (const b of buttons) b.disabled = false;
+      for (const b of buttons) if (b.isConnected) b.disabled = false;
     });
   };
 
@@ -73,6 +73,7 @@ const draw = (host: HTMLElement): void => {
 /** Ações do Trakt abaixo do cartão genérico: só aparecem com a conta conectada. */
 export const mountTraktActions = async (host: HTMLElement): Promise<void> => {
   const trakt = (await listSources().catch(() => [])).find((s) => s.id === 'trakt');
+  if (!host.isConnected) return;
   if (!trakt?.connected) {
     host.innerHTML = '';
     return;
