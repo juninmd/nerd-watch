@@ -61,7 +61,10 @@ export const renderLists = (host: HTMLElement): void => {
 
   const grid = host.querySelector('#lists-grid') as HTMLElement;
   const more = host.querySelector('#lists-more') as HTMLElement;
+  const smartSection = host.querySelector('#lists-smart') as HTMLElement;
+  const smartGrid = host.querySelector('#lists-smart-grid') as HTMLElement;
   let shown: ListSummaryDto[] = [];
+  let loading = false;
 
   const paint = (total: number) => {
     if (shown.length === 0) {
@@ -73,45 +76,73 @@ export const renderLists = (host: HTMLElement): void => {
       shown.length < total ? `<button type="button" class="btn btn-ghost btn-sm" id="lists-load-more">carregar mais (${total - shown.length})</button>` : '';
   };
 
-  const load = (offset: number) =>
-    listLists({ limit: PAGE, offset })
+  const load = (offset: number) => {
+    if (loading) return Promise.resolve();
+    loading = true;
+    const moreBtn = more.querySelector<HTMLButtonElement>('#lists-load-more');
+    if (moreBtn) moreBtn.disabled = true;
+    return listLists({ limit: PAGE, offset })
       .then((page) => {
+        loading = false;
+        if (!grid.isConnected) return;
         shown = offset === 0 ? page.items : [...shown, ...page.items];
         paint(page.total);
       })
       .catch(() => {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="big" aria-hidden="true">${icon('alert')}</div>não foi possível carregar as listas</div>`;
+        loading = false;
+        if (!grid.isConnected) return;
+        if (moreBtn?.isConnected) moreBtn.disabled = false;
+        if (offset === 0) {
+          grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="big" aria-hidden="true">${icon('alert')}</div>não foi possível carregar as listas</div>`;
+        } else {
+          showToast('não foi possível carregar mais listas');
+        }
       });
+  };
 
   more.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('#lists-load-more')) void load(shown.length);
   });
 
-  (host.querySelector('#lists-new') as HTMLFormElement).addEventListener('submit', (e) => {
+  const form = host.querySelector('#lists-new') as HTMLFormElement;
+  const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+  let creating = false;
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (creating) return;
     const input = host.querySelector('#lists-new-name') as HTMLInputElement;
     const name = input.value.trim();
     if (!name) return;
+    creating = true;
+    if (submitBtn) submitBtn.disabled = true;
     createList({ name })
       .then((list) => {
+        creating = false;
+        if (!grid.isConnected) return;
         showToast(`lista "${list.name}" criada`);
         navigate(`/lists/${encodeURIComponent(list.id)}`);
       })
-      .catch((err: unknown) => showToast(err instanceof Error ? err.message : 'não foi possível criar a lista'));
+      .catch((err: unknown) => {
+        creating = false;
+        if (submitBtn?.isConnected) submitBtn.disabled = false;
+        if (!grid.isConnected) return;
+        showToast(err instanceof Error ? err.message : 'não foi possível criar a lista');
+      });
   });
 
   // Falha aqui não derruba as listas comuns, mas a seção avisa em vez de sumir sem explicação.
   void Promise.all([listSavedViews(), listLibrary()])
     .then(([views, lib]) => {
+      if (!smartGrid.isConnected) return;
       const smart = smartLists(views.items, lib.items);
       if (smart.length === 0) return;
-      (host.querySelector('#lists-smart-grid') as HTMLElement).innerHTML = smart.map(smartCardHtml).join('');
-      (host.querySelector('#lists-smart') as HTMLElement).hidden = false;
+      smartGrid.innerHTML = smart.map(smartCardHtml).join('');
+      smartSection.hidden = false;
     })
     .catch(() => {
-      (host.querySelector('#lists-smart-grid') as HTMLElement).innerHTML =
-        `<div class="empty-state" style="grid-column:1/-1"><div class="big" aria-hidden="true">${icon('alert')}</div>não foi possível carregar as listas inteligentes agora</div>`;
-      (host.querySelector('#lists-smart') as HTMLElement).hidden = false;
+      if (!smartGrid.isConnected) return;
+      smartGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="big" aria-hidden="true">${icon('alert')}</div>não foi possível carregar as listas inteligentes agora</div>`;
+      smartSection.hidden = false;
     });
 
   void load(0);
