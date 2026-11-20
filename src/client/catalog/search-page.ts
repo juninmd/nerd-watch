@@ -24,7 +24,7 @@ const resultCard = (r: SearchResultDto): string => `
     </div>
     <div class="meta">
       <div class="title">${escapeHtml(r.title)}</div>
-      <div class="sub">${r.releaseDate ? r.releaseDate.slice(0, 4) : ''}${r.voteAverage ? ` · ⭐ ${r.voteAverage.toFixed(1)}` : ''}</div>
+      <div class="sub">${r.releaseDate ? escapeHtml(r.releaseDate.slice(0, 4)) : ''}${r.voteAverage ? ` · ⭐ ${r.voteAverage.toFixed(1)}` : ''}</div>
     </div>
     <button class="btn btn-primary btn-sm" data-add aria-label="Adicionar ${escapeHtml(r.title)} à biblioteca" style="position:absolute;bottom:64px;right:8px;padding:6px 10px;box-shadow:0 4px 12px -2px rgba(0,0,0,.6)">+ biblioteca</button>
   </div>
@@ -72,7 +72,7 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
   const peopleEl = host.querySelector('#people-results') as HTMLElement;
   searchTvmazePeople(query)
     .then(({ results: people }) => {
-      if (people.length === 0) return;
+      if (!peopleEl.isConnected || people.length === 0) return;
       peopleEl.innerHTML = `<div class="section-head"><h2>Pessoas</h2></div><div class="tvm-people">${people.slice(0, 12).map((p) => personCardHtml(p, p.country, p.birthday ? p.birthday.slice(0, 4) : null)).join('')}</div>`;
     })
     .catch(() => undefined);
@@ -82,6 +82,7 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
 
   search(query)
     .then((data) => {
+      if (!results.isConnected) return;
       const addonHits = data.addonResults ?? [];
       if (data.results.length === 0 && addonHits.length === 0) {
         results.innerHTML = `<div class="empty-state"><div class="big" aria-hidden="true">${icon('search')}</div>nada encontrado para "${escapeHtml(query)}"<p class="hint">confira a grafia ou tente o nome original do título</p></div>`;
@@ -151,6 +152,7 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
       paint();
     })
     .catch(() => {
+      if (!results.isConnected) return;
       results.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>falha na busca, tente de novo</div>`;
     });
 };
