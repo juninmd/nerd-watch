@@ -8,10 +8,10 @@ import { getDb } from '../db/database.ts';
 import { listUpcoming } from '../repo/calendar.ts';
 import { tmdbImageUrl } from '../providers/tmdb.ts';
 
-/** Janela em dias: inválido, zero, negativo ou acima de 365 cai no padrão de 60. Compartilhado pelo JSON e pelo .ics. */
+/** Janela em dias: inválido, fracionário, zero, negativo ou acima de 365 cai no padrão de 60. Compartilhado pelo JSON e pelo .ics. */
 export const parseCalendarDays = (raw: string | undefined): number => {
   const daysParam = Number(raw ?? '60');
-  return Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 365 ? daysParam : 60;
+  return Number.isInteger(daysParam) && daysParam > 0 && daysParam <= 365 ? daysParam : 60;
 };
 
 export const calendarRoutes = new Hono();

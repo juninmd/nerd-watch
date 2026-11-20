@@ -80,8 +80,12 @@ export const fetchHeaders = async (doFetch: Fetcher, url: string | URL, init: Re
 
 /** Lê o corpo como texto com teto de bytes: um servidor que manda gigabytes de XML não derruba o processo. */
 export const readTextLimited = async (res: Response, maxBytes: number): Promise<string> => {
-  const declared = Number(res.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > maxBytes) throw new Error('resposta grande demais');
+  const declaredHeader = res.headers.get('content-length');
+  const declared = declaredHeader === null ? Number.NaN : Number(declaredHeader);
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await res.body?.cancel();
+    throw new Error('resposta grande demais');
+  }
   if (!res.body) return '';
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
