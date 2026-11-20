@@ -40,9 +40,12 @@ export const tvmazeGet = async (path: string, params: Record<string, string | st
   } catch {
     throw new CatalogRequestError(502, 'TVmaze indisponível no momento');
   }
-  if (res.status === 404) throw new CatalogRequestError(404, 'TVmaze: título não encontrado');
-  if (res.status === 429) throw new CatalogRequestError(429, 'TVmaze: limite de requisições atingido, tente de novo em instantes');
-  if (!res.ok) throw new CatalogRequestError(502, `TVmaze respondeu ${res.status}`);
+  if (!res.ok) {
+    await res.body?.cancel();
+    if (res.status === 404) throw new CatalogRequestError(404, 'TVmaze: título não encontrado');
+    if (res.status === 429) throw new CatalogRequestError(429, 'TVmaze: limite de requisições atingido, tente de novo em instantes');
+    throw new CatalogRequestError(502, `TVmaze respondeu ${res.status}`);
+  }
   try {
     return await res.json();
   } catch {

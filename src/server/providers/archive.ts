@@ -145,14 +145,20 @@ export const archiveSearchPublicDomain = withCache(15 * MINUTES, async (query: s
   for (const field of ['identifier', 'title', 'description', 'year']) url.searchParams.append('fl[]', field);
 
   const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`Internet Archive respondeu ${res.status}`);
-  const data = (await res.json()) as { response: { docs: ArchiveDoc[] } };
-  return data.response.docs.filter((d) => d.title).map((doc) => toMovie(doc));
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`Internet Archive respondeu ${res.status}`);
+  }
+  const data = (await res.json()) as { response?: { docs?: ArchiveDoc[] } };
+  return (data.response?.docs ?? []).filter((d) => d.title).map((doc) => toMovie(doc));
 });
 
 export const archiveMovieDetails = withCache(24 * 60 * MINUTES, async (identifier: string): Promise<ArchiveMovie | null> => {
   const res = await fetch(`${METADATA_URL}/${encodeURIComponent(identifier)}`, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`Internet Archive respondeu ${res.status}`);
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`Internet Archive respondeu ${res.status}`);
+  }
   const data = (await res.json()) as { metadata?: ArchiveDoc; files?: ArchiveFile[] };
   if (!data.metadata) return null;
   const hasPlayableVideo = (data.files ?? []).some((file) => isPlayableVideo(file.name));
