@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '../../src/server/db/database.ts';
 import { getTorrentSource, saveTorrentSource } from '../../src/server/repo/torrent-sources.ts';
+import { removeTempDir } from '../helpers/temp-db.ts';
 
 /**
  * A origem do torrent é o que permite reabrir depois de um restart: se a migração não for idempotente
@@ -11,7 +12,7 @@ import { getTorrentSource, saveTorrentSource } from '../../src/server/repo/torre
  */
 
 const scratch = mkdtempSync(join(tmpdir(), 'nerd-watch-torrent-sources-'));
-afterAll(() => rmSync(scratch, { recursive: true, force: true }));
+afterAll(() => removeTempDir(scratch));
 
 const H = 'c3'.repeat(20);
 

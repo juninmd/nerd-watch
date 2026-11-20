@@ -1,21 +1,12 @@
 import { Database } from 'bun:sqlite';
 import { describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { openDb } from '../../src/server/db/database.ts';
 import { addTitlesToList, createList } from '../../src/server/repo/lists.ts';
 import { upsertLibraryEntry } from '../../src/server/repo/library.ts';
 import { upsertTitle } from '../../src/server/repo/titles.ts';
+import { withTempDb } from '../helpers/temp-db.ts';
 
-const withDbFile = (run: (path: string) => void): void => {
-  const dir = mkdtempSync(join(tmpdir(), 'nerd-watch-lists-mig-'));
-  try {
-    run(join(dir, 'app.db'));
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-};
+const withDbFile = (run: (path: string) => void): void => withTempDb('nerd-watch-lists-mig-', run);
 
 const tables = (path: string): string[] => {
   const db = openDb(path);

@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { getDb, openDb, resetDbForTests } from '../../src/server/db/database.ts';
 import { backupRoutes } from '../../src/server/routes/backup.ts';
 import { playbackRoutes } from '../../src/server/routes/playback.ts';
 import { InvalidPlaybackError, PLAYBACK_MAX_ROWS, parsePlaybackEntry, upsertPlaybackEntry } from '../../src/server/repo/playback.ts';
+import { withTempDb } from '../helpers/temp-db.ts';
 
 /** Relógio real: o servidor recusa `at` mais de 1 dia no futuro, então o fixture tem de ser "agora". */
 const NOW = Date.now() - 60_000;
@@ -20,20 +18,20 @@ const put = (key: string, b: unknown) => playbackRoutes.request(`/${key}`, { met
 
 describe('migração', () => {
   test('cria a tabela e reabrir o mesmo arquivo não falha nem apaga dados', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'nw-playback-'));
-    const file = join(dir, 'x.db');
-    try {
-      const first = openDb(file);
-      upsertPlaybackEntry(first, parsePlaybackEntry('c1:5', body(), NOW));
-      first.close();
+    withTempDb(
+      'nw-playback-',
+      (file) => {
+        const first = openDb(file);
+        upsertPlaybackEntry(first, parsePlaybackEntry('c1:5', body(), NOW));
+        first.close();
 
-      const second = openDb(file);
-      const row = second.query<{ n: number }, []>('SELECT COUNT(*) as n FROM playback_positions').get();
-      expect(row?.n).toBe(1);
-      second.close();
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+        const second = openDb(file);
+        const row = second.query<{ n: number }, []>('SELECT COUNT(*) as n FROM playback_positions').get();
+        expect(row?.n).toBe(1);
+        second.close();
+      },
+      'x.db',
+    );
   });
 });
 

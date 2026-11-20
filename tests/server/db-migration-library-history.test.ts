@@ -1,21 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type { Database } from 'bun:sqlite';
 import { openDb } from '../../src/server/db/database.ts';
 import { upsertLibraryEntry } from '../../src/server/repo/library.ts';
 import { upsertTitle } from '../../src/server/repo/titles.ts';
+import { withTempDb } from '../helpers/temp-db.ts';
 
 /** Banco de um deploy anterior: sem `rewatch_count` nem `library_history`. Usa arquivo temporário fora do repo. */
-const withLegacyDb = (run: (path: string) => void): void => {
-  const dir = mkdtempSync(join(tmpdir(), 'nerd-watch-mig-'));
-  try {
-    run(join(dir, 'legacy.db'));
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-};
+const withLegacyDb = (run: (path: string) => void): void => withTempDb('nerd-watch-mig-', run, 'legacy.db');
 
 const columns = (db: Database, table: string): string[] =>
   (db.query<{ name: string }, []>(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((c) => c.name);
