@@ -1,4 +1,5 @@
 import { withCache } from '../../lib/cache.ts';
+import { AddonError, getAddonJson } from '../stremio/client.ts';
 
 /**
  * Cliente do protocolo de addons do Stremio — a parte reaproveitável daquele ecossistema.
@@ -57,11 +58,18 @@ export class AddonUnavailableError extends Error {
 
 const normalizeBase = (baseUrl: string): string => baseUrl.replace(/\/+$/, '');
 
+const fetchJson = async (base: string, url: string): Promise<unknown> => {
+  try {
+    return await getAddonJson(url);
+  } catch (err) {
+    if (err instanceof AddonError) throw new AddonUnavailableError(base, err.message);
+    throw err;
+  }
+};
+
 export const fetchManifest = withCache(24 * 60 * MINUTES, async (baseUrl: string): Promise<StremioManifest> => {
   const base = normalizeBase(baseUrl);
-  const res = await fetch(`${base}/manifest.json`, { signal: AbortSignal.timeout(10_000) });
-  if (!res.ok) throw new AddonUnavailableError(base, `manifest respondeu ${res.status}`);
-  return (await res.json()) as StremioManifest;
+  return (await fetchJson(base, `${base}/manifest.json`)) as StremioManifest;
 });
 
 /**
@@ -84,11 +92,9 @@ export const fetchAddonSubtitles = withCache(
   30 * MINUTES,
   async (baseUrl: string, type: 'movie' | 'series', contentId: string): Promise<AddonSubtitle[]> => {
     const base = normalizeBase(baseUrl);
-    const res = await fetch(`${base}/subtitles/${type}/${encodeURIComponent(contentId)}.json`, {
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!res.ok) throw new AddonUnavailableError(base, `respondeu ${res.status}`);
-    const data = (await res.json()) as { subtitles?: RawAddonSubtitle[] };
+    const data = (await fetchJson(base, `${base}/subtitles/${type}/${encodeURIComponent(contentId)}.json`)) as {
+      subtitles?: RawAddonSubtitle[];
+    };
 
     return (data.subtitles ?? [])
       .filter((s) => Boolean(s.url))
