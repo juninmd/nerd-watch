@@ -1,6 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { Hono } from 'hono';
 import { getDb } from '../db/database.ts';
+import { guardInput, readJsonObject } from '../http/json-body.ts';
 import type { LinkCandidate } from '../media-name/match.ts';
 import { getTelegramChannel, getTelegramItem } from '../repo/telegram.ts';
 import {
@@ -53,16 +54,19 @@ export const parseManualLink = (body: LinkBody | null, candidates: LinkCandidate
 
 const channelOr404 = (db: Database, id: string) => getTelegramChannel(db, id);
 
-telegramLinkRoutes.post('/:id/items/:messageId/link', async (c) => {
-  const db = await getDb();
-  if (!channelOr404(db, c.req.param('id'))) return c.json({ error: 'canal não encontrado' }, 404);
-  const parsed = parseManualLink(await c.req.json<LinkBody>().catch(() => null), listLinkCandidates(db));
-  if (typeof parsed === 'string') return c.json({ error: parsed }, 400);
-  if (!setItemLink(db, c.req.param('id'), c.req.param('messageId'), parsed))
-    return c.json({ error: 'vídeo não encontrado nesse canal' }, 404);
-  const row = getTelegramItem(db, c.req.param('id'), c.req.param('messageId'));
-  return c.json({ link: row ? itemLinkFromRow(row) : null });
-});
+telegramLinkRoutes.post('/:id/items/:messageId/link', (c) =>
+  guardInput(c, async () => {
+    const db = await getDb();
+    if (!channelOr404(db, c.req.param('id'))) return c.json({ error: 'canal não encontrado' }, 404);
+    const body = await readJsonObject(c);
+    const parsed = parseManualLink(body, listLinkCandidates(db));
+    if (typeof parsed === 'string') return c.json({ error: parsed }, 400);
+    if (!setItemLink(db, c.req.param('id'), c.req.param('messageId'), parsed))
+      return c.json({ error: 'vídeo não encontrado nesse canal' }, 404);
+    const row = getTelegramItem(db, c.req.param('id'), c.req.param('messageId'));
+    return c.json({ link: row ? itemLinkFromRow(row) : null });
+  }),
+);
 
 telegramLinkRoutes.delete('/:id/items/:messageId/link', async (c) => {
   const db = await getDb();

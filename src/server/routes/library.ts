@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getDb } from '../db/database.ts';
+import { guardInput, readJsonObject } from '../http/json-body.ts';
 import { refreshAllChannelLinks } from '../repo/telegram-links.ts';
 import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEntry, rewatchLibraryEntry, upsertLibraryEntry, type LibraryItem } from '../repo/library.ts';
 import { listLibraryHistory, parseHistoryPage } from '../repo/library-history.ts';
@@ -78,33 +79,30 @@ libraryRoutes.get('/up-next', async (c) => {
 const isSeasonNumber = (v: unknown): v is number => Number.isInteger(v) && typeof v === 'number' && (v as number) >= 0 && (v as number) <= 999;
 const isEpisodeNumber = (v: unknown): v is number => Number.isInteger(v) && typeof v === 'number' && (v as number) >= 1 && (v as number) <= 9999;
 
-interface MarkProgressBody {
-  seasonNumber?: unknown;
-  episodeNumber?: unknown;
-}
-
 /**
  * Marca "onde parei" num episódio e todos os anteriores ficam vistos (um único marcador por série).
  * `changed: false` = nada gravado (já estava ali); o cliente só guarda o desfazer quando `changed` é true.
  */
-libraryRoutes.post('/:titleId/progress', async (c) => {
-  const body = await c.req.json<MarkProgressBody>().catch(() => null);
-  if (!body || !isSeasonNumber(body.seasonNumber) || !isEpisodeNumber(body.episodeNumber)) {
-    return c.json({ error: 'seasonNumber (inteiro 0-999) e episodeNumber (inteiro 1-9999) são obrigatórios' }, 400);
-  }
-  try {
-    const result = markProgressThrough(await getDb(), c.req.param('titleId'), body.seasonNumber, body.episodeNumber);
-    return c.json({
-      changed: result.changed,
-      previous: result.previous,
-      item: toResponse(result.item),
-    });
-  } catch (err) {
-    if (err instanceof ProgressNotFoundError) return c.json({ error: err.message }, 404);
-    if (err instanceof InvalidProgressError) return c.json({ error: err.message }, 400);
-    throw err;
-  }
-});
+libraryRoutes.post('/:titleId/progress', (c) =>
+  guardInput(c, async () => {
+    const body = await readJsonObject(c);
+    if (!isSeasonNumber(body.seasonNumber) || !isEpisodeNumber(body.episodeNumber)) {
+      return c.json({ error: 'seasonNumber (inteiro 0-999) e episodeNumber (inteiro 1-9999) são obrigatórios' }, 400);
+    }
+    try {
+      const result = markProgressThrough(await getDb(), c.req.param('titleId'), body.seasonNumber, body.episodeNumber);
+      return c.json({
+        changed: result.changed,
+        previous: result.previous,
+        item: toResponse(result.item),
+      });
+    } catch (err) {
+      if (err instanceof ProgressNotFoundError) return c.json({ error: err.message }, 404);
+      if (err instanceof InvalidProgressError) return c.json({ error: err.message }, 400);
+      throw err;
+    }
+  }),
+);
 
 interface AddLibraryBody {
   source: TitleSource;
@@ -121,36 +119,37 @@ interface AddLibraryBody {
 
 const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 
-libraryRoutes.post('/', async (c) => {
-  const body = await c.req.json<Partial<AddLibraryBody>>().catch(() => null);
-  if (
-    !body ||
-    !isNonEmptyString(body.sourceId) ||
-    !isNonEmptyString(body.title) ||
-    (body.source !== 'tmdb' && body.source !== 'archive' && body.source !== 'tvmaze' && body.source !== 'anilist') ||
-    (body.mediaType !== 'movie' && body.mediaType !== 'tv')
-  ) {
-    return c.json({ error: 'corpo inválido: source, sourceId, mediaType e title são obrigatórios' }, 400);
-  }
-  if (body.watchStatus && !isWatchStatus(body.watchStatus)) return c.json({ error: 'watchStatus inválido' }, 400);
+libraryRoutes.post('/', (c) =>
+  guardInput(c, async () => {
+    const body = (await readJsonObject(c, 32 * 1024)) as Partial<AddLibraryBody>;
+    if (
+      !isNonEmptyString(body.sourceId) ||
+      !isNonEmptyString(body.title) ||
+      (body.source !== 'tmdb' && body.source !== 'archive' && body.source !== 'tvmaze' && body.source !== 'anilist') ||
+      (body.mediaType !== 'movie' && body.mediaType !== 'tv')
+    ) {
+      return c.json({ error: 'corpo inválido: source, sourceId, mediaType e title são obrigatórios' }, 400);
+    }
+    if (body.watchStatus && !isWatchStatus(body.watchStatus)) return c.json({ error: 'watchStatus inválido' }, 400);
 
-  const db = await getDb();
-  const titleRow = upsertTitle(db, {
-    source: body.source,
-    sourceId: body.sourceId,
-    mediaType: body.mediaType,
-    title: body.title,
-    overview: body.overview ?? null,
-    // Pôster de catálogo sem chave (Archive, TVmaze, AniList) é URL completa: só https, para o navegador nunca receber outro esquema.
-    posterPath: ABSOLUTE_POSTER_SOURCES.has(body.source) ? httpsUrlOrNull(body.posterPath) : (body.posterPath ?? null),
-    backdropPath: body.backdropPath ?? null,
-    releaseDate: body.releaseDate ?? null,
-    voteAverage: body.voteAverage ?? null,
-  });
-  const item = upsertLibraryEntry(db, titleRow.id, { watchStatus: body.watchStatus ?? 'want' });
-  refreshAllChannelLinks(db);
-  return c.json(toResponse(item), 201);
-});
+    const db = await getDb();
+    const titleRow = upsertTitle(db, {
+      source: body.source,
+      sourceId: body.sourceId,
+      mediaType: body.mediaType,
+      title: body.title,
+      overview: body.overview ?? null,
+      // Pôster de catálogo sem chave (Archive, TVmaze, AniList) é URL completa: só https, para o navegador nunca receber outro esquema.
+      posterPath: ABSOLUTE_POSTER_SOURCES.has(body.source) ? httpsUrlOrNull(body.posterPath) : (body.posterPath ?? null),
+      backdropPath: body.backdropPath ?? null,
+      releaseDate: body.releaseDate ?? null,
+      voteAverage: body.voteAverage ?? null,
+    });
+    const item = upsertLibraryEntry(db, titleRow.id, { watchStatus: body.watchStatus ?? 'want' });
+    refreshAllChannelLinks(db);
+    return c.json(toResponse(item), 201);
+  }),
+);
 
 interface PatchLibraryBody {
   watchStatus?: WatchStatus;
@@ -162,28 +161,29 @@ interface PatchLibraryBody {
 
 const MAX_NOTES_LEN = 5000;
 
-libraryRoutes.patch('/:titleId', async (c) => {
-  const titleId = c.req.param('titleId');
-  const body = await c.req.json<PatchLibraryBody>().catch(() => null);
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return c.json({ error: 'corpo inválido' }, 400);
-  if (body.watchStatus !== undefined && !isWatchStatus(body.watchStatus)) return c.json({ error: 'watchStatus inválido' }, 400);
-  if (body.rating !== undefined && body.rating !== null && (typeof body.rating !== 'number' || !Number.isInteger(body.rating) || body.rating < 0 || body.rating > 10)) {
-    return c.json({ error: 'rating deve ser um inteiro de 0 a 10' }, 400);
-  }
-  if (body.notes !== undefined && body.notes !== null && (typeof body.notes !== 'string' || body.notes.length > MAX_NOTES_LEN)) {
-    return c.json({ error: `notes deve ser texto com no máximo ${MAX_NOTES_LEN} caracteres` }, 400);
-  }
-  if (body.currentSeason !== undefined && body.currentSeason !== null && !isSeasonNumber(body.currentSeason)) {
-    return c.json({ error: 'currentSeason deve ser inteiro de 0 a 999' }, 400);
-  }
-  if (body.currentEpisode !== undefined && body.currentEpisode !== null && !isEpisodeNumber(body.currentEpisode)) {
-    return c.json({ error: 'currentEpisode deve ser inteiro de 1 a 9999' }, 400);
-  }
+libraryRoutes.patch('/:titleId', (c) =>
+  guardInput(c, async () => {
+    const titleId = c.req.param('titleId');
+    const body = (await readJsonObject(c)) as PatchLibraryBody;
+    if (body.watchStatus !== undefined && !isWatchStatus(body.watchStatus)) return c.json({ error: 'watchStatus inválido' }, 400);
+    if (body.rating !== undefined && body.rating !== null && (typeof body.rating !== 'number' || !Number.isInteger(body.rating) || body.rating < 0 || body.rating > 10)) {
+      return c.json({ error: 'rating deve ser um inteiro de 0 a 10' }, 400);
+    }
+    if (body.notes !== undefined && body.notes !== null && (typeof body.notes !== 'string' || body.notes.length > MAX_NOTES_LEN)) {
+      return c.json({ error: `notes deve ser texto com no máximo ${MAX_NOTES_LEN} caracteres` }, 400);
+    }
+    if (body.currentSeason !== undefined && body.currentSeason !== null && !isSeasonNumber(body.currentSeason)) {
+      return c.json({ error: 'currentSeason deve ser inteiro de 0 a 999' }, 400);
+    }
+    if (body.currentEpisode !== undefined && body.currentEpisode !== null && !isEpisodeNumber(body.currentEpisode)) {
+      return c.json({ error: 'currentEpisode deve ser inteiro de 1 a 9999' }, 400);
+    }
 
-  const db = await getDb();
-  const item = upsertLibraryEntry(db, titleId, body);
-  return c.json(toResponse(item));
-});
+    const db = await getDb();
+    const item = upsertLibraryEntry(db, titleId, body);
+    return c.json(toResponse(item));
+  }),
+);
 
 libraryRoutes.delete('/:entryId', async (c) => {
   const db = await getDb();
@@ -213,24 +213,20 @@ libraryRoutes.post('/:titleId/rewatch', async (c) => {
 
 const BULK_LIMIT = 500;
 
-interface BulkBody {
-  titleIds?: unknown;
-  action?: unknown;
-  watchStatus?: unknown;
-}
+libraryRoutes.post('/bulk', (c) =>
+  guardInput(c, async () => {
+    const body = await readJsonObject(c, 64 * 1024);
+    if (!Array.isArray(body.titleIds) || !body.titleIds.every(isNonEmptyString)) return c.json({ error: 'titleIds deve ser uma lista de ids' }, 400);
+    if (body.titleIds.length > BULK_LIMIT) return c.json({ error: `no máximo ${BULK_LIMIT} itens por vez` }, 400);
 
-libraryRoutes.post('/bulk', async (c) => {
-  const body = await c.req.json<BulkBody>().catch(() => null);
-  if (!body || !Array.isArray(body.titleIds) || !body.titleIds.every(isNonEmptyString)) return c.json({ error: 'titleIds deve ser uma lista de ids' }, 400);
-  if (body.titleIds.length > BULK_LIMIT) return c.json({ error: `no máximo ${BULK_LIMIT} itens por vez` }, 400);
+    let action: BulkLibraryAction;
+    if (body.action === 'remove') action = { type: 'remove' };
+    else if (body.action === 'status' && isWatchStatus(body.watchStatus)) action = { type: 'status', watchStatus: body.watchStatus };
+    else return c.json({ error: 'action deve ser "remove" ou "status" (com watchStatus válido)' }, 400);
 
-  let action: BulkLibraryAction;
-  if (body.action === 'remove') action = { type: 'remove' };
-  else if (body.action === 'status' && isWatchStatus(body.watchStatus)) action = { type: 'status', watchStatus: body.watchStatus };
-  else return c.json({ error: 'action deve ser "remove" ou "status" (com watchStatus válido)' }, 400);
-
-  const db = await getDb();
-  const affected = bulkLibraryAction(db, body.titleIds, action);
-  refreshAllChannelLinks(db);
-  return c.json({ affected });
-});
+    const db = await getDb();
+    const affected = bulkLibraryAction(db, body.titleIds, action);
+    refreshAllChannelLinks(db);
+    return c.json({ affected });
+  }),
+);

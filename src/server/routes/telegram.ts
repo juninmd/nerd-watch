@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getDb } from '../db/database.ts';
+import { guardInput, readJsonObject } from '../http/json-body.ts';
 import { fetchHeaders } from '../providers/sources/http.ts';
 import { originAllowed } from '../http/security.ts';
 import {
@@ -76,15 +77,16 @@ telegramRoutes.get('/recent', async (c) => {
   });
 });
 
-telegramRoutes.post('/channels', async (c) => {
-  const body = await c.req.json<{ handle?: string; mode?: string }>().catch(() => null);
-  const ref = typeof body?.handle === 'string' ? parseTelegramRef(body.handle) : null;
-  if (!ref) return c.json({ error: 'canal inválido (use o @usuário, um link t.me/… ou o link de uma mensagem do canal privado, t.me/c/…)' }, 400);
-  if (!isMode(body?.mode)) return c.json({ error: 'mode deve ser "public", "personal" ou "bot"' }, 400);
-  if (ref.private && body.mode !== 'personal') {
-    return c.json({ error: 'canal ou grupo privado só funciona no modo conta pessoal (a conta precisa participar dele)' }, 400);
-  }
-  const { handle } = ref;
+telegramRoutes.post('/channels', (c) =>
+  guardInput(c, async () => {
+    const body = await readJsonObject(c);
+    const ref = typeof body.handle === 'string' ? parseTelegramRef(body.handle) : null;
+    if (!ref) return c.json({ error: 'canal inválido (use o @usuário, um link t.me/… ou o link de uma mensagem do canal privado, t.me/c/…)' }, 400);
+    if (!isMode(body.mode)) return c.json({ error: 'mode deve ser "public", "personal" ou "bot"' }, 400);
+    if (ref.private && body.mode !== 'personal') {
+      return c.json({ error: 'canal ou grupo privado só funciona no modo conta pessoal (a conta precisa participar dele)' }, 400);
+    }
+    const { handle } = ref;
 
   const db = await getDb();
 
@@ -155,7 +157,8 @@ telegramRoutes.post('/channels', async (c) => {
     if (err instanceof PrivateChannelNotFoundError) return c.json({ error: err.message }, 404);
     return c.json({ error: 'não foi possível ler esse canal com a conta pessoal agora' }, 502);
   }
-});
+  }),
+);
 
 telegramRoutes.get('/channels/:id', async (c) => {
   const db = await getDb();
@@ -223,15 +226,17 @@ telegramRoutes.post('/channels/refresh-info', async (c) => {
 
 const BULK_DELETE_MAX = 500;
 
-telegramRoutes.post('/channels/bulk-delete', async (c) => {
-  const body = await c.req.json<{ ids?: unknown }>().catch(() => null);
-  const ids = body?.ids;
-  if (!Array.isArray(ids) || ids.length === 0 || ids.length > BULK_DELETE_MAX || !ids.every((id) => typeof id === 'string')) {
-    return c.json({ error: `ids deve ser uma lista de 1 a ${BULK_DELETE_MAX} ids de canal` }, 400);
-  }
-  const db = await getDb();
-  return c.json({ removed: deleteTelegramChannels(db, ids) });
-});
+telegramRoutes.post('/channels/bulk-delete', (c) =>
+  guardInput(c, async () => {
+    const body = await readJsonObject(c, 64 * 1024);
+    const ids = body.ids;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > BULK_DELETE_MAX || !ids.every((id) => typeof id === 'string')) {
+      return c.json({ error: `ids deve ser uma lista de 1 a ${BULK_DELETE_MAX} ids de canal` }, 400);
+    }
+    const db = await getDb();
+    return c.json({ removed: deleteTelegramChannels(db, ids) });
+  }),
+);
 
 telegramRoutes.get('/my-channels', async (c) => {
   if (!telegramPersonalEnabled()) return c.json({ error: 'entre com a conta pessoal (QR code) para listar os seus canais' }, 501);
