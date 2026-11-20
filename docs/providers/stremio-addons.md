@@ -103,3 +103,15 @@ O painel usa o player do app, não uma aba nova: `url` e `ytId` tocam embutidos,
 `infoHash` vai para o motor P2P local (o vídeo aparece na coluna principal; no caso de série, o título do
 episódio abre a lista e o player fica dentro da própria linha). Torrentio, Brazuca e FenixFlix funcionam
 sem catálogo por esse caminho.
+
+## Referência: Torrentio
+
+O Torrentio é o caso mais completo de addon de torrent e está dissecado em [torrentio.md](torrentio.md)
+com o retrato legível por máquina em [`torrentio.capabilities.json`](torrentio.capabilities.json).
+O que muda em relação aos outros addons:
+
+- a configuração (provedores, filtros, debrid) vai no **caminho** do manifest
+  (`/providers=yts|sort=seeders/manifest.json`); o app já guarda a URL inteira e usa o `baseUrl` com a config;
+- a resposta tem teto de **500 streams** e `limit` conta por qualidade, não pelo total;
+- com chave de debrid o manifest ganha catálogos `other` e o recurso `meta`, e os streams viram `url`
+  de `/resolve/…` (sem `infoHash`) — essa URL carrega o token no caminho, então não pode ir crua ao cliente.

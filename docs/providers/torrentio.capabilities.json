@@ -1,0 +1,276 @@
+{
+  "$comment": "Snapshot de capacidades do Torrentio em 2026-11-20 (addon v0.0.15). Fontes: https://torrentio.strem.fun/manifest.json, https://torrentio.strem.fun/configure e o código de github.com/TheBeastLT/torrentio-scraper (branch master). Serve para montar a configuração e a UI de addons de torrent no futuro; não é consumido em runtime.",
+  "addon": {
+    "id": "com.stremio.torrentio.addon",
+    "version": "0.0.15",
+    "name": "Torrentio",
+    "types": ["movie", "series", "anime", "other"],
+    "resources": ["stream"],
+    "resourcesWithDebrid": ["stream", "meta"],
+    "idPrefixes": ["tt", "kitsu"],
+    "behaviorHints": { "configurable": true, "configurationRequired": false },
+    "images": {
+      "logo": "https://torrentio.strem.fun/images/logo_v1.png",
+      "background": "https://torrentio.strem.fun/images/background_v1.jpg"
+    }
+  },
+  "config": {
+    "location": "path",
+    "format": "/{chave=valor|chave=valor}/manifest.json",
+    "separator": "|",
+    "valueSeparator": ",",
+    "presets": {
+      "lite": {
+        "providers": "todos os provedores sem bandeira estrangeira",
+        "qualities": ["scr", "cam"],
+        "limit": 1
+      },
+      "brazuca": {
+        "providers": "todos os provedores sem bandeira estrangeira + os de bandeira 🇵🇹",
+        "languages": ["portuguese"]
+      }
+    },
+    "keys": [
+      {
+        "key": "providers",
+        "values": "lista de chaves de provedor separadas por vírgula",
+        "default": "todos",
+        "notes": "lista vazia = todos; lista preenchida liga só os citados; não existe sintaxe de exclusão (!provedor não funciona e devolve zero streams)"
+      },
+      {
+        "key": "sort",
+        "values": ["quality", "qualitysize", "seeders", "size"],
+        "default": "quality"
+      },
+      {
+        "key": "language",
+        "values": "lista de idiomas separados por vírgula",
+        "default": "sem preferência",
+        "notes": "não filtra: coloca os streams com a bandeira do idioma na frente; o resto continua na lista"
+      },
+      {
+        "key": "qualityfilter",
+        "values": "lista de qualidades separadas por vírgula",
+        "default": "nenhum",
+        "notes": "exclui as qualidades listadas; a comparação é exata (1080p não remove '1080p HDR')"
+      },
+      {
+        "key": "limit",
+        "values": "inteiro sem zero à esquerda",
+        "default": "sem limite de configuração (teto de 500 do banco)",
+        "notes": "aplica por balde de qualidade, não ao total"
+      },
+      {
+        "key": "minseeders",
+        "values": "inteiro",
+        "default": "0",
+        "notes": "ignorado quando há chave de debrid configurada"
+      },
+      {
+        "key": "sizefilter",
+        "values": "um ou dois tamanhos (ex.: 1GB,10GB)",
+        "default": "sem limite",
+        "notes": "um valor limita filme e série; dois valores usam o primeiro para filme e o último para série; valor ilegível vira 0 bytes e zera a lista"
+      },
+      {
+        "key": "debridoptions",
+        "values": ["nodownloadlinks", "nocatalog"],
+        "default": "nenhuma",
+        "notes": "nodownloadlinks esconde os links '[XX download]'; nocatalog esconde catálogos e o recurso meta"
+      },
+      {
+        "key": "realdebrid | premiumize | alldebrid | debridlink | easydebrid | offcloud | torbox | putio | highway",
+        "values": "token do serviço (put.io usa clientId@token)",
+        "default": "vazio",
+        "notes": "muda o nome do addon, liga o catálogo de downloads e o recurso meta; token com menos de 15 caracteres ou não imprimível é recusado"
+      }
+    ]
+  },
+  "providers": [
+    { "key": "yts", "label": "YTS", "group": "general" },
+    { "key": "eztv", "label": "EZTV", "group": "general" },
+    { "key": "rarbg", "label": "RARBG", "group": "general" },
+    { "key": "1337x", "label": "1337x", "group": "general" },
+    { "key": "ext", "label": "EXT", "group": "general" },
+    { "key": "thepiratebay", "label": "ThePirateBay", "group": "general" },
+    { "key": "kickasstorrents", "label": "KickassTorrents", "group": "general" },
+    { "key": "torrentgalaxy", "label": "TorrentGalaxy", "group": "general" },
+    { "key": "uindex", "label": "UIndex", "group": "general" },
+    { "key": "knaben", "label": "Knaben", "group": "general" },
+    { "key": "magnetdl", "label": "MagnetDL", "group": "general" },
+    { "key": "horriblesubs", "label": "HorribleSubs", "group": "anime" },
+    { "key": "nyaasi", "label": "NyaaSi", "group": "anime" },
+    { "key": "animetosho", "label": "AnimeTosho", "group": "anime" },
+    { "key": "tokyotosho", "label": "TokyoTosho", "group": "anime" },
+    { "key": "anidex", "label": "AniDex", "group": "anime" },
+    { "key": "nekobt", "label": "nekoBT", "group": "anime" },
+    { "key": "rutor", "label": "Rutor", "group": "foreign", "flag": "🇷🇺" },
+    { "key": "rutracker", "label": "Rutracker", "group": "foreign", "flag": "🇷🇺" },
+    { "key": "comando", "label": "Comando", "group": "foreign", "flag": "🇵🇹" },
+    { "key": "bludv", "label": "BluDV", "group": "foreign", "flag": "🇵🇹" },
+    { "key": "micoleaodublado", "label": "MicoLeaoDublado", "group": "foreign", "flag": "🇵🇹" },
+    { "key": "torrent9", "label": "Torrent9", "group": "foreign", "flag": "🇫🇷" },
+    { "key": "ilcorsaronero", "label": "ilCorSaRoNeRo", "group": "foreign", "flag": "🇮🇹" },
+    { "key": "mejortorrent", "label": "MejorTorrent", "group": "foreign", "flag": "🇪🇸" },
+    { "key": "wolfmax4k", "label": "Wolfmax4k", "group": "foreign", "flag": "🇪🇸" },
+    { "key": "cinecalidad", "label": "Cinecalidad", "group": "foreign", "flag": "🇲🇽" },
+    { "key": "besttorrents", "label": "BestTorrents", "group": "foreign", "flag": "🇵🇱" }
+  ],
+  "qualities": [
+    { "key": "brremux", "label": "BluRay REMUX", "rule": "bingeGroup contém 'BluRay REMUX'" },
+    { "key": "hdrall", "label": "HDR/HDR10+/Dolby Vision", "rule": "perfil contém HDR, HDR10+ ou DV" },
+    { "key": "dolbyvision", "label": "Dolby Vision", "rule": "perfil é exatamente DV (DV + HDR não entra)" },
+    { "key": "dolbyvisionwithhdr", "label": "Dolby Vision + HDR", "rule": "perfil contém DV e HDR" },
+    { "key": "threed", "label": "3D", "rule": "perfil contém 3D" },
+    { "key": "nonthreed", "label": "Non 3D (DO NOT SELECT IF NOT SURE)", "rule": "perfil não contém 3D" },
+    { "key": "4k", "label": "4k", "rule": "primeiro token da qualidade é 4k" },
+    { "key": "1080p", "label": "1080p", "rule": "qualidade é exatamente 1080p" },
+    { "key": "720p", "label": "720p", "rule": "qualidade é exatamente 720p" },
+    { "key": "480p", "label": "480p", "rule": "qualidade é exatamente 480p" },
+    { "key": "other", "label": "Other (DVDRip/HDRip/BDRip...)", "rule": "primeiro token fora de 4k/1080p/720p/480p/SCR/CAM/TeleSync/TeleCine" },
+    { "key": "scr", "label": "Screener", "rule": "qualidade é exatamente SCR" },
+    { "key": "cam", "label": "Cam", "rule": "qualidade é CAM, TeleSync ou TeleCine" },
+    { "key": "unknown", "label": "Unknown", "rule": "qualidade ausente ou vazia" }
+  ],
+  "languages": [
+    { "key": "english", "flag": "🇬🇧", "selectable": false },
+    { "key": "japanese", "flag": "🇯🇵", "selectable": true },
+    { "key": "russian", "flag": "🇷🇺", "selectable": true },
+    { "key": "italian", "flag": "🇮🇹", "selectable": true },
+    { "key": "portuguese", "flag": "🇵🇹", "selectable": true },
+    { "key": "spanish", "flag": "🇪🇸", "selectable": true },
+    { "key": "latino", "flag": "🇲🇽", "selectable": true },
+    { "key": "korean", "flag": "🇰🇷", "selectable": true },
+    { "key": "chinese", "flag": "🇨🇳", "selectable": true },
+    { "key": "taiwanese", "flag": "🇹🇼", "selectable": true },
+    { "key": "french", "flag": "🇫🇷", "selectable": true },
+    { "key": "german", "flag": "🇩🇪", "selectable": true },
+    { "key": "dutch", "flag": "🇳🇱", "selectable": true },
+    { "key": "hindi", "flag": "🇮🇳", "selectable": true },
+    { "key": "telugu", "flag": "🇮🇳", "selectable": true },
+    { "key": "tamil", "flag": "🇮🇳", "selectable": true },
+    { "key": "polish", "flag": "🇵🇱", "selectable": true },
+    { "key": "lithuanian", "flag": "🇱🇹", "selectable": true },
+    { "key": "latvian", "flag": "🇱🇻", "selectable": true },
+    { "key": "estonian", "flag": "🇪🇪", "selectable": true },
+    { "key": "czech", "flag": "🇨🇿", "selectable": true },
+    { "key": "slovakian", "flag": "🇸🇰", "selectable": true },
+    { "key": "slovenian", "flag": "🇸🇮", "selectable": true },
+    { "key": "hungarian", "flag": "🇭🇺", "selectable": true },
+    { "key": "romanian", "flag": "🇷🇴", "selectable": true },
+    { "key": "bulgarian", "flag": "🇧🇬", "selectable": true },
+    { "key": "serbian", "flag": "🇷🇸", "selectable": true },
+    { "key": "croatian", "flag": "🇭🇷", "selectable": true },
+    { "key": "ukrainian", "flag": "🇺🇦", "selectable": true },
+    { "key": "greek", "flag": "🇬🇷", "selectable": true },
+    { "key": "danish", "flag": "🇩🇰", "selectable": true },
+    { "key": "finnish", "flag": "🇫🇮", "selectable": true },
+    { "key": "swedish", "flag": "🇸🇪", "selectable": true },
+    { "key": "norwegian", "flag": "🇳🇴", "selectable": true },
+    { "key": "turkish", "flag": "🇹🇷", "selectable": true },
+    { "key": "arabic", "flag": "🇸🇦", "selectable": true },
+    { "key": "persian", "flag": "🇮🇷", "selectable": true },
+    { "key": "hebrew", "flag": "🇮🇱", "selectable": true },
+    { "key": "vietnamese", "flag": "🇻🇳", "selectable": true },
+    { "key": "indonesian", "flag": "🇮🇩", "selectable": true },
+    { "key": "malay", "flag": "🇲🇾", "selectable": true },
+    { "key": "thai", "flag": "🇹🇭", "selectable": true },
+    { "key": "dubbed", "flag": "Dubbed", "selectable": false },
+    { "key": "multi audio", "flag": "Multi Audio", "selectable": false },
+    { "key": "multi subs", "flag": "Multi Subs", "selectable": false },
+    { "key": "dual audio", "flag": "Dual Audio", "selectable": false }
+  ],
+  "sorts": [
+    { "key": "quality", "label": "By quality then seeders", "default": true },
+    { "key": "qualitysize", "label": "By quality then size" },
+    { "key": "seeders", "label": "By seeders" },
+    { "key": "size", "label": "By size" }
+  ],
+  "debrid": [
+    { "key": "realdebrid", "name": "RealDebrid", "short": "RD", "catalogs": ["torrentio-realdebrid"], "noDownloads": false },
+    { "key": "premiumize", "name": "Premiumize", "short": "PM", "catalogs": ["torrentio-premiumize"], "noDownloads": false },
+    { "key": "alldebrid", "name": "AllDebrid", "short": "AD", "catalogs": ["torrentio-alldebrid"], "noDownloads": false },
+    { "key": "debridlink", "name": "DebridLink", "short": "DL", "catalogs": ["torrentio-debridlink"], "noDownloads": false },
+    { "key": "easydebrid", "name": "EasyDebrid", "short": "ED", "catalogs": [], "noDownloads": true },
+    { "key": "offcloud", "name": "Offcloud", "short": "OC", "catalogs": ["torrentio-offcloud"], "noDownloads": false },
+    { "key": "torbox", "name": "TorBox", "short": "TB", "catalogs": ["torrentio-torbox-torrents", "torrentio-torbox-usenet", "torrentio-torbox-webdl"], "noDownloads": false },
+    { "key": "putio", "name": "Put.io", "short": "Putio", "catalogs": ["torrentio-putio"], "noDownloads": false },
+    { "key": "highway", "name": "HighWay", "short": "HW", "catalogs": [], "noDownloads": false }
+  ],
+  "streamShape": {
+    "fields": ["name", "title", "infoHash", "fileIdx", "sources", "behaviorHints.bingeGroup", "behaviorHints.filename", "behaviorHints.videoSize", "behaviorHints.videoHash", "url"],
+    "name": "Torrentio\\n{qualidade [3D] [HDR|DV]}",
+    "title": "{título do torrent}\\n{arquivo, se diferente}\\n👤 {seeders} 💾 {tamanho} ⚙️ {provedor}\\n{idiomas/bandeiras}",
+    "bingeGroup": "torrentio|{qualidade|fonte|codec|bitDepth|hdr} (filme) ou torrentio|{qualidade|hdr|grupo} / torrentio|{infoHash} (série)",
+    "sources": "tracker:{url} por tracker + dht:{infoHash}; torrents de anime e de provedores russos recebem trackers extras"
+  },
+  "endpoints": [
+    { "path": "/", "response": "303 para /configure" },
+    { "path": "/configure", "response": "HTML da página de configuração" },
+    { "path": "/lite", "response": "303 para /lite/configure" },
+    { "path": "/brazuca", "response": "303 para /brazuca/configure" },
+    { "path": "/manifest.json", "response": "manifest padrão" },
+    { "path": "/{config}/manifest.json", "response": "manifest configurado" },
+    { "path": "/{config}/stream/{tipo}/{id}.json", "response": "streams" },
+    { "path": "/{config}/catalog/other/{catalogo}.json[/{skip=N}]", "response": "catálogo de downloads do debrid" },
+    { "path": "/{config}/meta/other/{moch}:{item}.json", "response": "meta do download, com videos[].streams[]" },
+    { "path": "/resolve/{moch}/{api_key}/{info_hash}/{entrada}/{indice}[/{arquivo}]", "response": "302 para o debrid ou vídeo de erro" },
+    { "path": "/metrics", "response": "Prometheus com HTTP Basic" },
+    { "path": "/videos/*", "response": "vídeos estáticos de erro" }
+  ],
+  "examples": {
+    "manifestWithDebrid": {
+      "name": "Torrentio RD",
+      "catalogs": [{ "id": "torrentio-realdebrid", "name": "RealDebrid", "type": "other", "extra": [{ "name": "skip" }] }],
+      "resources": [
+        { "name": "stream", "types": ["movie", "series", "anime"], "idPrefixes": ["tt", "kitsu"] },
+        { "name": "meta", "types": ["other"], "idPrefixes": ["realdebrid"] }
+      ]
+    },
+    "stream": {
+      "name": "Torrentio\n1080p",
+      "title": "Big Buck Bunny 1080p 30fps\n👤 25 💾 263.34 MB ⚙️ MagnetDL",
+      "infoHash": "88594aaacbde40ef3e2510c47374ec0aa396c08e",
+      "fileIdx": 0,
+      "behaviorHints": {
+        "bingeGroup": "torrentio|1080p",
+        "filename": "bbb_sunflower_1080p_30fps_normal.mp4"
+      }
+    },
+    "empty": { "streams": [] }
+  },
+  "limits": {
+    "streamsPerRequest": 500,
+    "debridCatalogPage": 100,
+    "maxApiKeyBlacklist": 20000,
+    "rateLimitRequestsPerDay": 5000,
+    "rateLimitRequestsScope": "requisições de stream/catalog/meta por IP; orçamentos de miss/empty usam IPv6 /64",
+    "rateLimitMissPer10Min": 100,
+    "rateLimitEmptyPer10Min": 30,
+    "rateLimitKeyedMultiplier": 3,
+    "availabilityTimeoutSeconds": 30,
+    "resolveTimeoutSeconds": 120
+  },
+  "cache": {
+    "streamsMaxAgeSeconds": 3600,
+    "emptyMaxAgeSeconds": 60,
+    "staticVideoMaxAgeSeconds": 0,
+    "staleRevalidateSeconds": 14400,
+    "staleErrorSeconds": 604800,
+    "resolvedRedirectMaxAgeSeconds": 21600,
+    "debridCatalogMaxAgeSeconds": 0
+  },
+  "staticVideos": [
+    "videos/downloading_v3.mp4",
+    "videos/download_failed_v3.mp4",
+    "videos/failed_access_v3.mp4",
+    "videos/failed_rar_v3.mp4",
+    "videos/failed_too_big_v2.mp4",
+    "videos/failed_opening_v3.mp4",
+    "videos/failed_unexpected_v3.mp4",
+    "videos/failed_infringement_v3.mp4",
+    "videos/limits_exceeded_v2.mp4",
+    "videos/blocked_access_v2.mp4",
+    "videos/failed_unavailable_v1.mp4"
+  ]
+}
