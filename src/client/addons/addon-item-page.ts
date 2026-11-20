@@ -1,29 +1,22 @@
-import {
-  type AddonMetaDto,
-  type AddonStreamDto,
-  getAddonMeta,
-  getAddonStreams,
-  getTitleStreams,
-  openAddonStream,
-} from '../api/stremio.ts';
-import { renderInlinePlayer } from '../player/inline-player.ts';
+import { type AddonMetaDto, getAddonMeta, getTitleStreams } from '../api/stremio.ts';
 import { stopIfOnPage } from '../player/player-dock.ts';
-import { releaseTorrentPlayers, renderTorrentPanel } from '../player/torrent-player.ts';
+import { releaseTorrentPlayers } from '../player/torrent-player.ts';
 import { renderSubtitlesPanel } from '../player/subtitles.ts';
+import { trailerFrameHtml } from '../player/trailer-embed.ts';
 import { backButtonHtml, wireBackButton } from '../ui/back-button.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, initials, posterCssUrl } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
-import { episodeLabel, listEpisodes, parseImdbEpisodeId } from './addon-episode.ts';
-import { addonCaptionTracks } from './addon-captions.ts';
+import { episodeLabel, isSeriesRoot, listEpisodes, parseImdbEpisodeId } from './addon-episode.ts';
 import { addonItemPath, addonPath } from './addon-links.ts';
-import { groupEpisodes, filterEpisodes } from './episode-model.ts';
-import { streamCardHtml } from './stream-card.ts';
+import { filterEpisodes, groupEpisodes } from './episode-model.ts';
 import { mountStreams } from './title-streams-panel.ts';
 
-const streamRow = (s: AddonStreamDto, i: number): string =>
-  streamCardHtml(s, {
-    buttonAttrs: s.kind === 'torrent' ? `data-torrent="${i}"` : `data-play="${i}"`,
-  });
+/** Uma linha só com o que o addon mandou: ano · duração · gêneros. */
+const metaLine = (meta: AddonMetaDto): string =>
+  [meta.year, meta.runtime, meta.genres.join(', ')]
+    .filter((x): x is string => Boolean(x))
+    .map(escapeHtml)
+    .join(' · ');
 
 export const renderAddonItem = (host: HTMLElement, addonId: string, type: string, itemId: string): void => {
   const root = document.createElement('div');
@@ -48,20 +41,28 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
   const route = addonItemPath(addonId, type, itemId);
 
   host.innerHTML = `
-    <header class="view-head">
-      ${backButtonHtml()}
-      <h1 class="view-title">${escapeHtml(meta.name)}</h1>
-      <p class="view-subtitle">${[meta.year, meta.runtime, meta.genres.join(', ')].filter((x): x is string => Boolean(x)).map(escapeHtml).join(' · ')}</p>
+    ${backButtonHtml()}
+    <header class="hero">
+      <div class="backdrop placeholder" id="addon-backdrop"></div>
+      <div class="scrim"></div>
+      <div class="hero-content">
+        <div class="hero-poster placeholder" id="addon-poster"><div style="display:grid;place-items:center;height:100%;background:var(--gradient-soft);font-size:34px;font-weight:800">${escapeHtml(initials(meta.name))}</div></div>
+        <div class="hero-info">
+          <h1>${escapeHtml(meta.name)}</h1>
+          <div class="hero-meta">${metaLine(meta)}</div>
+          <p class="hero-overview">${escapeHtml(meta.description || 'Sem sinopse disponível.')}</p>
+          ${meta.trailerKey ? '<div class="hero-actions"><button class="btn btn-ghost" type="button" data-jump="trailer">Trailer</button></div>' : ''}
+        </div>
+      </div>
     </header>
     <div class="detail-grid">
       <div>
+        ${trailerFrameHtml(meta.trailerKey)}
         <div id="addon-player"></div>
-        <p class="hint" id="addon-player-note"></p>
-        <p>${escapeHtml(meta.description || 'Sem sinopse disponível.')}</p>
       </div>
       <div>
         <div class="side-card" id="addon-streams-card">
-          <h3 id="addon-streams-title">Streams do addon</h3>
+          <h3 id="addon-streams-title">Streams</h3>
           <div id="addon-streams"><div class="skeleton" style="height:56px"></div></div>
         </div>
         ${
@@ -82,8 +83,27 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
     </div>`;
   wireBackButton(host, addonPath(addonId));
 
+  // URL de imagem por CSSOM, como nas fitas de título: o dado do addon nunca vira marcação.
+  const backdrop = host.querySelector<HTMLElement>('#addon-backdrop');
+  if (meta.background && backdrop) {
+    backdrop.classList.remove('placeholder');
+    backdrop.style.backgroundImage = posterCssUrl(meta.background);
+  }
+  const poster = host.querySelector<HTMLElement>('#addon-poster');
+  if (meta.poster && poster) {
+    poster.classList.remove('placeholder');
+    poster.style.backgroundImage = posterCssUrl(meta.poster);
+    poster.innerHTML = '';
+  }
+
+  host.querySelector('[data-jump="trailer"]')?.addEventListener('click', () => {
+    const target = host.querySelector<HTMLElement>('#trailer');
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target?.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
+    target?.focus({ preventScroll: true });
+  });
+
   const playerHost = host.querySelector('#addon-player') as HTMLElement;
-  const note = host.querySelector('#addon-player-note') as HTMLElement;
   const streamsCard = host.querySelector('#addon-streams-card') as HTMLElement;
   const streamsTitle = host.querySelector('#addon-streams-title') as HTMLElement;
   const streamsBox = host.querySelector('#addon-streams') as HTMLElement;
@@ -146,70 +166,14 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
   const resetPlayer = () => {
     stopIfOnPage();
     releaseTorrentPlayers();
-    note.textContent = '';
     playerHost.innerHTML = '';
-  };
-
-  const playStream = (currentId: string, label: string, s: AddonStreamDto, streamIndex: number) => {
-    resetPlayer();
-    const imdb = parseImdbEpisodeId(currentId);
-    if (s.kind === 'youtube' && s.url) {
-      playerHost.innerHTML = `<div class="player-frame"><iframe src="${escapeHtml(s.url)}" allowfullscreen title="${escapeHtml(label)}"></iframe></div>`;
-      reveal(playerHost);
-      return;
-    }
-    if (!s.url) return;
-    const addonTracks = addonCaptionTracks({ addonId, type, contentId: currentId, streamIndex, subtitles: s.subtitles });
-    playerHost.appendChild(
-      renderInlinePlayer({
-        item: {
-          key: `stremio:${addonId}:${currentId}`,
-          src: s.url,
-          title: label,
-          subtitle: 'Addon do Stremio',
-          poster: meta.poster,
-          channelId: 'stremio',
-          messageId: currentId,
-          durationSeconds: null,
-          route,
-          captions: {
-            query: meta.name,
-            ...(imdb ? { season: imdb.season, episode: imdb.episode } : {}),
-            ...(addonTracks.length > 0 ? { addonTracks } : {}),
-          },
-        },
-        minimizable: true,
-        onUnsupported: () => {
-          stopIfOnPage();
-          note.textContent = 'O navegador não tocou este stream; tente outro da lista.';
-        },
-      }),
-    );
-    reveal(playerHost);
-  };
-
-  const playTorrent = (currentId: string, label: string, index: number) => {
-    resetPlayer();
-    let panel: HTMLElement | null = null;
-    panel = renderTorrentPanel({
-      identifier: currentId,
-      title: label,
-      posterUrl: meta.poster,
-      open: (fileIndex) => openAddonStream(addonId, type, currentId, index, fileIndex),
-      sourceLabel: 'Addon · P2P',
-      hint: 'O servidor conecta direto nos peers deste torrent e serve os pedaços ao player; nada fica semeando ao sair da tela.',
-      player: { channelId: 'addon', messageId: currentId, route },
-      autoStart: true,
-      onRelease: () => panel?.remove(),
-    });
-    playerHost.appendChild(panel);
-    reveal(playerHost);
   };
 
   const loadStreams = async (currentId: string, scroll: boolean): Promise<void> => {
     const mine = ++seq;
     const ep = episodes.find((v) => v.id === currentId);
     const label = ep ? `${meta.name} · ${episodeLabel(ep)}` : meta.name;
+    const isRootOfSeries = isSeriesRoot(meta, episodes.length, currentId, itemId);
 
     current = currentId;
     if (ep && (ep.season ?? null) !== season) {
@@ -222,66 +186,51 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
     }
 
     if (scroll) resetPlayer();
-    streamsTitle.textContent = ep ? `Streams — ${episodeLabel(ep)}` : 'Streams do addon';
+    streamsTitle.textContent = ep ? `Streams — ${episodeLabel(ep)}` : 'Streams';
     streamsBox.innerHTML = '<div class="skeleton" style="height:56px"></div>';
     streamsBox.setAttribute('aria-busy', 'true');
     if (scroll) reveal(streamsCard);
 
-    const ownStreams = await getAddonStreams(addonId, type, currentId).catch(() => null);
+    // O addon do item entra pelo id original; os outros addons de stream (Torrentio etc.) entram
+    // pelo IMDb, então o item aberto no catálogo mostra torrents além dos streams do próprio addon.
+    const imdb = parseImdbEpisodeId(currentId);
+    const mediaType: 'movie' | 'tv' = type === 'movie' || meta.type === 'movie' ? 'movie' : 'tv';
+    const dto = await getTitleStreams({
+      addonId,
+      type,
+      itemId: currentId,
+      mediaType,
+      ...(imdb && !isRootOfSeries ? { imdbId: imdb.imdbId, season: imdb.season, episode: imdb.episode } : {}),
+    }).catch(() => null);
     if (mine !== seq || !streamsBox.isConnected) return;
 
-    if (ownStreams && ownStreams.length > 0) {
-      streamsBox.removeAttribute('aria-busy');
-      streamsBox.innerHTML = `<ul class="stream-list">${ownStreams.map(streamRow).join('')}</ul>`;
-      streamsBox.onclick = (event) => {
-        const playBtn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-play]');
-        if (playBtn) {
-          const index = Number(playBtn.dataset.play);
-          const s = ownStreams[index];
-          if (s) playStream(currentId, label, s, index);
-          return;
-        }
-        const torBtn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-torrent]');
-        if (torBtn) {
-          const idx = Number(torBtn.dataset.torrent);
-          if (ownStreams[idx]) playTorrent(currentId, label, idx);
-        }
-      };
+    streamsBox.removeAttribute('aria-busy');
+    // Grupos que responderam "nada" (sem erro) só poluem a lista quando outro addon trouxe streams.
+    const groups = dto?.addons.filter((g) => g.streams.length > 0 || g.error !== null) ?? [];
+    const hasStreams = groups.some((g) => g.streams.length > 0);
+    if (dto && groups.length > 0 && (!isRootOfSeries || hasStreams)) {
+      mountStreams(streamsBox, { ...dto, addons: groups }, {
+        title: label,
+        posterUrl: meta.poster,
+        route,
+        playerHost,
+        captions: {
+          query: meta.name,
+          mediaType,
+          season: imdb?.season ?? null,
+          episode: imdb?.episode ?? null,
+        },
+      });
       return;
     }
 
-    // Addon só de catálogo/meta (ex.: Cinemeta) não devolve stream próprio: consulta os outros addons de stream instalados.
-    const imdb = parseImdbEpisodeId(currentId);
-    if (imdb && (type === 'movie' || imdb.episode !== null || episodes.length === 0)) {
-      const mediaType = type === 'movie' ? 'movie' : 'tv';
-      const fallback = await getTitleStreams({
-        imdbId: imdb.imdbId,
-        mediaType,
-        season: imdb.season,
-        episode: imdb.episode,
-      }).catch(() => null);
-      if (mine !== seq || !streamsBox.isConnected) return;
-      streamsBox.removeAttribute('aria-busy');
-      if (fallback && fallback.addons.length > 0) {
-        mountStreams(streamsBox, fallback, {
-          title: label,
-          posterUrl: meta.poster,
-          route,
-          playerHost,
-          captions: { query: meta.name, mediaType, season: imdb.season, episode: imdb.episode },
-        });
-        return;
-      }
-    }
-
-    streamsBox.removeAttribute('aria-busy');
     streamsBox.onclick = null;
-    if (episodes.length > 0 && currentId === itemId) {
+    if (isRootOfSeries) {
       streamsBox.innerHTML = '<p class="hint">Escolha um episódio abaixo para carregar os streams.</p>';
-    } else if (ownStreams === null) {
-      streamsBox.innerHTML = '<p class="hint" role="alert">este addon não respondeu aos streams agora; tente de novo mais tarde.</p>';
+    } else if (dto === null) {
+      streamsBox.innerHTML = '<p class="hint" role="alert">não foi possível consultar os addons agora; tente de novo mais tarde.</p>';
     } else {
-      streamsBox.innerHTML = '<p class="hint">nenhum stream para este episódio.</p>';
+      streamsBox.innerHTML = '<p class="hint">nenhum stream para este título.</p>';
     }
   };
 

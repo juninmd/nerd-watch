@@ -94,13 +94,25 @@ stremioRoutes.get('/streams', (c) =>
     if (imdbRaw !== undefined && !IMDB_ID_RE.test(imdbRaw)) throw new ValidationError('imdbId inválido');
     const tmdbId = Number(c.req.query('tmdbId'));
     const hasTmdb = Number.isInteger(tmdbId) && tmdbId > 0;
-    if ((!hasTmdb && imdbRaw === undefined) || (mediaType !== 'movie' && mediaType !== 'tv')) throw new ValidationError('informe tmdbId ou imdbId e mediaType (movie|tv)');
+
+    // Item aberto no catálogo de um addon: o stream dele vem pelo id original, mesmo sem IMDb.
+    const ownAddonId = c.req.query('addonId');
+    const ownType = c.req.query('type');
+    const ownItemId = c.req.query('itemId');
+    const ownParts = [ownAddonId, ownType, ownItemId].filter((v) => v !== undefined).length;
+    if (ownParts !== 0 && ownParts !== 3) throw new ValidationError('addonId, type e itemId vão juntos');
+    if (ownAddonId !== undefined && !/^[A-Za-z0-9_-]{1,100}$/.test(ownAddonId)) throw new ValidationError('addonId inválido');
+    if (ownType !== undefined && !/^[a-z0-9_-]{1,40}$/.test(ownType)) throw new ValidationError('type inválido');
+    if (ownItemId !== undefined && (!/^[^/\\?#]{1,300}$/.test(ownItemId) || hasControlChar(ownItemId))) throw new ValidationError('itemId inválido');
+    const own = ownAddonId !== undefined && ownType !== undefined && ownItemId !== undefined ? { addonId: ownAddonId, type: ownType, itemId: ownItemId } : undefined;
+
+    if ((!hasTmdb && imdbRaw === undefined && !own) || (mediaType !== 'movie' && mediaType !== 'tv')) throw new ValidationError('informe tmdbId ou imdbId e mediaType (movie|tv)');
     const num = (k: string): number | null => {
       const v = c.req.query(k);
       return v && /^\d{1,4}$/.test(v) ? Number(v) : null;
     };
     const addons = listAddons(await getDb());
-    return c.json(await streamsForTitle(addons, { mediaType, tmdbId: hasTmdb ? tmdbId : undefined, imdbId: imdbRaw, season: num('season'), episode: num('episode') }));
+    return c.json(await streamsForTitle(addons, { mediaType, tmdbId: hasTmdb ? tmdbId : undefined, imdbId: imdbRaw, season: num('season'), episode: num('episode'), own }));
   }),
 );
 

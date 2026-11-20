@@ -54,6 +54,12 @@ describe('GET /api/anilist/:id', () => {
     expect(body.mediaType).toBe('movie');
   });
 
+  test('devolve o trailer do AniList (id do YouTube) para a ficha tocar', async () => {
+    globalThis.fetch = (async () => json({ data: { Media: media(9210, { trailer: { id: 'dQw4w9WgXcQ', site: 'youtube' } }) } })) as unknown as typeof fetch;
+    const body = await (await anilistRoutes.request('/9210')).json();
+    expect(body.trailerKey).toBe('dQw4w9WgXcQ');
+  });
+
   test('próximo episódio entra no calendário com a data local do horário de exibição', async () => {
     const airingAt = Math.floor(Date.now() / 1000) + 86_400;
     globalThis.fetch = (async () => json({ data: { Media: media(9203, { nextAiringEpisode: { airingAt, episode: 4 } }) } })) as unknown as typeof fetch;

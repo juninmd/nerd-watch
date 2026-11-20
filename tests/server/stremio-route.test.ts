@@ -246,6 +246,26 @@ describe('addon só de streams (sem catálogo, como o Brazuca)', () => {
     expect((await stremioRoutes.request('/streams?tmdbId=1&mediaType=anime')).status).toBe(400);
     expect((await stremioRoutes.request('/streams?mediaType=movie')).status).toBe(400);
     expect((await stremioRoutes.request('/streams?imdbId=../x&mediaType=movie')).status).toBe(400);
+    expect((await stremioRoutes.request('/streams?mediaType=movie&addonId=x&type=movie')).status).toBe(400);
+    expect((await stremioRoutes.request('/streams?mediaType=movie&addonId=x&type=movie&itemId=')).status).toBe(400);
+    expect((await stremioRoutes.request('/streams?mediaType=movie&addonId=x&type=%2F&itemId=tt1')).status).toBe(400);
+    expect((await stremioRoutes.request('/streams?mediaType=movie&addonId=x&type=movie&itemId=a%2Fb')).status).toBe(400);
+  });
+
+  test('com addonId/type/itemId, consulta o próprio addon pelo id original (mesmo sem IMDb)', async () => {
+    const addons = await setup();
+    const id = addons[0]?.id as string;
+    serve({
+      [MANIFEST_URL]: () => json(streamOnly),
+      [`${base}/stream/movie/tt0133093.json`]: () => json({ streams: [{ url: 'https://cdn.example.com/m.mp4', title: 'filme' }] }),
+    });
+    const res = await stremioRoutes.request(`/streams?mediaType=movie&addonId=${encodeURIComponent(id)}&type=movie&itemId=tt0133093`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      imdbId: null,
+      addons: [{ addonId: id, type: 'movie', contentId: 'tt0133093', error: null, streams: [{ index: 0, kind: 'url' }] }],
+    });
   });
 
   test('com imdbId (ex.: série da TVmaze) não consulta o TMDB e usa o id de episódio tt:T:E', async () => {

@@ -84,6 +84,14 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
     .then((data) => {
       if (!results.isConnected) return;
       const addonHits = data.addonResults ?? [];
+      // Sem chave da TMDB, filmes e séries do catálogo geral não entram na busca; dizer isso evita
+      // a impressão de que "a busca não acha nada" quando só falta configurar a credencial.
+      if (data.tmdbEnabled === false) {
+        results.insertAdjacentHTML(
+          'beforebegin',
+          '<p class="hint" id="tmdb-off-hint">TMDB sem chave: filmes e séries do catálogo geral não aparecem na busca. <a href="#/credentials">Configure a TMDB_API_KEY</a> para pôsteres, trailers e streams por IMDb.</p>',
+        );
+      }
       if (data.results.length === 0 && addonHits.length === 0) {
         results.innerHTML = `<div class="empty-state"><div class="big" aria-hidden="true">${icon('search')}</div>nada encontrado para "${escapeHtml(query)}"<p class="hint">confira a grafia ou tente o nome original do título</p></div>`;
         return;

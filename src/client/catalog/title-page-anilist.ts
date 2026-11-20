@@ -2,6 +2,7 @@ import { backLinkHtml } from '../ui/back-link.ts';
 import { getAnilistTitle, type AnilistDetailDto } from '../api/index.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
+import { trailerFrameHtml } from '../player/trailer-embed.ts';
 import { renderTitleError } from './title-error.ts';
 import { pluralize } from '../ui/pluralize.ts';
 
@@ -51,11 +52,13 @@ export const renderAnilistDetail = (host: HTMLElement, id: string): void => {
                 </div>
                 <p class="hero-overview">${escapeHtml(d.overview || 'Sem sinopse disponível.')}</p>
                 ${nextEpisodeLine(d)}
+                ${d.trailerKey ? '<div class="hero-actions"><button class="btn btn-ghost" type="button" data-jump="trailer">Trailer</button></div>' : ''}
               </div>
             </div>
           </div>
           <div class="detail-grid">
             <div>
+              ${trailerFrameHtml(d.trailerKey)}
               <p class="view-subtitle">Anime com dados do AniList. O AniList informa só o próximo episódio; a lista de episódios não está disponível aqui.</p>
             </div>
             <div>
@@ -76,6 +79,13 @@ export const renderAnilistDetail = (host: HTMLElement, id: string): void => {
           (host.querySelector('.backdrop') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
           (host.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
         }
+
+        host.querySelector('[data-jump="trailer"]')?.addEventListener('click', () => {
+          const target = host.querySelector<HTMLElement>('#trailer');
+          const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+          target?.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
+          target?.focus({ preventScroll: true });
+        });
 
         (host.querySelector('#status-actions') as HTMLElement).appendChild(
           renderStatusActions({
