@@ -16,6 +16,18 @@ describe('GET /api/search', () => {
     expect(res.status).toBe(400);
   });
 
+  test('recusa consulta longa demais ou com controle sem tocar a rede', async () => {
+    let called = 0;
+    globalThis.fetch = (async () => {
+      called++;
+      return new Response('{}');
+    }) as unknown as typeof fetch;
+
+    expect((await searchRoutes.request(`/?q=${'a'.repeat(201)}`)).status).toBe(400);
+    expect((await searchRoutes.request('/?q=filme%0Ateste')).status).toBe(400);
+    expect(called).toBe(0);
+  });
+
   test('sem TMDB_API_KEY no ambiente de teste, só traz resultados da Archive.org', async () => {
     globalThis.fetch = (async () =>
       new Response(

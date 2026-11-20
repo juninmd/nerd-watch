@@ -49,9 +49,33 @@ describe('GET /api/archive/search', () => {
     const res = await archiveRoutes.request('/search?q=fora-do-ar-teste-rota');
     expect(res.status).toBe(502);
   });
+
+  test('400 para consulta longa demais ou com caractere de controle, sem tocar a rede', async () => {
+    let called = 0;
+    globalThis.fetch = (async () => {
+      called++;
+      return jsonResponse({ response: { docs: [] } });
+    }) as unknown as typeof fetch;
+
+    expect((await archiveRoutes.request(`/search?q=${'a'.repeat(201)}`)).status).toBe(400);
+    expect((await archiveRoutes.request('/search?q=abc%00def')).status).toBe(400);
+    expect(called).toBe(0);
+  });
 });
 
 describe('GET /api/archive/:identifier', () => {
+  test('400 para identifier inválido sem tocar a rede', async () => {
+    let called = 0;
+    globalThis.fetch = (async () => {
+      called++;
+      return jsonResponse({});
+    }) as unknown as typeof fetch;
+
+    expect((await archiveRoutes.request('/a..b')).status).toBe(400);
+    expect((await archiveRoutes.request(`/${'x'.repeat(101)}`)).status).toBe(400);
+    expect((await archiveRoutes.request('/-invalido')).status).toBe(400);
+    expect(called).toBe(0);
+  });
   test('grava o título na biblioteca local e devolve a legenda hospedada', async () => {
     globalThis.fetch = (async () =>
       jsonResponse({
