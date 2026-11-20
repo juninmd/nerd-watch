@@ -186,14 +186,19 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
     listEl.appendChild(grid);
   };
 
+  let loadSeq = 0;
   const load = () => {
+    const seq = ++loadSeq;
     listLibrary()
       .then((data) => {
+        if (seq !== loadSeq || !listEl.isConnected) return;
         items = data.items;
-        for (const id of picked) if (!items.some((i) => i.titleId === id)) picked.delete(id);
+        const present = new Set(items.map((i) => i.titleId));
+        for (const id of picked) if (!present.has(id)) picked.delete(id);
         renderList();
       })
       .catch(() => {
+        if (seq !== loadSeq || !listEl.isConnected) return;
         listEl.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar sua biblioteca</div>`;
       });
   };
@@ -267,16 +272,18 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
   const apply = (input: Parameters<typeof bulkLibrary>[0], doneMessage: (n: number) => string) => {
     removeBtn.disabled = true;
     statusSel.disabled = true;
+    listSel.disabled = true;
     bulkLibrary(input)
       .then((res) => {
         showToast(doneMessage(res.affected));
+        if (!listEl.isConnected) return;
         picked.clear();
         selecting = false;
         load();
       })
       .catch((err) => {
         showToast(err instanceof Error ? err.message : 'falha ao aplicar a ação');
-        syncChrome();
+        if (listEl.isConnected) syncChrome();
       });
   };
 
@@ -295,6 +302,7 @@ export const renderLibrary = (host: HTMLElement, query: URLSearchParams = new UR
   load();
   // Link "abrir visão" (paleta Ctrl K): aplica a visão assim que as visões carregarem.
   void bar.refresh().then((views) => {
+    if (!listEl.isConnected) return;
     const id = query.get('view');
     const view = views.find((v) => v.id === id);
     if (view) applyQuery(view);
