@@ -30,7 +30,8 @@ export const renderAddonBrowse = (host: HTMLElement, addonId: string): void => {
 
 const paint = (host: HTMLElement, addon: AddonDto): void => {
   host.innerHTML = `
-    <header class="view-head">
+    <header class="view-head addon-hero">
+      ${addon.background ? `<div class="addon-hero-bg" aria-hidden="true" style="background-image:url('${escapeHtml(addon.background)}')"></div>` : ''}
       ${backButtonHtml('addons')}
       <h1 class="view-title">${escapeHtml(addon.name)}</h1>
       <p class="view-subtitle">${escapeHtml(addon.host)}</p>

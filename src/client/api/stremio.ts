@@ -36,9 +36,14 @@ export interface AddonDto {
   version: string;
   description: string;
   logo: string | null;
+  background: string | null;
   types: string[];
   resources: string[];
   catalogs: AddonCatalogDto[];
+  /** Esquemas de id aceitos (`tt`, `kitsu:`…). Vazio = não declara restrição. */
+  idPrefixes: string[];
+  configurable: boolean;
+  configurationRequired: boolean;
   addedAt: string;
 }
 

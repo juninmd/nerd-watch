@@ -52,6 +52,32 @@
   gap: 8px;
 }
 
+/* Cabeçalho do catálogo do addon: fundo do próprio manifesto, escurecido para o texto continuar legível. */
+.addon-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.addon-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.35;
+  filter: saturate(0.9);
+}
+
+.addon-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, transparent 0%, var(--bg, #0b0b0f) 100%);
+}
+
 .back-btn {
   margin-bottom: 12px;
 }

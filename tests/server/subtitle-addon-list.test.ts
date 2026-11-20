@@ -4,7 +4,20 @@ import { subtitleAddonBases } from '../../src/server/providers/subtitles/addon-l
 import { config } from '../../src/server/config/config.ts';
 import { saveAddon } from '../../src/server/repo/stremio-addons.ts';
 
-const manifest = (resources: string[]) => ({ id: 'x', name: 'X', version: '', description: '', logo: null, types: [], resources, catalogs: [] });
+const manifest = (resources: string[]) => ({
+  id: 'x',
+  name: 'X',
+  version: '',
+  description: '',
+  logo: null,
+  background: null,
+  types: [] as string[],
+  resources,
+  catalogs: [],
+  idPrefixes: [] as string[],
+  configurable: false,
+  configurationRequired: false,
+});
 
 describe('subtitleAddonBases', () => {
   beforeEach(() => resetDbForTests(openDb(':memory:')));

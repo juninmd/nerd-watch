@@ -64,9 +64,18 @@ export interface TitleStreamsOpts {
   own?: { addonId: string; type: string; itemId: string };
 }
 
-/** Addon só entra se declara `stream` e o tipo (`movie`/`series`) do título; sem `types` no manifest, tenta mesmo assim. */
-export const servesStreams = (addon: InstalledAddon, type: 'movie' | 'series'): boolean =>
-  addon.manifest.resources.includes('stream') && (addon.manifest.types.length === 0 || addon.manifest.types.includes(type));
+/**
+ * Addon só entra se declara `stream` e o tipo (`movie`/`series`) do título; sem `types` no manifest,
+ * tenta mesmo assim. `idPrefixes`, quando declarado, filtra pelo esquema do id: um addon só de
+ * `kitsu:` não deve ser chamado com `tt…` (é uma requisição garantidamente vazia).
+ */
+export const servesStreams = (addon: InstalledAddon, type: 'movie' | 'series', contentId?: string): boolean => {
+  if (!addon.manifest.resources.includes('stream')) return false;
+  if (addon.manifest.types.length > 0 && !addon.manifest.types.includes(type)) return false;
+  const prefixes = addon.manifest.idPrefixes ?? [];
+  if (contentId && prefixes.length > 0 && !prefixes.some((prefix) => contentId.startsWith(prefix))) return false;
+  return true;
+};
 
 /** O item pode vir com o tipo do catálogo (`series`, `anime`, `other`); só vale se o manifest declarar. */
 const declaresType = (addon: InstalledAddon, type: string): boolean => addon.manifest.types.length === 0 || addon.manifest.types.includes(type);
@@ -117,7 +126,7 @@ export const streamsForTitle = async (
     contentId
       ? Promise.all(
           addons
-            .filter((a) => servesStreams(a, type) && a.id !== skipId)
+            .filter((a) => servesStreams(a, type, contentId) && a.id !== skipId)
             .map((a) => streamsOfAddon(a, type, contentId, fetchFn)),
         )
       : Promise.resolve([] as AddonStreamsResult[]),
