@@ -52,13 +52,19 @@ const paint = (host: HTMLElement, v: CommonsVideoDto): void => {
 };
 
 export const renderCommonsVideo = (host: HTMLElement, title: string): void => {
-  host.innerHTML = `${backButtonHtml()}<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
-  wireBackButton(host, '/public-domain');
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = `${backButtonHtml()}<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  wireBackButton(root, '/public-domain');
   parkPlayer();
   getCommonsVideo(title)
-    .then((v) => paint(host, v))
+    .then((v) => {
+      if (!root.isConnected) return;
+      paint(root, v);
+    })
     .catch(() => {
-      host.innerHTML = `${backButtonHtml()}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>vídeo indisponível no Commons agora</div>`;
-      wireBackButton(host, '/public-domain');
+      if (!root.isConnected) return;
+      root.innerHTML = `${backButtonHtml()}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>vídeo indisponível no Commons agora</div>`;
+      wireBackButton(root, '/public-domain');
     });
 };

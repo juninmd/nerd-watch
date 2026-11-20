@@ -53,10 +53,12 @@ const wireField = (row: HTMLElement, f: CredentialDto, rerender: () => void): vo
     busy(true);
     try {
       await saveCredentialValue(f.key, value);
+      if (!row.isConnected) return;
       input.value = '';
       showToast(`${f.label} salva`);
       rerender();
     } catch (err) {
+      if (!row.isConnected) return;
       say(err instanceof Error ? err.message : 'não foi possível salvar');
       busy(false);
     }
@@ -67,11 +69,13 @@ const wireField = (row: HTMLElement, f: CredentialDto, rerender: () => void): vo
     say('Testando…', true);
     try {
       const r = await testCredentialValue(f.key);
+      if (!row.isConnected) return;
       say(r.message, r.ok);
     } catch {
+      if (!row.isConnected) return;
       say('não foi possível testar');
     }
-    busy(false);
+    if (row.isConnected) busy(false);
   });
 
   row.querySelector('[data-remove]')?.addEventListener('click', async () => {
@@ -79,9 +83,11 @@ const wireField = (row: HTMLElement, f: CredentialDto, rerender: () => void): vo
     busy(true);
     try {
       await removeCredential(f.key);
+      if (!row.isConnected) return;
       showToast(`${f.label} removida`);
       rerender();
     } catch (err) {
+      if (!row.isConnected) return;
       say(err instanceof Error ? err.message : 'não foi possível remover');
       busy(false);
     }
@@ -90,10 +96,16 @@ const wireField = (row: HTMLElement, f: CredentialDto, rerender: () => void): vo
 
 /** Tela dedicada às chaves e tokens. Segredos nunca voltam do servidor: aparecem só como "configurada ••••1234". */
 export const renderCredentials = (host: HTMLElement): void => {
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  let loadSeq = 0;
+
   const draw = (): void => {
+    const seq = ++loadSeq;
     void listCredentials()
       .then(({ groups, fields }) => {
-        host.innerHTML = `
+        if (!root.isConnected || seq !== loadSeq) return;
+        root.innerHTML = `
           <header class="view-head">
             <button class="btn btn-ghost btn-sm" type="button" id="cred-back">${icon('back', 'sm')} Voltar</button>
             <h1 class="view-title">Credenciais</h1>
@@ -106,17 +118,18 @@ export const renderCredentials = (host: HTMLElement): void => {
               )
               .join('')}
           </div>`;
-        host.querySelector('#cred-back')?.addEventListener('click', () => {
+        root.querySelector('#cred-back')?.addEventListener('click', () => {
           if (history.length > 1) history.back();
           else navigate('/settings');
         });
-        for (const row of host.querySelectorAll<HTMLElement>('.cred-field')) {
+        for (const row of root.querySelectorAll<HTMLElement>('.cred-field')) {
           const f = fields.find((x) => x.key === row.dataset.key);
           if (f) wireField(row, f, draw);
         }
       })
       .catch(() => {
-        host.innerHTML = `<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div><h1 class="view-title">não foi possível carregar as credenciais</h1></div>`;
+        if (!root.isConnected || seq !== loadSeq) return;
+        root.innerHTML = `<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div><h1 class="view-title">não foi possível carregar as credenciais</h1></div>`;
       });
   };
   draw();
