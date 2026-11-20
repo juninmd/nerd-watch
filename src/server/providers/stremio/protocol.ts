@@ -1,5 +1,6 @@
 import { hasControlChar } from '../../lib/text-guards.ts';
 import { ValidationError } from '../../lib/validation-error.ts';
+import { isFetchableSubtitleUrl } from '../../subtitles/url-guard.ts';
 import { addonTorrentRef } from '../../torrent/addon-torrent.ts';
 import { getAddonJson } from './client.ts';
 
@@ -33,12 +34,12 @@ const obj = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v
 const str = (v: unknown, max = 500): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const list = (v: unknown, max = 100): unknown[] => (Array.isArray(v) ? v.slice(0, max) : []);
 
-/** URL de imagem só se for http(s): `javascript:`/`data:` de addon nunca chega ao CSS ou ao `<img>`. */
+/** URL de imagem/stream só se for http(s) pública, sem credenciais nem controle: evita XSS e requisições do browser para a LAN/loopback. */
 export const safeHttpUrl = (v: unknown): string | null => {
-  if (typeof v !== 'string' || v.length > 2048) return null;
+  if (typeof v !== 'string' || v.length > 2048 || hasControlChar(v)) return null;
+  if (!isFetchableSubtitleUrl(v)) return null;
   try {
-    const u = new URL(v);
-    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null;
+    return new URL(v).href;
   } catch {
     return null;
   }
