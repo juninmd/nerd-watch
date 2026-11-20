@@ -61,6 +61,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
 
   let channels: TelegramChannelDto[] = [];
   let selecting = false;
+  let loadSeq = 0;
   const picked = new Set<string>();
 
   const syncSelectionBar = () => {
@@ -116,20 +117,24 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
     }
     refreshTelegramChannelInfo()
       .then((r) => {
-        if (r.updated > 0) load();
+        if (grid.isConnected && r.updated > 0) load();
       })
       .catch(() => {});
   };
 
   const load = () => {
+    const seq = ++loadSeq;
     listTelegramChannels()
       .then((data) => {
+        if (!grid.isConnected || seq !== loadSeq) return;
         channels = data.channels;
-        for (const id of picked) if (!channels.some((c) => c.titleId === id)) picked.delete(id);
+        const valid = new Set(channels.map((c) => c.titleId));
+        for (const id of picked) if (!valid.has(id)) picked.delete(id);
         renderChannels();
         backfillInfo();
       })
       .catch(() => {
+        if (!grid.isConnected || seq !== loadSeq) return;
         grid.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar os canais</div>`;
       });
   };
@@ -152,12 +157,14 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
     selDelete.disabled = true;
     bulkDeleteTelegramChannels([...picked])
       .then((res) => {
+        if (!grid.isConnected) return;
         showToast(`${res.removed} canal(is) removido(s)`);
         picked.clear();
         selecting = false;
         load();
       })
       .catch((err) => {
+        if (!grid.isConnected) return;
         showToast(err instanceof Error ? err.message : 'falha ao remover');
         selDelete.disabled = false;
       });
@@ -176,6 +183,7 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
   modeInput.addEventListener('change', syncInputHint);
   listSources()
     .then((sources) => {
+      if (!modeInput.isConnected) return;
       for (const s of sources) {
         if (!s.add) continue;
         sourceByMode.set(s.add.mode, s);
@@ -201,13 +209,15 @@ export const renderTelegramChannels = (host: HTMLElement, query?: URLSearchParam
     submitBtn.disabled = true;
     try {
       const channel = isTelegramMode(mode) ? await addTelegramChannel(handle, mode) : await addSourceChannel(mode, handle);
+      if (!grid.isConnected) return;
       handleInput.value = '';
       showToast(`${isTelegramMode(mode) ? `canal ${handleLabel(channel.handle, channel.title)}` : channel.title} adicionado — ${channel.itemCount} vídeo(s)`);
       load();
     } catch (err) {
+      if (!grid.isConnected) return;
       showToast(err instanceof Error ? err.message : 'falha ao adicionar canal');
     } finally {
-      submitBtn.disabled = false;
+      if (submitBtn.isConnected) submitBtn.disabled = false;
     }
   });
 
