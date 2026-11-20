@@ -141,8 +141,8 @@ libraryRoutes.post('/', async (c) => {
     mediaType: body.mediaType,
     title: body.title,
     overview: body.overview ?? null,
-    // Pôster de catálogo sem chave é URL completa: só https, para o navegador nunca receber outro esquema.
-    posterPath: body.source === 'tvmaze' || body.source === 'anilist' ? httpsUrlOrNull(body.posterPath) : (body.posterPath ?? null),
+    // Pôster de catálogo sem chave (Archive, TVmaze, AniList) é URL completa: só https, para o navegador nunca receber outro esquema.
+    posterPath: ABSOLUTE_POSTER_SOURCES.has(body.source) ? httpsUrlOrNull(body.posterPath) : (body.posterPath ?? null),
     backdropPath: body.backdropPath ?? null,
     releaseDate: body.releaseDate ?? null,
     voteAverage: body.voteAverage ?? null,
@@ -160,12 +160,25 @@ interface PatchLibraryBody {
   currentEpisode?: number | null;
 }
 
+const MAX_NOTES_LEN = 5000;
+
 libraryRoutes.patch('/:titleId', async (c) => {
   const titleId = c.req.param('titleId');
   const body = await c.req.json<PatchLibraryBody>().catch(() => null);
-  if (!body) return c.json({ error: 'corpo inválido' }, 400);
-  if (body.watchStatus && !isWatchStatus(body.watchStatus)) return c.json({ error: 'watchStatus inválido' }, 400);
-  if (body.rating != null && (body.rating < 0 || body.rating > 10)) return c.json({ error: 'rating deve ser 0-10' }, 400);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return c.json({ error: 'corpo inválido' }, 400);
+  if (body.watchStatus !== undefined && !isWatchStatus(body.watchStatus)) return c.json({ error: 'watchStatus inválido' }, 400);
+  if (body.rating !== undefined && body.rating !== null && (!Number.isInteger(body.rating) || body.rating < 0 || body.rating > 10)) {
+    return c.json({ error: 'rating deve ser um inteiro de 0 a 10' }, 400);
+  }
+  if (body.notes !== undefined && body.notes !== null && (typeof body.notes !== 'string' || body.notes.length > MAX_NOTES_LEN)) {
+    return c.json({ error: `notes deve ser texto com no máximo ${MAX_NOTES_LEN} caracteres` }, 400);
+  }
+  if (body.currentSeason !== undefined && body.currentSeason !== null && !isSeasonNumber(body.currentSeason)) {
+    return c.json({ error: 'currentSeason deve ser inteiro de 0 a 999' }, 400);
+  }
+  if (body.currentEpisode !== undefined && body.currentEpisode !== null && !isEpisodeNumber(body.currentEpisode)) {
+    return c.json({ error: 'currentEpisode deve ser inteiro de 1 a 9999' }, 400);
+  }
 
   const db = await getDb();
   const item = upsertLibraryEntry(db, titleId, body);
