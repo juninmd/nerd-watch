@@ -57,6 +57,14 @@ describe('GET /api/commons/search', () => {
     globalThis.fetch = (async () => new Response('x', { status: 429 })) as unknown as typeof fetch;
     expect((await commonsRoutes.request('/search?q=falha-teste')).status).toBe(502);
   });
+
+  test('400 para consulta longa demais ou com caractere de controle, sem tocar a rede', async () => {
+    const calls: string[] = [];
+    mock([], calls);
+    expect((await commonsRoutes.request(`/search?q=${'a'.repeat(201)}`)).status).toBe(400);
+    expect((await commonsRoutes.request('/search?q=x%00y')).status).toBe(400);
+    expect(calls).toHaveLength(0);
+  });
 });
 
 describe('GET /api/commons/file', () => {

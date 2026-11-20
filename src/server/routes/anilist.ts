@@ -2,6 +2,7 @@ import type { Database } from 'bun:sqlite';
 import { Hono, type Context } from 'hono';
 import { CatalogRequestError } from '../lib/catalog-text.ts';
 import { todayIso } from '../lib/date.ts';
+import { hasControlChar } from '../lib/text-guards.ts';
 import { getDb } from '../db/database.ts';
 import { anilistDetails, anilistSearch } from '../providers/anilist.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
@@ -37,7 +38,7 @@ const persistNextEpisode = (db: Database, titleId: string, next: { airingAt: num
 anilistRoutes.get('/search', async (c) => {
   const query = c.req.query('q')?.trim() ?? '';
   if (!query) return c.json({ error: 'parâmetro "q" é obrigatório' }, 400);
-  if (query.length > 200) return c.json({ error: 'termo de busca muito longo' }, 400);
+  if (query.length > 200 || hasControlChar(query)) return c.json({ error: 'termo de busca inválido' }, 400);
   try {
     return c.json({ results: await anilistSearch(query, SEARCH_LIMIT), attribution: { name: 'AniList', url: 'https://anilist.co/' } });
   } catch (err) {
