@@ -25,8 +25,10 @@ export class TmdbRequestError extends Error {
   }
 }
 
+const TMDB_IMAGE_PATH_RE = /^\/[A-Za-z0-9._-]{1,120}$/;
+
 export const tmdbImageUrl = (path: string | null | undefined, size: 'w342' | 'w500' | 'w780' = 'w500'): string | null =>
-  path ? `${IMG_BASE}/${size}${path}` : null;
+  path && TMDB_IMAGE_PATH_RE.test(path) && !path.includes('..') ? `${IMG_BASE}/${size}${path}` : null;
 
 const call = async <T>(path: string, params: Record<string, string | number> = {}): Promise<T> => {
   if (!config.tmdb.apiKey) throw new TmdbNotConfiguredError();
@@ -40,8 +42,17 @@ const call = async <T>(path: string, params: Record<string, string | number> = {
   } else {
     url.searchParams.set('api_key', config.tmdb.apiKey);
   }
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new TmdbRequestError(res.status, `TMDB ${path} respondeu ${res.status}`);
+  let res: Response;
+  try {
+    // `redirect: 'error'` impede enviar `Authorization` ou `api_key` para outro host em caso de redirecionamento.
+    res = await fetch(url, { headers, redirect: 'error', signal: AbortSignal.timeout(15000) });
+  } catch {
+    throw new TmdbRequestError(502, `TMDB ${path} indisponível agora`);
+  }
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new TmdbRequestError(res.status, `TMDB ${path} respondeu ${res.status}`);
+  }
   return (await res.json()) as T;
 };
 
