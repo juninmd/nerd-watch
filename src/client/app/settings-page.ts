@@ -1,5 +1,6 @@
 import { health } from '../api/index.ts';
 import { resolveVersionStatus } from '../platform/version-info.ts';
+import { escapeHtml } from '../ui/card.ts';
 import { icon, type IconName } from '../ui/icons.ts';
 import { notifySummary } from './settings-model.ts';
 import { openShortcutHelp } from './shortcuts.ts';
@@ -54,23 +55,28 @@ export const renderSettings = (host: HTMLElement): void => {
 
   void health()
     .then((h) => {
-      (host.querySelector('#set-notify-text') as HTMLElement).textContent = notifySummary(h.notifyEnabled, h.notifyLeadDays);
-      const chip = host.querySelector('#set-notify-chip') as HTMLElement;
+      const notifyText = host.querySelector<HTMLElement>('#set-notify-text');
+      const chip = host.querySelector<HTMLElement>('#set-notify-chip');
+      const sessionCard = host.querySelector<HTMLElement>('#set-session');
+      if (!notifyText || !chip || !sessionCard) return;
+      notifyText.textContent = notifySummary(h.notifyEnabled, h.notifyLeadDays);
       chip.className = `chip-status ${h.notifyEnabled ? 'ok' : 'off'}`;
       chip.innerHTML = `<span class="led${h.notifyEnabled ? '' : ' off'}"></span>${h.notifyEnabled ? 'ligados' : 'desligados'}`;
       chip.hidden = false;
-      (host.querySelector('#set-session') as HTMLElement).hidden = !h.accessEnabled;
+      sessionCard.hidden = !h.accessEnabled;
     })
     .catch(() => {
-      (host.querySelector('#set-notify-text') as HTMLElement).textContent = 'Não foi possível consultar o servidor.';
+      const notifyText = host.querySelector<HTMLElement>('#set-notify-text');
+      if (notifyText) notifyText.textContent = 'Não foi possível consultar o servidor.';
     });
 
   void mountVersion(host);
 };
 
 const mountVersion = async (host: HTMLElement): Promise<void> => {
-  const text = host.querySelector('#set-version-text') as HTMLElement;
   const status = await resolveVersionStatus();
+  const text = host.querySelector<HTMLElement>('#set-version-text');
+  if (!text) return;
   if (!status) {
     text.textContent = 'Versão indisponível neste momento.';
     return;
@@ -78,11 +84,14 @@ const mountVersion = async (host: HTMLElement): Promise<void> => {
   text.textContent = `${status.installed ? 'Versão instalada' : 'Versão do servidor'}: v${status.version}`;
   if (!status.latest) return;
   host.querySelector('#set-version-card')?.classList.add('has-update');
-  const chip = host.querySelector('#set-version-chip') as HTMLElement;
-  chip.textContent = `Nova v${status.latest.version}`;
-  chip.hidden = false;
+  const chip = host.querySelector<HTMLElement>('#set-version-chip');
+  if (chip) {
+    chip.textContent = `Nova v${status.latest.version}`;
+    chip.hidden = false;
+  }
   text.textContent += ` · disponível: v${status.latest.version}`;
-  const actions = host.querySelector('#set-version-actions') as HTMLElement;
-  actions.innerHTML = `<a class="btn btn-primary" href="${status.latest.url}" target="_blank" rel="noopener noreferrer">${icon('download', 'sm')} Baixar v${status.latest.version}</a>`;
+  const actions = host.querySelector<HTMLElement>('#set-version-actions');
+  if (!actions) return;
+  actions.innerHTML = `<a class="btn btn-primary" href="${escapeHtml(status.latest.url)}" target="_blank" rel="noopener noreferrer">${icon('download', 'sm')} Baixar v${escapeHtml(status.latest.version)}</a>`;
   actions.hidden = false;
 };
