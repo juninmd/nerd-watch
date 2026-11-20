@@ -43,24 +43,36 @@ interface ListState {
 }
 
 export const renderTelegramChannel = (host: HTMLElement, titleId: string): void => {
-  host.innerHTML = channelSkeletonHtml();
+  // Raiz dedicada por visita: evita que respostas atrasadas sobrescrevam outra tela no #view compartilhado.
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = channelSkeletonHtml();
   const ui: ListState = { q: '', list: getListMode(), shown: PAGE_SIZE, topic: ALL, metaTried: false };
+  let loadSeq = 0;
 
   const load = () => {
+    const seq = ++loadSeq;
     // Recalcula o vínculo automático com a biblioteca atual antes de mostrar a lista (idempotente, sem falhar a tela).
     refreshTelegramLinks(titleId)
       .catch(() => undefined)
       .then(() => getTelegramChannel(titleId, { fillThumbs: true }))
       .then((d) => {
-        renderDetail(host, d, load, ui);
+        if (!root.isConnected || seq !== loadSeq) return;
+        renderDetail(root, d, load, ui);
         // Tópicos e fixadas vêm do Telegram: busca uma vez por visita (conta pessoal) e redesenha só se algo mudou.
         if (d.mode === 'personal' && !d.syncedAt && !ui.metaTried) {
           ui.metaTried = true;
-          syncTelegramChannelMeta(titleId).then(load, () => undefined);
+          syncTelegramChannelMeta(titleId).then(
+            () => {
+              if (root.isConnected) load();
+            },
+            () => undefined,
+          );
         }
       })
       .catch(() => {
-        host.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar esse canal</div>`;
+        if (!root.isConnected || seq !== loadSeq) return;
+        root.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar esse canal</div>`;
       });
   };
 
@@ -163,10 +175,12 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
       btn.textContent = 'carregando do Telegram…';
       run()
         .then((message) => {
+          if (!host.isConnected) return;
           showToast(message);
           reload();
         })
         .catch((err) => {
+          if (!host.isConnected) return;
           showToast(err instanceof Error ? err.message : 'não foi possível falar com o Telegram agora');
           btn.disabled = false;
           btn.textContent = label;
@@ -332,10 +346,12 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     btn.disabled = true;
     acceptTelegramSuggestions(d.titleId)
       .then((res) => {
+        if (!host.isConnected) return;
         showToast(`${res.accepted} vínculo(s) confirmado(s)`);
         reload();
       })
       .catch(() => {
+        if (!host.isConnected) return;
         showToast('não foi possível confirmar as sugestões agora');
         btn.disabled = false;
       });
@@ -369,10 +385,12 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     deleteBtn.disabled = true;
     deleteTelegramChannel(d.titleId)
       .then(() => {
+        if (!host.isConnected) return;
         showToast('canal removido');
         navigate('/telegram');
       })
       .catch((err) => {
+        if (!host.isConnected) return;
         showToast(err instanceof Error ? err.message : 'falha ao remover');
         deleteBtn.disabled = false;
       });
@@ -383,12 +401,15 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
     refreshBtn.disabled = true;
     refreshTelegramChannel(d.titleId)
       .then((res) => {
+        if (!host.isConnected) return;
         showToast(`canal atualizado — ${res.itemCount} vídeo(s)`);
         reload();
       })
-      .catch(() => showToast('não foi possível atualizar agora'))
+      .catch(() => {
+        if (host.isConnected) showToast('não foi possível atualizar agora');
+      })
       .finally(() => {
-        refreshBtn.disabled = false;
+        if (refreshBtn.isConnected) refreshBtn.disabled = false;
       });
   });
 };
