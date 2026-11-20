@@ -40,9 +40,13 @@ const toDto = (a: InstalledAddon) => ({
   version: a.manifest.version,
   description: a.manifest.description,
   logo: a.manifest.logo,
+  background: a.manifest.background,
   types: a.manifest.types,
   resources: a.manifest.resources,
   catalogs: a.manifest.catalogs,
+  idPrefixes: a.manifest.idPrefixes,
+  configurable: a.manifest.configurable,
+  configurationRequired: a.manifest.configurationRequired,
   addedAt: a.addedAt,
 });
 

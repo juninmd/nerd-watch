@@ -17,6 +17,20 @@ Tela **Addons Stremio** (`#/addons`, atalho `g o`). Implementa o [protocolo de a
 
 ## O que cada recurso faz no app
 
+### Manifest: o que o app guarda
+
+Além de nome/versão/recursos/catálogos, o manifest guardado carrega:
+
+- `background` (imagem de fundo do addon, usada no cabeçalho da tela de catálogo);
+- `idPrefixes` — união do topo do manifest com os `idPrefixes` de **cada recurso**, que é o formato
+  usado pelos addons de torrent (`resources: [{ name: "stream", idPrefixes: ["tt","kitsu"] }]`).
+  Addon que não declara `tt` não é consultado nos títulos do app: a requisição seria vazia por desenho;
+- `behaviorHints.configurable` / `configurationRequired`, exibidos na lista de addons. **Não** há botão
+  de configurar: a configuração desses addons vai no caminho da URL (pode conter token de debrid), e o
+  app não expõe o link do manifest ao navegador.
+
+Manifest gravado por versão anterior (sem essas chaves) é normalizado na leitura, então atualizar o app
+não quebra os addons já instalados.
 | Recurso | Uso |
 |---|---|
 | `catalog` | explorar o catálogo, com busca (`search`), gênero (`genre`), ano (`year`) e paginação (`skip`) — cada filtro só é oferecido quando o manifest o declara |

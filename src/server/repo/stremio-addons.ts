@@ -1,6 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import { ValidationError } from '../lib/validation-error.ts';
-import type { AddonManifest } from '../providers/stremio/protocol.ts';
+import type { AddonCatalog, AddonManifest } from '../providers/stremio/protocol.ts';
 
 /** Teto de addons: cada um vira requisições externas; sem teto a tela e as buscas de legenda crescem sem limite. */
 export const STREMIO_ADDONS_MAX = 20;
@@ -21,13 +21,47 @@ export interface InstalledAddon {
   addedAt: string;
 }
 
-const toAddon = (row: AddonRow): InstalledAddon => ({
-  id: row.id,
-  manifestUrl: row.manifest_url,
-  baseUrl: row.base_url,
-  manifest: JSON.parse(row.manifest) as AddonManifest,
-  addedAt: row.added_at,
+/**
+ * Manifest guardado antes de o app conhecer estes campos (`background`, `idPrefixes`, filtros do
+ * catálogo) não tem as chaves no JSON: normalizar na leitura evita que a interface quebre depois de
+ * atualizar o app. Campos obrigatórios do manifest são preenchidos um a um; catálogo sem tipo ou id
+ * é descartado (não dá para navegar nele).
+ */
+const normalizeManifest = (stored: Partial<AddonManifest> & { catalogs?: Array<Partial<AddonCatalog>> }): AddonManifest => ({
+  id: stored.id ?? '',
+  name: stored.name ?? '',
+  version: stored.version ?? '',
+  description: stored.description ?? '',
+  logo: stored.logo ?? null,
+  background: stored.background ?? null,
+  types: stored.types ?? [],
+  resources: stored.resources ?? [],
+  idPrefixes: stored.idPrefixes ?? [],
+  configurable: stored.configurable ?? false,
+  configurationRequired: stored.configurationRequired ?? false,
+  catalogs: (stored.catalogs ?? [])
+    .map((catalog): AddonCatalog => ({
+      type: catalog.type ?? '',
+      id: catalog.id ?? '',
+      name: catalog.name ?? catalog.id ?? '',
+      searchable: catalog.searchable ?? false,
+      paged: catalog.paged ?? false,
+      genres: catalog.genres ?? [],
+      yearFilter: catalog.yearFilter ?? false,
+    }))
+    .filter((catalog) => catalog.type !== '' && catalog.id !== ''),
 });
+
+const toAddon = (row: AddonRow): InstalledAddon => {
+  const stored = JSON.parse(row.manifest) as Partial<AddonManifest> & { catalogs?: Array<Partial<AddonCatalog>> };
+  return {
+    id: row.id,
+    manifestUrl: row.manifest_url,
+    baseUrl: row.base_url,
+    manifest: normalizeManifest(stored),
+    addedAt: row.added_at,
+  };
+};
 
 export const listAddons = (db: Database): InstalledAddon[] =>
   (db.query('SELECT * FROM stremio_addons ORDER BY added_at, id').all() as AddonRow[]).map(toAddon);

@@ -29,9 +29,16 @@ export interface AddonManifest {
   version: string;
   description: string;
   logo: string | null;
+  background: string | null;
   types: string[];
   resources: string[];
   catalogs: AddonCatalog[];
+  /** Esquemas de id que o addon aceita (`tt`, `kitsu:`…). Vazio = não declara restrição. */
+  idPrefixes: string[];
+  /** `behaviorHints.configurable`: o addon tem página de configuração própria. */
+  configurable: boolean;
+  /** `behaviorHints.configurationRequired`: sem configurar, ele não entrega nada útil. */
+  configurationRequired: boolean;
 }
 
 const obj = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
@@ -85,15 +92,34 @@ export const parseManifest = (raw: unknown): AddonManifest => {
       ...catalogFlags(cat),
     };
   });
+  // `idPrefixes` aparece no topo do manifest **ou** dentro de cada recurso (é assim no addon de
+  // torrent mais usado: `resources: [{ name: "stream", idPrefixes: ["tt","kitsu"] }]`). A união dos
+  // dois lugares é o que a checagem de esquema de id precisa.
+  const prefixes = new Set<string>();
+  for (const value of list(m.idPrefixes, 20)) {
+    const prefix = str(value, 20);
+    if (prefix) prefixes.add(prefix);
+  }
+  for (const entry of list(m.resources, 20)) {
+    for (const value of list(obj(entry).idPrefixes, 20)) {
+      const prefix = str(value, 20);
+      if (prefix) prefixes.add(prefix);
+    }
+  }
+  const hints = obj(m.behaviorHints);
   return {
     id,
     name,
     version: str(m.version, 40),
     description: str(m.description, 500),
     logo: safeHttpUrl(m.logo),
+    background: safeHttpUrl(m.background),
     types: list(m.types, 20).map((t) => str(t, 40)).filter(Boolean),
     resources: [...new Set(list(m.resources, 20).map(resourceName).filter(Boolean))],
     catalogs: catalogs.filter((c): c is AddonCatalog => c !== null),
+    idPrefixes: [...prefixes],
+    configurable: hints.configurable === true,
+    configurationRequired: hints.configurationRequired === true,
   };
 };
 

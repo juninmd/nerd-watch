@@ -14,9 +14,13 @@ const addon = (id: string, resources: string[], types: string[]): InstalledAddon
     version: '1',
     description: '',
     logo: null,
+    background: null,
     types,
     resources,
     catalogs: [],
+    idPrefixes: [],
+    configurable: false,
+    configurationRequired: false,
   },
 });
 

@@ -3,7 +3,7 @@ import { addonItemPath, addonPath, canBrowse, capabilitySummary, resourceLabel }
 import { resolveRoute } from '../../src/client/app/routes.ts';
 import type { AddonDto } from '../../src/client/api/stremio.ts';
 
-const addon = (over: Partial<AddonDto>): AddonDto => ({ id: 'a1', host: 'h', name: 'n', version: '', description: '', logo: null, types: [], resources: [], catalogs: [], addedAt: '', ...over });
+const addon = (over: Partial<AddonDto>): AddonDto => ({ id: 'a1', host: 'h', name: 'n', version: '', description: '', logo: null, background: null, types: [], resources: [], catalogs: [], idPrefixes: [], configurable: false, configurationRequired: false, addedAt: '', ...over });
 
 describe('addon-links', () => {
   test('id de episódio com ":" e "/" faz a viagem de ida e volta pela rota', () => {
@@ -30,6 +30,12 @@ describe('capabilitySummary', () => {
   });
   test('addon com catálogo conta quantos', () => {
     expect(capabilitySummary(addon({ resources: ['catalog'], catalogs: [{ type: 'movie', id: 't', name: 'T', searchable: false, paged: false, genres: [], yearFilter: false }] }))).toContain('1 catálogo');
+  });
+
+  test('addon que só entende outro esquema de id avisa que não entra por IMDb', () => {
+    expect(capabilitySummary(addon({ resources: ['stream'], idPrefixes: ['kitsu:'] }))).toContain('não entra nos títulos por IMDb');
+    // `tt` é o esquema dos títulos do app: nada a avisar.
+    expect(capabilitySummary(addon({ resources: ['stream'], idPrefixes: ['tt'] }))).not.toContain('não entra');
   });
   test('declara catalog sem catálogo listado', () => {
     expect(capabilitySummary(addon({ resources: ['catalog'] }))).toContain('não listou nenhum');
