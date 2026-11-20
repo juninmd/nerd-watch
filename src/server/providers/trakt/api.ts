@@ -1,9 +1,11 @@
+import { readTextLimited } from '../sources/http.ts';
 import { readSetting } from '../sources/settings.ts';
 import { SourceError } from '../sources/types.ts';
 import { traktOAuth } from './oauth.ts';
 
 const API = 'https://api.trakt.tv';
 const TIMEOUT_MS = 15_000;
+const MAX_JSON_BYTES = 8 * 1024 * 1024;
 
 /** Limite de escrita do Trakt é ~1 POST/s por usuário (ver docs/providers/trakt.md). */
 export class TraktRateLimitError extends SourceError {
@@ -27,22 +29,31 @@ const retryAfter = (res: Response): number | null => {
  * quando o refresh é recusado). Erros viram mensagens nossas: o corpo do Trakt nunca sai daqui.
  */
 export const traktRequest = async (method: 'GET' | 'POST', path: string, body?: unknown): Promise<unknown> => {
-  const res = await traktOAuth.authedFetch(`${API}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'trakt-api-version': '2',
-      // O client ID é o `trakt-api-key` (não é segredo); o client secret nunca vai em header de API.
-      'trakt-api-key': readSetting('TRAKT_CLIENT_ID') ?? '',
-      'User-Agent': 'nerd-watch/1.0',
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  if (res.status === 429) throw new TraktRateLimitError(retryAfter(res));
-  if (!res.ok) throw new SourceError('o Trakt recusou o pedido agora', 502);
+  let res: Response;
   try {
-    return await res.json();
+    res = await traktOAuth.authedFetch(`${API}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'trakt-api-version': '2',
+        // O client ID é o `trakt-api-key` (não é segredo); o client secret nunca vai em header de API.
+        'trakt-api-key': readSetting('TRAKT_CLIENT_ID') ?? '',
+        'User-Agent': 'nerd-watch/1.0',
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof SourceError) throw err;
+    throw new SourceError('não foi possível falar com o Trakt agora', 502);
+  }
+  if (!res.ok) {
+    await res.body?.cancel();
+    if (res.status === 429) throw new TraktRateLimitError(retryAfter(res));
+    throw new SourceError('o Trakt recusou o pedido agora', 502);
+  }
+  try {
+    return JSON.parse(await readTextLimited(res, MAX_JSON_BYTES));
   } catch {
     throw new SourceError('resposta inesperada do Trakt', 502);
   }
