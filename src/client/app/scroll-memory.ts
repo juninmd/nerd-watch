@@ -45,9 +45,13 @@ export const restoreWhenRendered = (host: HTMLElement, y: number): (() => void) 
   if (y <= 0) return () => {};
   let done = false;
   const finish = () => {
+    if (done) return;
     done = true;
     observer.disconnect();
     clearTimeout(timer);
+    window.removeEventListener('wheel', finish);
+    window.removeEventListener('touchstart', finish);
+    window.removeEventListener('pointerdown', finish);
   };
   const attempt = () => {
     if (done) return;
@@ -57,6 +61,10 @@ export const restoreWhenRendered = (host: HTMLElement, y: number): (() => void) 
   const observer = new MutationObserver(attempt);
   observer.observe(host, { childList: true, subtree: true });
   const timer = setTimeout(finish, RESTORE_TIMEOUT_MS);
+  // Se o usuário já começou a rolar ou tocar na página, para de restaurar para não brigar com ele.
+  window.addEventListener('wheel', finish, { passive: true, once: true });
+  window.addEventListener('touchstart', finish, { passive: true, once: true });
+  window.addEventListener('pointerdown', finish, { passive: true, once: true });
   attempt();
   return finish;
 };
