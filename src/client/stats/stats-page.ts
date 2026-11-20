@@ -102,6 +102,7 @@ const attachTooltips = (root: HTMLElement): void => {
 
 /** Cartão "Meu ano" em diálogo: PNG gerado no navegador, com baixar. Nada é enviado a lugar nenhum. */
 const openShareCard = (s: StatsSummary): void => {
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const model = shareCardModel(s);
   const dlg = document.createElement('dialog');
   dlg.className = 'dialog stats-share';
@@ -115,6 +116,9 @@ const openShareCard = (s: StatsSummary): void => {
     <img class="stats-share-img" id="share-img" alt="" hidden>
     <div class="stats-share-actions"><a class="btn btn-primary" id="share-download" download="nerd-watch-${s.year}.png" hidden>Baixar PNG</a></div>`;
   document.body.appendChild(dlg);
+  dlg.addEventListener('click', (e) => {
+    if (e.target === dlg) dlg.close();
+  });
   dlg.showModal();
 
   const status = dlg.querySelector('#share-status') as HTMLElement;
@@ -124,10 +128,12 @@ const openShareCard = (s: StatsSummary): void => {
   dlg.addEventListener('close', () => {
     if (url) URL.revokeObjectURL(url);
     dlg.remove();
+    if (opener?.isConnected) opener.focus();
   });
 
   shareCardPng(model)
     .then((blob) => {
+      if (!dlg.isConnected) return;
       url = URL.createObjectURL(blob);
       img.src = url;
       img.alt = `Cartão do ano ${s.year}: ${model.headline}`;

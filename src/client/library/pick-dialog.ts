@@ -29,6 +29,7 @@ const metaLine = (item: LibraryItemDto): string => {
  */
 export const openPickDialog = (): void => {
   if (dialog?.open) return;
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const d = document.createElement('dialog');
   d.className = 'pick-dialog';
   d.setAttribute('closedby', 'any');
@@ -53,6 +54,7 @@ export const openPickDialog = (): void => {
   d.addEventListener('close', () => {
     d.remove();
     if (dialog === d) dialog = null;
+    if (opener?.isConnected) opener.focus();
   });
   d.addEventListener('click', (e) => {
     if (e.target === d) d.close();
