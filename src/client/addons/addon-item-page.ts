@@ -15,6 +15,7 @@ import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { episodeLabel, listEpisodes, parseImdbEpisodeId } from './addon-episode.ts';
 import { addonItemPath, addonPath } from './addon-links.ts';
+import { groupEpisodes, filterEpisodes } from './episode-model.ts';
 import { streamCardHtml } from './stream-card.ts';
 import { mountStreams } from './title-streams-panel.ts';
 
@@ -64,12 +65,15 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
         </div>
         ${
           episodes.length
-            ? `<div class="side-card"><h3>Episódios</h3><ul class="stream-list" id="addon-episodes">${episodes
-                .map(
-                  (v) =>
-                    `<li><button type="button" class="btn btn-ghost btn-sm stream-btn" data-ep="${escapeHtml(v.id)}">${escapeHtml(episodeLabel(v))}</button></li>`,
-                )
-                .join('')}</ul></div>`
+            ? `<div class="side-card" id="addon-episodes-card">
+                <h3>Episódios</h3>
+                <div class="chip-row form-row">
+                  <select id="addon-season" class="select input-pill" aria-label="temporada" hidden></select>
+                  <input type="search" id="addon-ep-filter" class="input input-pill grow" placeholder="filtrar episódio" autocomplete="off" aria-label="filtrar episódio" />
+                </div>
+                <ul class="stream-list" id="addon-episodes"></ul>
+                <p class="hint" id="addon-ep-empty" hidden>nenhum episódio com esse filtro.</p>
+              </div>`
             : ''
         }
         <div class="side-card"><h3>Legendas</h3><div id="addon-subs"></div></div>
@@ -83,10 +87,56 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
   const streamsTitle = host.querySelector('#addon-streams-title') as HTMLElement;
   const streamsBox = host.querySelector('#addon-streams') as HTMLElement;
   const episodesBox = host.querySelector('#addon-episodes') as HTMLElement | null;
+  const seasonSelect = host.querySelector('#addon-season') as HTMLSelectElement | null;
+  const episodeFilter = host.querySelector('#addon-ep-filter') as HTMLInputElement | null;
+  const episodesEmpty = host.querySelector('#addon-ep-empty') as HTMLElement | null;
 
   (host.querySelector('#addon-subs') as HTMLElement).appendChild(renderSubtitlesPanel({ query: meta.name }));
 
   let seq = 0;
+  /** Episódio aberto agora: o filtro e a troca de temporada redesenham a lista em volta dele. */
+  let current = itemId;
+  const seasons = groupEpisodes(episodes);
+  let season: number | null = seasons[0]?.season ?? null;
+
+  /** Marca o episódio aberto; a lista é redesenhada a cada troca de temporada/filtro. */
+  const markCurrent = () => {
+    if (!episodesBox) return;
+    for (const b of episodesBox.querySelectorAll<HTMLButtonElement>('[data-ep]')) {
+      if (b.dataset.ep === current) b.setAttribute('aria-current', 'true');
+      else b.removeAttribute('aria-current');
+    }
+  };
+
+  const paintEpisodes = () => {
+    if (!episodesBox) return;
+    const group = seasons.find((s) => s.season === season) ?? seasons[0];
+    const visible = filterEpisodes(group?.episodes ?? [], episodeFilter?.value ?? '');
+    episodesBox.innerHTML = visible
+      .map(
+        (v) =>
+          `<li><button type="button" class="btn btn-ghost btn-sm stream-btn" data-ep="${escapeHtml(v.id)}">${escapeHtml(episodeLabel(v))}</button></li>`,
+      )
+      .join('');
+    // Temporada sem resultado do filtro: mensagem em vez de lista vazia sem explicação.
+    if (episodesEmpty) episodesEmpty.hidden = visible.length > 0;
+    markCurrent();
+  };
+
+  if (seasonSelect) {
+    // Uma temporada só não precisa de seletor; "Extras" (season null) vira o valor vazio do <select>.
+    seasonSelect.hidden = seasons.length <= 1;
+    seasonSelect.innerHTML = seasons
+      .map((s) => `<option value="${s.season ?? ''}">${escapeHtml(`${s.label} (${s.episodes.length})`)}</option>`)
+      .join('');
+    seasonSelect.value = season === null ? '' : String(season);
+    seasonSelect.addEventListener('change', () => {
+      season = seasonSelect.value === '' ? null : Number(seasonSelect.value);
+      paintEpisodes();
+    });
+  }
+  episodeFilter?.addEventListener('input', paintEpisodes);
+  paintEpisodes();
 
   const reveal = (el: HTMLElement) => {
     el.scrollIntoView({ block: 'nearest' });
@@ -158,11 +208,14 @@ const mountItem = (host: HTMLElement, addonId: string, type: string, itemId: str
     const ep = episodes.find((v) => v.id === currentId);
     const label = ep ? `${meta.name} · ${episodeLabel(ep)}` : meta.name;
 
-    if (episodesBox) {
-      for (const b of episodesBox.querySelectorAll<HTMLButtonElement>('[data-ep]')) {
-        if (b.dataset.ep === currentId) b.setAttribute('aria-current', 'true');
-        else b.removeAttribute('aria-current');
-      }
+    current = currentId;
+    if (ep && (ep.season ?? null) !== season) {
+      // Episódio de outra temporada (link direto, "continuar assistindo"): troca o seletor antes de marcar.
+      season = ep.season ?? null;
+      if (seasonSelect && !seasonSelect.hidden) seasonSelect.value = season === null ? '' : String(season);
+      paintEpisodes();
+    } else {
+      markCurrent();
     }
 
     if (scroll) resetPlayer();
