@@ -1,6 +1,6 @@
 import dgram from 'node:dgram';
 import { type CastDevice, parseDeviceDescription, parseSsdpResponse } from './dlna-xml.ts';
-import { isSafeLanUrl } from './network.ts';
+import { isSafeLanUrl, listLanInterfaces } from './network.ts';
 
 const SSDP_ADDR = '239.255.255.250';
 const SSDP_PORT = 1900;
@@ -47,51 +47,76 @@ const fetchDescriptionXml = async (location: string, fetcher: typeof fetch): Pro
 export interface DiscoverOptions {
   timeoutMs?: number;
   fetcher?: typeof fetch;
+  /** Endereços IPv4 locais usados para enviar o multicast; padrão: todas as interfaces LAN privadas. */
+  bindAddresses?: string[];
 }
 
 /**
  * Descobre TVs DLNA/UPnP (`MediaRenderer` / `AVTransport`) na rede local via multicast UDP SSDP.
- * Se o firewall ou o ambiente bloquear UDP multicast, devolve lista vazia sem falhar (o QR Code/link segue disponível).
+ * Faz bind por interface LAN com `setMulticastInterface`: no Windows (ou máquinas com Docker/WSL), um
+ * único socket em `0.0.0.0` costuma enviar o multicast pela interface errada e não achar a TV.
  */
 export const discoverDlnaDevices = async (opts: DiscoverOptions = {}): Promise<CastDevice[]> => {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_DISCOVER_MS;
   const fetcher = opts.fetcher ?? fetch;
   const locations = new Set<string>();
+  const addrs = opts.bindAddresses ?? listLanInterfaces().map((i) => i.address);
+  const targets = addrs.length > 0 ? addrs : [undefined];
 
   await new Promise<void>((resolve) => {
     let settled = false;
-    let socket: dgram.Socket | null = null;
+    const sockets: dgram.Socket[] = [];
     const finish = () => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try {
-        socket?.close();
-      } catch {
-        // Socket já fechado.
+      for (const sock of sockets) {
+        try {
+          sock.close();
+        } catch {
+          // Socket já fechado.
+        }
       }
       resolve();
     };
 
     const timer = setTimeout(finish, timeoutMs);
 
-    try {
-      socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
-      socket.on('error', finish);
-      socket.on('message', (msg) => {
-        const hit = parseSsdpResponse(msg.toString('utf8'));
-        if (hit) locations.add(hit.location);
-      });
-      socket.bind(0, () => {
-        if (!socket) return;
-        for (const st of SEARCH_TARGETS) {
-          const payload = buildMSearch(st);
-          socket.send(payload, 0, payload.length, SSDP_PORT, SSDP_ADDR, () => {});
-        }
-      });
-    } catch {
-      finish();
+    for (const addr of targets) {
+      try {
+        const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+        sockets.push(socket);
+        socket.on('error', () => {
+          try {
+            socket.close();
+          } catch {
+            // Ignora falha individual de interface.
+          }
+        });
+        socket.on('message', (msg) => {
+          const hit = parseSsdpResponse(msg.toString('utf8'));
+          if (hit) locations.add(hit.location);
+        });
+        const sendQueries = () => {
+          if (addr) {
+            try {
+              socket.setMulticastInterface(addr);
+            } catch {
+              // Segue com a interface padrão se o SO recusar.
+            }
+          }
+          for (const st of SEARCH_TARGETS) {
+            const payload = buildMSearch(st);
+            socket.send(payload, 0, payload.length, SSDP_PORT, SSDP_ADDR, () => {});
+          }
+        };
+        if (addr) socket.bind(0, addr, sendQueries);
+        else socket.bind(0, sendQueries);
+      } catch {
+        // Segue para a próxima interface.
+      }
     }
+    if (sockets.length === 0) finish();
   });
 
   if (locations.size === 0) return [];

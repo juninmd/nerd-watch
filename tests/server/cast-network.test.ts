@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { isPrivateLanIpv4, isSafeLanUrl, rankInterface } from '../../src/server/cast/network.ts';
+import { discoverDlnaDevices } from '../../src/server/cast/ssdp.ts';
 
 describe('cast network: isPrivateLanIpv4', () => {
   test('aceita faixas privadas RFC1918', () => {
@@ -46,5 +47,12 @@ describe('cast network: rankInterface', () => {
     const tailscale = rankInterface('tailscale0', '10.0.0.5');
     expect(wifi).toBeGreaterThan(docker);
     expect(wifi).toBeGreaterThan(tailscale);
+  });
+});
+
+describe('cast ssdp: discoverDlnaDevices', () => {
+  test('não falha quando o endereço de bind é inválido ou não há respostas no timeout', async () => {
+    const devices = await discoverDlnaDevices({ timeoutMs: 80, bindAddresses: ['203.0.113.1'] });
+    expect(Array.isArray(devices)).toBe(true);
   });
 });

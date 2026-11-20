@@ -73,8 +73,8 @@ const defaultQr = (text: string): Promise<string> =>
   QRCode.toDataURL(text, { margin: 1, width: 220, errorCorrectionLevel: 'M' });
 
 export const createCastService = (deps: CastServiceDeps): CastService => {
-  const discoverFn = deps.discover ?? (() => discoverDlnaDevices());
   const listInterfacesFn = deps.listInterfaces ?? (() => listLanInterfaces());
+  const discoverFn = deps.discover ?? (() => discoverDlnaDevices({ bindAddresses: listInterfacesFn().map((i) => i.address) }));
   const toQrDataUrl = deps.toQrDataUrl ?? defaultQr;
 
   /** Cache em memória dos dispositivos descobertos: o cliente manda só `deviceId`, nunca URL arbitrária. */
