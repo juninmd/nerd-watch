@@ -15,6 +15,9 @@ export class BodyError extends Error {
 
 /** Lê o corpo como objeto JSON, com teto de bytes. Array, número ou texto no lugar do objeto é 400. */
 export const readJsonObject = async (c: Context, maxBytes = JSON_BODY_MAX_BYTES): Promise<Record<string, unknown>> => {
+  const declaredHeader = c.req.header('Content-Length');
+  const declared = declaredHeader === undefined ? Number.NaN : Number(declaredHeader);
+  if (Number.isFinite(declared) && declared > maxBytes) throw new BodyError('corpo grande demais', 413);
   const text = await c.req.text();
   if (new TextEncoder().encode(text).byteLength > maxBytes) throw new BodyError('corpo grande demais', 413);
   let parsed: unknown;
