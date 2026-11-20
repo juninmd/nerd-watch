@@ -234,6 +234,7 @@ kbd {
   font-weight: 700;
   color: var(--text-dim);
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .pill[aria-pressed="true"] {

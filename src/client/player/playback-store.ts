@@ -37,6 +37,48 @@ export const resumePoint = (p: StoredPosition | undefined): number | null => {
   return Math.floor(p.seconds);
 };
 
+/**
+ * Posição inicial de um vídeo: um `t` de link só avança; nunca volta atrás do que já está salvo.
+ * Assim um link velho/estranho não apaga o progresso, mas um ponto mais adiante ainda vale.
+ */
+export const startPoint = (saved: number | null, requested: number | null): number | null => {
+  const current = typeof saved === 'number' && Number.isFinite(saved) && saved >= 0 ? saved : null;
+  const next = typeof requested === 'number' && Number.isFinite(requested) && requested >= 0 ? requested : null;
+  return next !== null && (current === null || next > current) ? next : current;
+};
+
+export interface StartInput {
+  saved: number | null;
+  done?: boolean;
+  requested?: number | null;
+  /** Duração conhecida (item ou posição salva); quando ausente, o player confere no `loadedmetadata`. */
+  duration?: number | null;
+}
+
+export interface StartResolution {
+  resumeAt: number | null;
+  /** Ponto de link aplicado; `null` quando o `t` foi ignorado (assistido, perto do fim ou fora do vídeo). */
+  linkAt: number | null;
+}
+
+/**
+ * Decide o ponto de partida de uma vez, inclusive o que fazer com um `t` que não deve ser aplicado:
+ * vídeo já assistido, `t` além da duração ou colado no fim (não pode marcar como assistido só por abrir).
+ */
+export const resolveStart = ({ saved, done = false, requested = null, duration = null }: StartInput): StartResolution => {
+  const base = typeof saved === 'number' && Number.isFinite(saved) && saved >= 0 ? saved : null;
+  const link = !done && typeof requested === 'number' && Number.isFinite(requested) && requested >= 0 ? requested : null;
+  const chosen = startPoint(base, link);
+  if (chosen === null) return { resumeAt: null, linkAt: null };
+
+  if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
+    const safeBase = base !== null && base < duration ? base : null;
+    if (chosen >= duration) return { resumeAt: safeBase, linkAt: null };
+    if (link !== null && chosen === link && isFinished(chosen, duration)) return { resumeAt: safeBase, linkAt: null };
+  }
+  return { resumeAt: chosen, linkAt: link !== null && chosen === link ? link : null };
+};
+
 /** Avisado a cada gravação do usuário (não a reescrita feita pela sincronização). */
 export type PlaybackWriteHook = (key: string, op: 'put' | 'delete') => void;
 

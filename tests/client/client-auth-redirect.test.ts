@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { withLoginRedirect } from '../../src/client/app/auth-redirect.ts';
+import { rememberLoginHash, takeLoginHash, withLoginRedirect } from '../../src/client/app/auth-redirect.ts';
 
 const BASE = 'http://nerd.test/';
 
@@ -16,6 +16,30 @@ const setup = (status: number) => {
   );
   return { fetchFn, navigations, seen };
 };
+
+const memoryStorage = () => {
+  const data = new Map<string, string>();
+  return {
+    getItem: (k: string) => data.get(k) ?? null,
+    setItem: (k: string, v: string) => void data.set(k, v),
+    removeItem: (k: string) => void data.delete(k),
+  };
+};
+
+describe('hash guardado no login', () => {
+  test('guarda a rota interna e devolve uma vez só', () => {
+    const storage = memoryStorage();
+    rememberLoginHash(storage, '#/watch/canal/42?t=90');
+    expect(takeLoginHash(storage)).toBe('#/watch/canal/42?t=90');
+    expect(takeLoginHash(storage)).toBeNull();
+  });
+
+  test('não guarda hash que não é rota do app', () => {
+    const storage = memoryStorage();
+    rememberLoginHash(storage, '#qualquer');
+    expect(takeLoginHash(storage)).toBeNull();
+  });
+});
 
 describe('withLoginRedirect', () => {
   test('401 de chamada /api leva para a página de login', async () => {

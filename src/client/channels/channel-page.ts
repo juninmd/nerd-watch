@@ -17,6 +17,7 @@ import { renderStatusActions } from '../library/status-actions.ts';
 import { icon } from '../ui/icons.ts';
 import { resumePoint } from '../player/playback-store.ts';
 import { navigate } from '../app/router.ts';
+import { canShareAppLink, copyAppLink } from '../app/share-link.ts';
 import { showToast } from '../app/state.ts';
 import { canRefreshMode, handleLabel, MODE_INFO } from '../connections/source-modes.ts';
 import { filterItems, itemTitle, needsTitleLink, orderItems, watchPath } from './telegram-items.ts';
@@ -87,7 +88,15 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
             ${d.link ? `<a class="tg-link" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(d.link.replace('https://', ''))}</a>` : ''}
           </div>
           ${d.description ? `<p class="hero-overview tg-description">${escapeHtml(d.description)}</p>` : ''}
-          ${d.items.length ? `<div class="hero-actions"><button class="btn btn-primary" id="tg-play-all" type="button">${icon('play', 'sm')} Reproduzir tudo</button>${d.link ? `<a class="btn btn-ghost" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${MODE_INFO[d.mode].open}</a>` : ''}</div>` : ''}
+          ${
+            d.items.length || d.link || canShareAppLink()
+              ? `<div class="hero-actions">
+                  ${d.items.length ? `<button class="btn btn-primary" id="tg-play-all" type="button">${icon('play', 'sm')} Reproduzir tudo</button>` : ''}
+                  ${canShareAppLink() ? `<button class="btn btn-ghost" id="tg-copy-link" type="button" title="Copiar link deste canal no app">${icon('link', 'sm')} copiar link</button>` : ''}
+                  ${d.link ? `<a class="btn btn-ghost" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${MODE_INFO[d.mode].open}</a>` : ''}
+                </div>`
+              : ''
+          }
         </div>
       </div>
     </div>
@@ -266,21 +275,30 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
           play(i);
         }
       });
-      // O botão de vínculo fica fora do card (que já é um botão de reprodução): nada de controle dentro de controle.
+      // Os controles ficam fora do card (que já é um botão de reprodução): nada de controle dentro de controle.
       const wrap = document.createElement('div');
       wrap.className = 'tg-item';
       wrap.appendChild(card);
-      if (!needsTitleLink(item)) {
-        itemsHost.appendChild(wrap);
-        continue;
-      }
       const linkRow = document.createElement('div');
       linkRow.className = 'tg-item-link';
-      linkRow.innerHTML = `${linkBadge(item.link ?? null)}<button class="btn btn-ghost btn-sm" type="button" aria-label="${escapeHtml(`vincular “${itemTitle(item)}” a um título`)}">${item.link ? 'alterar vínculo' : 'vincular a um título'}</button>`;
-      linkRow.querySelector('button')?.addEventListener('click', () =>
-        openLinkDialog({ channelId: d.titleId, messageId: item.messageId, current: item.link ?? null, onDone: () => reload() }),
+      linkRow.innerHTML = `${linkBadge(item.link ?? null)}${
+        canShareAppLink()
+          ? `<button class="btn btn-ghost btn-sm" type="button" data-copy-link aria-label="${escapeHtml(`copiar link de “${itemTitle(item)}”`)}">${icon('link', 'sm')} link</button>`
+          : ''
+      }`;
+      linkRow.querySelector('[data-copy-link]')?.addEventListener('click', () =>
+        copyAppLink(watchPath(d.titleId, item.messageId), { at: resumeAt, label: 'Link do vídeo' }),
       );
-      wrap.appendChild(linkRow);
+      if (needsTitleLink(item)) {
+        const bind = document.createElement('button');
+        bind.type = 'button';
+        bind.className = 'btn btn-ghost btn-sm';
+        bind.setAttribute('aria-label', `vincular “${itemTitle(item)}” a um título`);
+        bind.textContent = item.link ? 'alterar vínculo' : 'vincular a um título';
+        bind.addEventListener('click', () => openLinkDialog({ channelId: d.titleId, messageId: item.messageId, current: item.link ?? null, onDone: () => reload() }));
+        linkRow.appendChild(bind);
+      }
+      if (linkRow.childElementCount) wrap.appendChild(linkRow);
       itemsHost.appendChild(wrap);
     }
     renderFooter(matches.length, visible.length);
@@ -308,6 +326,7 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   });
 
   host.querySelector('#tg-play-all')?.addEventListener('click', () => play(0));
+  host.querySelector('#tg-copy-link')?.addEventListener('click', () => copyAppLink(`/telegram/${d.titleId}`, { label: 'Link do canal' }));
   host.querySelector('#tg-accept')?.addEventListener('click', (e) => {
     const btn = e.currentTarget as HTMLButtonElement;
     btn.disabled = true;

@@ -322,7 +322,8 @@
   position: relative;
 }
 
-.resume-remove {
+.resume-remove,
+.resume-link {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -339,14 +340,23 @@
   transition: opacity 0.15s;
 }
 
+.resume-link {
+  left: 6px;
+  right: auto;
+}
+
 .resume-card:hover .resume-remove,
+.resume-card:hover .resume-link,
 .resume-card:focus-within .resume-remove,
-.resume-remove:focus-visible {
+.resume-card:focus-within .resume-link,
+.resume-remove:focus-visible,
+.resume-link:focus-visible {
   opacity: 1;
 }
 
 @media (hover: none) {
-  .resume-remove {
+  .resume-remove,
+  .resume-link {
     opacity: 1;
   }
 }

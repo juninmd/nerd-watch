@@ -1,4 +1,5 @@
-import { type ResumeMeta, resumePoint, type StoredPosition } from './playback-store.ts';
+import { isFinished, type ResumeMeta, resolveStart, resumePoint, type StoredPosition } from './playback-store.ts';
+import { MAX_START_SECONDS } from '../app/deep-link.ts';
 import { playbackSync } from './playback-service.ts';
 import { isAutoplayBlocked } from './player-session.ts';
 import { showToast } from '../app/state.ts';
@@ -180,7 +181,14 @@ const setMode = (next: Mode, stage?: HTMLElement): void => {
   captions?.repaint();
 };
 
-const load = (i: number): void => {
+/** `startAt` vem de um link (`?t=`): vale como ponto de partida, mas só se for um segundo plausível. */
+const validStart = (seconds: number | null | undefined): number | null =>
+  typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0 && seconds <= MAX_START_SECONDS ? Math.floor(seconds) : null;
+
+/** Último `t` aplicado nesta sessão de player; um fallback de erro recarrega o mesmo ponto. */
+let requestedStart: number | null = null;
+
+const load = (i: number, startAt?: number | null): void => {
   const item = queue[i];
   const el = video;
   if (!item || !dock || !el) return;
@@ -188,7 +196,17 @@ const load = (i: number): void => {
   index = i;
   overlays.clear();
   captions?.load(playerKindOf(item) === 'embed' ? null : (item.captions ?? null));
-  const resumeAt = resumePoint(store.get(item.key));
+  const savedEntry = store.get(item.key);
+  const saved = resumePoint(savedEntry);
+  // Resolve o `t` de uma vez (assistido, perto do fim ou fora do vídeo) antes de passar o ponto ao fallback.
+  const start = resolveStart({
+    saved,
+    done: savedEntry?.done === true,
+    requested: validStart(startAt),
+    duration: item.durationSeconds ?? savedEntry?.duration ?? null,
+  });
+  requestedStart = start.linkAt;
+  const resumeAt = start.resumeAt;
   // Trocar o src volta a taxa para a padrão do elemento: a preferência vira a padrão antes, e é reaplicada depois.
   const rate = getStoredSpeed();
   el.defaultPlaybackRate = rate;
@@ -200,12 +218,22 @@ const load = (i: number): void => {
   el.addEventListener(
     'loadedmetadata',
     () => {
-      if (resumeAt !== null && resumeAt < el.duration) el.currentTime = resumeAt;
+      if (resumeAt === null) return;
+      // Duração só descoberta agora: não deixa um `t` fora do vídeo cair no início e apagar o progresso.
+      if (Number.isFinite(el.duration) && resumeAt >= el.duration) {
+        if (saved !== null && saved < el.duration) el.currentTime = saved;
+        return;
+      }
+      // Um `t` colado no fim não pode marcar como assistido só por abrir: nesse caso volta ao ponto salvo.
+      const linkNearEnd = requestedStart !== null && resumeAt === requestedStart && isFinished(resumeAt, el.duration);
+      el.currentTime = linkNearEnd ? (saved !== null && saved < el.duration ? saved : 0) : resumeAt;
     },
     { once: true },
   );
   attemptPlay();
-  if (playerKindOf(item) !== 'embed') void prepareForItem(item, el, { resumeAt, isCurrent: () => current() === item, onMessage: showToast });
+  if (playerKindOf(item) !== 'embed') {
+    void prepareForItem(item, el, { resumeAt, safeStart: saved, isCurrent: () => current() === item, onMessage: showToast });
+  }
   q('.dock-title').textContent = item.title;
   q('.dock-sub').textContent = resumeAt !== null ? `${item.subtitle} · retomando de ${formatDuration(resumeAt)}` : item.subtitle;
   syncControls();
@@ -248,18 +276,35 @@ export const stopIfOnPageIn = (root: Node): void => {
   if (current && root.contains(current)) stopIfOnPage();
 };
 
-/** Mostra `items[start]` grande dentro de `stage`. Se já é o vídeo em reprodução, só o reposiciona (sem reiniciar). */
-export const showInPage = (items: DockItem[], start: number, stage: HTMLElement): void => {
+/**
+ * Mostra `items[start]` grande dentro de `stage`. Se já é o vídeo em reprodução, só o reposiciona
+ * (sem reiniciar); `startAt` de um link manda no ponto de retomada.
+ */
+export const showInPage = (items: DockItem[], start: number, stage: HTMLElement, opts: { startAt?: number | null } = {}): void => {
   const target = items[start];
   if (!target || !dock) return;
+  const startAt = validStart(opts.startAt);
   const alreadyPlaying = current()?.key === target.key && !!video?.getAttribute('src');
   queue = items;
   index = start;
   setMode('page', stage);
   if (alreadyPlaying) {
+    const savedEntry = store.get(target.key);
+    const saved = resumePoint(savedEntry);
+    const resolved = resolveStart({
+      saved,
+      done: savedEntry?.done === true,
+      requested: startAt,
+      duration: target.durationSeconds ?? savedEntry?.duration ?? (video && Number.isFinite(video.duration) ? video.duration : null),
+    });
+    requestedStart = resolved.linkAt;
+    // Sem metadata (`duration` NaN/Infinity) ainda vale atribuir: vira a posição inicial quando ela chegar.
+    if (resolved.resumeAt !== null && video && (!Number.isFinite(video.duration) || resolved.resumeAt < video.duration)) {
+      video.currentTime = resolved.resumeAt;
+    }
     syncControls();
     emit();
-  } else load(start);
+  } else load(start, startAt);
 };
 
 /** Botão "minimizar": o vídeo continua tocando, agora na barra fixa. */
@@ -280,11 +325,20 @@ const onVideoError = (): void => {
   const handlers = {
     onEmbed: (url: string) => {
       item.embedUrl = url;
-      if (current() === item) load(index);
+      if (current() === item) load(index, requestedStart);
     },
     onMessage: showToast,
   };
-  const opts = { resumeAt: resumePoint(store.get(item.key)), isCurrent: () => current() === item, onMessage: showToast };
+  // Um link (`?t=`) não pode ser perdido porque o navegador não tocou o arquivo no primeiro try.
+  const savedEntry = store.get(item.key);
+  const saved = resumePoint(savedEntry);
+  const resolved = resolveStart({
+    saved,
+    done: savedEntry?.done === true,
+    requested: requestedStart,
+    duration: item.durationSeconds ?? savedEntry?.duration ?? (Number.isFinite(video.duration) ? video.duration : null),
+  });
+  const opts = { resumeAt: resolved.resumeAt, safeStart: saved, isCurrent: () => current() === item, onMessage: showToast };
   void handleUnplayable(item, video, opts).then((handled) => {
     if (!handled) onPlayError(item.src, handlers);
   });
