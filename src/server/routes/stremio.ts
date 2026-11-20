@@ -8,7 +8,7 @@ import { AddonError } from '../providers/stremio/client.ts';
 import { type AddonStream, fetchCatalog, fetchManifestFrom, fetchMeta, fetchStreams } from '../providers/stremio/protocol.ts';
 import { streamsForTitle } from '../providers/stremio/title-streams.ts';
 import { parseAddonUrl } from '../providers/stremio/url.ts';
-import { deleteAddon, getAddon, type InstalledAddon, listAddons, saveAddon } from '../repo/stremio-addons.ts';
+import { deleteAddon, getAddon, type InstalledAddon, listAddons, listEnabledAddons, saveAddon, setAddonEnabled } from '../repo/stremio-addons.ts';
 import { subtitleFailureText } from './subtitles-vtt.ts';
 import { loadSubtitleAsVtt } from '../subtitles/load.ts';
 import { addonMagnet, type AddonTorrentRef } from '../torrent/addon-torrent.ts';
@@ -47,6 +47,7 @@ const toDto = (a: InstalledAddon) => ({
   idPrefixes: a.manifest.idPrefixes,
   configurable: a.manifest.configurable,
   configurationRequired: a.manifest.configurationRequired,
+  enabled: a.enabled,
   addedAt: a.addedAt,
 });
 
@@ -115,10 +116,21 @@ stremioRoutes.get('/streams', (c) =>
       const v = c.req.query(k);
       return v && /^\d{1,4}$/.test(v) ? Number(v) : null;
     };
-    const addons = listAddons(await getDb());
+    const addons = listEnabledAddons(await getDb());
     return c.json(await streamsForTitle(addons, { mediaType, tmdbId: hasTmdb ? tmdbId : undefined, imdbId: imdbRaw, season: num('season'), episode: num('episode'), own }));
   }),
 );
+
+/** Liga/desliga o addon sem remover: desligado continua instalado, mas fora das consultas automáticas. */
+stremioRoutes.patch('/addons/:id', async (c) => {
+  const body = await c.req.json<{ enabled?: unknown }>().catch(() => null);
+  if (!body || typeof body.enabled !== 'boolean') return c.json({ error: 'enabled (true|false) é obrigatório' }, 400);
+  const db = await getDb();
+  const id = c.req.param('id');
+  if (!setAddonEnabled(db, id, body.enabled)) return c.json({ error: 'addon não encontrado' }, 404);
+  const addon = getAddon(db, id);
+  return addon ? c.json(toDto(addon)) : c.json({ error: 'addon não encontrado' }, 404);
+});
 
 stremioRoutes.delete('/addons/:id', async (c) => {
   const removed = deleteAddon(await getDb(), c.req.param('id'));
@@ -159,7 +171,7 @@ stremioRoutes.get('/addons/:id/catalog/:type/:catalogId', (c) =>
 );
 
 /** Quadros (catálogos) de todos os addons instalados, para a tela Descobrir. Sem rede: sai do manifest guardado. */
-stremioRoutes.get('/boards', async (c) => c.json({ boards: boardsOf(listAddons(await getDb())) }));
+stremioRoutes.get('/boards', async (c) => c.json({ boards: boardsOf(listEnabledAddons(await getDb())) }));
 
 stremioRoutes.get('/addons/:id/meta/:type/:itemId', (c) =>
   withAddon(c, async (addon) => {

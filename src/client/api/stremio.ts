@@ -44,6 +44,8 @@ export interface AddonDto {
   idPrefixes: string[];
   configurable: boolean;
   configurationRequired: boolean;
+  /** Desligado continua instalado, mas fora das consultas automáticas (título, busca, quadros, legenda). */
+  enabled: boolean;
   addedAt: string;
 }
 
@@ -94,6 +96,14 @@ export const installAddon = (url: string): Promise<AddonDto> =>
   fetch('/api/stremio/addons', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then((r) => json<AddonDto>(r));
 
 export const removeAddon = (id: string): Promise<void> => fetch(`/api/stremio/addons/${seg(id)}`, { method: 'DELETE' }).then((r) => json<unknown>(r).then(() => undefined));
+
+/** Liga/desliga sem remover: desligado não entra em título, busca, quadros nem legenda. */
+export const setAddonEnabled = (id: string, enabled: boolean): Promise<AddonDto> =>
+  fetch(`/api/stremio/addons/${seg(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  }).then((r) => json<AddonDto>(r));
 
 export const getAddonCatalog = (
   id: string,

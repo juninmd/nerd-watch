@@ -11,6 +11,8 @@ interface AddonRow {
   base_url: string;
   manifest: string;
   added_at: string;
+  /** `0` = instalado, mas fora das consultas automáticas. */
+  enabled: number;
 }
 
 export interface InstalledAddon {
@@ -19,6 +21,8 @@ export interface InstalledAddon {
   baseUrl: string;
   manifest: AddonManifest;
   addedAt: string;
+  /** Desligado continua instalado (dá para reativar), mas não entra em título, busca, quadros nem legenda. */
+  enabled: boolean;
 }
 
 /**
@@ -60,18 +64,27 @@ const toAddon = (row: AddonRow): InstalledAddon => {
     baseUrl: row.base_url,
     manifest: normalizeManifest(stored),
     addedAt: row.added_at,
+    // Banco antigo pode vir sem a coluna (`undefined`): nesse caso o addon estava ligado.
+    enabled: row.enabled !== 0,
   };
 };
 
 export const listAddons = (db: Database): InstalledAddon[] =>
   (db.query('SELECT * FROM stremio_addons ORDER BY added_at, id').all() as AddonRow[]).map(toAddon);
 
+/** Só os ligados: é esta lista que alimenta título, busca, quadros e legendas. */
+export const listEnabledAddons = (db: Database): InstalledAddon[] => listAddons(db).filter((addon) => addon.enabled);
+
+/** Liga/desliga sem remover. `false` quando o id não existe. */
+export const setAddonEnabled = (db: Database, id: string, enabled: boolean): boolean =>
+  db.query('UPDATE stremio_addons SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id).changes > 0;
+
 export const getAddon = (db: Database, id: string): InstalledAddon | null => {
   const row = db.query('SELECT * FROM stremio_addons WHERE id = ?').get(id) as AddonRow | null;
   return row ? toAddon(row) : null;
 };
 
-/** Reinstalar o mesmo link só atualiza o manifest guardado (idempotente). */
+/** Reinstalar o mesmo link só atualiza o manifest guardado (idempotente, preservando ligado/desligado). */
 export const saveAddon = (db: Database, input: { manifestUrl: string; baseUrl: string; manifest: AddonManifest }): InstalledAddon => {
   const existing = db.query('SELECT * FROM stremio_addons WHERE manifest_url = ?').get(input.manifestUrl) as AddonRow | null;
   if (existing) {
@@ -86,8 +99,16 @@ export const saveAddon = (db: Database, input: { manifestUrl: string; baseUrl: s
     base_url: input.baseUrl,
     manifest: JSON.stringify(input.manifest),
     added_at: new Date().toISOString(),
+    enabled: 1,
   };
-  db.query('INSERT INTO stremio_addons (id, manifest_url, base_url, manifest, added_at) VALUES (?, ?, ?, ?, ?)').run(row.id, row.manifest_url, row.base_url, row.manifest, row.added_at);
+  db.query('INSERT INTO stremio_addons (id, manifest_url, base_url, manifest, added_at, enabled) VALUES (?, ?, ?, ?, ?, ?)').run(
+    row.id,
+    row.manifest_url,
+    row.base_url,
+    row.manifest,
+    row.added_at,
+    row.enabled,
+  );
   return toAddon(row);
 };
 

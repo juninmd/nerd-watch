@@ -35,6 +35,7 @@ const addonWith = (manifest: ReturnType<typeof parseManifest>): InstalledAddon =
   baseUrl: 'https://addon.example.com/TOKEN',
   manifest,
   addedAt: '2026-01-01T00:00:00.000Z',
+  enabled: true,
 });
 
 beforeEach(() => {

@@ -112,12 +112,14 @@ CREATE TABLE IF NOT EXISTS torrent_sources (
 );
 
 -- Addons do Stremio instalados à mão (link do manifest colado pelo usuário). A URL pode carregar token: só o servidor a lê.
+-- enabled = 0 mantém o addon instalado mas fora de qualquer consulta automática (títulos, busca, quadros).
 CREATE TABLE IF NOT EXISTS stremio_addons (
   id TEXT PRIMARY KEY,
   manifest_url TEXT NOT NULL UNIQUE,
   base_url TEXT NOT NULL,
   manifest TEXT NOT NULL,
-  added_at TEXT NOT NULL
+  added_at TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS library_history (
@@ -307,6 +309,16 @@ export const migrateAddRewatchCount = (db: Database): void => {
   db.exec('ALTER TABLE library_entries ADD COLUMN rewatch_count INTEGER NOT NULL DEFAULT 0;');
 };
 
+/**
+ * `stremio_addons.enabled` (ligar/desligar addon sem remover). Aditivo e idempotente: bancos criados
+ * antes da coluna ganham `1` (ligado), que é o comportamento que já tinham.
+ */
+export const migrateAddStremioAddonEnabled = (db: Database): void => {
+  const columns = db.query<{ name: string }, []>('PRAGMA table_info(stremio_addons)').all();
+  if (columns.length === 0 || columns.some((c) => c.name === 'enabled')) return;
+  db.exec('ALTER TABLE stremio_addons ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;');
+};
+
 export const openDb = (path: string = config.dbPath): Database => {
   const db = new Database(path, { create: true });
   db.exec('PRAGMA journal_mode = WAL;');
@@ -322,6 +334,7 @@ export const openDb = (path: string = config.dbPath): Database => {
   migrateAddRewatchCount(db);
   migrateAddTelegramItemLink(db);
   migrateAddTelegramTopics(db);
+  migrateAddStremioAddonEnabled(db);
   return db;
 };
 

@@ -2,8 +2,18 @@
 
 Tela **Addons Stremio** (`#/addons`, atalho `g o`). Implementa o [protocolo de addons](https://stremio-addons.net/): `manifest.json` e os recursos `catalog`, `meta`, `stream` e `subtitles`.
 
-## Instalação manual, nada automático
+## Ligar, desligar e remover
 
+`PATCH /api/stremio/addons/:id` com `{ "enabled": false }` desliga o addon **sem removê-lo**: ele
+continua na lista (para reativar) mas sai de toda consulta automática — página de título, busca,
+quadros do Descobrir e busca de legendas. Abrir o addon pelo botão "explorar" continua funcionando:
+é acesso explícito, não fan-out.
+
+- Reinstalar o mesmo link preserva o estado (não religa sozinho) e não duplica.
+- Banco criado antes da coluna `enabled` ganha `1` na migração (idempotente): quem atualiza não perde
+  nenhum addon.
+
+## Instalação manual, nada automático
 - Não há addon pré-instalado, lista de descoberta nem instalação automática. O usuário cola o link do `manifest.json` (ou `stremio://…`).
 - Cada addon é de terceiros: o conteúdo, o catálogo e a licença são de responsabilidade de quem o publica.
 
