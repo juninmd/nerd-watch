@@ -20,7 +20,7 @@ const GROUPS: Array<{ key: 'flatrate' | 'rent' | 'buy'; label: string }> = [
 
 const logo = (p: ProviderDto): string =>
   p.logoUrl
-    ? `<div class="provider-logo" title="${escapeHtml(p.name)}"><img src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(p.name)}" /></div>`
+    ? `<div class="provider-logo" title="${escapeHtml(p.name)}"><img src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(p.name)}" width="40" height="40" loading="lazy" decoding="async" /></div>`
     : `<span class="provider-name">${escapeHtml(p.name)}</span>`;
 
 /** Painel "Onde assistir": serviços agrupados pelo tipo de acesso; sem nenhum, explica em vez de ficar vazio. */
