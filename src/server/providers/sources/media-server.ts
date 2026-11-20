@@ -1,3 +1,5 @@
+import { hasControlChar } from '../../lib/text-guards.ts';
+import { readTextLimited } from './http.ts';
 import { SourceError } from './types.ts';
 
 /** Servidor de mídia da casa (Jellyfin, Plex): quem responde e como chamamos o segredo nas mensagens. */
@@ -21,6 +23,8 @@ export const setMediaFetchForTests = (fn?: MediaFetch): void => {
 export const HEAD_TIMEOUT_MS = 20_000;
 /** Miniatura acima disso não é capa razoável e nunca entra inteira em memória. */
 export const THUMB_MAX_BYTES = 2 * 1024 * 1024;
+/** Listagens e metadados JSON do Jellyfin/Plex cabem com folga em 4 MB. */
+const JSON_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_ITEMS = 500;
 const PAGE_SIZE = 200;
 const MAX_PAGES = 5;
@@ -58,9 +62,6 @@ export const apiUrl = (base: URL, path: string, query: Record<string, string> = 
 /** Resposta que deveria ser lista; qualquer outra forma vira lista vazia em vez de quebrar a rota. */
 export const arrayOf = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
 
-/** Quebra de linha ou caractere de controle no caminho: nunca chega a um cabeçalho ou URL. */
-const hasControlChar = (text: string): boolean => [...text].some((ch) => ch.charCodeAt(0) < 0x20);
-
 /** Caminho que o próprio servidor devolveu (parte de arquivo, miniatura): só passa se casar o padrão e não tiver escape. */
 export const serverPath = (raw: unknown, pattern: RegExp): string | null => {
   // Dot-segment codificado (%2e) é normalizado pelo parser de URL: bloqueado junto com barra e contrabarra codificadas.
@@ -82,19 +83,20 @@ const send = async (url: URL, init: RequestInit): Promise<Response> => {
   }
 };
 
-const expectOk = (res: Response, service: Service, notFound: string): void => {
+const expectOk = async (res: Response, service: Service, notFound: string): Promise<void> => {
   if (res.ok) return;
+  await res.body?.cancel();
   if (res.status === 401 || res.status === 403) throw authRefused(service);
   if (res.status === 404) throw new SourceError(notFound, 404);
   throw new SourceError(`o ${service.name} respondeu ${res.status}`, 502);
 };
 
-/** JSON de uma chamada curta (listas, metadados). O timeout cobre cabeçalhos e corpo. */
+/** JSON de uma chamada curta (listas, metadados). O timeout cobre cabeçalhos e corpo, com teto de bytes. */
 export const getJson = async <T>(service: Service, url: URL, headers: Record<string, string>, notFound: string): Promise<T> => {
   const res = await send(url, { headers, signal: AbortSignal.timeout(HEAD_TIMEOUT_MS) });
-  expectOk(res, service, notFound);
+  await expectOk(res, service, notFound);
   try {
-    return (await res.json()) as T;
+    return JSON.parse(await readTextLimited(res, JSON_MAX_BYTES)) as T;
   } catch {
     throw new SourceError(`resposta inesperada do ${service.name}`, 502);
   }
@@ -106,7 +108,10 @@ export const getStream = async (service: Service, url: URL, headers: Record<stri
   const timer = setTimeout(() => controller.abort(), HEAD_TIMEOUT_MS);
   try {
     const res = await send(url, { headers, signal: controller.signal });
-    if (res.status === 401 || res.status === 403) throw authRefused(service);
+    if (res.status === 401 || res.status === 403) {
+      await res.body?.cancel();
+      throw authRefused(service);
+    }
     return res;
   } finally {
     clearTimeout(timer);
