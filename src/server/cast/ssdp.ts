@@ -31,12 +31,30 @@ const fetchDescriptionXml = async (location: string, fetcher: typeof fetch): Pro
   const timer = setTimeout(() => ctrl.abort(), DESC_TIMEOUT_MS);
   try {
     const res = await fetcher(location, { signal: ctrl.signal, redirect: 'error' });
-    if (!res.ok) return null;
-    const len = Number(res.headers.get('content-length') ?? '0');
-    if (len > MAX_DESC_BYTES) return null;
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength > MAX_DESC_BYTES) return null;
-    return new TextDecoder().decode(buf);
+    if (!res.ok) {
+      await res.body?.cancel().catch(() => undefined);
+      return null;
+    }
+    const len = Number(res.headers.get('content-length'));
+    if (Number.isFinite(len) && len > MAX_DESC_BYTES) {
+      await res.body?.cancel().catch(() => undefined);
+      return null;
+    }
+    const reader = res.body?.getReader();
+    if (!reader) return '';
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_DESC_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+    return new TextDecoder().decode(Buffer.concat(chunks));
   } catch {
     return null;
   } finally {

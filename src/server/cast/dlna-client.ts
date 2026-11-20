@@ -14,6 +14,30 @@ import {
 import { isSafeLanUrl } from './network.ts';
 
 const SOAP_TIMEOUT_MS = 5000;
+const MAX_SOAP_BYTES = 256 * 1024;
+
+const readCappedText = async (res: Response, maxBytes: number): Promise<string> => {
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new Error('resposta SOAP grande demais');
+  }
+  const reader = res.body?.getReader();
+  if (!reader) return '';
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new Error('resposta SOAP grande demais');
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+};
 
 export interface DlnaStatus {
   state: DlnaTransportState;
@@ -51,9 +75,11 @@ const sendSoapAction = async (
       },
       body: envelope,
     });
-    const text = await res.text();
-    if (!res.ok) throw new Error(`TV recusou comando ${action} (HTTP ${res.status})`);
-    return text;
+    if (!res.ok) {
+      await res.body?.cancel().catch(() => undefined);
+      throw new Error(`TV recusou comando ${action} (HTTP ${res.status})`);
+    }
+    return await readCappedText(res, MAX_SOAP_BYTES);
   } finally {
     clearTimeout(timer);
   }
