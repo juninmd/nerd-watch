@@ -1,5 +1,6 @@
 import { type Context, Hono } from 'hono';
 import { torrentEnabled } from '../config/config.ts';
+import { guardInput, readJsonObject } from '../http/json-body.ts';
 import {
   TorrentBadFileIndexError,
   TorrentDisabledError,
@@ -17,27 +18,29 @@ export { parseRange } from '../torrent/range.ts';
 
 export const torrentRoutes = new Hono();
 
-torrentRoutes.post('/open', async (c) => {
-  if (!torrentEnabled()) return c.json({ error: 'torrent desligado neste servidor' }, 501);
+torrentRoutes.post('/open', (c) =>
+  guardInput(c, async () => {
+    if (!torrentEnabled()) return c.json({ error: 'torrent desligado neste servidor' }, 501);
 
-  const body = await c.req.json<{ identifier?: unknown; fileIndex?: unknown }>().catch(() => null);
-  // `typeof` e não só truthiness: um JSON com número/array/bool derrubava o handler com 500.
-  const identifier = typeof body?.identifier === 'string' ? body.identifier.trim() : '';
-  if (!identifier) return c.json({ error: 'identifier é obrigatório' }, 400);
-  if (body?.fileIndex !== undefined && !Number.isInteger(body.fileIndex)) return c.json({ error: 'fileIndex inválido' }, 400);
+    const body = await readJsonObject(c);
+    // `typeof` e não só truthiness: um JSON com número/array/bool derrubava o handler com 500.
+    const identifier = typeof body.identifier === 'string' ? body.identifier.trim() : '';
+    if (!identifier) return c.json({ error: 'identifier é obrigatório' }, 400);
+    if (body.fileIndex !== undefined && !Number.isInteger(body.fileIndex)) return c.json({ error: 'fileIndex inválido' }, 400);
 
-  try {
-    return c.json(await openArchiveTorrent(identifier, body?.fileIndex as number | undefined));
-  } catch (err) {
-    if (err instanceof TorrentInvalidIdentifierError) return c.json({ error: err.message }, 400);
-    if (err instanceof TorrentBadFileIndexError) return c.json({ error: err.message }, 400);
-    if (err instanceof TorrentDisabledError) return c.json({ error: err.message }, 501);
-    if (err instanceof TorrentNoPlayableVideoError) return c.json({ error: err.message }, 422);
-    if (err instanceof TorrentUntrustedSourceError) return c.json({ error: err.message }, 502);
-    if (err instanceof TorrentUnavailableError) return c.json({ error: err.message }, 502);
-    throw err;
-  }
-});
+    try {
+      return c.json(await openArchiveTorrent(identifier, body.fileIndex as number | undefined));
+    } catch (err) {
+      if (err instanceof TorrentInvalidIdentifierError) return c.json({ error: err.message }, 400);
+      if (err instanceof TorrentBadFileIndexError) return c.json({ error: err.message }, 400);
+      if (err instanceof TorrentDisabledError) return c.json({ error: err.message }, 501);
+      if (err instanceof TorrentNoPlayableVideoError) return c.json({ error: err.message }, 422);
+      if (err instanceof TorrentUntrustedSourceError) return c.json({ error: err.message }, 502);
+      if (err instanceof TorrentUnavailableError) return c.json({ error: err.message }, 502);
+      throw err;
+    }
+  }),
+);
 
 torrentRoutes.get('/:infoHash', (c) => {
   const infoHash = c.req.param('infoHash');
