@@ -19,6 +19,8 @@ describe('checagem de atualização', () => {
     expect(parseRelease(payload)).toEqual({ version: '0.4.0', url: payload.html_url });
     expect(parseRelease({ ...payload, prerelease: true })).toBeNull();
     expect(parseRelease({ ...payload, html_url: 'https://evil.test/x' })).toBeNull();
+    expect(parseRelease({ ...payload, html_url: 'https://github.com/outro/repo/releases/tag/v1.0.0' })).toBeNull();
+    expect(parseRelease({ ...payload, html_url: 'https://github.com/juninmd/nerd-watch/"onclick="x' })).toBeNull();
     expect(parseRelease(null)).toBeNull();
   });
 

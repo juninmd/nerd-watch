@@ -208,7 +208,7 @@ export const renderTelegramLogin = (host: HTMLElement): void => {
     const root = mount(`
       ${stepper(1)}
       <div class="qr-row">
-        <img id="tg-qr-img" data-token="${state.token}" src="${dataUrl}" alt="QR code de login do Telegram" width="232" height="232" />
+        <img id="tg-qr-img" data-token="${escapeHtml(state.token)}" src="${escapeHtml(dataUrl)}" alt="QR code de login do Telegram" width="232" height="232" />
         <div>
           <ol class="howto"><li>Abra o Telegram no celular</li><li>Vá em <b>Ajustes → Dispositivos</b></li><li>Toque em <b>Conectar dispositivo</b> e aponte para o QR</li></ol>
           <p class="hint" id="tg-count" role="status"></p>

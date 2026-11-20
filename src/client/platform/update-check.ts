@@ -23,6 +23,15 @@ export const isNewer = (latest: string, current: string): boolean => {
   return false;
 };
 
+const isSafeReleaseUrl = (raw: string): boolean => {
+  try {
+    const u = new URL(raw);
+    return u.origin === 'https://github.com' && u.pathname.startsWith('/juninmd/nerd-watch/') && !/["'<>]/.test(raw);
+  } catch {
+    return false;
+  }
+};
+
 /** Extrai `{ version, url }` da resposta da API, ignorando rascunho/pré-lançamento e payload estranho. */
 export const parseRelease = (data: unknown): LatestRelease | null => {
   if (!data || typeof data !== 'object') return null;
@@ -30,7 +39,7 @@ export const parseRelease = (data: unknown): LatestRelease | null => {
   if (draft === true || prerelease === true) return null;
   if (typeof tag_name !== 'string' || typeof html_url !== 'string') return null;
   const parsed = parseVersion(tag_name);
-  if (!parsed || !html_url.startsWith('https://github.com/')) return null;
+  if (!parsed || !isSafeReleaseUrl(html_url)) return null;
   return { version: parsed.join('.'), url: html_url };
 };
 
