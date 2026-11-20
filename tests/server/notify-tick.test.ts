@@ -173,4 +173,15 @@ describe('runNotifyTick: timeout', () => {
     expect(await pending).toEqual({ notified: 0, failed: 1 });
     expect(sentKeys(db, [KEY]).size).toBe(0);
   });
+
+  test('limpa chaves antigas de attempts e não inicia envios se signal já foi abortado', async () => {
+    const { calls, fetchImpl } = fakeFetch(ok);
+    const attempts = new Map<string, number>([['chave-expirada', 3]]);
+    const controller = new AbortController();
+    controller.abort();
+    const result = await runNotifyTick(makeDeps(fetchImpl, { attempts, signal: controller.signal }));
+    expect(result).toEqual({ notified: 0, failed: 0 });
+    expect(calls).toEqual([]);
+    expect(attempts.has('chave-expirada')).toBe(false);
+  });
 });

@@ -46,6 +46,7 @@ export const startLive = (deps: LiveDeps, opts: LiveOptions): Response | { busy:
     },
     Math.min(deps.idleMs, 5000),
   );
+  watchdog.unref?.();
   void proc.exited.then(end);
 
   const body = new ReadableStream<Uint8Array>(
