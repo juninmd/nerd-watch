@@ -41,6 +41,7 @@ const paint = (host: HTMLElement, addon: AddonDto): void => {
       </select>
       <input type="search" id="ab-search" class="input input-pill grow" placeholder="buscar neste catálogo" autocomplete="off" aria-label="buscar neste catálogo" />
     </div>
+    <div class="chip-row" id="ab-genres" aria-label="filtrar por gênero"></div>
     <div id="ab-grid">${SKELETON}</div>
     <div class="chip-row" id="ab-more-row" hidden><button type="button" class="btn btn-ghost btn-sm" id="ab-more">carregar mais</button></div>
   `;
@@ -48,14 +49,29 @@ const paint = (host: HTMLElement, addon: AddonDto): void => {
 
   const select = host.querySelector('#ab-catalog') as HTMLSelectElement;
   const search = host.querySelector('#ab-search') as HTMLInputElement;
+  const genresEl = host.querySelector('#ab-genres') as HTMLElement;
   const grid = host.querySelector('#ab-grid') as HTMLElement;
   const moreRow = host.querySelector('#ab-more-row') as HTMLElement;
   const more = host.querySelector('#ab-more') as HTMLButtonElement;
 
   let shown = 0;
   let seq = 0;
+  /** Gênero escolhido; `null` = todos. Sempre pertence ao catálogo atual. */
+  let genre: string | null = null;
 
   const catalog = () => addon.catalogs[Number(select.value)] ?? addon.catalogs[0];
+
+  /** Chips só com os gêneros que o próprio catálogo declara: gênero inventado voltaria vazio. */
+  const paintGenres = () => {
+    const cat = catalog();
+    const genres = cat?.genres ?? [];
+    genresEl.innerHTML = genres.length
+      ? [null, ...genres]
+          .map((g) => `<button type="button" class="chip${g === genre ? ' active' : ''}" data-genre="${g === null ? '' : escapeHtml(g)}" aria-pressed="${g === genre}">${g === null ? 'todos' : escapeHtml(g)}</button>`)
+          .join('')
+      : '';
+    genresEl.hidden = genres.length === 0;
+  };
 
   const append = (items: AddonItemDto[], reset: boolean) => {
     if (reset) {
@@ -86,7 +102,7 @@ const paint = (host: HTMLElement, addon: AddonDto): void => {
     search.disabled = !cat.searchable;
     search.placeholder = cat.searchable ? 'buscar neste catálogo' : 'este catálogo não aceita busca';
     more.disabled = true;
-    getAddonCatalog(addon.id, cat.type, cat.id, { search: cat.searchable ? q : undefined, skip: shown || undefined })
+    getAddonCatalog(addon.id, cat.type, cat.id, { search: cat.searchable ? q : undefined, skip: shown || undefined, genre: genre ?? undefined })
       .then((items) => {
         if (mine !== seq || !grid.isConnected) return;
         append(items, reset);
@@ -108,10 +124,20 @@ const paint = (host: HTMLElement, addon: AddonDto): void => {
       if (search.isConnected) load(true);
     }, 350);
   });
+  genresEl.addEventListener('click', (e) => {
+    const button = (e.target as HTMLElement).closest<HTMLElement>('[data-genre]');
+    if (!button) return;
+    genre = button.dataset.genre || null;
+    paintGenres();
+    load(true);
+  });
   select.addEventListener('change', () => {
     search.value = '';
+    genre = null;
+    paintGenres();
     load(true);
   });
   more.addEventListener('click', () => load(false));
+  paintGenres();
   load(true);
 };

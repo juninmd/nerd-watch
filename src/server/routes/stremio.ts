@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { getDb } from '../db/database.ts';
 import { assertKnownKeys, guardInput, readJsonObject } from '../http/json-body.ts';
+import { hasControlChar } from '../lib/text-guards.ts';
 import { ValidationError } from '../lib/validation-error.ts';
+import { boardsOf } from '../providers/stremio/boards.ts';
 import { AddonError } from '../providers/stremio/client.ts';
 import { type AddonStream, fetchCatalog, fetchManifestFrom, fetchMeta, fetchStreams } from '../providers/stremio/protocol.ts';
 import { streamsForTitle } from '../providers/stremio/title-streams.ts';
@@ -107,15 +109,32 @@ const withAddon = (c: Parameters<typeof guardInput>[0], run: (a: InstalledAddon)
 
 stremioRoutes.get('/addons/:id/catalog/:type/:catalogId', (c) =>
   withAddon(c, async (addon) => {
+    const type = c.req.param('type');
+    const catalogId = c.req.param('catalogId');
+    const catalog = addon.manifest.catalogs.find((k) => k.type === type && k.id === catalogId);
+    if (!catalog) throw new ValidationError('catálogo não declarado pelo addon');
+
     const search = c.req.query('search')?.trim().slice(0, 100) || undefined;
     const skipRaw = c.req.query('skip');
     const skip = skipRaw === undefined ? 0 : /^\d{1,6}$/.test(skipRaw) ? Number(skipRaw) : Number.NaN;
     if (!Number.isFinite(skip)) throw new ValidationError('skip inválido');
-    const known = addon.manifest.catalogs.some((k) => k.type === c.req.param('type') && k.id === c.req.param('catalogId'));
-    if (!known) throw new ValidationError('catálogo não declarado pelo addon');
-    return c.json({ items: await fetchCatalog(addon.baseUrl, c.req.param('type'), c.req.param('catalogId'), { search, skip }) });
+
+    // Gênero e ano só passam se o próprio manifest anunciar o filtro: adivinhar nome de gênero em
+    // addon que não filtra devolve catálogo vazio (ou o catálogo inteiro) sem o usuário entender.
+    const genre = c.req.query('genre')?.trim() || undefined;
+    if (genre !== undefined && (genre.length > 80 || hasControlChar(genre))) throw new ValidationError('genre inválido');
+    if (genre && catalog.genres.length > 0 && !catalog.genres.includes(genre)) throw new ValidationError('gênero não declarado por este catálogo');
+
+    const year = c.req.query('year')?.trim() || undefined;
+    if (year !== undefined && !/^\d{4}$/.test(year)) throw new ValidationError('year inválido');
+    if (year && !catalog.yearFilter) throw new ValidationError('este catálogo não filtra por ano');
+
+    return c.json({ items: await fetchCatalog(addon.baseUrl, type, catalogId, { search, skip, genre, year }) });
   }),
 );
+
+/** Quadros (catálogos) de todos os addons instalados, para a tela Descobrir. Sem rede: sai do manifest guardado. */
+stremioRoutes.get('/boards', async (c) => c.json({ boards: boardsOf(listAddons(await getDb())) }));
 
 stremioRoutes.get('/addons/:id/meta/:type/:itemId', (c) =>
   withAddon(c, async (addon) => {

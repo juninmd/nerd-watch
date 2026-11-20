@@ -17,6 +17,10 @@ export interface AddonCatalog {
   searchable: boolean;
   /** `skip` é a paginação padrão do protocolo. */
   paged: boolean;
+  /** Gêneros oferecidos em `extra[name=genre].options` (teto de 30). Vazio = não filtra por gênero. */
+  genres: string[];
+  /** O catálogo declara o filtro `year`. */
+  yearFilter: boolean;
 }
 
 export interface AddonManifest {
@@ -47,6 +51,23 @@ export const safeHttpUrl = (v: unknown): string | null => {
 
 const resourceName = (r: unknown): string => (typeof r === 'string' ? r : str(obj(r).name, 40));
 
+/**
+ * `extra` do catálogo no protocolo: cada filtro é um objeto com `name` (e, no caso de `genre`, uma
+ * lista de `options`). `extraSupported` é a forma antiga e só informa nomes — nela o gênero vem sem
+ * opções, e aí a interface não tem como montar os chips.
+ */
+const catalogFlags = (cat: Record<string, unknown>) => {
+  const extra = list(cat.extra, 20).map(obj);
+  const supported = list(cat.extraSupported, 20).map((v) => str(v, 20));
+  const genre = extra.find((entry) => entry.name === 'genre');
+  return {
+    searchable: extra.some((e) => e.name === 'search') || supported.includes('search'),
+    paged: extra.some((e) => e.name === 'skip') || supported.includes('skip'),
+    genres: genre ? list(genre.options, 30).map((g) => str(g, 40)).filter(Boolean) : [],
+    yearFilter: extra.some((e) => e.name === 'year') || supported.includes('year'),
+  };
+};
+
 export const parseManifest = (raw: unknown): AddonManifest => {
   const m = obj(raw);
   const id = str(m.id, 200);
@@ -57,13 +78,11 @@ export const parseManifest = (raw: unknown): AddonManifest => {
     const type = str(cat.type, 40);
     const catId = str(cat.id, 120);
     if (!type || !catId) return null;
-    const extra = list(cat.extra, 20).map(obj);
     return {
       type,
       id: catId,
       name: str(cat.name, 120) || catId,
-      searchable: extra.some((e) => e.name === 'search') || list(cat.extraSupported).includes('search'),
-      paged: extra.some((e) => e.name === 'skip') || list(cat.extraSupported).includes('skip'),
+      ...catalogFlags(cat),
     };
   });
   return {
@@ -109,9 +128,24 @@ const previewOf = (raw: unknown, fallbackType: string): MetaPreview | null => {
   };
 };
 
-export const fetchCatalog = async (baseUrl: string, type: string, catalogId: string, extra: { search?: string; skip?: number }): Promise<MetaPreview[]> => {
+export interface CatalogQuery {
+  search?: string;
+  skip?: number;
+  /** Filtros declarados pelo catálogo em `extra`; a rota só deixa passar o que o manifest oferece. */
+  genre?: string;
+  year?: string;
+}
+
+/**
+ * `extra` do protocolo vai na própria URL, como segmentos separados por `&`
+ * (`/catalog/movie/top/genre=Ação&skip=100.json`). A ordem segue a convenção dos addons: busca,
+ * gênero, ano e, por último, a paginação.
+ */
+export const fetchCatalog = async (baseUrl: string, type: string, catalogId: string, extra: CatalogQuery): Promise<MetaPreview[]> => {
   const parts: string[] = [];
   if (extra.search) parts.push(`search=${encodeURIComponent(extra.search)}`);
+  if (extra.genre) parts.push(`genre=${encodeURIComponent(extra.genre)}`);
+  if (extra.year) parts.push(`year=${encodeURIComponent(extra.year)}`);
   if (extra.skip) parts.push(`skip=${extra.skip}`);
   const tail = parts.length ? `/${parts.join('&')}` : '';
   const data = obj(await getAddonJson(`${baseUrl}/catalog/${pathSegment(type)}/${pathSegment(catalogId)}${tail}.json`));

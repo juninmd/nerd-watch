@@ -39,6 +39,7 @@ export const renderAddons = (host: HTMLElement): void => {
       <button class="btn btn-primary btn-sm" type="submit" id="addon-add">${icon('plus', 'sm')} instalar</button>
     </form>
     <p class="field-err" id="addon-err" role="alert"></p>
+    <p class="chip-row" id="addons-discover" hidden><a class="btn btn-ghost btn-sm" href="#/descobrir">${icon('grid', 'sm')} descobrir nos catálogos</a></p>
     <ul class="addon-list" id="addon-list" aria-live="polite"></ul>
   `;
   wireBackButton(host, '/connections');
@@ -48,9 +49,11 @@ export const renderAddons = (host: HTMLElement): void => {
   const submit = host.querySelector('#addon-add') as HTMLButtonElement;
   const err = host.querySelector('#addon-err') as HTMLElement;
   const listEl = host.querySelector('#addon-list') as HTMLElement;
+  const discoverLink = host.querySelector('#addons-discover') as HTMLElement;
   let loadSeq = 0;
 
   const paint = (addons: AddonDto[]) => {
+    discoverLink.hidden = !addons.some((a) => a.catalogs.length > 0);
     listEl.innerHTML = addons.length
       ? addons.map(addonRow).join('')
       : `<li class="empty-state"><div class="big">${icon('plug')}</div>nenhum addon instalado ainda</li>`;
