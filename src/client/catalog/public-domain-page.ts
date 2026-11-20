@@ -20,7 +20,7 @@ export const renderPublicDomain = (host: HTMLElement): void => {
     <div class="chip-row" id="pd-sources" role="group" aria-label="fonte do acervo"></div>
     <div class="chip-row" style="margin-bottom:20px">
       <input type="search" id="pd-search" placeholder="Buscar no acervo (ex: Chaplin, terror, faroeste)..."
-        class="input input-pill grow" aria-label="buscar no acervo" />
+        class="input input-pill grow" autocomplete="off" aria-label="buscar no acervo" />
     </div>
     <div id="pd-grid">${SKELETON}</div>
   `;

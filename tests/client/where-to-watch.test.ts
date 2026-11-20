@@ -17,6 +17,11 @@ describe('whereToWatchHtml', () => {
     expect(html).not.toContain('Alugar');
   });
 
+  test('logo reserva o espaço e carrega preguiçosa (sem salto de layout nem download fora da tela)', () => {
+    const html = whereToWatchHtml({ ...empty, flatrate: [{ name: 'A', logoUrl: 'https://img.test/a.png' }] });
+    expect(html).toContain('width="40" height="40" loading="lazy" decoding="async"');
+  });
+
   test('escapa nomes e links vindos da API (sem HTML injetado)', () => {
     const html = whereToWatchHtml({ ...empty, flatrate: [{ name: '<img src=x onerror=alert(1)>', logoUrl: null }], link: 'https://x.test/?a="b' });
     expect(html).not.toContain('<img src=x');
