@@ -13,13 +13,31 @@ export class BodyError extends Error {
   }
 }
 
-/** Lê o corpo como objeto JSON, com teto de bytes. Array, número ou texto no lugar do objeto é 400. */
+/** Lê o corpo como objeto JSON, com teto de bytes em streaming (cobre chunked sem Content-Length). Array, número ou texto no lugar do objeto é 400. */
 export const readJsonObject = async (c: Context, maxBytes = JSON_BODY_MAX_BYTES): Promise<Record<string, unknown>> => {
   const declaredHeader = c.req.header('Content-Length');
   const declared = declaredHeader === undefined ? Number.NaN : Number(declaredHeader);
-  if (Number.isFinite(declared) && declared > maxBytes) throw new BodyError('corpo grande demais', 413);
-  const text = await c.req.text();
-  if (new TextEncoder().encode(text).byteLength > maxBytes) throw new BodyError('corpo grande demais', 413);
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await c.req.raw.body?.cancel().catch(() => undefined);
+    throw new BodyError('corpo grande demais', 413);
+  }
+  const reader = c.req.raw.body?.getReader();
+  let text = '';
+  if (reader) {
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new BodyError('corpo grande demais', 413);
+      }
+      chunks.push(value);
+    }
+    text = new TextDecoder().decode(Buffer.concat(chunks));
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);

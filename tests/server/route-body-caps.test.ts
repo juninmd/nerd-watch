@@ -38,4 +38,23 @@ describe('teto de corpo JSON nas rotas de library, telegram, torrent e subtitles
     expect((await subtitlesRoutes.request('/download', jsonReq('"texto"'))).status).toBe(400);
     expect((await libraryRoutes.request('/t1', jsonReq('[]', 'PATCH'))).status).toBe(400);
   });
+
+  test('cancela stream chunked sem Content-Length ao ultrapassar o teto', async () => {
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(8 * 1024));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const res = await subtitlesRoutes.request('/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: stream,
+    });
+    expect(res.status).toBe(413);
+    expect(cancelled).toBe(true);
+  });
 });
