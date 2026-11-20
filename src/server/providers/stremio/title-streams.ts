@@ -9,8 +9,10 @@ import { type AddonStream, fetchStreams } from './protocol.ts';
  * `index` é a posição que `POST …/streams/:type/:itemId/:index/open` espera (a mesma da lista
  * normalizada). `trackers` fica no servidor: o cliente só manda a posição e o addon é reconsultado.
  */
-export interface TitleStream extends Omit<AddonStream, 'trackers'> {
+export interface TitleStream extends Omit<AddonStream, 'trackers' | 'subtitles'> {
   index: number;
+  /** Faixas de legenda do addon para este stream: só id/idioma, a URL fica no servidor. */
+  subtitles: Array<{ id: string | null; lang: string }>;
 }
 
 const toClientStream = (stream: AddonStream, index: number): TitleStream => ({
@@ -28,6 +30,7 @@ const toClientStream = (stream: AddonStream, index: number): TitleStream => ({
   bingeGroup: stream.bingeGroup,
   countryWhitelist: stream.countryWhitelist,
   subtitleLangs: stream.subtitleLangs,
+  subtitles: stream.subtitles.map(({ id, lang }) => ({ id, lang })),
   trackerCount: stream.trackerCount,
 });
 

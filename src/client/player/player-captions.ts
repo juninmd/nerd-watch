@@ -49,6 +49,7 @@ export interface Captions {
 export const mountCaptions = (opts: CaptionsHost): Captions => {
   const slot = createTrackSlot();
   let ctx: CaptionContext | null = null;
+  let addonOptions: CaptionOption[] = [];
   let archive: CaptionOption | null = null;
   let searchOptions: CaptionOption[] = [];
   let local: CaptionOption | null = null;
@@ -66,7 +67,7 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
   const announce = (text: string): void => view.announce(text);
 
   const rebuild = (): void => {
-    options = [archive, ...searchOptions, local].filter((o): o is CaptionOption => o !== null);
+    options = [...addonOptions, archive, ...searchOptions, local].filter((o): o is CaptionOption => o !== null);
   };
 
   const paint = (): void => {
@@ -225,6 +226,8 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
 
   const resetState = (next: CaptionContext | null): void => {
     ctx = next;
+    // Faixas do addon vêm prontas no contexto: nenhuma requisição até o usuário escolher uma.
+    addonOptions = (next?.addonTracks ?? []).map((track): CaptionOption => ({ id: track.id, label: track.label, detail: track.detail, code: track.lang, load: track.load }));
     archive = next?.archiveId && next.archiveHasSubtitle ? archiveOption(next.archiveId) : null;
     searchOptions = [];
     local = null;
@@ -251,6 +254,12 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
         const id = preferredOption(options, language);
         if (id) void select(id);
       });
+      return;
+    }
+    // Stream de addon que já traz legendas próprias: a preferência vale mesmo sem busca por título.
+    if (next?.addonTracks?.length && language) {
+      const id = preferredOption(options, language);
+      if (id) void select(id);
     }
   };
 

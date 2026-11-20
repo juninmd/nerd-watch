@@ -169,6 +169,7 @@ describe('catálogo, meta e streams', () => {
       bingeGroup: null,
       countryWhitelist: [],
       subtitleLangs: [],
+      subtitles: [],
       trackerCount: 0,
     });
   });

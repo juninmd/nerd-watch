@@ -39,6 +39,18 @@ URL de arquivo. O app toca isso no mesmo motor P2P do Internet Archive:
   sair da tela fecha o torrent, nada fica semeando;
 - o texto do título/trackers vem de terceiros: passa por `cleanName`, `safeTrackers` e `escapeHtml`.
 
+### Legendas que o addon publica (`stream.subtitles`)
+
+Addon de torrent costuma oferecer a legenda dublada/legendada junto do stream. Agora o app usa:
+
+- o manifest responde `subtitles: [{ url, lang, id }]` por stream; a **URL fica no servidor** (o cliente
+  recebe só `{ id, lang }`) e a lista aparece no menu de legendas do player, antes das da busca;
+- ao escolher, o cliente pede `GET /api/stremio/addons/:id/subtitles/:type/:itemId/:streamIndex/:subIndex`;
+  o servidor reconsulta o addon, valida o host público e baixa o arquivo com os mesmos limites das outras
+  legendas (2 MB, redirect checado por salto, conversão SRT/ASS→WebVTT);
+- a preferência de idioma do usuário já seleciona a faixa do addon quando ela existe;
+- faixa com endereço privado/estranho é descartada na normalização e não vira selo no card.
+
 ## Addon configurado por ambiente (sem domínio no repositório)
 
 `ADDON_MANIFEST_URLS` (uma ou mais URLs separadas por vírgula) instala addons no boot, para quem quer
@@ -59,7 +71,9 @@ segredo e imprime apenas nome/recursos/contagem de streams — nunca o endereço
 `GET/POST /api/stremio/addons`, `DELETE /api/stremio/addons/:id`,
 `GET /api/stremio/addons/:id/{catalog/:type/:catalogId | meta/:type/:itemId | streams/:type/:itemId}`,
 `GET /api/stremio/streams?mediaType=&tmdbId=|imdbId=&season=&episode=` (todas as fontes do título;
-cada grupo traz `type`, `contentId` e a posição `index` de cada stream) e
+cada grupo traz `type`, `contentId` e a posição `index` de cada stream),
+`GET /api/stremio/addons/:id/subtitles/:type/:itemId/:streamIndex/:subIndex` (WebVTT da faixa que o
+addon publicou para aquele stream) e
 `POST /api/stremio/addons/:id/streams/:type/:itemId/:index/open?fileIndex=N` (abre o torrent no motor
 P2P e devolve o mesmo contrato de `POST /api/torrent/open`).
 

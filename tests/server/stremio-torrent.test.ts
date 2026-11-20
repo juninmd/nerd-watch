@@ -160,6 +160,7 @@ describe('streams de torrent do addon', () => {
         bingeGroup: null,
         countryWhitelist: [],
         subtitleLangs: [],
+        subtitles: [],
         trackerCount: 1,
       },
     ]);
