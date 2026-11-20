@@ -34,7 +34,7 @@ const upcomingRows = (entries: CalendarEntryDto[], todayIso: string): string =>
     .map(
       (e) => `
       <div class="calendar-item" data-source="${e.titleSource}" data-source-id="${escapeHtml(e.titleSourceId)}" data-media="${e.mediaType}" tabindex="0" role="link">
-        <div class="thumb"${e.posterUrl ? ` style="background-image:url('${e.posterUrl}')"` : ''}>${e.posterUrl ? '' : icon('film')}</div>
+        <div class="thumb"${e.posterUrl ? ` style="background-image:url('${escapeHtml(e.posterUrl)}')"` : ''}>${e.posterUrl ? '' : icon('film')}</div>
         <div class="info"><div class="t">${escapeHtml(e.titleName)}</div><div class="s">${entryLine(e)}</div></div>
         <div class="s">${e.date === todayIso ? 'hoje' : 'amanhã'}</div>
       </div>`,
@@ -97,6 +97,7 @@ export const renderHome = (host: HTMLElement): void => {
     healthSources().catch(() => ({ sources: [] })),
   ])
     .then(([h, watching, calendar, upNext, stats, probes]) => {
+      if (!body.isConnected) return;
       const banner = h.tmdbEnabled
         ? ''
         : `<div class="banner warn">${icon('alert')}<span>Catálogo TMDB desligado — veja como ligar em <a href="#/connections">configurar conexões</a>. Domínio público, Telegram e sua biblioteca funcionam normalmente.</span></div>`;
@@ -244,6 +245,7 @@ export const renderHome = (host: HTMLElement): void => {
       });
     })
     .catch(() => {
+      if (!body.isConnected) return;
       body.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar o início agora</div>`;
     });
 };
