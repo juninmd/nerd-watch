@@ -196,9 +196,16 @@ describe('addon só de streams (sem catálogo, como o Brazuca)', () => {
   test('busca streams pelo IMDb do TMDB, filme e série (sem progresso = 1x1)', async () => {
     const addons = await setup();
     const movie = await streamsForTitle(addons, { mediaType: 'movie', tmdbId: 603, season: null, episode: null }, async () => 'tt0133093');
-    expect(movie.addons[0]).toMatchObject({ name: 'Só stream', error: null, streams: [{ kind: 'torrent', url: null }] });
+    // `type`/`contentId`/`index` são o que o cliente usa para abrir o torrent depois.
+    expect(movie.addons[0]).toMatchObject({
+      name: 'Só stream',
+      type: 'movie',
+      contentId: 'tt0133093',
+      error: null,
+      streams: [{ index: 0, kind: 'torrent', url: null, infoHash: 'c9e15763f722f23e98a29decdfae341b98d53056' }],
+    });
     const tv = await streamsForTitle(addons, { mediaType: 'tv', tmdbId: 1399, season: null, episode: null }, async () => 'tt0944947');
-    expect(tv.addons[0]?.streams[0]?.kind).toBe('url');
+    expect(tv.addons[0]).toMatchObject({ type: 'series', contentId: 'tt0944947:1:1', streams: [{ index: 0, kind: 'url' }] });
   });
 
   test('sem IMDb não consulta addon; falha de um addon vira erro com mensagem fixa', async () => {
@@ -239,6 +246,7 @@ describe('addon só de streams (sem catálogo, como o Brazuca)', () => {
       throw new Error('não deveria resolver pelo TMDB');
     });
     expect(out.imdbId).toBe('tt1234567');
+    expect(out.addons[0]?.contentId).toBe('tt1234567:2:3');
     expect(calls.some((u) => u.includes('/stream/series/tt1234567%3A2%3A3.json'))).toBe(true);
   });
 });

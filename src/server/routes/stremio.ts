@@ -153,16 +153,28 @@ stremioRoutes.post('/addons/:id/streams/:type/:itemId/:index/open', (c) =>
     if (stream.kind !== 'torrent' || !stream.infoHash) throw new ValidationError('este stream não é um torrent');
 
     const ref: AddonTorrentRef = { infoHash: stream.infoHash, name: stream.filename ?? stream.title, trackers: stream.trackers };
+    const open = (index?: number) => openP2pVideo(ref.infoHash, addonMagnet(ref), index);
+    let failure: unknown;
     try {
-      return c.json(await openP2pVideo(ref.infoHash, addonMagnet(ref), fileIndex));
+      // Sem escolha do usuário, o `fileIdx` do addon aponta o episódio certo do pack; trocar arquivo no painel manda `fileIndex`.
+      return c.json(await open(fileIndex ?? stream.fileIdx ?? undefined));
     } catch (err) {
-      if (err instanceof TorrentBadFileIndexError) return c.json({ error: err.message }, 400);
-      if (err instanceof TorrentNoPlayableVideoError) return c.json({ error: err.message }, 422);
-      if (err instanceof TorrentDisabledError) return c.json({ error: err.message }, 501);
-      // `TorrentUnsafePathError` estende este: caminho hostil também cai aqui.
-      if (err instanceof TorrentUnavailableError) return c.json({ error: err.message }, 502);
-      if (err instanceof MagnetError) throw new ValidationError(err.message);
-      throw err;
+      failure = err;
     }
+    // `fileIdx` de addon às vezes aponta um mkv/legenda: em vez de 400 sem saída, tenta o vídeo tocável do pack.
+    if (failure instanceof TorrentBadFileIndexError && fileIndex === undefined && stream.fileIdx !== null) {
+      try {
+        return c.json(await open(undefined));
+      } catch (err) {
+        failure = err;
+      }
+    }
+    if (failure instanceof TorrentBadFileIndexError) return c.json({ error: failure.message }, 400);
+    if (failure instanceof TorrentNoPlayableVideoError) return c.json({ error: failure.message }, 422);
+    if (failure instanceof TorrentDisabledError) return c.json({ error: failure.message }, 501);
+    // `TorrentUnsafePathError` estende este: caminho hostil também cai aqui.
+    if (failure instanceof TorrentUnavailableError) return c.json({ error: failure.message }, 502);
+    if (failure instanceof MagnetError) throw new ValidationError(failure.message);
+    throw failure;
   }),
 );

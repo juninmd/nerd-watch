@@ -12,6 +12,8 @@ import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { isEpisodeWatched } from '../library/episode-progress.ts';
 import { wireEpisodeStreams } from '../addons/episode-streams.ts';
+import { getVideo, stopIfOnPageIn } from '../player/player-dock.ts';
+import { releaseTorrentPlayers } from '../player/torrent-player.ts';
 import { showToast } from '../app/state.ts';
 
 const dateLabel = (iso: string | null): string => {
@@ -77,6 +79,13 @@ export const renderSeasons = (
   };
 
   const loadEpisodes = () => {
+    // Trocar de temporada recria as linhas; um player/episódio aberto nelas ficaria tocando sem controles.
+    const video = getVideo();
+    const ownsPlayer = Boolean(listEl.querySelector('.torrent-panel, .inline-player, iframe')) || Boolean(video && listEl.contains(video));
+    if (ownsPlayer) {
+      stopIfOnPageIn(listEl);
+      releaseTorrentPlayers(listEl);
+    }
     listEl.setAttribute('aria-busy', 'true');
     listEl.innerHTML = Array.from({ length: 4 }, () => '<div class="skeleton" style="height:96px;margin-bottom:10px"></div>').join('');
     const requestedSeason = activeSeason;

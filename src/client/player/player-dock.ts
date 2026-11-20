@@ -242,6 +242,12 @@ export const stopIfOnPage = (): void => {
   if (mode === 'page') stopPlayer();
 };
 
+/** Como `stopIfOnPage`, mas só se o vídeo estiver dentro de `root`: trocar uma lista de episódios não para o player do título. */
+export const stopIfOnPageIn = (root: Node): void => {
+  const current = getVideo();
+  if (current && root.contains(current)) stopIfOnPage();
+};
+
 /** Mostra `items[start]` grande dentro de `stage`. Se já é o vídeo em reprodução, só o reposiciona (sem reiniciar). */
 export const showInPage = (items: DockItem[], start: number, stage: HTMLElement): void => {
   const target = items[start];

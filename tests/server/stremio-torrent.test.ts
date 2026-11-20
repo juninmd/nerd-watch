@@ -156,6 +156,33 @@ describe('streams de torrent do addon', () => {
     const { streams } = await (await stremioRoutes.request(`/addons/${addonId}/streams/series/${encodeURIComponent('tt1:1:1')}`)).json();
     expect(streams.map((s: { kind: string }) => s.kind)).toEqual(['url']);
   });
+
+  test('a lista de streams do título entrega type/contentId/index, sem trackers, e abre o torrent certo', async () => {
+    const titleStream = `${BASE}/stream/series/tt1234567%3A1%3A1.json`;
+    setAddonFetch(async (url) => {
+      if (url === MANIFEST_URL) return json(manifest);
+      if (url === titleStream) return json({ streams: [{ title: 'direto', url: 'https://cdn.example.com/e.mp4' }, torrentStream] });
+      return json({}, 404);
+    });
+    await install();
+
+    const text = await (await stremioRoutes.request('/streams?mediaType=tv&imdbId=tt1234567&season=1&episode=1')).text();
+    // Trackers podem carregar passkey: o DTO do título também os deixa no servidor.
+    expect(text).not.toContain('tracker.example.org');
+    const group = JSON.parse(text).addons[0];
+    expect(group).toMatchObject({ type: 'series', contentId: 'tt1234567:1:1' });
+    expect(group.streams.map((s: { index: number; kind: string }) => [s.index, s.kind])).toEqual([
+      [0, 'url'],
+      [1, 'torrent'],
+    ]);
+
+    const opened = await stremioRoutes.request(`/addons/${group.addonId}/streams/series/${encodeURIComponent(group.contentId)}/${group.streams[1].index}/open`, {
+      method: 'POST',
+    });
+    expect(opened.status).toBe(200);
+    // O `fileIdx` do addon (1) escolhe o arquivo do pack; o caso de fileIdx errado tem teste próprio.
+    expect(await opened.json()).toMatchObject({ infoHash: HASH, selected: { index: 1 } });
+  });
 });
 
 describe('POST .../streams/:type/:id/:index/open', () => {
@@ -171,6 +198,28 @@ describe('POST .../streams/:type/:id/:index/open', () => {
     expect(added[0]).toContain(`magnet:?xt=urn:btih:${HASH}`);
     expect(added[0]).toContain('tr=udp%3A%2F%2Ftracker.example.org%3A1337%2Fannounce');
     expect(added[0]).not.toContain('dht');
+  });
+
+  test('sem escolha do usuário, usa o fileIdx do addon em vez do heurístico', async () => {
+    // Dois vídeos: o heurístico pegaria o menor; o addon aponta o segundo arquivo.
+    specs.set(HASH, [
+      { path: 'ep1.mp4', length: 12_000_000 },
+      { path: 'ep2.mp4', length: 12_000_001 },
+    ]);
+    serveStreams([torrentStream]);
+    const addonId = await install();
+    const body = await (await open(addonId, 0)).json();
+    expect(body).toMatchObject({ infoHash: HASH, selected: { index: 1, name: 'ep2.mp4' } });
+  });
+
+  test('fileIdx do addon que não é vídeo cai no heurístico em vez de falhar', async () => {
+    serveStreams([{ ...torrentStream, fileIdx: 0 }]);
+    const addonId = await install();
+    const res = await open(addonId, 0);
+    expect(res.status).toBe(200);
+    expect((await res.json()).selected).toMatchObject({ index: 1 });
+    // O retry reusa o handle: não adiciona um segundo torrent no engine.
+    expect(added).toHaveLength(1);
   });
 
   test('troca de arquivo reusa o torrent aberto e recusa índice que não é vídeo', async () => {

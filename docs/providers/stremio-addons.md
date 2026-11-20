@@ -57,7 +57,9 @@ segredo e imprime apenas nome/recursos/contagem de streams — nunca o endereço
 ## API local
 
 `GET/POST /api/stremio/addons`, `DELETE /api/stremio/addons/:id`,
-`GET /api/stremio/addons/:id/{catalog/:type/:catalogId | meta/:type/:itemId | streams/:type/:itemId}` e
+`GET /api/stremio/addons/:id/{catalog/:type/:catalogId | meta/:type/:itemId | streams/:type/:itemId}`,
+`GET /api/stremio/streams?mediaType=&tmdbId=|imdbId=&season=&episode=` (todas as fontes do título;
+cada grupo traz `type`, `contentId` e a posição `index` de cada stream) e
 `POST /api/stremio/addons/:id/streams/:type/:itemId/:index/open?fileIndex=N` (abre o torrent no motor
 P2P e devolve o mesmo contrato de `POST /api/torrent/open`).
 
@@ -66,4 +68,9 @@ workflow `Addon probe`, que depende do segredo.
 
 ## Addon só de streams (sem catálogo)
 
-Addons como o Brazuca declaram só `stream` e `catalogs: []`: não listam títulos, então "explorar" não aparece. A tela de addons diz isso e mostra o status (manifest respondendo ou erro). Na página de um filme/série do TMDB, o painel "Streams dos addons" resolve o IMDb (`tt…`) e consulta cada addon com `stream` (`GET /api/stremio/streams`). Streams de torrent (`infoHash`) tocam no motor P2P local.
+Addons como o Brazuca declaram só `stream` e `catalogs: []`: não listam títulos, então "explorar" não aparece. A tela de addons diz isso e mostra o status (manifest respondendo ou erro). Na página de um filme/série do TMDB, o painel "Streams dos addons" resolve o IMDb (`tt…`) e consulta cada addon com `stream` (`GET /api/stremio/streams`).
+
+O painel usa o player do app, não uma aba nova: `url` e `ytId` tocam embutidos, `externalUrl` abre fora e
+`infoHash` vai para o motor P2P local (o vídeo aparece na coluna principal; no caso de série, o título do
+episódio abre a lista e o player fica dentro da própria linha). Torrentio, Brazuca e FenixFlix funcionam
+sem catálogo por esse caminho.
