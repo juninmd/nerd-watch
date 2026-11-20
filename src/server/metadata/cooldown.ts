@@ -17,10 +17,8 @@ export const createCooldown = (windowMs: number, now: () => number = Date.now): 
       if (last !== undefined && t - last < windowMs) {
         return { ok: false, retryAfterSec: Math.ceil((windowMs - (t - last)) / 1000) };
       }
-      if (lastAt.size >= MAX_ENTRIES) {
-        for (const [k, at] of lastAt) {
-          if (t - at >= windowMs) lastAt.delete(k);
-        }
+      for (const [k, at] of lastAt) {
+        if (t - at >= windowMs) lastAt.delete(k);
       }
       lastAt.set(key, t);
       return { ok: true };

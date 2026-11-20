@@ -75,8 +75,8 @@ libraryRoutes.get('/up-next', async (c) => {
   });
 });
 
-const isSeasonNumber = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 999;
-const isEpisodeNumber = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 9999;
+const isSeasonNumber = (v: unknown): v is number => Number.isInteger(v) && typeof v === 'number' && (v as number) >= 0 && (v as number) <= 999;
+const isEpisodeNumber = (v: unknown): v is number => Number.isInteger(v) && typeof v === 'number' && (v as number) >= 1 && (v as number) <= 9999;
 
 interface MarkProgressBody {
   seasonNumber?: unknown;
@@ -167,7 +167,7 @@ libraryRoutes.patch('/:titleId', async (c) => {
   const body = await c.req.json<PatchLibraryBody>().catch(() => null);
   if (!body || typeof body !== 'object' || Array.isArray(body)) return c.json({ error: 'corpo inválido' }, 400);
   if (body.watchStatus !== undefined && !isWatchStatus(body.watchStatus)) return c.json({ error: 'watchStatus inválido' }, 400);
-  if (body.rating !== undefined && body.rating !== null && (!Number.isInteger(body.rating) || body.rating < 0 || body.rating > 10)) {
+  if (body.rating !== undefined && body.rating !== null && (typeof body.rating !== 'number' || !Number.isInteger(body.rating) || body.rating < 0 || body.rating > 10)) {
     return c.json({ error: 'rating deve ser um inteiro de 0 a 10' }, 400);
   }
   if (body.notes !== undefined && body.notes !== null && (typeof body.notes !== 'string' || body.notes.length > MAX_NOTES_LEN)) {
