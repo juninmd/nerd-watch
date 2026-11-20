@@ -15,10 +15,11 @@ import { NAV_GROUPS, isNavActive, readNavCompact, writeNavCompact } from './app/
 import { getThemePref, installTheme, nextThemePref, onThemeChange, setThemePref, THEME_LABEL } from './app/theme.ts';
 import { logout } from './app/logout.ts';
 import { health } from './api/index.ts';
-import { withLoginRedirect } from './app/auth-redirect.ts';
+import { rememberLoginHash, takeLoginHash, withLoginRedirect } from './app/auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
 import { installDesktopBridge } from './platform/tauri.ts';
 import { installHistoryBack } from './ui/back-link.ts';
+import { canShareAppLink, copyCurrentScreenLink } from './app/share-link.ts';
 
 // Tema antes de tudo: sem clarão do tema errado na primeira pintura.
 installTheme();
@@ -27,10 +28,24 @@ installTheme();
 installDesktopBridge();
 installHistoryBack();
 
+// Volta para a rota que pediu login (link de vídeo com `?t=`), antes de o roteador ler o hash.
+try {
+  const loginHash = takeLoginHash(sessionStorage);
+  // `replaceState` não dispara um hashchange extra: o roteador lê o hash restaurado na primeira carga.
+  if (loginHash) history.replaceState(null, '', loginHash);
+} catch {
+  // sem sessionStorage: segue no início
+}
+
 // Sem ACCESS_TOKEN o servidor nunca responde 401, então este wrapper não muda nada no modo local.
-globalThis.fetch = withLoginRedirect(globalThis.fetch.bind(globalThis), location.href, (href) =>
-  location.replace(href),
-) as typeof fetch;
+globalThis.fetch = withLoginRedirect(globalThis.fetch.bind(globalThis), location.href, (href) => {
+  try {
+    rememberLoginHash(sessionStorage, location.hash);
+  } catch {
+    // sem sessionStorage: o login continua, só perde o ponto de retorno
+  }
+  location.replace(href);
+}) as typeof fetch;
 
 const app = document.getElementById('app');
 if (!app) throw new Error('#app não encontrado');
@@ -53,6 +68,7 @@ app.innerHTML = `
         <button class="cmd" id="cmd-open" type="button" aria-haspopup="dialog">
           ${icon("search")}<span class="cmd-text">Buscar títulos, canais e ações…</span><kbd>${paletteKeyLabel(navigator.platform)}</kbd>
         </button>
+        <button class="pill" id="copy-link" type="button" aria-label="Copiar link desta tela" title="Copiar link desta tela">${icon("link", "sm")}<span class="pill-label">link</span></button>
         <a class="pill" id="conn-pill" href="#/connections"></a>
       </header>
       <main id="view" tabindex="-1"></main>
@@ -65,6 +81,8 @@ app.innerHTML = `
 const navEl = document.getElementById("nav") as HTMLElement;
 const viewEl = document.getElementById("view") as HTMLElement;
 const connPill = document.getElementById("conn-pill") as HTMLAnchorElement;
+// No desktop não há origem web para um link abrir: o botão sairia da tela sem ter o que copiar.
+if (!canShareAppLink()) document.getElementById("copy-link")?.remove();
 
 const sidebarEl = document.getElementById('sidebar') as HTMLElement;
 const scrimEl = document.getElementById('scrim') as HTMLElement;
@@ -179,6 +197,7 @@ renderConnectionPill(null);
 refreshConnectionPill();
 
 document.getElementById("cmd-open")?.addEventListener("click", openCommandPalette);
+document.getElementById("copy-link")?.addEventListener("click", copyCurrentScreenLink);
 installShortcuts();
 installCardTilt();
 mountPlayerDock(document.getElementById("dock") as HTMLElement);

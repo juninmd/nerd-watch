@@ -20,6 +20,8 @@ import { embedFrameHtml, playerKindOf } from './watch-embed.ts';
 import { icon } from '../ui/icons.ts';
 import { resumePoint } from './playback-store.ts';
 import { navigate } from '../app/router.ts';
+import { parseStartTime, startSecond } from '../app/deep-link.ts';
+import { canShareAppLink, copyAppLink } from '../app/share-link.ts';
 import { MODE_INFO } from '../connections/source-modes.ts';
 import { itemDescription, itemFileName, orderItems, pickNextChannel, toDockItem, watchPath } from '../channels/telegram-items.ts';
 import { mediaUrl } from '../platform/tauri.ts';
@@ -47,7 +49,7 @@ const channelRow = (ch: TelegramChannelDto): string => `
     <span class="next-text"><b>${escapeHtml(ch.title)}</b><small>${ch.itemCount} vídeo${ch.itemCount === 1 ? '' : 's'}</small></span>
   </button>`;
 
-const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: TelegramChannelDto[], messageId: string): void => {
+const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: TelegramChannelDto[], messageId: string, startAt: number | null): void => {
   let order: QueueOrder = getQueueOrder();
   let items = orderItems(d.items, order);
   const nextChannel = pickNextChannel(channels, d.titleId);
@@ -180,6 +182,7 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
         <a class="watch-avatar" href="#/telegram/${escapeHtml(d.titleId)}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(mediaUrl(d.posterUrl))}')"` : ''} aria-hidden="true" tabindex="-1"></a>
         <div class="watch-channel-text"><a href="#/telegram/${escapeHtml(d.titleId)}"><b>${escapeHtml(d.title)}</b></a><small>${escapeHtml(meta)}</small></div>
         <div class="watch-actions">
+          ${canShareAppLink() ? `<button class="btn btn-ghost btn-sm" id="watch-link" type="button" title="Copiar link deste vídeo">${icon('link', 'sm')} link</button>` : ''}
           ${playerKindOf(now.item) === 'embed' ? '' : `<button class="btn btn-ghost btn-sm" id="watch-minimize" type="button">${icon('minimize', 'sm')} Minimizar</button>`}
           ${d.link ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(d.link)}" target="_blank" rel="noopener noreferrer">${MODE_INFO[d.mode].open}</a>` : ''}
         </div>
@@ -213,7 +216,16 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
     if (btn) playIndex(Number(btn.dataset.i));
   });
   infoEl.addEventListener('click', (e) => {
-    if (!(e.target as HTMLElement).closest('#watch-minimize')) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('#watch-link')) {
+      const now = getNowPlaying();
+      if (!now) return;
+      const live = getVideo()?.currentTime ?? null;
+      const at = startSecond(live, resumePoint(savedPosition(now.item.key)));
+      copyAppLink(watchPath(d.titleId, now.item.messageId), { at, label: 'Link do vídeo' });
+      return;
+    }
+    if (!target.closest('#watch-minimize')) return;
     minimizePlayer();
     navigate(`/telegram/${d.titleId}`);
   });
@@ -234,7 +246,7 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
     showInPage(queue, Math.max(0, queue.findIndex((i) => i.messageId === playing)), stage);
   });
 
-  showInPage(queue, start, stage);
+  showInPage(queue, start, stage, { startAt });
   const video = getVideo();
   video?.addEventListener('loadedmetadata', fitStage);
   video?.addEventListener('play', hideEnd);
@@ -255,10 +267,11 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
 };
 
 /** Tela de reprodução (estilo YouTube): vídeo grande, dados do canal, próximos vídeos e o próximo canal. */
-export const renderWatch = (host: HTMLElement, channelId: string, messageId: string): void => {
+export const renderWatch = (host: HTMLElement, channelId: string, messageId: string, query: URLSearchParams = new URLSearchParams()): void => {
   host.innerHTML = `<div class="skeleton" style="height:420px;border-radius:20px"></div>`;
+  const startAt = parseStartTime(query.get('t'));
   Promise.all([getTelegramChannel(channelId), listTelegramChannels().then((r) => r.channels, () => [] as TelegramChannelDto[])])
-    .then(([d, channels]) => render(host, d, channels, messageId))
+    .then(([d, channels]) => render(host, d, channels, messageId, startAt))
     .catch(() => {
       host.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar este vídeo</div>`;
     });

@@ -1,4 +1,5 @@
 import { fetchPlan, fetchPrepStatus, liveUrl, type PlanDto, type PrepStatus, preparedFileUrl, startPrepare } from '../api/media.ts';
+import { isFinished } from './playback-store.ts';
 import { PATH_LABEL } from './media-seek.ts';
 import { playTranscoded } from './media-shim.ts';
 
@@ -17,12 +18,22 @@ export interface MediaItem {
 }
 
 export interface FallbackOptions {
-  /** Posição salva do vídeo (segundos), para retomar depois da conversão. */
+  /** Posição inicial já resolvida (link `?t=` incluso) para retomar depois da conversão. */
   resumeAt: number | null;
+  /** Posição segura para quando o `t` cai no fim do vídeo: a salva (ou 0), nunca o fim. */
+  safeStart?: number | null;
   /** O item ainda é o que está tocando? Falso aborta os laços de espera. */
   isCurrent(): boolean;
   onMessage(text: string): void;
 }
+
+/** A duração pode só aparecer aqui (plano/remux): não deixa um `t` no fim da fita marcar como assistido. */
+const resumeOrFallback = (resumeAt: number | null, duration: number | null, fallback: number | null | undefined): number => {
+  const base = typeof fallback === 'number' && Number.isFinite(fallback) && fallback >= 0 ? fallback : 0;
+  if (resumeAt === null) return base;
+  if (duration !== null && isFinished(resumeAt, duration)) return base < duration ? base : 0;
+  return resumeAt;
+};
 
 const POLL_MS = 700;
 const MAX_ATTEMPTS = 2;
@@ -104,7 +115,8 @@ const waitReady = async (item: MediaItem, video: HTMLVideoElement, opts: Fallbac
 
 const convert = async (item: MediaItem, video: HTMLVideoElement, plan: PlanDto, opts: FallbackOptions): Promise<void> => {
   if (plan.path === 'transcode') {
-    playTranscoded(video, liveUrl(item.channelId, item.messageId), opts.resumeAt ?? 0, plan.durationSeconds);
+    const start = resumeOrFallback(opts.resumeAt, plan.durationSeconds ?? null, opts.safeStart);
+    playTranscoded(video, liveUrl(item.channelId, item.messageId), start, plan.durationSeconds);
     setBadge(video, PATH_LABEL.transcode, 'Transcodificado ao vivo; a barra de posição mostra o vídeo inteiro.');
     void video.play().catch(() => undefined);
     return;
@@ -112,15 +124,14 @@ const convert = async (item: MediaItem, video: HTMLVideoElement, plan: PlanDto, 
   if (!(await waitReady(item, video, opts)) || !opts.isCurrent()) return;
   video.setAttribute('src', preparedFileUrl(item.channelId, item.messageId));
   const resumeAt = opts.resumeAt;
-  if (resumeAt !== null) {
-    video.addEventListener(
-      'loadedmetadata',
-      () => {
-        if (resumeAt < video.duration) video.currentTime = resumeAt;
-      },
-      { once: true },
-    );
-  }
+  video.addEventListener(
+    'loadedmetadata',
+    () => {
+      const start = resumeOrFallback(resumeAt, Number.isFinite(video.duration) ? video.duration : null, opts.safeStart);
+      if (start < video.duration) video.currentTime = start;
+    },
+    { once: true },
+  );
   setBadge(video, PATH_LABEL.remux, 'Convertido sem perda de qualidade (remux) e salvo em cache no servidor.');
   void video.play().catch(() => undefined);
 };

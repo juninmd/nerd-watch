@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { createPlaybackStore, resumePoint } from '../../src/client/player/playback-store.ts';
+import { createPlaybackStore, resolveStart, resumePoint, startPoint } from '../../src/client/player/playback-store.ts';
 
 const memoryStorage = () => {
   const data = new Map<string, string>();
@@ -21,6 +21,44 @@ describe('resumePoint', () => {
   test('sem duração conhecida ainda retoma; sem registro não', () => {
     expect(resumePoint({ seconds: 90, duration: null, at: 0 })).toBe(90);
     expect(resumePoint(undefined)).toBeNull();
+  });
+});
+
+describe('startPoint', () => {
+  test('o t do link só avança; posição salva vence quando é maior', () => {
+    expect(startPoint(null, 60)).toBe(60);
+    expect(startPoint(30, 60)).toBe(60);
+    expect(startPoint(90, 60)).toBe(90);
+    expect(startPoint(30, 0)).toBe(30);
+    expect(startPoint(null, 0)).toBe(0);
+    expect(startPoint(Number.NaN, 60)).toBe(60);
+  });
+
+  test('sem link usa a posição salva', () => {
+    expect(startPoint(30, null)).toBe(30);
+    expect(startPoint(null, null)).toBeNull();
+  });
+});
+
+describe('resolveStart', () => {
+  test('link só avança e nunca volta o progresso salvo', () => {
+    expect(resolveStart({ saved: 600, requested: 60, duration: 1200 })).toEqual({ resumeAt: 600, linkAt: null });
+    expect(resolveStart({ saved: 30, requested: 60, duration: 1200 })).toEqual({ resumeAt: 60, linkAt: 60 });
+    expect(resolveStart({ saved: null, requested: 60 })).toEqual({ resumeAt: 60, linkAt: 60 });
+  });
+
+  test('link perto do fim ou fora da duração não marca assistido', () => {
+    expect(resolveStart({ saved: 600, requested: 1190, duration: 1200 })).toEqual({ resumeAt: 600, linkAt: null });
+    expect(resolveStart({ saved: 600, requested: 1300, duration: 1200 })).toEqual({ resumeAt: 600, linkAt: null });
+    expect(resolveStart({ saved: null, requested: 1300, duration: 1200 })).toEqual({ resumeAt: null, linkAt: null });
+  });
+
+  test('vídeo já assistido ignora o link', () => {
+    expect(resolveStart({ saved: null, requested: 60, done: true, duration: 1200 })).toEqual({ resumeAt: null, linkAt: null });
+  });
+
+  test('sem duração ainda entrega o link para o player conferir no metadata', () => {
+    expect(resolveStart({ saved: null, requested: 1190 })).toEqual({ resumeAt: 1190, linkAt: 1190 });
   });
 });
 

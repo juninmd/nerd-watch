@@ -2,6 +2,7 @@ import { escapeHtml } from '../ui/card.ts';
 import { clearContinueWatching, continueWatching, removeFromContinueWatching } from './player-dock.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from '../app/router.ts';
+import { canShareAppLink, copyAppLink } from '../app/share-link.ts';
 import { watchPath } from '../channels/telegram-items.ts';
 import { mediaUrl } from '../platform/tauri.ts';
 import { formatDuration } from '../ui/time-format.ts';
@@ -25,6 +26,7 @@ export const continueWatchingCards = (): HTMLElement[] =>
         <span class="resume-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><i style="width:${percent}%"></i></span>
       </div>
       <button class="resume-remove" type="button" aria-label="${escapeHtml(`remover ${meta.title} de continuar assistindo`)}" title="Remover de continuar assistindo">${icon('x', 'sm')}</button>
+      ${canShareAppLink() ? `<button class="resume-link" type="button" aria-label="${escapeHtml(`copiar link para continuar ${meta.title}`)}" title="Copiar link para continuar">${icon('link', 'sm')}</button>` : ''}
       <div class="resume-text"><b>${escapeHtml(meta.title)}</b><small>${escapeHtml(meta.subtitle)} · ${left ? `faltam ${left}` : `parou em ${formatDuration(resumeAt)}`}</small></div>`;
     const go = () => navigate(meta.route ?? watchPath(meta.channelId, meta.messageId));
     card.addEventListener('click', go);
@@ -35,6 +37,10 @@ export const continueWatchingCards = (): HTMLElement[] =>
       e.stopPropagation();
       removeFromContinueWatching(key);
       card.remove();
+    });
+    card.querySelector('.resume-link')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      copyAppLink(meta.route ?? watchPath(meta.channelId, meta.messageId), { at: resumeAt, label: 'Link para continuar' });
     });
     return card;
   });

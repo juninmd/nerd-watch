@@ -91,7 +91,7 @@ export const ROUTES: readonly RouteDef[] = [
     pattern: /^\/watch\/([^/]+)\/(\d+|start)$/,
     open: async (params) => {
       const { renderWatch } = await PAGES.watch();
-      return (host) => renderWatch(host, params[0] as string, params[1] as string);
+      return (host, query) => renderWatch(host, params[0] as string, params[1] as string, query);
     },
   },
   { id: 'connections', pattern: /^\/connections$/, open: async () => (await PAGES.connections()).renderConnections },
