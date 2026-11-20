@@ -60,21 +60,47 @@ export interface CastRelay {
   handleRequest(req: Request): Promise<Response>;
 }
 
+const SAFE_INTERNAL_MEDIA_PATH =
+  /^\/api\/(?:telegram\/(?:channels\/[^/]+\/(?:photo|items\/[^/]+\/(?:play|thumb))|[^/]+\/items\/[^/]+\/stream)|torrent\/[^/]+\/stream(?:\/[^/]+)?|media\/[^/]+\/[^/]+\/(?:file|live)|sources\/[^/]+\/stream)$/;
+
+const isBlockedExternalHost = (hostname: string): boolean => {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+  return (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === '::1' ||
+    host === '0.0.0.0' ||
+    host.startsWith('127.') ||
+    host === '169.254.169.254'
+  );
+};
+
 /**
- * Só aceita caminho interno da API (`/api/...`, sem traversal) ou URL HTTP(S) sem credenciais embutidas.
- * Recusa `file:`, `javascript:`, `data:` e caminhos fora de `/api/`.
+ * Só aceita rotas internas de mídia/pôster da API (allowlist, nunca `/api/backup`, `/api/credentials`,
+ * etc., nem traversal cru ou percent-encoded) ou URL HTTP(S) sem credenciais embutidas nem loopback.
+ * Recusa `file:`, `javascript:`, `data:` e caminhos fora das rotas de mídia.
  */
 export const isSafeMediaSrc = (src: string): boolean => {
   const trimmed = src.trim();
   if (!trimmed || trimmed.length > 4096 || /[\r\n\0\\]/.test(trimmed)) return false;
   if (trimmed.startsWith('/api/')) {
-    if (trimmed.startsWith('//') || trimmed.includes('/../') || trimmed.endsWith('/..')) return false;
-    return true;
+    if (trimmed.startsWith('//') || trimmed.includes('#')) return false;
+    const rawPath = trimmed.split('?')[0] ?? '';
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(rawPath);
+    } catch {
+      return false;
+    }
+    if (decoded.includes('\0') || decoded.includes('\\') || decoded.includes('//')) return false;
+    if (decoded.split('/').some((seg) => seg === '..' || seg === '.')) return false;
+    return SAFE_INTERNAL_MEDIA_PATH.test(decoded);
   }
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
     if (parsed.username || parsed.password) return false;
+    if (isBlockedExternalHost(parsed.hostname)) return false;
     return true;
   } catch {
     return false;
