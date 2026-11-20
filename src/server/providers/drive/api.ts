@@ -12,6 +12,7 @@ export class DriveFolderNotFoundError extends Error {
 const ID_RE = /^[A-Za-z0-9_-]{10,100}$/;
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const MAX_FILES = 500;
+const MAX_PAGES = 20;
 const PAGE_SIZE = 200;
 
 /** Aceita o link da pasta (`/drive/folders/<id>`, `?id=<id>`) ou o ID puro; qualquer outra coisa é inválida. */
@@ -42,10 +43,12 @@ export interface DriveFile {
 }
 
 const authedGet = async (url: URL): Promise<Response> => {
+  // `redirect: 'error'` evita que o Bearer acompanhe um redirecionamento para outra origem.
   const call = async () =>
-    driveFetch(url, { headers: { Authorization: `Bearer ${await getAccessToken()}` }, signal: AbortSignal.timeout(20_000) });
+    driveFetch(url, { redirect: 'error', headers: { Authorization: `Bearer ${await getAccessToken()}` }, signal: AbortSignal.timeout(20_000) });
   const res = await call();
   if (res.status !== 401) return res;
+  await res.body?.cancel();
   // Token revogado/vencido antes da hora: uma renovação forçada e uma segunda tentativa.
   invalidateAccessToken();
   return call();
@@ -59,18 +62,21 @@ const api = (path: string, params: Record<string, string>): URL => {
 
 export const getFolderName = async (folderId: string): Promise<string> => {
   const res = await authedGet(api(`/files/${folderId}`, { fields: 'id,name,mimeType' }));
-  if (res.status === 404 || res.status === 403) throw new DriveFolderNotFoundError();
-  if (!res.ok) throw new Error(`o Google Drive respondeu ${res.status}`);
+  if (!res.ok) {
+    await res.body?.cancel();
+    if (res.status === 404 || res.status === 403) throw new DriveFolderNotFoundError();
+    throw new Error(`o Google Drive respondeu ${res.status}`);
+  }
   const file = (await res.json()) as DriveFile;
   if (file.mimeType !== FOLDER_MIME) throw new DriveFolderNotFoundError();
   return file.name;
 };
 
-/** Vídeos diretamente dentro da pasta, do mais novo ao mais antigo (teto de `MAX_FILES`). */
+/** Vídeos diretamente dentro da pasta, do mais novo ao mais antigo (teto de `MAX_FILES` e `MAX_PAGES`). */
 export const listFolderVideos = async (folderId: string): Promise<DriveFile[]> => {
   const files: DriveFile[] = [];
   let pageToken: string | undefined;
-  do {
+  for (let page = 0; page < MAX_PAGES && files.length < MAX_FILES; page++) {
     const params: Record<string, string> = {
       // `folderId` já passou por parseFolderInput (só [A-Za-z0-9_-]), então não há como escapar da aspa.
       q: `'${folderId}' in parents and trashed = false and mimeType contains 'video/'`,
@@ -81,12 +87,16 @@ export const listFolderVideos = async (folderId: string): Promise<DriveFile[]> =
     };
     if (pageToken) params.pageToken = pageToken;
     const res = await authedGet(api('/files', params));
-    if (res.status === 404 || res.status === 403) throw new DriveFolderNotFoundError();
-    if (!res.ok) throw new Error(`o Google Drive respondeu ${res.status}`);
+    if (!res.ok) {
+      await res.body?.cancel();
+      if (res.status === 404 || res.status === 403) throw new DriveFolderNotFoundError();
+      throw new Error(`o Google Drive respondeu ${res.status}`);
+    }
     const body = (await res.json()) as { files?: DriveFile[]; nextPageToken?: string };
     files.push(...(body.files ?? []));
     pageToken = body.nextPageToken;
-  } while (pageToken && files.length < MAX_FILES);
+    if (!pageToken) break;
+  }
   return files.slice(0, MAX_FILES);
 };
 

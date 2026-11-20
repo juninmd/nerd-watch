@@ -8,7 +8,7 @@ export interface SourceProbe {
   ms: number | null;
 }
 
-type Fetcher = (url: string, init: RequestInit) => Promise<{ ok: boolean }>;
+type Fetcher = (url: string, init: RequestInit) => Promise<{ ok: boolean; body?: { cancel?: () => Promise<unknown> } | null }>;
 
 const TARGETS = [
   { id: 'tvmaze', label: 'TVmaze', url: 'https://api.tvmaze.com/updates/shows?since=day', init: { method: 'HEAD' } },
@@ -31,6 +31,7 @@ export const probeSources = async (
       const start = now();
       try {
         const res = await fetcher(t.url, { ...t.init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+        await res.body?.cancel?.().catch(() => undefined);
         return { id: t.id, label: t.label, ok: res.ok, ms: res.ok ? Math.round(now() - start) : null };
       } catch {
         return { id: t.id, label: t.label, ok: false, ms: null };
