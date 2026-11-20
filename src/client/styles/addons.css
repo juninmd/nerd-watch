@@ -52,6 +52,19 @@
   gap: 8px;
 }
 
+/* Addon desligado: continua na lista para reativar, mas com peso visual menor. */
+.addon-off {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.addon-off-tag {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.08));
+  font-weight: 500;
+}
+
 /* Cabeçalho do catálogo do addon: fundo do próprio manifesto, escurecido para o texto continuar legível. */
 .addon-hero {
   position: relative;

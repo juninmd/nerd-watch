@@ -7,6 +7,7 @@ const addon = (id: string, catalogs: Array<{ type: string; id: string; searchabl
   manifestUrl: `https://${id}.example.com/manifest.json`,
   baseUrl: `https://${id}.example.com`,
   addedAt: '2026-01-01',
+  enabled: true,
   manifest: {
     id,
     name: `Addon ${id}`,

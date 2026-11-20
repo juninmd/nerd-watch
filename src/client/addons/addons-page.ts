@@ -1,4 +1,4 @@
-import { type AddonDto, getAddonStatus, installAddon, listAddons, removeAddon } from '../api/stremio.ts';
+import { type AddonDto, getAddonStatus, installAddon, listAddons, removeAddon, setAddonEnabled } from '../api/stremio.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { escapeHtml } from '../ui/card.ts';
@@ -7,10 +7,10 @@ import { icon } from '../ui/icons.ts';
 import { addonPath, canBrowse, capabilitySummary, resourceLabel } from './addon-links.ts';
 
 const addonRow = (a: AddonDto): string => `
-  <li class="addon-row" data-id="${escapeHtml(a.id)}">
+  <li class="addon-row${a.enabled ? '' : ' addon-off'}" data-id="${escapeHtml(a.id)}">
     <div class="addon-logo" aria-hidden="true">${a.logo ? `<img src="${escapeHtml(a.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : icon('plug')}</div>
     <div class="addon-body">
-      <h3>${escapeHtml(a.name)} ${a.version ? `<small>v${escapeHtml(a.version)}</small>` : ''}</h3>
+      <h3>${escapeHtml(a.name)} ${a.version ? `<small>v${escapeHtml(a.version)}</small>` : ''} ${a.enabled ? '' : '<small class="addon-off-tag">desligado</small>'}</h3>
       <p class="hint">${escapeHtml(a.host)}</p>
       ${a.description ? `<p class="addon-desc">${escapeHtml(a.description)}</p>` : ''}
       <p class="hint addon-summary">${escapeHtml(capabilitySummary(a))}</p>
@@ -19,6 +19,9 @@ const addonRow = (a: AddonDto): string => `
     </div>
     <div class="addon-actions">
       ${canBrowse(a) ? `<button type="button" class="btn btn-primary btn-sm" data-browse>explorar</button>` : ''}
+      <button type="button" class="btn btn-ghost btn-sm" data-toggle aria-pressed="${a.enabled}" title="${a.enabled ? 'desligar: para de ser consultado nos títulos, busca e quadros' : 'ligar de novo'}">
+        ${icon('power', 'sm')} ${a.enabled ? 'ligado' : 'desligado'}
+      </button>
       <button type="button" class="btn btn-ghost btn-sm" data-remove aria-label="remover ${escapeHtml(a.name)}">${icon('trash', 'sm')} remover</button>
     </div>
   </li>`;
@@ -113,6 +116,24 @@ export const renderAddons = (host: HTMLElement): void => {
     const id = row?.dataset.id;
     if (!row || !id) return;
     if ((e.target as HTMLElement).closest('[data-browse]')) navigate(addonPath(id));
+
+    const toggleBtn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-toggle]');
+    if (toggleBtn) {
+      const enabled = toggleBtn.getAttribute('aria-pressed') !== 'true';
+      toggleBtn.disabled = true;
+      setAddonEnabled(id, enabled)
+        .then((updated) => {
+          if (!listEl.isConnected) return;
+          showToast(updated.enabled ? `"${updated.name}" ligado de novo` : `"${updated.name}" desligado: não entra em título, busca nem quadros`);
+          return load();
+        })
+        .catch(() => {
+          if (toggleBtn.isConnected) toggleBtn.disabled = false;
+          if (listEl.isConnected) showToast('Não foi possível mudar o addon agora');
+        });
+      return;
+    }
+
     const removeBtn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-remove]');
     if (removeBtn) {
       const name = row.querySelector('h3')?.textContent?.trim() ?? 'addon';

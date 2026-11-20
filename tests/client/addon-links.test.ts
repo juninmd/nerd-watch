@@ -3,7 +3,7 @@ import { addonItemPath, addonPath, canBrowse, capabilitySummary, resourceLabel }
 import { resolveRoute } from '../../src/client/app/routes.ts';
 import type { AddonDto } from '../../src/client/api/stremio.ts';
 
-const addon = (over: Partial<AddonDto>): AddonDto => ({ id: 'a1', host: 'h', name: 'n', version: '', description: '', logo: null, background: null, types: [], resources: [], catalogs: [], idPrefixes: [], configurable: false, configurationRequired: false, addedAt: '', ...over });
+const addon = (over: Partial<AddonDto>): AddonDto => ({ id: 'a1', host: 'h', name: 'n', version: '', description: '', logo: null, background: null, types: [], resources: [], catalogs: [], idPrefixes: [], configurable: false, configurationRequired: false, enabled: true, addedAt: '', ...over });
 
 describe('addon-links', () => {
   test('id de episódio com ":" e "/" faz a viagem de ida e volta pela rota', () => {

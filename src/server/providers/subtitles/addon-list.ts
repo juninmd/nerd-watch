@@ -1,6 +1,6 @@
 import { config } from '../../config/config.ts';
 import { getDb } from '../../db/database.ts';
-import { listAddons } from '../../repo/stremio-addons.ts';
+import { listEnabledAddons } from '../../repo/stremio-addons.ts';
 
 /**
  * Addons de legenda: os do ambiente (`SUBTITLE_ADDONS`) mais os instalados pelo usuário na tela de addons
@@ -9,7 +9,7 @@ import { listAddons } from '../../repo/stremio-addons.ts';
 export const subtitleAddonBases = async (): Promise<string[]> => {
   let installed: string[] = [];
   try {
-    installed = listAddons(await getDb())
+    installed = listEnabledAddons(await getDb())
       .filter((a) => a.manifest.resources.includes('subtitles'))
       .map((a) => a.baseUrl);
   } catch {

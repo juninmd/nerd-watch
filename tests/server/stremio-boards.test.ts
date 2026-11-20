@@ -126,6 +126,7 @@ describe('boardsOf', () => {
       manifestUrl: MANIFEST_URL,
       baseUrl: BASE,
       addedAt: '2026-01-01T00:00:00.000Z',
+  enabled: true,
       manifest: { ...parseManifest({ ...manifest, catalogs, resources }), logo: null },
     },
   ];
