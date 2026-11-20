@@ -35,11 +35,14 @@ interface TgUpdate {
   };
 }
 
+const SAFE_FILE_PATH = /^[A-Za-z0-9._/-]{1,256}$/;
+
 const call = async <T>(method: string, params: Record<string, string> = {}): Promise<T> => {
   if (!config.telegram.botToken) throw new TelegramBotNotConfiguredError();
   const url = new URL(`${API_BASE(config.telegram.botToken)}/${method}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res = await fetch(url, { signal: AbortSignal.timeout(35000) });
+  // `redirect: 'error'` evita vazar o token do bot (que vai no caminho da URL) em caso de redirecionamento.
+  const res = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(35000) });
   const data = (await res.json()) as { ok: boolean; result?: T; description?: string };
   if (!data.ok) throw new Error(data.description ?? `Telegram Bot API: ${method} falhou`);
   // biome-ignore lint/style/noNonNullAssertion: data.ok garante result presente pela própria API
@@ -70,7 +73,9 @@ export const resolveBotFileUrl = async (fileId: string): Promise<BotFileResoluti
   try {
     const result = await call<{ file_path?: string; file_size?: number }>('getFile', { file_id: fileId });
     if (result.file_size && result.file_size > MAX_CLOUD_FILE_BYTES) return { ok: false, reason: 'too_large' };
-    if (!result.file_path) return { ok: false, reason: 'not_found' };
+    if (!result.file_path || !SAFE_FILE_PATH.test(result.file_path) || result.file_path.startsWith('/') || result.file_path.includes('..')) {
+      return { ok: false, reason: 'not_found' };
+    }
     return { ok: true, url: `https://api.telegram.org/file/bot${config.telegram.botToken}/${result.file_path}` };
   } catch (err) {
     if (err instanceof Error && /too big/i.test(err.message)) return { ok: false, reason: 'too_large' };

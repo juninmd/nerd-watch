@@ -42,8 +42,14 @@ const send = async (cfg: WebdavConfig, method: string, path: string, headers: Re
   const res = await fetchHeaders(doFetch, davUrl(cfg, path), { method, redirect: 'manual', body, headers: { Authorization: basicAuth(cfg), ...headers } }, TIMEOUT_MS).catch(() => {
     throw new SourceError('não foi possível falar com o WebDAV agora', 502);
   });
-  if (res.status >= 300 && res.status < 400) throw new SourceError('o WebDAV redirecionou; ajuste WEBDAV_URL para o endereço final', 502);
-  if (res.status === 401 || res.status === 403) throw new SourceError('o WebDAV recusou o usuário e a senha', 409);
+  if (res.status >= 300 && res.status < 400) {
+    await res.body?.cancel();
+    throw new SourceError('o WebDAV redirecionou; ajuste WEBDAV_URL para o endereço final', 502);
+  }
+  if (res.status === 401 || res.status === 403) {
+    await res.body?.cancel();
+    throw new SourceError('o WebDAV recusou o usuário e a senha', 409);
+  }
   return res;
 };
 
@@ -97,8 +103,14 @@ export const parseMultistatus = (xml: string, cfg: WebdavConfig): DavEntry[] => 
 
 const propfind = async (cfg: WebdavConfig, path: string, depth: '0' | '1'): Promise<DavEntry[]> => {
   const res = await send(cfg, 'PROPFIND', path, { Depth: depth, 'Content-Type': 'application/xml' }, PROPFIND_BODY);
-  if (res.status === 404) throw new SourceError('pasta não encontrada no WebDAV (confira o caminho)', 404);
-  if (res.status !== 207 && res.status !== 200) throw new SourceError(`o WebDAV respondeu ${res.status}`, 502);
+  if (res.status === 404) {
+    await res.body?.cancel();
+    throw new SourceError('pasta não encontrada no WebDAV (confira o caminho)', 404);
+  }
+  if (res.status !== 207 && res.status !== 200) {
+    await res.body?.cancel();
+    throw new SourceError(`o WebDAV respondeu ${res.status}`, 502);
+  }
   const xml = await readTextLimited(res, MAX_BODY).catch(() => {
     throw new SourceError('resposta do WebDAV grande demais', 502);
   });
