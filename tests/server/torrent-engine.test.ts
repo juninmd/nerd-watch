@@ -136,6 +136,52 @@ describe('loadTrustedTorrentBuffer', () => {
     stubFetch(new Uint8Array(17 * 1024 * 1024));
     await expect(loadTrustedTorrentBuffer(TORRENT_URL)).rejects.toThrow(/grande demais$/);
   });
+
+  test('segue redirecionamento legítimo para subdomínio *.archive.org', async () => {
+    const torrent = makeTorrent(['http://bt1.archive.org:6969/announce']);
+    const seen: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const u = String(input);
+      seen.push(u);
+      if (seen.length === 1) {
+        return new Response(null, { status: 302, headers: { location: 'https://ia800100.us.archive.org/1/items/x/x_archive.torrent' } });
+      }
+      return new Response(torrent as unknown as BodyInit, { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const buffer = await loadTrustedTorrentBuffer(TORRENT_URL);
+    expect(buffer.length).toBe(torrent.length);
+    expect(seen).toEqual([TORRENT_URL, 'https://ia800100.us.archive.org/1/items/x/x_archive.torrent']);
+  });
+
+  test('recusa redirecionamento para fora do archive.org sem fazer a segunda requisição', async () => {
+    const seen: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      seen.push(String(input));
+      return new Response(null, { status: 302, headers: { location: 'http://127.0.0.1:8080/evil.torrent' } });
+    }) as unknown as typeof fetch;
+
+    await expect(loadTrustedTorrentBuffer(TORRENT_URL)).rejects.toBeInstanceOf(TorrentUntrustedSourceError);
+    expect(seen).toHaveLength(1);
+  });
+
+  test('recusa redirecionamento que rebaixa para http:// mesmo no archive.org', async () => {
+    globalThis.fetch = (async () =>
+      new Response(null, { status: 302, headers: { location: 'http://ia800100.us.archive.org/1/items/x/x.torrent' } })) as unknown as typeof fetch;
+
+    await expect(loadTrustedTorrentBuffer(TORRENT_URL)).rejects.toBeInstanceOf(TorrentUnavailableError);
+  });
+
+  test('recusa URL inicial fora do archive.org antes de tocar a rede', async () => {
+    let called = 0;
+    globalThis.fetch = (async () => {
+      called++;
+      return new Response(new Uint8Array(0));
+    }) as unknown as typeof fetch;
+
+    await expect(loadTrustedTorrentBuffer('https://evil.example.com/a.torrent')).rejects.toBeInstanceOf(TorrentUntrustedSourceError);
+    expect(called).toBe(0);
+  });
 });
 
 describe('POST /api/torrent/open — mapeamento de erro', () => {
