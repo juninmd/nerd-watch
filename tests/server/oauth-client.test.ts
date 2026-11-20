@@ -205,9 +205,26 @@ describe('authedFetch', () => {
     expect(seen).toEqual(['manual', 'follow']);
   });
 
-  test('401 persistente vira "reconectar"', async () => {
-    client.setFetchForTests(async (url) => (String(url).endsWith('/token') ? json({ access_token: 'a', expires_in: 3600 }) : new Response('', { status: 401 })));
+  test('401 persistente vira "reconectar" e cancela os corpos descartados', async () => {
+    let cancelled = 0;
+    let tokenRedirect: RequestInit['redirect'];
+    client.setFetchForTests(async (url, init) => {
+      if (String(url).endsWith('/token')) {
+        tokenRedirect = init?.redirect;
+        return json({ access_token: 'a', expires_in: 3600 });
+      }
+      return new Response(
+        new ReadableStream({
+          cancel() {
+            cancelled++;
+          },
+        }),
+        { status: 401 },
+      );
+    });
     await expect(client.authedFetch('https://api.example/x')).rejects.toBeInstanceOf(OAuthReauthRequiredError);
+    expect(tokenRedirect).toBe('error');
+    expect(cancelled).toBe(2);
   });
 });
 

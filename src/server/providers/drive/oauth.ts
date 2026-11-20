@@ -56,8 +56,10 @@ interface TokenResponse {
 }
 
 const postToken = async (params: Record<string, string>, fetchFn: FetchFn): Promise<TokenResponse & { status: number }> => {
+  // `redirect: 'error'` evita vazar client_secret/refresh_token/code em caso de redirecionamento.
   const res = await fetchFn(config.driveEndpoints.tokenUrl, {
     method: 'POST',
+    redirect: 'error',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(params).toString(),
     signal: AbortSignal.timeout(15_000),

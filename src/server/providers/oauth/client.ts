@@ -87,8 +87,10 @@ export const createOAuthClient = (spec: OAuthSpec): OAuthClient => {
 
   const postToken = async (params: Record<string, string>): Promise<TokenResponse & { status: number }> => {
     const body = { client_id: clientId() ?? '', ...(clientSecret() ? { client_secret: clientSecret() as string } : {}), ...params };
+    // `redirect: 'error'` evita vazar client_secret/refresh_token/code em caso de redirecionamento.
     const res = await fetchImpl(spec.endpoints().tokenUrl, {
       method: 'POST',
+      redirect: 'error',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body: new URLSearchParams(body).toString(),
       signal: AbortSignal.timeout(15_000),
@@ -192,10 +194,14 @@ export const createOAuthClient = (spec: OAuthSpec): OAuthClient => {
         fetchImpl(url, { redirect: 'manual', ...init, headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${await client.accessToken()}` } });
       let res = await call();
       if (res.status === 401) {
+        await res.body?.cancel();
         client.invalidate();
         res = await call();
       }
-      if (res.status === 401) throw new OAuthReauthRequiredError(spec.name);
+      if (res.status === 401) {
+        await res.body?.cancel();
+        throw new OAuthReauthRequiredError(spec.name);
+      }
       return res;
     },
 
