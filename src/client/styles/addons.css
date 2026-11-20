@@ -202,6 +202,13 @@
   overflow-wrap: anywhere;
 }
 
+/* Lista longa (até 500 streams do addon): o botão abre o resto sob demanda. */
+.addon-stream-group .stream-more {
+  width: 100%;
+  margin-top: 6px;
+  justify-content: center;
+}
+
 /* Atalho dos addons instalados no Início: mesma linguagem visual dos cards, sem capa. */
 .addon-tile {
   flex: 0 0 168px;

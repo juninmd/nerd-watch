@@ -8,6 +8,7 @@ import { currentRoute } from '../app/router.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { addonCaptionTracks, withAddonTracks } from './addon-captions.ts';
 import { streamCardHtml } from './stream-card.ts';
+import { atAddonCap, previewStreams, STREAM_PREVIEW } from './stream-preview.ts';
 import { type AddonStreamGroup as Group, type AddonStreamItem as Stream, findAddonStream } from './stream-lookup.ts';
 
 export interface StreamsView {
@@ -38,13 +39,31 @@ const streamLi = (g: Group, s: Stream): string =>
     buttonAttrs: `data-addon="${escapeHtml(g.addonId)}" data-index="${s.index}"`,
   });
 
-const groupHtml = (g: Group): string => {
-  const body = g.error
-    ? `<p class="hint" role="alert">erro: ${escapeHtml(g.error)}</p>`
-    : g.streams.length
-      ? `<ul class="stream-list">${g.streams.map((s) => streamLi(g, s)).join('')}</ul>`
-      : '<p class="hint">nenhum stream para este título.</p>';
-  return `<div class="addon-stream-group"><h4>${escapeHtml(g.name)} <small>${escapeHtml(g.host)}</small></h4>${body}</div>`;
+const groupInner = (g: Group, expanded: boolean): string => {
+  if (g.error) return `<p class="hint" role="alert">erro: ${escapeHtml(g.error)}</p>`;
+  if (g.streams.length === 0) return '<p class="hint">nenhum stream para este título.</p>';
+
+  const preview = previewStreams(g.streams, expanded);
+  const cards = `<ul class="stream-list">${preview.visible.map((s) => streamLi(g, s)).join('')}</ul>`;
+  const toggle =
+    preview.hidden > 0
+      ? `<button type="button" class="btn btn-ghost btn-sm stream-more" data-more="${escapeHtml(g.addonId)}">mostrar todos (${preview.total})</button>`
+      : expanded && preview.total > STREAM_PREVIEW
+        ? `<button type="button" class="btn btn-ghost btn-sm stream-more" data-less="${escapeHtml(g.addonId)}">mostrar menos</button>`
+        : '';
+  // Teto do addon: a lista "acaba" em 500 porque o addon para ali, não porque o catálogo acabou.
+  const capNote = atAddonCap(preview.total) ? '<p class="hint">o addon devolveu o limite dele de streams; refine a configuração do addon para ver menos.</p>' : '';
+  return `${cards}${toggle}${capNote}`;
+};
+
+const groupHtml = (g: Group, expanded: boolean): string =>
+  `<div class="addon-stream-group" data-group="${escapeHtml(g.addonId)}"><h4>${escapeHtml(g.name)} <small>${escapeHtml(g.host)}</small></h4>${groupInner(g, expanded)}</div>`;
+
+/** Re-renderiza só o corpo de um grupo (abrir/fechar a lista longa) sem tocar nos outros. */
+const repaintGroup = (container: HTMLElement, group: Group, expanded: boolean): void => {
+  const wrap = container.querySelector<HTMLElement>(`[data-group="${CSS.escape(group.addonId)}"]`);
+  if (!wrap) return;
+  wrap.innerHTML = `<h4>${escapeHtml(group.name)} <small>${escapeHtml(group.host)}</small></h4>${groupInner(group, expanded)}`;
 };
 
 /**
@@ -58,9 +77,12 @@ export const mountStreams = (container: HTMLElement, dto: TitleStreamsDto, view:
   if (currentEmbed && container.contains(currentEmbed)) clearEmbed();
   const externalPlayer = view.playerHost ?? null;
   if (externalPlayer) externalPlayer.innerHTML = '';
-  container.innerHTML = `${externalPlayer ? '' : '<div class="addon-stream-player"></div>'}${dto.addons.map(groupHtml).join('')}`;
+  container.innerHTML = `${externalPlayer ? '' : '<div class="addon-stream-player"></div>'}${dto.addons.map((g) => groupHtml(g, false)).join('')}`;
   const playerHost = externalPlayer ?? container.querySelector<HTMLElement>('.addon-stream-player');
   if (!playerHost) return;
+
+  /** Grupos com lista longa abertos pelo usuário; some na remontagem (troca de episódio/título). */
+  const expanded = new Set<string>();
 
   const resetPlayer = () => {
     // Sem escopo de propósito: começar uma fonte fecha qualquer torrent da tela (um player por vez).
@@ -139,6 +161,16 @@ export const mountStreams = (container: HTMLElement, dto: TitleStreamsDto, view:
 
   // `onclick` (e não `addEventListener`) mantém um handler só quando o mesmo slot é remontado após fechar/abrir o episódio.
   container.onclick = (event) => {
+    const more = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-more], [data-less]');
+    if (more) {
+      const id = more.dataset.more ?? more.dataset.less;
+      const group = dto.addons.find((g) => g.addonId === id);
+      if (!group) return;
+      if (more.dataset.more) expanded.add(group.addonId);
+      else expanded.delete(group.addonId);
+      repaintGroup(container, group, expanded.has(group.addonId));
+      return;
+    }
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-addon]');
     if (!button) return;
     const found = findAddonStream(dto, button.dataset.addon, Number(button.dataset.index));
