@@ -67,8 +67,19 @@ export const runRefreshTick = async (deps: TickDeps, state: RefreshState): Promi
   const nowMs = now.getTime();
   if (nowMs < state.retryAt) return { status: 'backoff', attempted: 0, refreshed: 0, failed: 0 };
 
-  const due = deps
-    .listCandidates()
+  for (const [id, until] of state.skipUntil) {
+    if (until <= nowMs) state.skipUntil.delete(id);
+  }
+
+  const candidates = deps.listCandidates();
+  if (state.serverErrors.size > 0) {
+    const validIds = new Set(candidates.map((t) => t.id));
+    for (const id of state.serverErrors.keys()) {
+      if (!validIds.has(id)) state.serverErrors.delete(id);
+    }
+  }
+
+  const due = candidates
     .filter((t) => (state.skipUntil.get(t.id) ?? 0) <= nowMs && (needsRefresh(t, now) || needsStatsBackfill(t)))
     .slice(0, deps.maxPerTick);
 
