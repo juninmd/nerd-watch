@@ -82,8 +82,23 @@ const fileExists = async (file: string): Promise<boolean> => {
  * Conversões de remux em segundo plano, com dedupe: dois pedidos do mesmo arquivo compartilham um único processo.
  * Cada job ocupa um slot; sem slot livre o pedido volta `busy` (a rota responde 503 com Retry-After).
  */
+/** Teto de jobs com erro retidos em memória para status(): evita crescimento ilimitado em servidores longos. */
+const MAX_ERROR_JOBS = 64;
+
 export const createRemuxer = (deps: RemuxDeps, now: () => number = Date.now) => {
   const jobs = new Map<string, Job>();
+
+  const pruneErrorJobs = (): void => {
+    let errors = 0;
+    for (const job of jobs.values()) if (job.state === 'error') errors += 1;
+    if (errors <= MAX_ERROR_JOBS) return;
+    for (const [k, job] of jobs) {
+      if (job.state !== 'error') continue;
+      jobs.delete(k);
+      errors -= 1;
+      if (errors <= MAX_ERROR_JOBS) break;
+    }
+  };
 
   const finish = async (
     key: string,
@@ -104,6 +119,7 @@ export const createRemuxer = (deps: RemuxDeps, now: () => number = Date.now) => 
     await rm(part, { force: true });
     job.state = 'error';
     job.error = job.error ?? 'não foi possível converter este arquivo';
+    pruneErrorJobs();
   };
 
   const run = (req: RemuxRequest, job: Job, release: () => void): void => {
@@ -133,6 +149,7 @@ export const createRemuxer = (deps: RemuxDeps, now: () => number = Date.now) => 
           },
           Math.min(deps.idleMs, 5000),
         );
+        watchdog.unref?.();
         await pumpProgress(proc.stdout, (key, value) => {
           if (key === 'out_time_us') {
             job.progress = progressFraction(Number(value), req.durationSeconds);
@@ -146,6 +163,7 @@ export const createRemuxer = (deps: RemuxDeps, now: () => number = Date.now) => 
         await rm(part, { force: true });
         job.state = 'error';
         job.error = job.error ?? 'não foi possível converter este arquivo';
+        pruneErrorJobs();
       } finally {
         if (watchdog) clearInterval(watchdog);
         release();

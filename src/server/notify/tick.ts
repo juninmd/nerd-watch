@@ -42,7 +42,14 @@ export const runNotifyTick = async (deps: NotifyTickDeps): Promise<NotifyTickRes
   const alreadySent = sentKeys(deps.db, entries.map(notificationKey));
   const due = dueNotifications(entries, now, deps.leadDays, alreadySent);
 
+  // Limpa contadores de chaves que já saíram da janela (ou já foram enviadas) para o mapa não crescer sem limite.
+  const dueKeys = new Set(due.map((d) => d.key));
+  for (const key of deps.attempts.keys()) {
+    if (!dueKeys.has(key)) deps.attempts.delete(key);
+  }
+
   for (const { key, entry, daysUntil } of due) {
+    if (signal.aborted) break;
     const attempts = deps.attempts.get(key) ?? 0;
     if (attempts >= maxAttempts) continue;
 
