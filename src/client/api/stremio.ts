@@ -42,12 +42,20 @@ export interface AddonMetaDto extends AddonItemDto {
 export interface AddonStreamDto {
   kind: 'url' | 'youtube' | 'external' | 'torrent';
   title: string;
+  name?: string;
+  description?: string;
   url: string | null;
   /** Só em `torrent`: infohash normalizado e o índice de arquivo sugerido pelo addon. */
   infoHash: string | null;
   fileIdx: number | null;
   /** Nome do arquivo sugerido, quando o addon manda `behaviorHints.filename`. */
   filename: string | null;
+  videoSize?: number | null;
+  notWebReady?: boolean;
+  bingeGroup?: string | null;
+  countryWhitelist?: string[];
+  subtitleLangs?: string[];
+  trackerCount?: number;
 }
 
 const seg = encodeURIComponent;

@@ -158,10 +158,18 @@ describe('catálogo, meta e streams', () => {
     expect(streams[0]).toEqual({
       kind: 'url',
       title: 'HD · Arquivo',
+      name: 'HD',
+      description: 'Arquivo',
       url: 'https://cdn.example.com/v.mp4',
       infoHash: null,
       fileIdx: null,
       filename: null,
+      videoSize: null,
+      notWebReady: false,
+      bingeGroup: null,
+      countryWhitelist: [],
+      subtitleLangs: [],
+      trackerCount: 0,
     });
   });
 

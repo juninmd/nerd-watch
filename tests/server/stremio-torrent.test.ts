@@ -146,7 +146,22 @@ describe('streams de torrent do addon', () => {
     const text = await res.text();
     expect(text).not.toContain('tracker.example.org');
     expect(JSON.parse(text).streams).toEqual([
-      { kind: 'torrent', title: 'Brazuca · Filme 1080p Dublado', url: null, infoHash: HASH, fileIdx: 1, filename: 'Filme.1080p.mp4' },
+      {
+        kind: 'torrent',
+        title: 'Brazuca · Filme 1080p Dublado',
+        name: 'Brazuca',
+        description: 'Filme 1080p Dublado',
+        url: null,
+        infoHash: HASH,
+        fileIdx: 1,
+        filename: 'Filme.1080p.mp4',
+        videoSize: null,
+        notWebReady: false,
+        bingeGroup: null,
+        countryWhitelist: [],
+        subtitleLangs: [],
+        trackerCount: 1,
+      },
     ]);
   });
 

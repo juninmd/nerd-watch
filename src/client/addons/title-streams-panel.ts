@@ -6,7 +6,7 @@ import { releaseTorrentPlayers, renderTorrentPanel } from '../player/torrent-pla
 import { embedFrameHtml } from '../player/watch-embed.ts';
 import { currentRoute } from '../app/router.ts';
 import { escapeHtml } from '../ui/card.ts';
-import { icon } from '../ui/icons.ts';
+import { streamCardHtml } from './stream-card.ts';
 import { type AddonStreamGroup as Group, type AddonStreamItem as Stream, findAddonStream } from './stream-lookup.ts';
 
 export interface StreamsView {
@@ -32,24 +32,10 @@ const clearEmbed = (): void => {
   currentEmbed = null;
 };
 
-const hintOf = (s: Stream): string => {
-  const parts = [s.filename, s.kind === 'torrent' ? 'P2P' : null].filter((v): v is string => Boolean(v));
-  return parts.length ? `<p class="hint">${escapeHtml(parts.join(' · '))}</p>` : '';
-};
-
-const streamLi = (g: Group, s: Stream): string => {
-  const title = escapeHtml(s.title);
-  if (s.kind === 'external') {
-    return `<li><a class="btn btn-ghost btn-sm stream-btn" href="${escapeHtml(s.url ?? '')}" target="_blank" rel="noopener noreferrer">${icon('forward', 'sm')} ${title}</a><p class="hint">abre fora do app</p></li>`;
-  }
-  const torrent = s.kind === 'torrent';
-  return `<li${torrent ? ' class="stream-torrent"' : ''}>
-    <button type="button" class="btn btn-primary btn-sm stream-btn" data-addon="${escapeHtml(g.addonId)}" data-index="${s.index}">
-      ${icon(torrent ? 'download' : 'play', 'sm')} ${title}
-    </button>
-    ${hintOf(s)}
-  </li>`;
-};
+const streamLi = (g: Group, s: Stream): string =>
+  streamCardHtml(s, {
+    buttonAttrs: `data-addon="${escapeHtml(g.addonId)}" data-index="${s.index}"`,
+  });
 
 const groupHtml = (g: Group): string => {
   const body = g.error
@@ -137,6 +123,7 @@ export const mountStreams = (container: HTMLElement, dto: TitleStreamsDto, view:
       sourceLabel: `Addon · ${g.name}`,
       hint: 'O servidor conecta direto nos peers deste torrent e serve os pedaços ao player; nada fica semeando ao sair da tela.',
       player: { channelId: 'addon', messageId: g.contentId, route: view.route },
+      autoStart: true,
       // Trocar de fonte em outro episódio libera este painel; sem isso sobraria um "parar" apontando para torrent fechado.
       onRelease: () => panel?.remove(),
     });
