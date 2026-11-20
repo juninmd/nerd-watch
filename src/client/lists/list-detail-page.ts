@@ -86,14 +86,17 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
     reorderList(listId, next)
       .then((res) => {
         busy = false;
+        if (!root.isConnected) return;
         // A ordem vem do servidor, não do cálculo local: é ela que ficou gravada.
-        items = res.titleIds.map((id) => items.find((i) => i.titleId === id)).filter((i): i is ListItemDto => i !== undefined);
+        const byId = new Map(items.map((i) => [i.titleId, i]));
+        items = res.titleIds.map((id) => byId.get(id)).filter((i): i is ListItemDto => i !== undefined);
         paint();
         root.querySelector<HTMLElement>(`[data-index="${newIndex}"]`)?.focus();
         status(`${moved.title.title} movido para a posição ${newIndex + 1} de ${items.length}`);
       })
       .catch((err: unknown) => {
         busy = false;
+        if (!root.isConnected) return;
         status(err instanceof Error ? err.message : 'não foi possível reordenar');
       });
   };
@@ -101,11 +104,13 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
   const load = () =>
     getAllListItems(listId)
       .then((data) => {
+        if (!root.isConnected) return;
         list = data.list;
         items = data.items;
         paint();
       })
       .catch(() => {
+        if (!root.isConnected) return;
         root.innerHTML = `<div class="empty-state"><div class="big" aria-hidden="true">${icon('alert')}</div>lista não encontrada ou indisponível <a href="#/lists">voltar às listas</a></div>`;
       });
 
@@ -117,18 +122,28 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
       move(Number(row?.dataset.index), Number(moveBtn.dataset.move) as -1 | 1);
       return;
     }
-    const removeBtn = target.closest<HTMLElement>('[data-remove]');
+    const removeBtn = target.closest<HTMLButtonElement>('[data-remove]');
     if (removeBtn?.dataset.remove) {
+      if (busy) return;
       const titleId = removeBtn.dataset.remove;
       const name = items.find((i) => i.titleId === titleId)?.title.title ?? 'título';
+      busy = true;
+      removeBtn.disabled = true;
       removeTitleFromList(listId, titleId)
         .then(() => {
+          busy = false;
+          if (!root.isConnected) return;
           items = items.filter((i) => i.titleId !== titleId);
           paint();
           status(`${name} removido da lista`);
           showToast(`${name} removido da lista`);
         })
-        .catch((err: unknown) => status(err instanceof Error ? err.message : 'não foi possível remover'));
+        .catch((err: unknown) => {
+          busy = false;
+          if (!root.isConnected) return;
+          if (removeBtn.isConnected) removeBtn.disabled = false;
+          status(err instanceof Error ? err.message : 'não foi possível remover');
+        });
       return;
     }
     if (target.closest('#list-edit')) {
@@ -140,17 +155,29 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
     if (target.closest('#list-edit-cancel')) {
       editing = false;
       paint();
+      root.querySelector<HTMLButtonElement>('#list-edit')?.focus();
       return;
     }
-    if (target.closest('#list-delete') && list) {
+    const deleteBtn = target.closest<HTMLButtonElement>('#list-delete');
+    if (deleteBtn && list) {
+      if (busy) return;
       const name = list.name;
       if (!confirm(`Excluir a lista "${name}"? Os títulos continuam na biblioteca.`)) return;
+      busy = true;
+      deleteBtn.disabled = true;
       deleteList(listId)
         .then(() => {
+          busy = false;
+          if (!root.isConnected) return;
           showToast(`lista "${name}" excluída`);
           navigate('/lists');
         })
-        .catch((err: unknown) => status(err instanceof Error ? err.message : 'não foi possível excluir'));
+        .catch((err: unknown) => {
+          busy = false;
+          if (!root.isConnected) return;
+          if (deleteBtn.isConnected) deleteBtn.disabled = false;
+          status(err instanceof Error ? err.message : 'não foi possível excluir');
+        });
     }
   });
 
@@ -158,16 +185,27 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
     const form = e.target as HTMLFormElement;
     if (form.id !== 'list-edit-form') return;
     e.preventDefault();
+    if (busy) return;
     const name = (root.querySelector('#list-name-input') as HTMLInputElement).value.trim();
     const description = (root.querySelector('#list-desc-input') as HTMLTextAreaElement).value;
+    const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    busy = true;
+    if (submitBtn) submitBtn.disabled = true;
     updateList(listId, { name, description })
       .then((updated) => {
+        busy = false;
+        if (!root.isConnected) return;
         list = updated;
         editing = false;
         paint();
         status('nome e descrição salvos');
       })
-      .catch((err: unknown) => status(err instanceof Error ? err.message : 'não foi possível salvar'));
+      .catch((err: unknown) => {
+        busy = false;
+        if (!root.isConnected) return;
+        if (submitBtn?.isConnected) submitBtn.disabled = false;
+        status(err instanceof Error ? err.message : 'não foi possível salvar');
+      });
   });
 
   void load();
