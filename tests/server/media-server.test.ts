@@ -1,5 +1,17 @@
-import { describe, expect, test } from 'bun:test';
-import { MAX_ITEMS, THUMB_MAX_BYTES, collectPages, durationSeconds, episodeCaption, readCapped, safeRange, serverPath, serverUrlProblem } from '../../src/server/providers/sources/media-server.ts';
+import { afterEach, describe, expect, test } from 'bun:test';
+import {
+  MAX_ITEMS,
+  THUMB_MAX_BYTES,
+  collectPages,
+  durationSeconds,
+  episodeCaption,
+  getJson,
+  readCapped,
+  safeRange,
+  serverPath,
+  serverUrlProblem,
+  setMediaFetchForTests,
+} from '../../src/server/providers/sources/media-server.ts';
 
 const PART_KEY = /^\/library\/parts\/\d+\/\d+\/[^?#\\]+$/;
 
@@ -35,6 +47,7 @@ describe('serverPath (caminho que o servidor devolveu)', () => {
     ['/library/parts/1/2/a/../../x.mkv', 'escape por .. no meio'],
     ['/library/parts/1/2/x.mkv?token=leak', 'query string'],
     ['/library/parts/1/2/x\r\nX-Injected: 1', 'quebra de linha'],
+    ['/library/parts/1/2/x\x7fy.mkv', 'caractere DEL'],
     ['/library/parts/1/2/%2e%2e/%2e%2e/identity', 'dot-segment codificado'],
     ['/library/parts/1/2/%2E%2E%2Fsecret.mkv', 'barra codificada em maiúsculas'],
     ['/library/metadata/1', 'outro caminho da API'],
@@ -151,5 +164,28 @@ describe('legenda e duração', () => {
     expect(durationSeconds(0, 1000)).toBeNull();
     expect(durationSeconds(undefined, 1000)).toBeNull();
     expect(durationSeconds(Number.NaN, 1000)).toBeNull();
+  });
+});
+
+describe('getJson (cancelamento de erro e limite de corpo)', () => {
+  afterEach(() => setMediaFetchForTests());
+
+  test('cancela corpo de erro HTTP e recusa JSON acima do teto', async () => {
+    let cancelled = false;
+    setMediaFetchForTests(async () =>
+      new Response(
+        new ReadableStream({
+          cancel() {
+            cancelled = true;
+          },
+        }),
+        { status: 500 },
+      ),
+    );
+    await expect(getJson({ name: 'Jellyfin', secretLabel: 'chave' }, new URL('http://192.168.0.10:8096/Items'), {}, 'não encontrado')).rejects.toThrow(/500/);
+    expect(cancelled).toBe(true);
+
+    setMediaFetchForTests(async () => new Response('{}', { headers: { 'content-length': String(10 * 1024 * 1024) } }));
+    await expect(getJson({ name: 'Jellyfin', secretLabel: 'chave' }, new URL('http://192.168.0.10:8096/Items'), {}, 'não encontrado')).rejects.toThrow(/inesperada/);
   });
 });
