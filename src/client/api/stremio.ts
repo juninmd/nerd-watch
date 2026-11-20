@@ -90,9 +90,23 @@ export interface AddonStatusDto {
 
 export const getAddonStatus = (id: string): Promise<AddonStatusDto> => fetch(`/api/stremio/addons/${seg(id)}/status`).then((r) => json<AddonStatusDto>(r));
 
+/** `index` é a posição na lista daquele addon; o servidor a usa ao abrir o torrent. */
+export interface TitleStreamDto extends AddonStreamDto {
+  index: number;
+}
+
 export interface TitleStreamsDto {
   imdbId: string | null;
-  addons: Array<{ addonId: string; name: string; host: string; streams: AddonStreamDto[]; error: string | null }>;
+  addons: Array<{
+    addonId: string;
+    name: string;
+    host: string;
+    /** Tipo e id do protocolo usados na consulta, necessários para abrir o torrent. */
+    type: 'movie' | 'series';
+    contentId: string;
+    streams: TitleStreamDto[];
+    error: string | null;
+  }>;
 }
 
 export interface TitleStreamsQuery {

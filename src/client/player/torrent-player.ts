@@ -23,12 +23,16 @@ const formatBytes = (bytes: number): string => {
  * Registrar o cleanup aqui (em vez de no router) resolve o vazamento: sem isso, navegar para
  * outra tela deixaria o torrent aberto semeando e o `setInterval` de status rodando pra sempre.
  */
-const cleanups = new Set<() => void>();
+const cleanups = new Map<() => void, HTMLElement>();
 
-/** Chamado a cada troca de rota (`main.ts`). Fecha torrents e mata os pollers da tela anterior. */
-export const releaseTorrentPlayers = (): void => {
-  for (const cleanup of [...cleanups]) cleanup();
-  cleanups.clear();
+/**
+ * Fecha torrents e mata os pollers. Sem `root`, vale para a tela inteira (troca de rota); com `root`,
+ * só os painéis dentro daquele nó (trocou a temporada ou fechou um episódio).
+ */
+export const releaseTorrentPlayers = (root?: Node): void => {
+  for (const [cleanup, panel] of [...cleanups]) {
+    if (!root || root.contains(panel)) cleanup();
+  }
 };
 
 export interface TorrentPanelOptions {
@@ -43,6 +47,8 @@ export interface TorrentPanelOptions {
   hint?: string;
   /** Identidade no player global e rota de retorno (o Archive usa o título; addon usa o item do addon). */
   player?: { channelId: string; messageId: string; route: string };
+  /** Chamado quando o painel é liberado (troca de fonte, re-render ou rota) para limpar o DOM que o hospeda. */
+  onRelease?: () => void;
 }
 
 const ARCHIVE_HINT = 'Conecta direto nos peers que hospedam o torrent oficial da Internet Archive — não passa pela banda do archive.org.';
@@ -52,12 +58,13 @@ interface PanelState {
   timer: ReturnType<typeof setInterval> | null;
   /** Chave do vídeo que este painel colocou no player global (para pará-lo sem derrubar outro vídeo). */
   playerKey: string | null;
-  /** Só a troca de rota marca isto. "Parar" NÃO marca: o painel continua utilizável. */
+  /** Troca de rota/fonte ou re-render marca isto. "Parar" NÃO marca: o painel continua utilizável. */
   disposed: boolean;
 }
 
 export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   const wrap = document.createElement('div');
+  wrap.className = 'torrent-panel';
   const state: PanelState = { infoHash: null, timer: null, playerKey: null, disposed: false };
   const open = opts.open ?? ((fileIndex?: number) => openTorrent(opts.identifier, fileIndex));
   const playerRef = opts.player ?? { channelId: 'archive', messageId: opts.identifier, route: titlePath('archive', '_', opts.identifier) };
@@ -83,8 +90,10 @@ export const renderTorrentPanel = (opts: TorrentPanelOptions): HTMLElement => {
   const release = () => {
     state.disposed = true;
     releaseTorrent();
+    cleanups.delete(release);
+    opts.onRelease?.();
   };
-  cleanups.add(release);
+  cleanups.set(release, wrap);
 
   const idle = (message = '') => {
     wrap.innerHTML = `

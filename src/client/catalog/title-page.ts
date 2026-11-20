@@ -7,6 +7,8 @@ import { renderRefreshMetadata } from '../library/refresh-metadata.ts';
 import { trailerFrameHtml } from '../player/trailer-embed.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
 import { renderTitleStreams } from '../addons/title-streams-panel.ts';
+import { stopIfOnPageIn } from '../player/player-dock.ts';
+import { releaseTorrentPlayers } from '../player/torrent-player.ts';
 import { renderSubtitlesPanel } from '../player/subtitles.ts';
 import { renderTitleError } from './title-error.ts';
 import { whereToWatchHtml } from './where-to-watch.ts';
@@ -49,9 +51,15 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
   host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
 
   const load = () => {
+    // Re-render (status, metadados, temporada) troca o palco: fecha torrent e vídeo desta página, sem tocar no player minimizado.
+    releaseTorrentPlayers(host);
+    stopIfOnPageIn(host);
     getTmdbTitle(mediaType, id)
       .then((d) => {
         const year = d.releaseDate?.slice(0, 4) ?? '—';
+        // Fechamento defensivo: algo pode ter começado a tocar entre o início do `load` e a resposta da TMDB.
+        releaseTorrentPlayers(host);
+        stopIfOnPageIn(host);
         host.innerHTML = `
           ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
@@ -80,6 +88,7 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
           <div class="detail-grid">
             <div>
               ${trailerFrameHtml(d.trailerKey)}
+              <div id="addon-stream-player"></div>
               <div id="seasons-section"></div>
               ${mediaType === 'movie' ? `<div class="empty-state"><div class="big">${icon('film')}</div>filmes protegidos por direitos autorais não são reproduzidos dentro do app — use os streamings ao lado, ou confira o acervo de <a href="#/public-domain">domínio público</a> se este título já for livre.</div>` : ''}
             </div>
@@ -133,12 +142,21 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
           renderSeasons(host.querySelector('#seasons-section') as HTMLElement, id, d.seasons, d.titleId, d.library, load);
         }
 
-        renderTitleStreams(host.querySelector('#addon-streams-panel') as HTMLElement, {
-          tmdbId: Number(id),
-          mediaType,
-          season: mediaType === 'tv' ? (d.library?.current_season ?? null) : null,
-          episode: mediaType === 'tv' ? (d.library?.current_episode ?? null) : null,
-        });
+        renderTitleStreams(
+          host.querySelector('#addon-streams-panel') as HTMLElement,
+          {
+            tmdbId: Number(id),
+            mediaType,
+            season: mediaType === 'tv' ? (d.library?.current_season ?? null) : null,
+            episode: mediaType === 'tv' ? (d.library?.current_episode ?? null) : null,
+          },
+          {
+            title: d.title,
+            posterUrl: d.posterUrl,
+            // O cartão dos streams fica na coluna lateral; o vídeo vai para a principal, acima dos episódios.
+            playerHost: host.querySelector('#addon-stream-player') as HTMLElement,
+          },
+        );
 
         const subtitlesHost = host.querySelector('#subtitles-panel') as HTMLElement;
         subtitlesHost.appendChild(
