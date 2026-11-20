@@ -1,3 +1,5 @@
+import { escapeHtml } from './html.ts';
+
 /**
  * Página de login renderizada no servidor, sem JS: o formulário POST manda o token uma vez e o servidor
  * responde com o cookie. Só recebe textos fixos, nunca o valor digitado.
@@ -34,7 +36,7 @@ input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); ou
 </label>
 <button type="submit">Entrar</button>
 </form>
-${message ? `<p class="erro" role="alert">${message}</p>` : ''}
+${message ? `<p class="erro" role="alert">${escapeHtml(message)}</p>` : ''}
 </main>
 </body>
 </html>

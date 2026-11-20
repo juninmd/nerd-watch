@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { CREDENTIAL_FIELDS, findField, GROUP_LABEL, maskSecret, type CredentialField } from '../credentials/registry.ts';
 import { readCredential, saveCredential } from '../credentials/runtime.ts';
 import { testCredential } from '../credentials/tester.ts';
+import { guardInput, readJsonObject } from '../http/json-body.ts';
 
 export const credentialsRoutes = new Hono();
 
@@ -30,23 +31,25 @@ credentialsRoutes.use('*', async (c, next) => {
 
 credentialsRoutes.get('/', (c) => c.json({ groups: GROUP_LABEL, fields: CREDENTIAL_FIELDS.map(dto) }));
 
-credentialsRoutes.put('/:key', async (c) => {
-  const field = findField(c.req.param('key'));
-  if (!field) return c.json({ error: 'credencial desconhecida' }, 404);
-  const body = await c.req.json<{ value?: unknown }>().catch(() => null);
-  if (!body || typeof body.value !== 'string') return c.json({ error: 'corpo inválido' }, 400);
-  const value = body.value.trim();
-  if (!value) return c.json({ error: 'valor vazio (use remover para limpar)' }, 400);
-  // A mensagem de validação é fixa por campo: nunca ecoa o valor recebido.
-  const problem = field.validate(value);
-  if (problem) return c.json({ error: problem }, 400);
-  try {
-    await saveCredential(field.key, value);
-  } catch {
-    return c.json({ error: 'não foi possível gravar o .env' }, 500);
-  }
-  return c.json(dto(field));
-});
+credentialsRoutes.put('/:key', (c) =>
+  guardInput(c, async () => {
+    const field = findField(c.req.param('key'));
+    if (!field) return c.json({ error: 'credencial desconhecida' }, 404);
+    const body = await readJsonObject(c);
+    if (typeof body.value !== 'string') return c.json({ error: 'corpo inválido' }, 400);
+    const value = body.value.trim();
+    if (!value) return c.json({ error: 'valor vazio (use remover para limpar)' }, 400);
+    // A mensagem de validação é fixa por campo: nunca ecoa o valor recebido.
+    const problem = field.validate(value);
+    if (problem) return c.json({ error: problem }, 400);
+    try {
+      await saveCredential(field.key, value);
+    } catch {
+      return c.json({ error: 'não foi possível gravar o .env' }, 500);
+    }
+    return c.json(dto(field));
+  }),
+);
 
 credentialsRoutes.delete('/:key', async (c) => {
   const field = findField(c.req.param('key'));
