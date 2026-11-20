@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { Hono } from 'hono';
 import { openDb, resetDbForTests } from '../../src/server/db/database.ts';
-import { createCooldown } from '../../src/server/metadata/cooldown.ts';
+import { COOLDOWN_MAX_ENTRIES, createCooldown } from '../../src/server/metadata/cooldown.ts';
 import { createLibraryRefreshRoutes } from '../../src/server/routes/library-refresh.ts';
 import { TmdbRequestError } from '../../src/server/providers/tmdb.ts';
 import { upsertLibraryEntry } from '../../src/server/repo/library.ts';
@@ -119,5 +119,13 @@ describe('createCooldown', () => {
     expect(cooldown.tryAcquire('a')).toEqual({ ok: false, retryAfterSec: 8 });
     t += 7_500;
     expect(cooldown.tryAcquire('a')).toEqual({ ok: true });
+  });
+
+  test('limita o mapa e descarta a chave mais antiga antes de inserir outra', () => {
+    const cooldown = createCooldown(60_000, () => 0);
+    for (let i = 0; i < COOLDOWN_MAX_ENTRIES; i++) cooldown.tryAcquire(`k${i}`);
+    cooldown.tryAcquire('nova');
+    // A mais antiga saiu, então a janela dela recomeça em vez de bloquear para sempre.
+    expect(cooldown.tryAcquire('k0')).toEqual({ ok: true });
   });
 });
