@@ -77,6 +77,7 @@ export const renderSubtitlesPanel = (opts: SubtitlesPanelOptions): HTMLElement =
 
   searchSubtitles(opts)
     .then((data) => {
+      if (!wrap.isConnected) return;
       if (!data.enabled) {
         wrap.innerHTML = disabledMessage(data.reason, data.unavailable);
         return;
@@ -96,23 +97,28 @@ export const renderSubtitlesPanel = (opts: SubtitlesPanelOptions): HTMLElement =
       wrap.querySelectorAll<HTMLButtonElement>('[data-subtitle]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const result = byKey.get(`${btn.dataset.source}::${btn.dataset.subtitle}`);
-          if (!result) return;
+          if (!result || btn.disabled) return;
+          btn.disabled = true;
           btn.textContent = '...';
           downloadSubtitle(downloadPayload(result, opts, data.imdbId))
             .then((res) => {
+              if (!btn.isConnected) return;
               window.open(res.url, '_blank', 'noopener,noreferrer');
               showToast(res.remaining === undefined ? 'legenda baixada' : `legenda baixada — ${res.remaining} downloads restantes hoje`);
               btn.innerHTML = `${icon('download', 'sm')} baixar`;
+              btn.disabled = false;
             })
             .catch(() => {
+              if (!btn.isConnected) return;
               showToast('não foi possível baixar essa legenda');
               btn.innerHTML = `${icon('download', 'sm')} baixar`;
+              btn.disabled = false;
             });
         });
       });
     })
     .catch(() => {
-      wrap.innerHTML = `<p class="hint">não foi possível buscar legendas agora</p>`;
+      if (wrap.isConnected) wrap.innerHTML = `<p class="hint">não foi possível buscar legendas agora</p>`;
     });
 
   return wrap;
