@@ -1,19 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { openDb } from '../../src/server/db/database.ts';
 import { markNotificationSent, sentKeys } from '../../src/server/repo/notifications.ts';
+import { withTempDb } from '../helpers/temp-db.ts';
 
-const withFile = (run: (path: string) => void): void => {
-  const dir = mkdtempSync(join(tmpdir(), 'nerd-watch-notify-'));
-  try {
-    run(join(dir, 'test.db'));
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-};
+const withFile = (run: (path: string) => void): void => withTempDb('nerd-watch-notify-', run, 'test.db');
 
 describe('tabela notifications_sent', () => {
   test('abrir o banco várias vezes é idempotente e preserva o que já foi enviado', () => {
