@@ -20,7 +20,7 @@ Tela **Addons Stremio** (`#/addons`, atalho `g o`). Implementa o [protocolo de a
 | Recurso | Uso |
 |---|---|
 | `catalog` | explorar o catálogo, com busca (`search`), gênero (`genre`), ano (`year`) e paginação (`skip`) — cada filtro só é oferecido quando o manifest o declara |
-| `meta` | sinopse, gêneros e episódios |
+| `meta` | pôster, fundo, sinopse, gêneros, trailer e episódios |
 | `stream` | `url` http(s) toca no player do app; `ytId` toca em embed; `externalUrl` abre fora; `infoHash` (torrent) toca no motor P2P local, igual a um magnet colado em Conexões |
 | `subtitles` | os addons instalados que declaram `subtitles` entram na busca de legendas junto com `SUBTITLE_ADDONS` |
 
@@ -34,6 +34,13 @@ Tela **Addons Stremio** (`#/addons`, atalho `g o`). Implementa o [protocolo de a
   (`extra[name=genre].options`). Gênero fora dessa lista é 400 em vez de virar catálogo vazio.
 - O filtro `year` segue a mesma regra: só passa se o manifest declarar `year`; o valor precisa ser
   `AAAA`.
+
+### Busca
+
+Os catálogos que declaram `search` recebem o termo no próprio protocolo. Um addon que só tem catálogos
+sem busca (como o FenixFlix) não ficaria de fora: a primeira página de até 4 catálogos por addon (8 no
+total por busca) é lida e filtrada pelo nome aqui, sem caixa e sem acento. É uma aproximação do que já
+veio na página — o item aparece na busca com o pôster do addon e abre na ficha dele.
 
 ### Stream por torrent (`infoHash`)
 
@@ -86,7 +93,9 @@ segredo e imprime apenas nome/recursos/contagem de streams — nunca o endereço
 `GET/POST /api/stremio/addons`, `DELETE /api/stremio/addons/:id`, `GET /api/stremio/boards`,
 `GET /api/stremio/addons/:id/{catalog/:type/:catalogId | meta/:type/:itemId | streams/:type/:itemId}`,
 `GET /api/stremio/streams?mediaType=&tmdbId=|imdbId=&season=&episode=` (todas as fontes do título;
-cada grupo traz `type`, `contentId` e a posição `index` de cada stream),
+cada grupo traz `type`, `contentId` e a posição `index` de cada stream). Quando a tela é a de um item
+de catálogo do addon, acrescente `addonId=`, `type=` e `itemId=`: os streams do próprio addon entram
+pelo id original (mesmo sem IMDb) junto com os outros addons de stream resolvidos pelo IMDb,
 `GET /api/stremio/addons/:id/subtitles/:type/:itemId/:streamIndex/:subIndex` (WebVTT da faixa que o
 addon publicou para aquele stream) e
 `POST /api/stremio/addons/:id/streams/:type/:itemId/:index/open?fileIndex=N` (abre o torrent no motor
@@ -103,6 +112,14 @@ O painel usa o player do app, não uma aba nova: `url` e `ytId` tocam embutidos,
 `infoHash` vai para o motor P2P local (o vídeo aparece na coluna principal; no caso de série, o título do
 episódio abre a lista e o player fica dentro da própria linha). Torrentio, Brazuca e FenixFlix funcionam
 sem catálogo por esse caminho.
+
+## Item aberto no catálogo do addon
+
+A tela do item (`#/addons/<id>/<type>/<itemId>`) usa o `meta` do addon para o banner, o pôster e o
+trailer (`trailerStreams`/`trailers`, só ids do YouTube) e consulta **todos** os addons de stream, não
+só o dono do catálogo: os streams do próprio addon entram pelo id original (o que funciona para ids sem
+IMDb, como `afhd:…`) e os outros entram pelo IMDb quando o id é `tt…`. Assim, um item do FenixFlix
+também lista os torrents do Torrentio na mesma lista.
 
 ## Referência: Torrentio
 

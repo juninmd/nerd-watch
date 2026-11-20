@@ -151,6 +151,8 @@ export interface AnilistDetailDto {
   posterUrl: string | null;
   voteAverage: number | null;
   episodes: number | null;
+  /** Trailer do YouTube informado pelo AniList, quando existe. */
+  trailerKey: string | null;
   pageUrl: string | null;
   nextEpisode: { episode: number; airDate: string } | null;
   attribution: AttributionDto;

@@ -167,9 +167,31 @@ export interface MetaDetail extends MetaPreview {
   runtime: string;
   genres: string[];
   videos: MetaVideo[];
+  /** Id do YouTube do trailer principal, quando o addon publica um. */
+  trailerKey: string | null;
 }
 
 const INT_STR = /^\d{1,6}$/;
+const YT_ID = /^[\w-]{11}$/;
+
+/**
+ * O protocolo publica o trailer de duas formas: `trailers` (o id do YouTube vem em `source`) e
+ * `trailerStreams` (vem em `ytId`, com `title`). Só o formato de id do YouTube passa: a chave vai
+ * para a URL de um iframe no cliente.
+ */
+const trailerKeyOf = (raw: Record<string, unknown>): string | null => {
+  for (const item of list(raw.trailerStreams, 10)) {
+    const id = str(obj(item).ytId, 32);
+    if (YT_ID.test(id)) return id;
+  }
+  for (const item of list(raw.trailers, 10)) {
+    const t = obj(item);
+    const id = str(t.ytId ?? t.source, 32);
+    if (YT_ID.test(id)) return id;
+  }
+  return null;
+};
+
 /** Alguns addons devolvem `season`/`episode` como string (`"1"`) em vez de número: ambos viram inteiro válido. */
 const intOrNull = (v: unknown): number | null => {
   if (typeof v === 'number' && Number.isInteger(v) && v >= 0) return v;
@@ -188,6 +210,7 @@ export const fetchMeta = async (baseUrl: string, type: string, id: string): Prom
     description: str(raw.description, 4000),
     runtime: str(raw.runtime, 40),
     genres: list(raw.genres, 10).map((g) => str(g, 40)).filter(Boolean),
+    trailerKey: trailerKeyOf(raw),
     videos: list(raw.videos, 500)
       .map((v): MetaVideo | null => {
         const video = obj(v);
@@ -237,7 +260,6 @@ export interface AddonStream {
   trackers: string[];
 }
 
-const YT_ID = /^[\w-]{11}$/;
 const MAX_VIDEO_SIZE = 1024 * 1024 * 1024 * 1024; // 1 TB
 
 /** Campos de torrent vazios: só o stream do tipo `torrent` carrega infohash. */

@@ -83,6 +83,7 @@ anilistRoutes.get('/:id', async (c) => {
       posterUrl: media.imageUrl,
       voteAverage: media.averageScore === null ? null : media.averageScore / 10,
       episodes: media.episodes,
+      trailerKey: media.extras.trailerKey,
       pageUrl: media.siteUrl,
       nextEpisode: media.nextAiringEpisode
         ? { episode: media.nextAiringEpisode.episode, airDate: todayIso(new Date(media.nextAiringEpisode.airingAt * 1000)) }

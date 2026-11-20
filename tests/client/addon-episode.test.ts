@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { episodeLabel, listEpisodes, parseImdbEpisodeId } from '../../src/client/addons/addon-episode.ts';
+import { episodeLabel, isSeriesRoot, listEpisodes, parseImdbEpisodeId } from '../../src/client/addons/addon-episode.ts';
 import type { AddonMetaDto } from '../../src/client/api/stremio.ts';
 
 const baseMeta: AddonMetaDto = {
@@ -12,6 +12,7 @@ const baseMeta: AddonMetaDto = {
   description: '',
   runtime: '',
   genres: [],
+  trailerKey: null,
   videos: [],
 };
 
@@ -53,5 +54,12 @@ describe('addon-episode', () => {
       videos: [{ id: 'trailer', title: 'Trailer', season: null, episode: null }],
     });
     expect(movieVideos).toHaveLength(0);
+  });
+
+  test('isSeriesRoot só trata série com episódios como raiz; filme com extra numerado continua filme', () => {
+    expect(isSeriesRoot({ type: 'series' }, 4, 'tt0903747', 'tt0903747')).toBe(true);
+    expect(isSeriesRoot({ type: 'series' }, 4, 'tt0903747:1:2', 'tt0903747')).toBe(false);
+    expect(isSeriesRoot({ type: 'movie' }, 1, 'tt1', 'tt1')).toBe(false);
+    expect(isSeriesRoot({ type: 'series' }, 0, 'tt0903747', 'tt0903747')).toBe(false);
   });
 });

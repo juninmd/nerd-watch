@@ -55,6 +55,8 @@ export interface AddonMetaDto extends AddonItemDto {
   description: string;
   runtime: string;
   genres: string[];
+  /** Trailer publicado pelo addon (id do YouTube), quando existe. */
+  trailerKey: string | null;
   videos: Array<{ id: string; title: string; season: number | null; episode: number | null }>;
 }
 
@@ -151,7 +153,7 @@ export interface TitleStreamsDto {
     name: string;
     host: string;
     /** Tipo e id do protocolo usados na consulta, necessários para abrir o torrent. */
-    type: 'movie' | 'series';
+    type: string;
     contentId: string;
     streams: TitleStreamDto[];
     error: string | null;
@@ -165,6 +167,10 @@ export interface TitleStreamsQuery {
   mediaType: 'movie' | 'tv';
   season?: number | null;
   episode?: number | null;
+  /** Item aberto no catálogo de um addon: os streams próprios entram pelo id original. */
+  addonId?: string;
+  type?: string;
+  itemId?: string;
 }
 
 export const getTitleStreams = (opts: TitleStreamsQuery): Promise<TitleStreamsDto> => {
@@ -173,5 +179,10 @@ export const getTitleStreams = (opts: TitleStreamsQuery): Promise<TitleStreamsDt
   if (opts.imdbId) q.set('imdbId', opts.imdbId);
   if (opts.season) q.set('season', String(opts.season));
   if (opts.episode) q.set('episode', String(opts.episode));
+  if (opts.addonId && opts.type && opts.itemId) {
+    q.set('addonId', opts.addonId);
+    q.set('type', opts.type);
+    q.set('itemId', opts.itemId);
+  }
   return fetch(`/api/stremio/streams?${q}`).then((r) => json<TitleStreamsDto>(r));
 };

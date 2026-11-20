@@ -35,3 +35,10 @@ export const listEpisodes = (meta: AddonMetaDto): AddonMetaDto['videos'] => {
   if (numbered.length > 0) return numbered;
   return meta.type === 'series' ? meta.videos : [];
 };
+
+/**
+ * Raiz de série: tem episódios listados e não é filme. Um filme que publique um "extra" numerado
+ * continua filme — o stream dele é buscado pelo IMDb em vez de pedir para escolher episódio.
+ */
+export const isSeriesRoot = (meta: Pick<AddonMetaDto, 'type'>, episodesLength: number, currentId: string, itemId: string): boolean =>
+  meta.type !== 'movie' && episodesLength > 0 && currentId === itemId;
