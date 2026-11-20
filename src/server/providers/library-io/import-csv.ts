@@ -32,7 +32,9 @@ const indexByName = (items: LibraryItem[]): Map<string, LibraryItem[]> => {
   const index = new Map<string, LibraryItem[]>();
   for (const item of items) {
     const key = nameKey(item.title.media_type, item.title.title);
-    index.set(key, [...(index.get(key) ?? []), item]);
+    const list = index.get(key);
+    if (list) list.push(item);
+    else index.set(key, [item]);
   }
   return index;
 };
@@ -61,7 +63,8 @@ interface Patch {
  */
 export const importLibraryCsv = (db: Database, text: string): LibraryImportReport => {
   const { rows, errors } = parseLibraryCsv(text);
-  const tmdbTitles = new Map(findTmdbTitles(db, rows.flatMap((r) => (r.tmdbId === null ? [] : [String(r.tmdbId)]))).map((t) => [t.source_id, t]));
+  const tmdbIds = [...new Set(rows.flatMap((r) => (r.tmdbId === null ? [] : [String(r.tmdbId)])))];
+  const tmdbTitles = new Map(findTmdbTitles(db, tmdbIds).map((t) => [t.source_id, t]));
   const byName = rows.some((r) => r.tmdbId === null) ? indexByName(listLibrary(db)) : new Map<string, LibraryItem[]>();
   const report: LibraryImportReport = { imported: 0, updated: 0, unchanged: 0, failed: 0, errors: [...errors] };
   const touched = new Set<string>();

@@ -23,6 +23,7 @@ libraryIoRoutes.get('/export.csv', async (c) => {
 
 /** Erro de entrada vira 400/413 com a mensagem; o resto é falha interna e segue para o handler padrão. */
 const answer = async <T>(c: Context, run: () => Promise<T> | T) => {
+  c.header('Cache-Control', 'no-store');
   try {
     return c.json(await run());
   } catch (err) {

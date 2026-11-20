@@ -30,7 +30,10 @@ const mib = (bytes: number): string => `${bytes / (1024 * 1024)} MiB`;
  */
 export const readBodyText = async (req: Request, maxBytes: number): Promise<string> => {
   const declared = Number(req.headers.get('content-length'));
-  if (declared > maxBytes) throw new InputError(`arquivo grande demais: o limite é ${mib(maxBytes)}`, 413);
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await req.body?.cancel().catch(() => undefined);
+    throw new InputError(`arquivo grande demais: o limite é ${mib(maxBytes)}`, 413);
+  }
   if (!req.body) return '';
 
   const reader = req.body.getReader();
