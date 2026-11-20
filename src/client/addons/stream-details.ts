@@ -92,6 +92,7 @@ const KIND_LABEL: Record<AddonStreamDto['kind'], string> = {
   torrent: 'P2P Torrent',
   youtube: 'YouTube',
   external: 'Externo',
+  error: 'Aviso',
 };
 
 const extractSize = (text: string, videoSize?: number | null): string | null => {
