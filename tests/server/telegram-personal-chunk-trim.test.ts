@@ -53,6 +53,21 @@ describe('trimChunkStream', () => {
     expect(out.length).toBe(0);
   });
 
+  test('encerra o generator assim que wantedLength é atingido (não deixa download pendurado)', async () => {
+    let closed = false;
+    const gen = (async function* () {
+      try {
+        yield Buffer.from('abcdefgh');
+        yield Buffer.from('ijklmnop');
+      } finally {
+        closed = true;
+      }
+    })();
+    const out = await readAll(trimChunkStream(gen, 1, 4));
+    expect(out.toString()).toBe('bcde');
+    expect(closed).toBe(true);
+  });
+
   test('regressão: streamPersonalItem tinha um bug real passando leadingTrim+wantedLength (downloadLimit) onde trimChunkStream espera wantedLength', async () => {
     // Bug real encontrado em revisão: o 3º argumento de trimChunkStream é o tamanho de SAÍDA (pós-corte),
     // não quanto pedir ao Telegram. O teleproto real (downloads.js) sempre entrega chunks cheios até

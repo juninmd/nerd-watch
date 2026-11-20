@@ -76,6 +76,21 @@ export const withLiveSession = async <T>(fn: (client: TelegramClient) => Promise
 
 const VERIFY_TIMEOUT_MS = 8_000;
 
+/** Corrida com prazo que limpa o timer ao terminar, sem deixar handles pendurados no event loop. */
+const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timeout')), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
 /**
  * Pergunta ao Telegram se a session ainda vale. Só uma rejeição explícita de auth derruba a session —
  * rede fora ou timeout contam como "não sei" e mantêm tudo como está.
@@ -84,10 +99,7 @@ export const verifyPersonalSession = async (): Promise<boolean> => {
   if (!telegramPersonalEnabled()) return false;
   try {
     await withLiveSession(async (client) => {
-      const me = (await Promise.race([
-        client.getMe(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS)),
-      ])) as Api.User;
+      const me = (await withTimeout(client.getMe(), VERIFY_TIMEOUT_MS)) as Api.User;
       const name = [me.firstName, me.lastName].filter(Boolean).join(' ').trim();
       const photoId = photoIdOf(me);
       // Mesma foto de antes: reaproveita os bytes em vez de baixar a imagem a cada abertura de Conexões.
@@ -116,7 +128,7 @@ export const logoutPersonalSession = async (): Promise<void> => {
   if (!telegramPersonalEnabled()) return;
   try {
     const client = await getClient();
-    await Promise.race([client.invoke(new Api.auth.LogOut()), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS))]);
+    await withTimeout(client.invoke(new Api.auth.LogOut()), VERIFY_TIMEOUT_MS);
   } catch {
     // session já morta ou Telegram inalcançável: o descarte local abaixo é o que importa
   }
@@ -210,6 +222,7 @@ export const trimChunkStream = (
       for (;;) {
         const { value, done } = await generator.next();
         if (done || remaining <= 0) {
+          if (!done) await generator.return(undefined);
           controller.close();
           return;
         }
@@ -223,10 +236,14 @@ export const trimChunkStream = (
         remaining -= chunk.length;
         if (chunk.length > 0) {
           controller.enqueue(chunk);
-          if (remaining <= 0) controller.close();
+          if (remaining <= 0) {
+            await generator.return(undefined);
+            controller.close();
+          }
           return;
         }
         if (remaining <= 0) {
+          await generator.return(undefined);
           controller.close();
           return;
         }

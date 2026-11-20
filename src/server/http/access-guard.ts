@@ -38,6 +38,11 @@ export interface Access {
 
 /** Lê o corpo até `max` bytes e cancela ao passar: rota pública não pode guardar corpo sem limite (chunked). */
 const readCapped = async (req: Request, max: number): Promise<string | undefined> => {
+  const declared = Number(req.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > max) {
+    await req.body?.cancel().catch(() => undefined);
+    return undefined;
+  }
   if (!req.body) return '';
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -47,7 +52,7 @@ const readCapped = async (req: Request, max: number): Promise<string | undefined
     if (done) break;
     total += value.byteLength;
     if (total > max) {
-      await reader.cancel();
+      await reader.cancel().catch(() => undefined);
       return undefined;
     }
     chunks.push(value);
