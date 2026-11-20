@@ -16,6 +16,7 @@ export const DOCK_MARKUP = `
       <input class="dock-seek" type="range" min="0" max="1000" value="0" aria-label="Posição do vídeo" />
       <span class="dock-time" aria-hidden="true"></span>
       <div class="dock-end">
+        <button type="button" data-act="cast" aria-label="Enviar para a TV" aria-pressed="false">${icon('cast')}</button>
         <button type="button" data-act="expand" aria-label="Abrir em tela cheia">${icon('expand')}</button>
         <button type="button" data-act="close" aria-label="Fechar player">${icon('x')}</button>
       </div>

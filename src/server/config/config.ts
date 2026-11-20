@@ -195,6 +195,11 @@ export const config = {
     token: parseAccessToken(process.env.ACCESS_TOKEN),
     trustProxy: process.env.ACCESS_TRUST_PROXY === 'true',
   },
+  /** Transmissão para a TV na rede local (DLNA/UPnP + link LAN sob demanda). `port: 0` escolhe porta livre. */
+  cast: {
+    host: process.env.CAST_HOST?.trim() || undefined,
+    port: numberEnv(process.env.CAST_PORT, 0, 0),
+  },
   telegram,
   drive,
   driveEndpoints: driveEndpoints(process.env.DRIVE_FAKE_BASE_URL),

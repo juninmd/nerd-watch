@@ -15,6 +15,7 @@ import { mountPageControls, type PageControls } from './player-page-controls.ts'
 import { clearVideo, playerKindOf } from './watch-embed.ts';
 import { type Captions, mountCaptions } from './player-captions.ts';
 import type { CaptionContext } from './player-captions-model.ts';
+import { type CastController, createCastController } from './player-cast.ts';
 import { mediaUrl } from '../platform/tauri.ts';
 
 export { getAutoplay, getQueueOrder, type QueueOrder, setAutoplay, setQueueOrder } from './player-prefs.ts';
@@ -57,6 +58,7 @@ const metaOf = (item: DockItem): ResumeMeta => ({ title: item.title, subtitle: i
 let dock: HTMLElement | null = null;
 let video: HTMLVideoElement | null = null;
 let captions: Captions | null = null;
+let cast: CastController | null = null;
 let queue: DockItem[] = [];
 let index = 0;
 let mode: Mode = 'hidden';
@@ -128,7 +130,13 @@ const persist = (): void => {
 };
 
 const syncControls = (): void => {
-  if (video && dock) paintControls(dock, video, index > 0, index < queue.length - 1);
+  if (video && dock) {
+    paintControls(dock, video, index > 0, index < queue.length - 1);
+    const castBtn = dock.querySelector<HTMLButtonElement>('[data-act="cast"]');
+    const casting = cast?.isActive() ?? false;
+    castBtn?.classList.toggle('cast-active', casting);
+    castBtn?.setAttribute('aria-pressed', String(casting));
+  }
   pageControls?.repaint();
 };
 const syncProgress = (): void => {
@@ -156,6 +164,8 @@ const setMode = (next: Mode, stage?: HTMLElement): void => {
       canNext: () => index < queue.length - 1,
       togglePlay: () => (video?.paused ? attemptPlay() : video?.pause()),
       step: (delta) => step(delta),
+      openCast: () => cast?.open(),
+      isCasting: () => cast?.isActive() ?? false,
     });
   } else {
     q('.dock-video').appendChild(video);
@@ -209,6 +219,7 @@ export const stopPlayer = (): void => {
   persist();
   overlays.clear();
   captions?.clear();
+  void cast?.stop();
   // O reset do load() não pode gravar a taxa padrão por cima da escolha do usuário.
   if (video) video.defaultPlaybackRate = video.playbackRate;
   video?.pause();
@@ -283,8 +294,14 @@ export const mountPlayerDock = (host: HTMLElement): void => {
     video: () => video,
     host: () => (mode === 'dock' ? q('.dock-controls') : mode === 'page' ? (video?.parentElement ?? null) : null),
   });
+  cast = createCastController({
+    item: current,
+    video: () => video,
+    onStateChange: syncControls,
+  });
   wirePlayerDock(dock, video, {
     toggleCaptions: () => captions?.toggle(),
+    openCast: () => cast?.open(),
     item: current,
     nextTitle: () => (index < queue.length - 1 ? (queue[index + 1]?.title ?? '') : null),
     queueEnded: () => {

@@ -27,6 +27,7 @@ export interface DockWiring {
   keyboardActive(): boolean;
   onError(): void;
   toggleCaptions(): void;
+  openCast(): void;
 }
 
 /** Liga os eventos do `<video>` e da barra fixa. Uma vez só: o elemento e a barra vivem a sessão toda. */
@@ -91,6 +92,7 @@ export const wirePlayerDock = (dock: HTMLElement, el: HTMLVideoElement, api: Doc
     else if (act === 'speed')
       el.playbackRate = el.playbackRate >= MAX_SPEED ? MIN_SPEED : nextSpeed(el.playbackRate, 1);
     else if (act === 'close') api.stop();
+    else if (act === 'cast') api.openCast();
     else if ((act === 'expand' || target.closest('.dock-title')) && item) navigate(item.route);
   });
   (dock.querySelector('.dock-seek') as HTMLInputElement).addEventListener('input', (e) => {

@@ -9,6 +9,8 @@ export interface PageControlsApi {
   canNext(): boolean;
   togglePlay(): void;
   step(delta: number): void;
+  openCast(): void;
+  isCasting(): boolean;
 }
 
 export interface PageControls {
@@ -40,6 +42,7 @@ const MARKUP = `
           ${SPEED_STEPS.map((s) => `<button type="button" role="menuitemradio" data-rate="${s}" aria-checked="false">${s === 1 ? 'Normal' : `${s}x`}</button>`).join('')}
         </div>
       </span>
+      <button type="button" data-act="cast" aria-label="Enviar para a TV" aria-pressed="false">${icon('cast')}</button>
       <button type="button" data-act="pip" aria-label="Picture-in-picture">${icon('pip')}</button>
       <button type="button" data-act="fullscreen" aria-label="Tela cheia">${icon('expand')}</button>
     </div>
@@ -128,6 +131,10 @@ export const mountPageControls = (stage: HTMLElement, video: HTMLVideoElement, a
     }
     const full = document.fullscreenElement === stage;
     setIcon('fullscreen', full ? 'minimize' : 'expand', full ? 'Sair da tela cheia' : 'Tela cheia');
+    const castBtn = q<HTMLButtonElement>('[data-act="cast"]');
+    const casting = api.isCasting();
+    castBtn.classList.toggle('cast-active', casting);
+    castBtn.setAttribute('aria-pressed', String(casting));
     if (!playing) wake();
   };
 
@@ -147,6 +154,7 @@ export const mountPageControls = (stage: HTMLElement, video: HTMLVideoElement, a
     else if (act === 'back') seekVideo(video, -SEEK_SECONDS);
     else if (act === 'fwd') seekVideo(video, SEEK_SECONDS);
     else if (act === 'mute') video.muted = !video.muted;
+    else if (act === 'cast') api.openCast();
     else if (act === 'fullscreen') toggleStageFullscreen(stage);
     else if (act === 'pip') {
       if (document.pictureInPictureElement) void document.exitPictureInPicture();
