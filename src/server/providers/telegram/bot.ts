@@ -42,9 +42,15 @@ const call = async <T>(method: string, params: Record<string, string> = {}): Pro
   const url = new URL(`${API_BASE(config.telegram.botToken)}/${method}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   // `redirect: 'error'` evita vazar o token do bot (que vai no caminho da URL) em caso de redirecionamento.
-  const res = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(35000) });
-  const data = (await res.json()) as { ok: boolean; result?: T; description?: string };
-  if (!data.ok) throw new Error(data.description ?? `Telegram Bot API: ${method} falhou`);
+  let res: Response;
+  try {
+    res = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(35000) });
+  } catch {
+    // O erro original do fetch pode ecoar a URL inteira com o token do bot no caminho.
+    throw new Error(`Telegram Bot API: ${method} falhou (rede)`);
+  }
+  const data = (await res.json().catch(() => null)) as { ok: boolean; result?: T; description?: string } | null;
+  if (!data?.ok) throw new Error(data?.description ?? `Telegram Bot API: ${method} falhou (HTTP ${res.status})`);
   // biome-ignore lint/style/noNonNullAssertion: data.ok garante result presente pela própria API
   return data.result!;
 };

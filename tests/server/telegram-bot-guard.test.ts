@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { config } from '../../src/server/config/config.ts';
-import { resolveBotFileUrl } from '../../src/server/providers/telegram/bot.ts';
+import { getChannelPostUpdates, resolveBotFileUrl } from '../../src/server/providers/telegram/bot.ts';
 
 const origFetch = globalThis.fetch;
 const origToken = config.telegram.botToken;
@@ -31,5 +31,16 @@ describe('Telegram Bot API (redirect e file_path)', () => {
         new Response(JSON.stringify({ ok: true, result: { file_path: bad, file_size: 100 } }))) as unknown as typeof fetch;
       expect(await resolveBotFileUrl('file_bad')).toEqual({ ok: false, reason: 'not_found' });
     }
+  });
+
+  test('erro de rede no Bot API não vaza o token na mensagem de erro', async () => {
+    config.telegram.botToken = '123456:SUPER_SECRET_BOT_TOKEN';
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      throw new TypeError(`failed fetching ${String(input)}`);
+    }) as unknown as typeof fetch;
+
+    const err = await getChannelPostUpdates(0).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).not.toContain('SUPER_SECRET_BOT_TOKEN');
   });
 });
