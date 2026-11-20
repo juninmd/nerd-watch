@@ -1,8 +1,7 @@
 import { Hono } from 'hono';
-import { config } from '../config/config.ts';
 import { guardInput, readJsonObject } from '../http/json-body.ts';
 import { OpenSubtitlesNotConfiguredError, OpenSubtitlesRequestError, openSubtitlesEnabled } from '../providers/opensubtitles.ts';
-import { resolveAddonFileUrl, resolveSubtitleDownload, searchAllSubtitles } from '../providers/subtitles/index.ts';
+import { resolveAddonFileUrl, resolveSubtitleDownload, searchAllSubtitles, subtitleAddonBases } from '../providers/subtitles/index.ts';
 import { fetchSubtitleBytes } from '../subtitles/load.ts';
 import type { MediaType } from '../types.ts';
 import { subtitleFailureText, subtitleVttHandler } from './subtitles-vtt.ts';
@@ -117,7 +116,7 @@ subtitlesRoutes.get('/file', async (c) => {
   const season = parseNumber(c.req.query('season')) ?? null;
   const episode = parseNumber(c.req.query('episode')) ?? null;
 
-  if (!config.subtitles.addons.includes(source)) return c.json({ error: 'fonte de legenda não configurada' }, 403);
+  if (!(await subtitleAddonBases()).includes(source)) return c.json({ error: 'fonte de legenda não configurada' }, 403);
   if (!id || !IMDB_ID_RE.test(imdbId)) return c.json({ error: 'parâmetros incompletos ou inválidos' }, 400);
 
   const resolved = await resolveAddonFileUrl({ source, id, imdbId, type, season, episode });
