@@ -82,6 +82,16 @@ export const createCastService = (deps: CastServiceDeps): CastService => {
   const sessionHost = new Map<string, string>();
   const sessionQr = new Map<string, string>();
 
+  /** Remove entradas de sessões expiradas pelo relay (TTL) para os mapas auxiliares não crescerem sem limite. */
+  const pruneExpiredSessions = (): void => {
+    for (const id of sessionHost.keys()) {
+      if (!deps.relay.getSession(id)) {
+        sessionHost.delete(id);
+        sessionQr.delete(id);
+      }
+    }
+  };
+
   const buildUrls = (host: string, port: number, session: CastSession) => {
     const base = `http://${host}:${port}/s/${session.token}`;
     return {
@@ -139,6 +149,7 @@ export const createCastService = (deps: CastServiceDeps): CastService => {
   };
 
   const startSession = async (input: StartCastInput): Promise<CastSessionDto> => {
+    pruneExpiredSessions();
     const host = pickHost(input.host);
     let device: CastDevice | null = null;
     if (input.deviceId) {
