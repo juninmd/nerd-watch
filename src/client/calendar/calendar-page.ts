@@ -50,7 +50,7 @@ export const renderCalendar = (host: HTMLElement): void => {
       <div style="margin-top:12px"><button class="btn btn-ghost btn-sm" id="subscribe" type="button">Assinar no calendário</button></div>
     </header>
     <div class="week-strip" id="week" role="group" aria-label="Próximos 7 dias"></div>
-    <div class="chip-row" id="ranges" style="margin-bottom:10px"></div>
+    <div class="chip-row" id="ranges" style="margin-bottom:10px" role="group" aria-label="Janela de dias"></div>
     <div class="chip-row" id="origins" style="margin-bottom:10px" role="group" aria-label="Filtrar por tipo"></div>
     <div class="chip-row" id="wheres" style="margin-bottom:22px" role="group" aria-label="Filtrar por onde assistir"></div>
     <div id="spot"></div>
@@ -164,6 +164,7 @@ export const renderCalendar = (host: HTMLElement): void => {
     const e = lookup.get(el.dataset.key ?? '');
     if (!e) return;
     const info = infoOf(e) ?? (await loadInfo(e));
+    if (!entriesEl.isConnected) return;
     if (info) infos.set(entryKey(e), info);
     const go = () => navigate(titlePath(e.titleSource as CatalogSource, e.titleSource === 'archive' ? '_' : e.mediaType, e.titleSourceId));
     openCalendarDetail(e, info, go);
@@ -178,14 +179,17 @@ export const renderCalendar = (host: HTMLElement): void => {
   entriesEl.addEventListener('click', onActivate);
   spotEl.addEventListener('click', onActivate);
 
+  let loadSeq = 0;
   const load = () => {
+    const seq = ++loadSeq;
     entriesEl.innerHTML = `<div class="skeleton" style="height:200px"></div>`;
     // A faixa da semana precisa de pelo menos 7 dias, mesmo que o intervalo escolhido seja menor.
     const discoverP = getCalendarDiscover(Math.max(days, 7)).catch(() => ({ entries: [], failed: ['serviço de lançamentos'] }));
     getCalendar(Math.max(days, 7))
       .then(async (data) => {
-        entries = data.entries;
         const d = await discoverP;
+        if (seq !== loadSeq || !entriesEl.isConnected) return;
+        entries = data.entries;
         discover = d.entries;
         for (const e of d.entries) if (e.info) seedInfo(e, e.info);
         discoverFailed = d.failed;
@@ -193,6 +197,7 @@ export const renderCalendar = (host: HTMLElement): void => {
         renderEntries();
       })
       .catch(() => {
+        if (seq !== loadSeq || !entriesEl.isConnected) return;
         entriesEl.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar a agenda</div>`;
       });
   };
@@ -221,12 +226,15 @@ export const renderCalendar = (host: HTMLElement): void => {
   chips(originsEl, ORIGIN_CHIPS, () => originFilter, (v) => (originFilter = v as OriginFilter));
   chips(wheresEl, WHERE_CHIPS, () => whereFilter, (v) => (whereFilter = v as WhereFilter));
 
-  rangesEl.innerHTML = RANGES.map((r) => `<button class="chip${r === days ? ' active' : ''}" type="button" data-days="${r}">${r} dias</button>`).join('');
+  rangesEl.innerHTML = RANGES.map((r) => `<button class="chip${r === days ? ' active' : ''}" type="button" data-days="${r}" aria-pressed="${r === days}">${r} dias</button>`).join('');
   rangesEl.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-days]');
     if (!btn) return;
     days = Number(btn.dataset.days);
-    for (const c of rangesEl.querySelectorAll('.chip')) c.classList.toggle('active', c === btn);
+    for (const c of rangesEl.querySelectorAll('.chip')) {
+      c.classList.toggle('active', c === btn);
+      c.setAttribute('aria-pressed', String(c === btn));
+    }
     load();
   });
 
