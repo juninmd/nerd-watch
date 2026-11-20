@@ -3,6 +3,7 @@ import { getDb, openDb, resetDbForTests } from '../../src/server/db/database.ts'
 import { streamsForTitle } from '../../src/server/providers/stremio/title-streams.ts';
 import { listAddons } from '../../src/server/repo/stremio-addons.ts';
 import { setAddonFetch } from '../../src/server/providers/stremio/client.ts';
+import { resetAddonStatusCache } from '../../src/server/providers/stremio/status.ts';
 import { stremioRoutes } from '../../src/server/routes/stremio.ts';
 import { setHostResolver } from '../../src/server/subtitles/load.ts';
 
@@ -38,6 +39,7 @@ beforeEach(() => {
   setHostResolver(async () => ['93.184.216.34']);
 });
 afterEach(() => {
+  resetAddonStatusCache();
   setAddonFetch();
   setHostResolver();
   resetDbForTests();
@@ -238,6 +240,8 @@ describe('addon só de streams (sem catálogo, como o Brazuca)', () => {
     const { id } = (await (await stremioRoutes.request('/addons')).json()).addons[0];
     expect(await (await stremioRoutes.request(`/addons/${id}/status`)).json()).toEqual({ ok: true, error: null });
     serve({ [MANIFEST_URL]: () => json({}, 500) });
+    // O status tem cache curto: sem limpar, a resposta boa anterior continuaria valendo.
+    resetAddonStatusCache();
     expect(await (await stremioRoutes.request(`/addons/${id}/status`)).json()).toEqual({ ok: false, error: 'o addon respondeu 500' });
   });
 

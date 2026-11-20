@@ -21,6 +21,8 @@ quadros do Descobrir e busca de legendas. Abrir o addon pelo botão "explorar" c
 
 - A URL é validada: `http(s)`/`stremio://`, termina em `/manifest.json`, sem `usuário:senha@`, sem query, host público (nada de localhost, rede local ou nome sem ponto). O nome resolvido também precisa dar IP público, e cada redirect passa pela mesma checagem.
 - Tempo limite de 10 s e teto de 2 MB por resposta; falhas viram mensagens fixas (400/502/504), sem repassar texto do addon.
+- Fan-out com **teto de 4 addons em voo** por título (ordem preservada no resultado): rajada vira 429 no addon e segura sockets do app local.
+- O "status" de cada addon tem cache curto no servidor (60 s para resposta boa, 10 s para erro) com dedupe em voo: abrir a tela de addons não refaz um manifest por addon a cada visita.
 - O link guardado (`stremio_addons.manifest_url`) pode ter token no caminho: **nunca volta para o cliente** (a API devolve só o domínio), não aparece na lista de fontes de legenda indisponíveis e **não entra no backup**.
 - Tudo que o addon devolve é normalizado: imagens e streams só `http(s)`; `ytId` vira embed `youtube-nocookie`; o resto é descartado. No HTML, tudo passa por `escapeHtml`.
 - Limite de 20 addons instalados.

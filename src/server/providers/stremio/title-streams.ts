@@ -1,9 +1,16 @@
+import { mapLimit } from '../../lib/map-limit.ts';
 import { addonContentId } from '../subtitles/stremio-addon.ts';
 import { tmdbExternalIds } from '../tmdb.ts';
 import type { InstalledAddon } from '../../repo/stremio-addons.ts';
 import type { MediaType } from '../../types.ts';
 import { AddonError } from './client.ts';
 import { type AddonStream, fetchStreams } from './protocol.ts';
+
+/**
+ * Quantos addons são consultados ao mesmo tempo. Um por vez somaria a latência de todos; todos de uma
+ * vez vira rajada (addon grande responde 429 e o app local segura sockets à toa).
+ */
+export const ADDON_CONCURRENCY = 4;
 
 /**
  * `index` é a posição que `POST …/streams/:type/:itemId/:index/open` espera (a mesma da lista
@@ -124,10 +131,10 @@ export const streamsForTitle = async (
   const [ownResult, others] = await Promise.all([
     own && ownAddon && ownServes ? streamsOfAddon(ownAddon, own.type, own.itemId, fetchFn) : Promise.resolve(null),
     contentId
-      ? Promise.all(
-          addons
-            .filter((a) => servesStreams(a, type, contentId) && a.id !== skipId)
-            .map((a) => streamsOfAddon(a, type, contentId, fetchFn)),
+      ? mapLimit(
+          addons.filter((a) => servesStreams(a, type, contentId) && a.id !== skipId),
+          ADDON_CONCURRENCY,
+          (a) => streamsOfAddon(a, type, contentId, fetchFn),
         )
       : Promise.resolve([] as AddonStreamsResult[]),
   ]);
