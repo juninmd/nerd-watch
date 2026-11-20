@@ -195,6 +195,13 @@
   color: var(--text-dim);
 }
 
+/* O aviso é o h1 da tela (leitor de tela e foco de rota), mas visualmente continua texto de estado vazio. */
+.empty-state > .empty-title {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+
 .empty-state .big {
   font-size: 34px;
   margin-bottom: 10px;

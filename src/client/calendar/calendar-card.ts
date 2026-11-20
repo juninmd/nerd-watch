@@ -57,7 +57,7 @@ export const cardHtml = (e: AgendaEntry, info: CalendarInfoDto | null): string =
   const page = info?.pageUrl ? extLink(info.pageUrl, 'Página') : '';
   const synopsis = info?.synopsis ? `<p class="cal-syn">${escapeHtml(info.synopsis)}</p>` : '';
   return `
-  <article class="cal-card" data-origin="${origin}" data-where="${info?.where ?? 'desconhecido'}" data-key="${escapeHtml(entryKey(e))}" data-source="${e.titleSource}" data-source-id="${escapeHtml(e.titleSourceId)}" data-media="${e.mediaType}" data-date="${e.date}"${info ? '' : ' data-needs-info="1"'} tabindex="0" role="button" aria-label="${escapeHtml(e.titleName)}: ver detalhes">
+  <article class="cal-card" data-origin="${origin}" data-where="${info?.where ?? 'desconhecido'}" data-key="${escapeHtml(entryKey(e))}" data-source="${e.titleSource}" data-source-id="${escapeHtml(e.titleSourceId)}" data-media="${e.mediaType}" data-date="${e.date}"${info ? '' : ' data-needs-info="1"'}>
     <div class="cal-poster">${poster}</div>
     <div class="cal-body">
       <div class="cal-badges">
@@ -66,7 +66,7 @@ export const cardHtml = (e: AgendaEntry, info: CalendarInfoDto | null): string =
         ${ratingBadge(info?.rating ?? null)}
         ${countdownBadge(e.date)}
       </div>
-      <h3 class="cal-title">${escapeHtml(e.titleName)}</h3>
+      <h3 class="cal-title"><button class="cal-title-btn" type="button" data-act="detail" aria-label="${escapeHtml(e.titleName)}: ver detalhes">${escapeHtml(e.titleName)}</button></h3>
       <div class="cal-ep">${escapeHtml(episodeLine(e))}</div>
       ${info?.genres.length ? `<div class="cal-genres">${escapeHtml(info.genres.slice(0, 3).join(' · '))}</div>` : ''}
       ${synopsis}

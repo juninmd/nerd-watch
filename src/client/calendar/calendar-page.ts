@@ -177,9 +177,6 @@ export const renderCalendar = (host: HTMLElement): void => {
   };
   entriesEl.addEventListener('click', onActivate);
   spotEl.addEventListener('click', onActivate);
-  entriesEl.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter' && (ev.target as HTMLElement).classList.contains('cal-card')) onActivate(ev);
-  });
 
   const load = () => {
     entriesEl.innerHTML = `<div class="skeleton" style="height:200px"></div>`;

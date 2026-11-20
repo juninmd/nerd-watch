@@ -56,4 +56,10 @@ describe('agenda: cartão', () => {
     expect(cardHtml(entry(), null)).toContain('data-needs-info');
     expect(cardHtml(entry(), info())).not.toContain('data-needs-info');
   });
+
+  test('o cartão não vira role="button" (há links e botões dentro); o teclado entra pelo botão do título', () => {
+    const html = cardHtml(entry(), info());
+    expect(html).not.toContain('role="button"');
+    expect(html).toContain('<h3 class="cal-title"><button class="cal-title-btn" type="button" data-act="detail"');
+  });
 });

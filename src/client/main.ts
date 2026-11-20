@@ -214,12 +214,12 @@ const focusRouteHeading = (path: string, query: URLSearchParams) => {
 };
 
 const renderNotFound = (host: HTMLElement): void => {
-  host.innerHTML = `<div class="empty-state"><div class="big">${icon("search")}</div>página não encontrada <a href="#/">voltar ao início</a></div>`;
+  host.innerHTML = `<div class="empty-state"><div class="big">${icon("search")}</div><h1 class="empty-title">página não encontrada</h1> <a href="#/">voltar ao início</a></div>`;
 };
 
 /** Chunk da tela não baixou (servidor parado, rede caiu): a tela diz o que houve e oferece tentar de novo. */
 const renderLoadError = (host: HTMLElement): void => {
-  host.innerHTML = `<div class="empty-state"><div class="big">${icon("alert")}</div>não foi possível carregar esta tela <button class="btn btn-ghost btn-sm" type="button" id="route-retry">tentar de novo</button></div>`;
+  host.innerHTML = `<div class="empty-state"><div class="big">${icon("alert")}</div><h1 class="empty-title">não foi possível carregar esta tela</h1> <button class="btn btn-ghost btn-sm" type="button" id="route-retry">tentar de novo</button></div>`;
   host
     .querySelector("#route-retry")
     ?.addEventListener("click", () => window.dispatchEvent(new HashChangeEvent("hashchange")));
