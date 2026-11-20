@@ -62,6 +62,20 @@ describe('downloadPhoto', () => {
     globalThis.fetch = (async () => new Response('x', { status: 404 })) as unknown as typeof fetch;
     expect(await downloadPhoto('https://cdn1.telesco.pe/file/a.png')).toBeNull();
   });
+
+  test('recusa foto acima do limite (por Content-Length ou corpo) e absorve erro de rede', async () => {
+    globalThis.fetch = (async () =>
+      new Response(PNG, { headers: { 'content-length': String(3 * 1024 * 1024) } })) as unknown as typeof fetch;
+    expect(await downloadPhoto('https://cdn1.telesco.pe/file/big-header.png')).toBeNull();
+
+    globalThis.fetch = (async () => new Response(new Uint8Array(2 * 1024 * 1024 + 1))) as unknown as typeof fetch;
+    expect(await downloadPhoto('https://cdn1.telesco.pe/file/big-body.png')).toBeNull();
+
+    globalThis.fetch = (async () => {
+      throw new TypeError('network down');
+    }) as unknown as typeof fetch;
+    expect(await downloadPhoto('https://cdn1.telesco.pe/file/err.png')).toBeNull();
+  });
 });
 
 describe('saveThumb / readThumb', () => {
