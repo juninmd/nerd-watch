@@ -83,6 +83,7 @@ export { errorBody as sourceErrorBody };
 /** Repassa o corpo e os cabeçalhos de mídia de uma resposta remota (os segredos ficam no servidor). */
 export const relayMedia = (upstream: Response, notFoundMessage: string): Response => {
   if (upstream.status !== 200 && upstream.status !== 206 && upstream.status !== 416) {
+    void upstream.body?.cancel().catch(() => undefined);
     const missing = upstream.status === 404;
     return Response.json({ error: missing ? notFoundMessage : `a origem respondeu ${upstream.status}` }, { status: missing ? 404 : 502 });
   }

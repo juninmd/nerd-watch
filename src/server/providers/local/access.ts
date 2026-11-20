@@ -3,7 +3,7 @@ import path from 'node:path';
 import { isSafeRelativePath } from '../sources/paths.ts';
 import { VIDEO_EXT } from '../sources/service.ts';
 import { SourceError } from '../sources/types.ts';
-import { folderOfHandle, insideAnyRoot, realRoots } from './roots.ts';
+import { folderOfHandle, insideAnyRoot, isInside, realRoots } from './roots.ts';
 
 const NOT_FOUND = 'vídeo não encontrado nessa pasta';
 
@@ -27,7 +27,7 @@ export const locateVideo = async (handle: string, fileRef: string): Promise<stri
   const folder = await realFolder(handle).catch(() => null);
   if (!folder || !isSafeLocalRelative(fileRef) || !VIDEO_EXT.test(fileRef)) throw new SourceError(NOT_FOUND, 404);
   const file = await realpath(path.join(folder, ...fileRef.split('/'))).catch(() => null);
-  if (!file || !insideAnyRoot(await realRoots(), file)) throw new SourceError(NOT_FOUND, 404);
+  if (!file || !isInside(folder, file) || !insideAnyRoot(await realRoots(), file)) throw new SourceError(NOT_FOUND, 404);
   const info = await stat(file).catch(() => null);
   if (!info?.isFile()) throw new SourceError(NOT_FOUND, 404);
   return file;

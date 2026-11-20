@@ -238,5 +238,15 @@ describe('utilitários', () => {
     const broken = relayMedia(new Response('stack trace interno', { status: 500 }), 'x');
     expect(broken.status).toBe(502);
     expect(await broken.text()).not.toContain('stack trace');
+
+    let cancelled = false;
+    const stream = new ReadableStream({
+      cancel() {
+        cancelled = true;
+      },
+    });
+    expect(relayMedia(new Response(stream, { status: 503 }), 'x').status).toBe(502);
+    await Promise.resolve();
+    expect(cancelled).toBe(true);
   });
 });

@@ -129,7 +129,17 @@ export const downloadThumb = async (host: string, thumbnailUrl: string): Promise
   } catch {
     return null;
   }
-  if (url.protocol !== 'https:' || url.hostname !== host || !THUMB_PATH.test(url.pathname) || parseInstanceHost(host) === null) return null;
+  if (
+    url.protocol !== 'https:' ||
+    url.hostname !== host ||
+    url.username ||
+    url.password ||
+    url.port ||
+    !THUMB_PATH.test(url.pathname) ||
+    parseInstanceHost(host) === null
+  ) {
+    return null;
+  }
   const res = await fetchCapped(http.get(), url.href, {}, 10_000, THUMB_MAX_BYTES).catch(() => null);
   return res?.status === 200 && res.bytes && res.bytes.length > 0 ? res.bytes : null;
 };
