@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { paletteKeyLabel, resolveKey } from '../../src/client/app/shortcut-keys.ts';
+import { NAV_ITEMS } from '../../src/client/app/nav-model.ts';
+import { paletteKeyLabel, resolveKey, shortcutHelpRows } from '../../src/client/app/shortcut-keys.ts';
 
 describe('resolveKey', () => {
   test('Ctrl/Cmd+K e "/" abrem a paleta', () => {
@@ -40,5 +41,15 @@ describe('paletteKeyLabel', () => {
     expect(paletteKeyLabel('iPhone')).toBe('⌘K');
     expect(paletteKeyLabel('Win32')).toBe('Ctrl K');
     expect(paletteKeyLabel('Linux x86_64')).toBe('Ctrl K');
+  });
+});
+
+describe('shortcutHelpRows', () => {
+  test('lista todos os atalhos de navegação de NAV_ITEMS e adapta ⌘K no Mac', () => {
+    const macRows = shortcutHelpRows('MacIntel');
+    expect(macRows[0]?.[0]).toContain('⌘K');
+    for (const item of NAV_ITEMS) {
+      expect(macRows).toContainEqual([`g  ${item.key}`, item.label]);
+    }
   });
 });

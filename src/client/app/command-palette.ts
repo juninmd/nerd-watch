@@ -27,6 +27,7 @@ const staticActions = (): PaletteEntry[] => [
   { id: 'go-pd', group: 'Ações', title: 'Explorar o domínio público', keys: 'g p', run: () => navigate('/public-domain') },
   { id: 'go-addons', group: 'Ações', title: 'Gerenciar addons do Stremio', keys: 'g o', run: () => navigate('/addons') },
   { id: 'backup', group: 'Ações', title: 'Exportar ou importar backup', keys: 'g d', run: () => navigate('/data?focus=backup') },
+  { id: 'go-credentials', group: 'Ações', title: 'Gerenciar credenciais', keys: 'g k', run: () => navigate('/credentials') },
   { id: 'go-settings', group: 'Ações', title: 'Ajustes e avisos', keys: 'g j', run: () => navigate('/settings') },
   { id: 'theme', group: 'Ações', title: 'Alternar tema (escuro, claro, sistema)', run: () => setThemePref(nextThemePref(getThemePref())) },
 ];

@@ -1,36 +1,14 @@
 import { openCommandPalette } from './command-palette.ts';
+import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from './router.ts';
-import { resolveKey } from './shortcut-keys.ts';
+import { resolveKey, shortcutHelpRows } from './shortcut-keys.ts';
 import { getThemePref, nextThemePref, setThemePref } from './theme.ts';
-
-const ROWS: Array<[string, string]> = [
-  ['Ctrl K  ou  /', 'paleta de comandos'],
-  ['g  h', 'Início'],
-  ['g  b', 'Biblioteca'],
-  ['g  l', 'Listas'],
-  ['g  a', 'Agenda'],
-  ['g  e', 'Estatísticas'],
-  ['g  s', 'Buscar títulos'],
-  ['g  p', 'Domínio público'],
-  ['g  t', 'Canais e player'],
-  ['g  c', 'Conexões'],
-  ['g  d', 'Importar e backup'],
-  ['g  j', 'Ajustes e avisos'],
-  ['v', 'tema: escuro, claro, sistema'],
-  ['espaço  k', 'player: reproduzir / pausar'],
-  ['j  l', 'player: voltar / avançar 10 s'],
-  ['←  →', 'player: voltar / avançar 5 s'],
-  ['↑  ↓', 'player: volume'],
-  ['0 … 9', 'player: ir para 0% … 90%'],
-  ['m  f  c', 'player: mudo, tela cheia, legendas'],
-  ['&lt;  &gt;', 'player: velocidade menor / maior'],
-  ['n', 'player: próximo vídeo'],
-  ['?', 'esta ajuda'],
-];
 
 export const openShortcutHelp = (): void => {
   if (document.querySelector('dialog.help[open]')) return;
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const rows = shortcutHelpRows(navigator.platform);
   const d = document.createElement('dialog');
   d.className = 'dialog help';
   d.setAttribute('closedby', 'any');
@@ -38,9 +16,12 @@ export const openShortcutHelp = (): void => {
   d.innerHTML = `
     <form method="dialog" class="dialog-head"><h2 id="help-title">${icon('keyboard')} Atalhos de teclado</h2>
       <button class="btn btn-ghost btn-sm" aria-label="fechar">${icon('x', 'sm')}</button></form>
-    <dl class="help-list">${ROWS.map(([k, v]) => `<div><dt><kbd>${k}</kbd></dt><dd>${v}</dd></div>`).join('')}</dl>`;
+    <dl class="help-list">${rows.map(([k, v]) => `<div><dt><kbd>${escapeHtml(k)}</kbd></dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl>`;
   document.body.appendChild(d);
-  d.addEventListener('close', () => d.remove());
+  d.addEventListener('close', () => {
+    d.remove();
+    if (opener?.isConnected) opener.focus();
+  });
   d.addEventListener('click', (e) => {
     if (e.target === d) d.close();
   });
