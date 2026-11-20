@@ -61,6 +61,17 @@ URL de arquivo. O app toca isso no mesmo motor P2P do Internet Archive:
   sair da tela fecha o torrent, nada fica semeando;
 - o texto do título/trackers vem de terceiros: passa por `cleanName`, `safeTrackers` e `escapeHtml`.
 
+### Texto e vídeos de aviso
+
+- Título, sinopse e nome de catálogo passam por `decodeEntities` antes de ir para o banco: o addon de
+  torrent devolve `Can&#039;t` cru, e a interface escaparia a entidade de novo mostrando `&#039;` na tela.
+  Entidade desconhecida e código fora do Unicode ficam como vieram; caractere de controle é removido.
+- Addon de torrent responde `200` com um **vídeo de aviso** quando o token do debrid é inválido, o
+  cache do provedor encheu ou o download está em andamento (`/videos/failed_access_v3.mp4`,
+  `/videos/limits_exceeded_v2.mp4`, `name: "Torrentio\nTB error"`). Isso vira `kind: "error"`, com
+  `url: null`: o cartão mostra o aviso e **não** oferece play — antes o usuário abria o cartaz de erro
+  achando que era o filme. A detecção olha só o caminho do vídeo, não o título.
+
 ### Legendas que o addon publica (`stream.subtitles`)
 
 Addon de torrent costuma oferecer a legenda dublada/legendada junto do stream. Agora o app usa:

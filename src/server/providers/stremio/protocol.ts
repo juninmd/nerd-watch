@@ -3,6 +3,8 @@ import { ValidationError } from '../../lib/validation-error.ts';
 import { isFetchableSubtitleUrl } from '../../subtitles/url-guard.ts';
 import { addonTorrentRef } from '../../torrent/addon-torrent.ts';
 import { getAddonJson } from './client.ts';
+import { isNoticeVideo } from './notice-video.ts';
+import { decodeEntities } from './text.ts';
 
 /**
  * Protocolo de addons do Stremio (https://stremio-addons.net/): `manifest.json` e os recursos
@@ -36,6 +38,8 @@ export interface AddonManifest {
 
 const obj = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 const str = (v: unknown, max = 500): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+/** Texto exibido: decodifica entidades que o addon manda cruas (`Can&#039;t`) antes de guardar. */
+const text = (v: unknown, max = 500): string => decodeEntities(str(v, max));
 const list = (v: unknown, max = 100): unknown[] => (Array.isArray(v) ? v.slice(0, max) : []);
 
 /** URL de imagem/stream só se for http(s) pública, sem credenciais nem controle: evita XSS e requisições do browser para a LAN/loopback. */
@@ -71,7 +75,7 @@ const catalogFlags = (cat: Record<string, unknown>) => {
 export const parseManifest = (raw: unknown): AddonManifest => {
   const m = obj(raw);
   const id = str(m.id, 200);
-  const name = str(m.name, 120);
+  const name = text(m.name, 120);
   if (!id || !name || !Array.isArray(m.resources)) throw new ValidationError('o link não é um manifest de addon do Stremio válido');
   const catalogs = list(m.catalogs, 50).map((c): AddonCatalog | null => {
     const cat = obj(c);
@@ -81,7 +85,7 @@ export const parseManifest = (raw: unknown): AddonManifest => {
     return {
       type,
       id: catId,
-      name: str(cat.name, 120) || catId,
+      name: text(cat.name, 120) || catId,
       ...catalogFlags(cat),
     };
   });
@@ -89,7 +93,7 @@ export const parseManifest = (raw: unknown): AddonManifest => {
     id,
     name,
     version: str(m.version, 40),
-    description: str(m.description, 500),
+    description: text(m.description, 500),
     logo: safeHttpUrl(m.logo),
     types: list(m.types, 20).map((t) => str(t, 40)).filter(Boolean),
     resources: [...new Set(list(m.resources, 20).map(resourceName).filter(Boolean))],
@@ -117,7 +121,7 @@ export interface MetaPreview {
 const previewOf = (raw: unknown, fallbackType: string): MetaPreview | null => {
   const m = obj(raw);
   const id = str(m.id, 300);
-  const name = str(m.name, 200);
+  const name = text(m.name, 200);
   if (!id || !name) return null;
   return {
     id,
@@ -207,7 +211,7 @@ export const fetchMeta = async (baseUrl: string, type: string, id: string): Prom
   return {
     ...base,
     background: safeHttpUrl(raw.background),
-    description: str(raw.description, 4000),
+    description: text(raw.description, 4000),
     runtime: str(raw.runtime, 40),
     genres: list(raw.genres, 10).map((g) => str(g, 40)).filter(Boolean),
     trailerKey: trailerKeyOf(raw),
@@ -216,7 +220,7 @@ export const fetchMeta = async (baseUrl: string, type: string, id: string): Prom
         const video = obj(v);
         const vid = str(video.id, 300);
         if (!vid) return null;
-        return { id: vid, title: str(video.title ?? video.name, 200) || vid, season: intOrNull(video.season), episode: intOrNull(video.episode ?? video.number) };
+        return { id: vid, title: text(video.title ?? video.name, 200) || vid, season: intOrNull(video.season), episode: intOrNull(video.episode ?? video.number) };
       })
       .filter((v): v is MetaVideo => v !== null),
   };
@@ -224,9 +228,11 @@ export const fetchMeta = async (baseUrl: string, type: string, id: string): Prom
 
 /**
  * `url`: arquivo http(s) que o navegador toca; `youtube`: embed; `external`: link para abrir fora;
- * `torrent`: `infoHash` (+ trackers) — toca no engine P2P local, igual a um magnet colado pelo usuário.
+ * `torrent`: `infoHash` (+ trackers) — toca no engine P2P local, igual a um magnet colado pelo usuário;
+ * `error`: o addon devolveu um vídeo de aviso (token de debrid inválido, cache cheio, download em
+ * andamento) — não é conteúdo e a interface mostra o texto em vez de um botão de play.
  */
-export type StreamKind = 'url' | 'youtube' | 'external' | 'torrent';
+export type StreamKind = 'url' | 'youtube' | 'external' | 'torrent' | 'error';
 
 export interface AddonStream {
   kind: StreamKind;
@@ -310,8 +316,8 @@ export const fetchStreams = async (baseUrl: string, type: string, id: string): P
   const out: AddonStream[] = [];
   for (const raw of list(data.streams, 100)) {
     const s = obj(raw);
-    const name = str(s.name, 120);
-    const description = str(s.description ?? s.title, 800);
+    const name = text(s.name, 120);
+    const description = text(s.description ?? s.title, 800);
     const title = [name.replace(/\s+/g, ' '), description.replace(/\s+/g, ' ').slice(0, 300)].filter(Boolean).join(' · ') || 'stream';
     const url = safeHttpUrl(s.url);
     const external = safeHttpUrl(s.externalUrl);
@@ -340,7 +346,9 @@ export const fetchStreams = async (baseUrl: string, type: string, id: string): P
           trackers: torrent.trackers,
         }
       : { ...noTorrent(), filename };
-    if (url) out.push({ kind: 'url', url, ...noTorrent(), filename, ...common });
+    // Vídeo de aviso do addon (`/videos/failed_*`): vira `error`, sem URL — não é conteúdo para tocar.
+    const notice = url !== null && isNoticeVideo(url);
+    if (url) out.push({ kind: notice ? 'error' : 'url', url: notice ? null : url, ...noTorrent(), filename, ...common });
     else if (yt) out.push({ kind: 'youtube', url: `https://www.youtube-nocookie.com/embed/${yt}`, ...noTorrent(), ...common });
     else if (external) out.push({ kind: 'external', url: external, ...noTorrent(), filename, ...common });
     else if (torrent) out.push({ kind: 'torrent', url: null, ...torrentFields, ...common });

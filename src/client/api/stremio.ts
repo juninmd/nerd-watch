@@ -61,7 +61,7 @@ export interface AddonMetaDto extends AddonItemDto {
 }
 
 export interface AddonStreamDto {
-  kind: 'url' | 'youtube' | 'external' | 'torrent';
+  kind: 'url' | 'youtube' | 'external' | 'torrent' | 'error';
   title: string;
   name?: string;
   description?: string;

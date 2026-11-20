@@ -29,12 +29,15 @@ export const streamCardHtml = (s: AddonStreamDto, action: StreamCardAction): str
     ? `<div class="stream-meta">${details.meta.map((m) => `<span>${escapeHtml(m)}</span>`).join('')}</div>`
     : '';
 
+  // `error`: o addon devolveu um vídeo de aviso (token/cache). Não há o que tocar: mostra só o texto.
   const actionHtml =
-    s.kind === 'external'
-      ? `<a class="btn btn-ghost btn-sm stream-action" href="${escapeHtml(s.url ?? '')}" target="_blank" rel="noopener noreferrer">${icon('forward', 'sm')} Abrir fora</a>`
-      : `<button type="button" class="btn btn-primary btn-sm stream-action" ${action.buttonAttrs}>${icon(s.kind === 'torrent' ? 'download' : 'play', 'sm')} ${s.kind === 'torrent' ? 'Assistir P2P' : 'Assistir'}</button>`;
+    s.kind === 'error'
+      ? `<span class="stream-badge stream-badge-warn">${icon('alert', 'sm')} aviso do addon</span>`
+      : s.kind === 'external'
+        ? `<a class="btn btn-ghost btn-sm stream-action" href="${escapeHtml(s.url ?? '')}" target="_blank" rel="noopener noreferrer">${icon('forward', 'sm')} Abrir fora</a>`
+        : `<button type="button" class="btn btn-primary btn-sm stream-action" ${action.buttonAttrs}>${icon(s.kind === 'torrent' ? 'download' : 'play', 'sm')} ${s.kind === 'torrent' ? 'Assistir P2P' : 'Assistir'}</button>`;
 
-  return `<li class="stream-card${s.kind === 'torrent' ? ' stream-torrent' : ''}">
+  return `<li class="stream-card${s.kind === 'torrent' ? ' stream-torrent' : ''}${s.kind === 'error' ? ' stream-notice' : ''}">
     <div class="stream-card-head">
       <strong class="stream-card-title">${escapeHtml(details.heading)}</strong>
       ${actionHtml}

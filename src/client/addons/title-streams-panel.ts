@@ -81,6 +81,8 @@ export const mountStreams = (container: HTMLElement, dto: TitleStreamsDto, view:
   const playUrl = (g: Group, s: Stream) => {
     stopIfOnPage();
     resetPlayer();
+    // Aviso do addon (token/cache/limite): não é conteúdo, o cartão só mostra o texto.
+    if (s.kind === 'error') return;
     if (s.kind === 'youtube' && s.url) {
       playerHost.innerHTML = `<div class="player-frame">${embedFrameHtml(s.url, view.title)}</div>`;
       currentEmbed = playerHost.firstElementChild as HTMLElement | null;
