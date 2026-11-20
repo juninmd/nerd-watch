@@ -27,7 +27,7 @@ O cliente só fala com o servidor por `/api/*`. O servidor é o único que fala 
 | Pasta | O que tem |
 |---|---|
 | `main.ts` | Monta a casca (menu, barra superior, player fixo) e despacha a rota. Não conhece nenhuma tela. |
-| `app/` | Roteador de hash, **tabela de rotas** (`routes.ts`), títulos de rota, memória de rolagem, atalhos, paleta `Ctrl K`, estado global pequeno (spoilers, toast). |
+| `app/` | Roteador de hash, **tabela de rotas** (`routes.ts`), títulos de rota, memória de rolagem, atalhos, paleta `Ctrl K`, estado global pequeno (toast). |
 | `api/` | Cliente HTTP, um arquivo por domínio (`library.ts`, `telegram.ts`, `stats.ts`, ...). `index.ts` só reexporta. Os tipos `...Dto` espelham as respostas das rotas. |
 | `ui/` | Peças sem regra de negócio: card, carrossel, ícones, efeitos (confete, tilt, transição de tela), formatação de data. |
 | `home/`, `library/`, `lists/`, `catalog/`, `calendar/`, `stats/`, `channels/`, `connections/`, `player/` | A feature inteira: a tela (`*-page.ts`), suas peças e a lógica pura dela. |

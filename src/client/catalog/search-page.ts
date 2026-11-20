@@ -1,4 +1,5 @@
-import { addToLibrary, searchTvmazePeople, type CatalogSource, search, type SearchResultDto } from '../api/index.ts';
+import { addToLibrary, searchTvmazePeople, type AddonSearchHitDto, type CatalogSource, search, type SearchResultDto } from '../api/index.ts';
+import { addonItemPath } from '../addons/addon-links.ts';
 import { escapeHtml, initials, paintPoster } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from '../app/router.ts';
@@ -29,10 +30,23 @@ const resultCard = (r: SearchResultDto): string => `
   </div>
 `;
 
+const addonCard = (r: AddonSearchHitDto): string => `
+  <a class="card" href="#${addonItemPath(r.addonId, r.type, r.id)}" aria-label="${escapeHtml(r.name)}" data-addon-card>
+    <div class="poster${r.poster ? '' : ' placeholder'}"${r.poster ? ` data-poster="${escapeHtml(r.poster)}"` : ''}>
+      ${r.poster ? '' : `<span class="initials">${escapeHtml(initials(r.name))}</span>`}
+      <span class="badge badge-corner badge-want">${escapeHtml(r.addonName)}</span>
+    </div>
+    <div class="meta">
+      <div class="title">${escapeHtml(r.name)}</div>
+      <div class="sub">${escapeHtml(r.year ?? '')}</div>
+    </div>
+  </a>
+`;
+
 export const renderSearch = (host: HTMLElement, query: string): void => {
   host.innerHTML = `
     <h1 class="view-title">Buscar</h1>
-    <p class="view-subtitle">Filmes, séries e novelas na TMDB, séries na TVmaze, anime no AniList e o acervo de domínio público do Internet Archive.</p>
+    <p class="view-subtitle">Filmes, séries e novelas na TMDB, séries na TVmaze, anime no AniList, o acervo de domínio público do Internet Archive e os catálogos dos seus addons Stremio.</p>
     <form id="search-form" class="chip-row form-row">
       <input type="search" name="q" class="input input-pill grow" placeholder="Nome do filme, série ou novela" autocomplete="off" aria-label="Buscar no catálogo" value="${escapeHtml(query)}" />
       <button class="btn btn-primary btn-sm" type="submit">buscar</button>
@@ -68,16 +82,19 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
 
   search(query)
     .then((data) => {
-      if (data.results.length === 0) {
+      const addonHits = data.addonResults ?? [];
+      if (data.results.length === 0 && addonHits.length === 0) {
         results.innerHTML = `<div class="empty-state"><div class="big" aria-hidden="true">${icon('search')}</div>nada encontrado para "${escapeHtml(query)}"<p class="hint">confira a grafia ou tente o nome original do título</p></div>`;
         return;
       }
       // Filtro por tipo no cliente (padrão de "Descobrir" de apps de streaming): sem nova chamada à API.
       let kind: SearchKind = 'all';
-      const counts = countByKind(data.results);
+      const counts = countByKind(data.results, addonHits.length);
       const paint = () => {
         const shown = filterByKind(data.results, kind);
-        results.innerHTML = `<div class="grid">${shown.map(resultCard).join('')}</div>`;
+        const addonShown = kind === 'all' || kind === 'addon' ? addonHits : [];
+        results.innerHTML = `<div class="grid">${shown.map(resultCard).join('')}${addonShown.map(addonCard).join('')}</div>`;
+        for (const poster of results.querySelectorAll<HTMLElement>('[data-addon-card] .poster[data-poster]')) paintPoster(poster, poster.dataset.poster ?? '', '');
         wire();
       };
       kindsEl.hidden = false;
@@ -95,7 +112,7 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
         paint();
       });
       const wire = () => {
-      for (const el of results.querySelectorAll<HTMLElement>('.card')) {
+      for (const el of results.querySelectorAll<HTMLElement>('.card:not([data-addon-card])')) {
         const source = el.dataset.source as CatalogSource;
         const mediaType = el.dataset.media as 'movie' | 'tv';
         const id = el.dataset.id as string;

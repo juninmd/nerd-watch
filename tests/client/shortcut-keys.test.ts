@@ -27,9 +27,9 @@ describe('resolveKey', () => {
     expect(resolveKey('v', true)).toEqual({ kind: 'none' });
   });
 
-  test('"s" alterna spoilers (e depois do "g" vai à busca); "?" abre a ajuda', () => {
-    expect(resolveKey('s', false)).toEqual({ kind: 'spoilers' });
+  test('"?" abre a ajuda; "s" sozinho não faz nada (e depois do "g" vai à busca)', () => {
     expect(resolveKey('?', false)).toEqual({ kind: 'help' });
+    expect(resolveKey('s', false)).toEqual({ kind: 'none' });
     expect(resolveKey('s', true)).toEqual({ kind: 'go', path: '/search' });
   });
 });

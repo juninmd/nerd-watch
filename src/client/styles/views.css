@@ -480,3 +480,23 @@
     margin-left: 0;
   }
 }
+
+.episode-row .ep-title {
+  all: unset;
+  cursor: pointer;
+  font-weight: inherit;
+  border-radius: var(--radius-sm);
+}
+
+.episode-row .ep-title:hover {
+  text-decoration: underline;
+}
+
+.episode-row .ep-title:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+.episode-row .ep-streams {
+  margin-top: 10px;
+}

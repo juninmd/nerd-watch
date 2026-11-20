@@ -1,9 +1,12 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { openDb, resetDbForTests } from '../../src/server/db/database.ts';
 import { searchRoutes } from '../../src/server/routes/search.ts';
 
 const originalFetch = globalThis.fetch;
 
+beforeEach(() => resetDbForTests(openDb(':memory:')));
 afterEach(() => {
+  resetDbForTests();
   globalThis.fetch = originalFetch;
 });
 
@@ -26,5 +29,6 @@ describe('GET /api/search', () => {
     expect(body.tmdbEnabled).toBe(false);
     expect(body.results).toHaveLength(1);
     expect(body.results[0].source).toBe('archive');
+    expect(body.addonResults).toEqual([]);
   });
 });

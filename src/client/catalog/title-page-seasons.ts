@@ -1,3 +1,4 @@
+import { overviewEl } from '../ui/overview.ts';
 import {
   getTmdbSeason,
   markProgressThrough,
@@ -9,8 +10,8 @@ import {
 } from '../api/index.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
-import { renderSpoilerText } from '../ui/spoiler.ts';
 import { isEpisodeWatched } from '../library/episode-progress.ts';
+import { wireEpisodeStreams } from '../addons/episode-streams.ts';
 import { showToast } from '../app/state.ts';
 
 const dateLabel = (iso: string | null): string => {
@@ -98,16 +99,18 @@ export const renderSeasons = (
             <div class="still"${ep.stillUrl ? ` style="background-image:url('${ep.stillUrl}')"` : ''}></div>
             <div class="body">
               <div class="head">
-                <span class="name">${ep.episodeNumber}. ${escapeHtml(ep.name)}${watched ? ' <span class="seen">visto</span>' : ''}</span>
+                <span class="name"><button type="button" class="ep-title" aria-expanded="false">${ep.episodeNumber}. ${escapeHtml(ep.name)}</button>${watched ? ' <span class="seen">visto</span>' : ''}</span>
                 <span class="date">${dateLabel(ep.airDate)}</span>
               </div>
               <div class="overview-slot"></div>
+              <div class="ep-streams" hidden></div>
               <button class="btn btn-ghost btn-sm mark-current" style="margin-top:10px" type="button">
                 ${isCurrent ? '✓ é onde você parou' : watched ? '↩ voltar o marcador para cá' : '📍 marcar até aqui'}
               </button>
             </div>
           `;
-          row.querySelector('.overview-slot')?.appendChild(renderSpoilerText(ep.overview || 'Sem sinopse.', 'overview'));
+          row.querySelector('.overview-slot')?.append(overviewEl(ep.overview));
+          wireEpisodeStreams(row, () => ({ tmdbId: Number(tmdbId), mediaType: 'tv', season: requestedSeason, episode: ep.episodeNumber }));
           if (!isCurrent) {
             row.querySelector<HTMLButtonElement>('.mark-current')?.addEventListener('click', (e) => {
               const btn = e.currentTarget as HTMLButtonElement;

@@ -19,6 +19,8 @@ import { MagnetError } from '../torrent/magnet.ts';
 
 export const stremioRoutes = new Hono();
 
+const IMDB_ID_RE = /^tt\d{5,10}$/;
+
 /** O manifest URL pode ter token no caminho: o cliente só recebe o domínio. */
 const toDto = (a: InstalledAddon) => ({
   id: a.id,
@@ -76,15 +78,18 @@ stremioRoutes.get('/addons/:id/status', (c) =>
 /** Streams de todos os addons para um título do TMDB (ex.: Brazuca, que não tem catálogo). */
 stremioRoutes.get('/streams', (c) =>
   guardInput(c, async () => {
-    const tmdbId = Number(c.req.query('tmdbId'));
     const mediaType = c.req.query('mediaType');
-    if (!Number.isInteger(tmdbId) || tmdbId <= 0 || (mediaType !== 'movie' && mediaType !== 'tv')) throw new ValidationError('informe tmdbId e mediaType (movie|tv)');
+    const imdbRaw = c.req.query('imdbId');
+    if (imdbRaw !== undefined && !IMDB_ID_RE.test(imdbRaw)) throw new ValidationError('imdbId inválido');
+    const tmdbId = Number(c.req.query('tmdbId'));
+    const hasTmdb = Number.isInteger(tmdbId) && tmdbId > 0;
+    if ((!hasTmdb && imdbRaw === undefined) || (mediaType !== 'movie' && mediaType !== 'tv')) throw new ValidationError('informe tmdbId ou imdbId e mediaType (movie|tv)');
     const num = (k: string): number | null => {
       const v = c.req.query(k);
       return v && /^\d{1,4}$/.test(v) ? Number(v) : null;
     };
     const addons = listAddons(await getDb());
-    return c.json(await streamsForTitle(addons, { mediaType, tmdbId, season: num('season'), episode: num('episode') }));
+    return c.json(await streamsForTitle(addons, { mediaType, tmdbId: hasTmdb ? tmdbId : undefined, imdbId: imdbRaw, season: num('season'), episode: num('episode') }));
   }),
 );
 

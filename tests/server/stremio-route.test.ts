@@ -228,5 +228,17 @@ describe('addon só de streams (sem catálogo, como o Brazuca)', () => {
   test('/streams valida parâmetros', async () => {
     expect((await stremioRoutes.request('/streams?tmdbId=x&mediaType=movie')).status).toBe(400);
     expect((await stremioRoutes.request('/streams?tmdbId=1&mediaType=anime')).status).toBe(400);
+    expect((await stremioRoutes.request('/streams?mediaType=movie')).status).toBe(400);
+    expect((await stremioRoutes.request('/streams?imdbId=../x&mediaType=movie')).status).toBe(400);
+  });
+
+  test('com imdbId (ex.: série da TVmaze) não consulta o TMDB e usa o id de episódio tt:T:E', async () => {
+    const addons = await setup();
+    calls = [];
+    const out = await streamsForTitle(addons, { mediaType: 'tv', imdbId: 'tt1234567', season: 2, episode: 3 }, async () => {
+      throw new Error('não deveria resolver pelo TMDB');
+    });
+    expect(out.imdbId).toBe('tt1234567');
+    expect(calls.some((u) => u.includes('/stream/series/tt1234567%3A2%3A3.json'))).toBe(true);
   });
 });

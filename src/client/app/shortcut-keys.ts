@@ -9,7 +9,6 @@ export const paletteKeyLabel = (platform: string): string => (/mac|iphone|ipad|i
 export type KeyOutcome =
   | { kind: 'palette' }
   | { kind: 'help' }
-  | { kind: 'spoilers' }
   | { kind: 'theme' }
   | { kind: 'go'; path: string }
   | { kind: 'pending' }
@@ -30,8 +29,6 @@ export const resolveKey = (key: string, gPending: boolean, ctrlOrMeta = false): 
       return { kind: 'palette' };
     case '?':
       return { kind: 'help' };
-    case 's':
-      return { kind: 'spoilers' };
     case 'v':
       return { kind: 'theme' };
     case 'g':

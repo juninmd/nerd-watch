@@ -15,7 +15,6 @@ import { NAV_GROUPS, isNavActive, readNavCompact, writeNavCompact } from './app/
 import { getThemePref, installTheme, nextThemePref, onThemeChange, setThemePref, THEME_LABEL } from './app/theme.ts';
 import { logout } from './app/logout.ts';
 import { health } from './api/index.ts';
-import { getShowSpoilers, onSpoilerChange, setShowSpoilers } from './app/state.ts';
 import { withLoginRedirect } from './app/auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
 import { installDesktopBridge } from './platform/tauri.ts';
@@ -54,7 +53,6 @@ app.innerHTML = `
         <button class="cmd" id="cmd-open" type="button" aria-haspopup="dialog">
           ${icon("search")}<span class="cmd-text">Buscar títulos, canais e ações…</span><kbd>${paletteKeyLabel(navigator.platform)}</kbd>
         </button>
-        <button class="pill" id="spoiler-toggle" type="button"></button>
         <a class="pill" id="conn-pill" href="#/connections"></a>
       </header>
       <main id="view" tabindex="-1"></main>
@@ -66,7 +64,6 @@ app.innerHTML = `
 
 const navEl = document.getElementById("nav") as HTMLElement;
 const viewEl = document.getElementById("view") as HTMLElement;
-const spoilerBtn = document.getElementById("spoiler-toggle") as HTMLButtonElement;
 const connPill = document.getElementById("conn-pill") as HTMLAnchorElement;
 
 const sidebarEl = document.getElementById('sidebar') as HTMLElement;
@@ -149,19 +146,6 @@ void health()
     logoutBtn.hidden = !h.accessEnabled;
   })
   .catch(() => undefined);
-
-const renderSpoilerButton = () => {
-  const on = getShowSpoilers();
-  // O nome acessível é fixo e o estado vai no aria-pressed: leitores de tela não anunciam "Spoilers visíveis, pressionado".
-  spoilerBtn.setAttribute("aria-pressed", String(on));
-  spoilerBtn.setAttribute("aria-label", "Mostrar spoilers");
-  const label = on ? "Spoilers visíveis" : "Spoilers ocultos";
-  spoilerBtn.innerHTML = `${icon(on ? "eye" : "eyeOff", "sm")}<span class="pill-label">${label}</span>`;
-};
-
-spoilerBtn.addEventListener("click", () => setShowSpoilers(!getShowSpoilers()));
-onSpoilerChange(renderSpoilerButton);
-renderSpoilerButton();
 
 /** Status do Telegram na barra superior. Leitura barata (sem falar com o Telegram); a verificação real fica em Conexões. */
 const renderConnectionPill = (

@@ -2,7 +2,6 @@ import { openCommandPalette } from './command-palette.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from './router.ts';
 import { resolveKey } from './shortcut-keys.ts';
-import { getShowSpoilers, setShowSpoilers } from './state.ts';
 import { getThemePref, nextThemePref, setThemePref } from './theme.ts';
 
 const ROWS: Array<[string, string]> = [
@@ -19,7 +18,6 @@ const ROWS: Array<[string, string]> = [
   ['g  d', 'Importar e backup'],
   ['g  j', 'Ajustes e avisos'],
   ['v', 'tema: escuro, claro, sistema'],
-  ['s', 'alternar spoilers'],
   ['espaço  k', 'player: reproduzir / pausar'],
   ['j  l', 'player: voltar / avançar 10 s'],
   ['←  →', 'player: voltar / avançar 5 s'],
@@ -73,8 +71,7 @@ export const installShortcuts = (): void => {
     if (out.kind === 'help') {
       e.preventDefault();
       openShortcutHelp();
-    } else if (out.kind === 'spoilers') setShowSpoilers(!getShowSpoilers());
-    else if (out.kind === 'theme') setThemePref(nextThemePref(getThemePref()));
+    } else if (out.kind === 'theme') setThemePref(nextThemePref(getThemePref()));
     else if (out.kind === 'go') navigate(out.path);
     else if (out.kind === 'pending') {
       gPending = true;

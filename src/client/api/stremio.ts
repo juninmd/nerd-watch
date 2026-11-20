@@ -95,8 +95,19 @@ export interface TitleStreamsDto {
   addons: Array<{ addonId: string; name: string; host: string; streams: AddonStreamDto[]; error: string | null }>;
 }
 
-export const getTitleStreams = (opts: { tmdbId: number; mediaType: 'movie' | 'tv'; season?: number | null; episode?: number | null }): Promise<TitleStreamsDto> => {
-  const q = new URLSearchParams({ tmdbId: String(opts.tmdbId), mediaType: opts.mediaType });
+export interface TitleStreamsQuery {
+  /** Informe `tmdbId` (TMDB) ou `imdbId` (`tt…`, ex.: títulos da TVmaze). */
+  tmdbId?: number;
+  imdbId?: string;
+  mediaType: 'movie' | 'tv';
+  season?: number | null;
+  episode?: number | null;
+}
+
+export const getTitleStreams = (opts: TitleStreamsQuery): Promise<TitleStreamsDto> => {
+  const q = new URLSearchParams({ mediaType: opts.mediaType });
+  if (opts.tmdbId) q.set('tmdbId', String(opts.tmdbId));
+  if (opts.imdbId) q.set('imdbId', opts.imdbId);
   if (opts.season) q.set('season', String(opts.season));
   if (opts.episode) q.set('episode', String(opts.episode));
   return fetch(`/api/stremio/streams?${q}`).then((r) => json<TitleStreamsDto>(r));
