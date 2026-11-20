@@ -56,6 +56,7 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
     timedOut = true;
     abortController?.abort();
   }, CONNECT_TIMEOUT_MS);
+  connectTimeout.unref?.();
 
   const client = new TelegramClient(new StringSession(''), apiId, apiHash, { connectionRetries: 3 });
 
@@ -64,18 +65,20 @@ export const startLogin = (): { ok: true } | { ok: false; error: string } => {
       // client.connect() não aceita abortSignal (teleproto ignora); sem essa corrida, o abort do timeout
       // de conexão só afetava o abortSignal passado pra signInUserWithQrCode mais abaixo — a fase de connect()
       // em si ficava sujeita apenas aos retries/timeouts internos da lib, não ao teto de 30s documentado aqui.
+      let onConnectAbort: (() => void) | undefined;
       const connectAbort = new Promise<never>((_, reject) => {
-        abortController?.signal.addEventListener(
-          'abort',
-          () => {
-            const err = new Error('conexão abortada');
-            err.name = 'AbortError';
-            reject(err);
-          },
-          { once: true },
-        );
+        onConnectAbort = () => {
+          const err = new Error('conexão abortada');
+          err.name = 'AbortError';
+          reject(err);
+        };
+        abortController?.signal.addEventListener('abort', onConnectAbort, { once: true });
       });
-      await Promise.race([client.connect(), connectAbort]);
+      try {
+        await Promise.race([client.connect(), connectAbort]);
+      } finally {
+        if (onConnectAbort) abortController?.signal.removeEventListener('abort', onConnectAbort);
+      }
       await client.signInUserWithQrCode(
         { apiId, apiHash },
         {

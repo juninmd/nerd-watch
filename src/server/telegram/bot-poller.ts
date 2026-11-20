@@ -11,6 +11,19 @@ import { getChannelPostUpdates, telegramBotEnabled, type TgVideoMessage } from '
  */
 let offset = 0;
 let running = false;
+let backoffTimer: ReturnType<typeof setTimeout> | null = null;
+let wakeBackoff: (() => void) | null = null;
+
+const sleepBackoff = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    wakeBackoff = resolve;
+    backoffTimer = setTimeout(() => {
+      backoffTimer = null;
+      wakeBackoff = null;
+      resolve();
+    }, ms);
+    backoffTimer.unref?.();
+  });
 
 const storePost = (db: Database, post: TgVideoMessage): void => {
   const handle = post.chat.username;
@@ -30,18 +43,22 @@ const storePost = (db: Database, post: TgVideoMessage): void => {
 };
 
 const loop = async (): Promise<void> => {
-  const db = await getDb();
-  while (running) {
-    try {
-      const { nextOffset, posts } = await getChannelPostUpdates(offset);
-      offset = nextOffset;
-      for (const post of posts) storePost(db, post);
-    } catch (err) {
-      // Token revogado, 409 de outro consumidor do getUpdates, falha de rede: sem log isso é um poller
-      // morto e silencioso — canais em modo bot simplesmente param de ganhar vídeos, sem nenhum sinal em lugar nenhum.
-      console.error('[telegram bot-poller] falhou:', err instanceof Error ? err.message : err);
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+  try {
+    const db = await getDb();
+    while (running) {
+      try {
+        const { nextOffset, posts } = await getChannelPostUpdates(offset);
+        offset = nextOffset;
+        for (const post of posts) storePost(db, post);
+      } catch (err) {
+        // Token revogado, 409 de outro consumidor do getUpdates, falha de rede: sem log isso é um poller
+        // morto e silencioso — canais em modo bot simplesmente param de ganhar vídeos, sem nenhum sinal em lugar nenhum.
+        console.error('[telegram bot-poller] falhou:', err instanceof Error ? err.message : err);
+        if (running) await sleepBackoff(5000);
+      }
     }
+  } finally {
+    running = false;
   }
 };
 
@@ -53,4 +70,11 @@ export const startTelegramBotPoller = (): void => {
 
 export const stopTelegramBotPoller = (): void => {
   running = false;
+  if (backoffTimer) {
+    clearTimeout(backoffTimer);
+    backoffTimer = null;
+  }
+  const wake = wakeBackoff;
+  wakeBackoff = null;
+  wake?.();
 };
