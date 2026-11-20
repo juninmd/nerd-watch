@@ -9,11 +9,16 @@ const DAY_MS = 86_400_000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
+const MAX_CACHED_ZONES = 64;
 
 /** `true` se o Intl do ambiente reconhece o fuso (nome IANA, ex.: `America/Sao_Paulo`). */
 export const isValidTimeZone = (tz: string): boolean => {
+  if (!tz) return false;
+  if (formatters.has(tz)) return true;
   try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    const f = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+    if (formatters.size >= MAX_CACHED_ZONES) formatters.clear();
+    formatters.set(tz, f);
     return true;
   } catch {
     return false;
@@ -24,6 +29,7 @@ const formatterFor = (tz: string): Intl.DateTimeFormat => {
   let f = formatters.get(tz);
   if (!f) {
     f = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+    if (formatters.size >= MAX_CACHED_ZONES) formatters.clear();
     formatters.set(tz, f);
   }
   return f;
@@ -48,6 +54,7 @@ const FAST_PATH_END_MS = Date.UTC(2100, 0, 1);
 const dayOffset = (utcDay: number, tz: string): number | null => {
   let byDay = dayOffsets.get(tz);
   if (!byDay) {
+    if (dayOffsets.size >= MAX_CACHED_ZONES) dayOffsets.clear();
     byDay = new Map();
     dayOffsets.set(tz, byDay);
   }
@@ -68,6 +75,7 @@ const clockFormatters = new Map<string, Intl.DateTimeFormat>();
 const wallClockOffset = (ms: number, tz: string): number => {
   let f = clockFormatters.get(tz);
   if (!f) {
+    if (clockFormatters.size >= MAX_CACHED_ZONES) clockFormatters.clear();
     f = new Intl.DateTimeFormat('en-US', {
       timeZone: tz,
       hourCycle: 'h23',
