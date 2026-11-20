@@ -77,14 +77,15 @@ export const renderSourceCard = (host: HTMLElement, initial: SourceDto, onChange
       if (submit) submit.disabled = true;
       saveSourceSettings(source.id, values)
         .then((next) => {
+          if (!host.isConnected) return;
           source = next;
           draw();
           showToast(`${source.title}: configuração salva`);
           onChange?.();
         })
         .catch((err) => {
-          if (submit) submit.disabled = false;
-          showToast(err instanceof Error ? err.message : 'não foi possível salvar');
+          if (submit?.isConnected) submit.disabled = false;
+          if (host.isConnected) showToast(err instanceof Error ? err.message : 'não foi possível salvar');
         });
     });
 
@@ -93,27 +94,34 @@ export const renderSourceCard = (host: HTMLElement, initial: SourceDto, onChange
       btn.disabled = true;
       startSourceOAuth(source.id)
         .then(({ authUrl }) => {
+          if (!host.isConnected) return;
           window.open(authUrl, '_blank', 'noopener');
           host.insertAdjacentHTML('beforeend', '<p class="hint" role="status">Conclua a autorização na aba que abriu — esta tela atualiza sozinha.</p>');
           stopPolling();
           poll(generation, Date.now());
         })
         .catch((err) => {
-          showToast(err instanceof Error ? err.message : 'não foi possível iniciar');
-          btn.disabled = false;
+          if (btn.isConnected) btn.disabled = false;
+          if (host.isConnected) showToast(err instanceof Error ? err.message : 'não foi possível iniciar');
         });
     });
 
-    host.querySelector<HTMLButtonElement>('[data-act="disconnect"]')?.addEventListener('click', () => {
+    host.querySelector<HTMLButtonElement>('[data-act="disconnect"]')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
       if (!confirm(`Desconectar ${source.title}? Os canais já importados continuam na lista, mas não tocam até reconectar.`)) return;
+      btn.disabled = true;
       disconnectSource(source.id)
         .then((next) => {
+          if (!host.isConnected) return;
           source = next;
           draw();
           showToast(`${source.title} desconectado`);
           onChange?.();
         })
-        .catch(() => showToast('não foi possível desconectar'));
+        .catch(() => {
+          if (btn.isConnected) btn.disabled = false;
+          if (host.isConnected) showToast('não foi possível desconectar');
+        });
     });
   };
 

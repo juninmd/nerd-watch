@@ -89,6 +89,7 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
   const sourcesEl = host.querySelector('#conn-sources') as HTMLElement;
   listSources()
     .then((sources) => {
+      if (!sourcesEl.isConnected) return;
       for (const s of sources.filter((x) => !x.ownCard)) {
         const card = document.createElement('section');
         card.className = 'conn-card';
@@ -106,24 +107,24 @@ export const renderConnections = (host: HTMLElement, query: URLSearchParams): vo
         // Vazio (conta não conectada) não pode ocupar uma célula do grid.
         const mountActions = () =>
           void mountTraktActions(actions).then(() => {
-            actions.hidden = actions.childElementCount === 0;
+            if (actions.isConnected) actions.hidden = actions.childElementCount === 0;
           });
         renderSourceCard(card, s, mountActions);
         mountActions();
       }
     })
     .catch(() => {
-      sourcesEl.innerHTML = '<p class="hint">não foi possível listar as fontes de vídeo</p>';
+      if (sourcesEl.isConnected) sourcesEl.innerHTML = '<p class="hint">não foi possível listar as fontes de vídeo</p>';
     });
   renderDriveConnect(host.querySelector('#conn-drive') as HTMLElement);
 
   const statusEl = host.querySelector('#conn-status') as HTMLElement;
   health()
     .then((h) => {
-      statusEl.innerHTML = integrations(h).map(statusCard).join('');
+      if (statusEl.isConnected) statusEl.innerHTML = integrations(h).map(statusCard).join('');
     })
     .catch(() => {
-      statusEl.innerHTML = '<p class="hint">não foi possível consultar o estado do servidor</p>';
+      if (statusEl.isConnected) statusEl.innerHTML = '<p class="hint">não foi possível consultar o estado do servidor</p>';
     });
 
   // Link antigo ("/connections?focus=backup"): backup e importação agora moram em "Importar e backup".
