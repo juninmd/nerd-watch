@@ -64,8 +64,14 @@ const signedGet = async (cfg: S3Config, path: string, query: Array<[string, stri
   const res = await fetchHeaders(doFetch, url, { method: 'GET', redirect: 'manual', headers: { ...extra, ...signed } }, TIMEOUT_MS).catch(() => {
     throw new SourceError('não foi possível falar com o S3 agora', 502);
   });
-  if (res.status >= 300 && res.status < 400) throw new SourceError('o S3 redirecionou; confira o endpoint (use o endereço final)', 502);
-  if (res.status === 401 || res.status === 403) throw new SourceError('o S3 recusou as credenciais (confira a chave, o segredo e a região)', 409);
+  if (res.status >= 300 && res.status < 400) {
+    await res.body?.cancel();
+    throw new SourceError('o S3 redirecionou; confira o endpoint (use o endereço final)', 502);
+  }
+  if (res.status === 401 || res.status === 403) {
+    await res.body?.cancel();
+    throw new SourceError('o S3 recusou as credenciais (confira a chave, o segredo e a região)', 409);
+  }
   return res;
 };
 
@@ -82,8 +88,14 @@ const listPage = async (cfg: S3Config, bucket: string, prefix: string, token: st
   ];
   if (token) query.push(['continuation-token', token]);
   const res = await signedGet(cfg, pathOf(cfg, bucket), query);
-  if (res.status === 404) throw new SourceError('bucket não encontrado no S3 (confira o nome)', 404);
-  if (res.status !== 200) throw new SourceError(`o S3 respondeu ${res.status}`, 502);
+  if (res.status === 404) {
+    await res.body?.cancel();
+    throw new SourceError('bucket não encontrado no S3 (confira o nome)', 404);
+  }
+  if (res.status !== 200) {
+    await res.body?.cancel();
+    throw new SourceError(`o S3 respondeu ${res.status}`, 502);
+  }
   const xml = await readTextLimited(res, MAX_BODY).catch(() => {
     throw new SourceError('resposta do S3 grande demais', 502);
   });
