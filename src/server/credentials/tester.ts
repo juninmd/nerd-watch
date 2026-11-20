@@ -14,7 +14,8 @@ export const setTesterFetchForTests = (f: Fetcher | null): void => {
   doFetch = f ?? ((url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS), redirect: 'error' }));
 };
 
-const byStatus = (res: Response, okMessage: string): TestResult => {
+const byStatus = async (res: Response, okMessage: string): Promise<TestResult> => {
+  await res.body?.cancel().catch(() => undefined);
   if (res.ok) return { ok: true, message: okMessage };
   if (res.status === 401 || res.status === 403 || res.status === 404) return { ok: false, message: 'o serviço recusou a credencial' };
   return { ok: false, message: `o serviço respondeu ${res.status}` };
@@ -43,11 +44,15 @@ export const testCredential = async (key: string, value: string): Promise<TestRe
         // O token vai no caminho da URL: por isso `redirect: 'error'` e nenhuma mensagem de erro do fetch é repassada.
         return byStatus(await doFetch(`https://api.telegram.org/bot${value}/getMe`), 'Telegram respondeu: token válido');
       case 'NOTIFY_DISCORD_WEBHOOK_URL': {
-        // GET no webhook só lê os metadados; não posta mensagem. Só hosts do Discord: o teste não pode virar um GET
-        // do servidor para um endereço qualquer (SSRF).
-        const host = new URL(value).hostname;
-        if (host !== 'discord.com' && host !== 'discordapp.com' && !host.endsWith('.discord.com')) return { ok: false, message: 'só webhooks do discord.com podem ser testados' };
-        return byStatus(await doFetch(value), 'Discord respondeu: webhook válido');
+        // GET no webhook só lê os metadados; não posta mensagem. Só webhooks HTTPS do Discord: o teste não pode virar
+        // um GET do servidor para um endereço qualquer (SSRF) nem enviar o token em HTTP claro.
+        const parsed = new URL(value);
+        const host = parsed.hostname.toLowerCase();
+        const isDiscordHost = host === 'discord.com' || host === 'discordapp.com' || host.endsWith('.discord.com');
+        if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !isDiscordHost || !parsed.pathname.startsWith('/api/webhooks/')) {
+          return { ok: false, message: 'só webhooks HTTPS do discord.com podem ser testados' };
+        }
+        return byStatus(await doFetch(parsed.href), 'Discord respondeu: webhook válido');
       }
       default:
         return { ok: false, message: 'sem teste disponível para esta credencial' };

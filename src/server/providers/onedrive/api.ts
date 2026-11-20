@@ -65,7 +65,10 @@ const serviceError = (status: number, notFound: string): SourceError =>
 /** GET autenticado. Redirect não é seguido (o Bearer não pode viajar para outra origem). */
 const graphJson = async <T>(url: string, notFound: string): Promise<T> => {
   const res = await onedriveOAuth.authedFetch(url, { redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS) });
-  if (!res.ok) throw serviceError(res.status, notFound);
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw serviceError(res.status, notFound);
+  }
   return (await res.json()) as T;
 };
 
