@@ -5,7 +5,8 @@ export interface Cooldown {
   tryAcquire: (key: string) => CooldownResult;
 }
 
-const MAX_ENTRIES = 256;
+/** Teto de títulos guardados: gesto manual e janela curta; o mapa não pode crescer sem limite. */
+export const COOLDOWN_MAX_ENTRIES = 256;
 
 /** Limite por chave (um título) para um gesto manual. Em memória: um restart zera, o que é aceitável para 60 s. */
 export const createCooldown = (windowMs: number, now: () => number = Date.now): Cooldown => {
@@ -19,6 +20,12 @@ export const createCooldown = (windowMs: number, now: () => number = Date.now): 
       }
       for (const [k, at] of lastAt) {
         if (t - at >= windowMs) lastAt.delete(k);
+      }
+      // Antes de inserir, descarta os mais antigos: o mapa fica limitado mesmo com muitos títulos.
+      while (lastAt.size >= COOLDOWN_MAX_ENTRIES) {
+        const oldest = lastAt.keys().next().value;
+        if (oldest === undefined) break;
+        lastAt.delete(oldest);
       }
       lastAt.set(key, t);
       return { ok: true };
