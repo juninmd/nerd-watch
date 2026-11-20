@@ -268,11 +268,17 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
 
 /** Tela de reprodução (estilo YouTube): vídeo grande, dados do canal, próximos vídeos e o próximo canal. */
 export const renderWatch = (host: HTMLElement, channelId: string, messageId: string, query: URLSearchParams = new URLSearchParams()): void => {
-  host.innerHTML = `<div class="skeleton" style="height:420px;border-radius:20px"></div>`;
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = `<div class="skeleton" style="height:420px;border-radius:20px"></div>`;
   const startAt = parseStartTime(query.get('t'));
   Promise.all([getTelegramChannel(channelId), listTelegramChannels().then((r) => r.channels, () => [] as TelegramChannelDto[])])
-    .then(([d, channels]) => render(host, d, channels, messageId, startAt))
+    .then(([d, channels]) => {
+      if (!root.isConnected) return;
+      render(root, d, channels, messageId, startAt);
+    })
     .catch(() => {
-      host.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar este vídeo</div>`;
+      if (!root.isConnected) return;
+      root.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>não foi possível carregar este vídeo</div>`;
     });
 };
