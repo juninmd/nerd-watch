@@ -2,15 +2,28 @@ import { describe, expect, test } from 'bun:test';
 import { createCastRelay, isSafeMediaSrc } from '../../src/server/cast/relay.ts';
 
 describe('cast relay: isSafeMediaSrc', () => {
-  test('aceita rotas internas /api/ e URLs HTTP(S)', () => {
+  test('aceita rotas internas de mídia /api/ e URLs HTTP(S) (inclusive LAN)', () => {
     expect(isSafeMediaSrc('/api/telegram/ch1/items/42/stream')).toBe(true);
+    expect(isSafeMediaSrc('/api/telegram/channels/ch1/items/42/play')).toBe(true);
+    expect(isSafeMediaSrc('/api/telegram/channels/ch1/items/42/thumb')).toBe(true);
+    expect(isSafeMediaSrc('/api/telegram/channels/ch1/photo')).toBe(true);
     expect(isSafeMediaSrc('/api/torrent/abc123/stream?fileIndex=0')).toBe(true);
+    expect(isSafeMediaSrc('/api/torrent/abc123/stream/0')).toBe(true);
+    expect(isSafeMediaSrc('/api/media/ch1/item1/live?start=10')).toBe(true);
+    expect(isSafeMediaSrc('/api/media/ch1/item1/file')).toBe(true);
     expect(isSafeMediaSrc('https://archive.org/download/item/movie.mp4')).toBe(true);
     expect(isSafeMediaSrc('http://192.168.1.99:8096/Videos/1/stream.mp4')).toBe(true);
   });
 
-  test('recusa traversal, esquemas perigosos e caminhos fora de /api/', () => {
+  test('recusa traversal, rotas internas sensíveis, loopback e esquemas perigosos', () => {
     expect(isSafeMediaSrc('/api/../etc/passwd')).toBe(false);
+    expect(isSafeMediaSrc('/api/sources/%2e%2e/backup')).toBe(false);
+    expect(isSafeMediaSrc('/api/backup')).toBe(false);
+    expect(isSafeMediaSrc('/api/credentials')).toBe(false);
+    expect(isSafeMediaSrc('/api/library')).toBe(false);
+    expect(isSafeMediaSrc('http://127.0.0.1:3000/api/backup')).toBe(false);
+    expect(isSafeMediaSrc('http://localhost:3000/api/credentials')).toBe(false);
+    expect(isSafeMediaSrc('http://169.254.169.254/latest/meta-data/')).toBe(false);
     expect(isSafeMediaSrc('//evil.com/video.mp4')).toBe(false);
     expect(isSafeMediaSrc('/etc/passwd')).toBe(false);
     expect(isSafeMediaSrc('file:///C:/video.mp4')).toBe(false);
