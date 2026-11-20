@@ -77,8 +77,14 @@ describe('janela UTC do ano e validação de fuso', () => {
 });
 
 describe('localDate: atalho por deslocamento do dia bate com o Intl', () => {
+  const exactFormatters = new Map<string, Intl.DateTimeFormat>();
   const exact = (at: Date, tz: string): string => {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(at);
+    let f = exactFormatters.get(tz);
+    if (!f) {
+      f = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+      exactFormatters.set(tz, f);
+    }
+    const parts = f.formatToParts(at);
     const pick = (type: string): string => parts.find((p) => p.type === type)?.value ?? '';
     return `${pick('year')}-${pick('month')}-${pick('day')}`;
   };

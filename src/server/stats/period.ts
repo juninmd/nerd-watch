@@ -8,9 +8,8 @@ import {
   ratingSummary,
   type Streak,
   topGenres,
-  weekdayCounts,
 } from './measures.ts';
-import { localDate, monthOfDate, yearOfDate } from './time.ts';
+import { localDate, monthOfDate, weekdayOf, yearOfDate } from './time.ts';
 
 /** Evento do histórico da lista, já lido do banco (instante em UTC, ISO). */
 export interface HistoryEvent {
@@ -85,10 +84,17 @@ interface MonthAcc {
  */
 export const buildPeriod = (input: PeriodInput): PeriodStats => {
   const { year, timeZone, titles } = input;
-  const local = input.events
-    .map((e) => ({ ...e, date: localDate(e.at, timeZone) }))
-    .filter((e) => yearOfDate(e.date) === year)
-    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  const local: Array<HistoryEvent & { date: string }> = [];
+  let sorted = true;
+  let prevAt = '';
+  for (const e of input.events) {
+    const date = localDate(e.at, timeZone);
+    if (yearOfDate(date) !== year) continue;
+    if (sorted && e.at < prevAt) sorted = false;
+    prevAt = e.at;
+    local.push({ ...e, date });
+  }
+  if (!sorted) local.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
   // Revisão aberta por título: o `finished` que a fecha é o fim da revisão, não uma nova conclusão nem uma nova exibição.
   const openRewatch = new Set<string>();
 
@@ -136,11 +142,15 @@ export const buildPeriod = (input: PeriodInput): PeriodStats => {
     } else month.rewatches++;
   }
 
-  const activeDates = local.map((e) => e.date);
-  const weekdays = weekdayCounts(activeDates);
   const perDay = new Map<string, number>();
-  for (const date of activeDates) perDay.set(date, (perDay.get(date) ?? 0) + 1);
+  for (const e of local) perDay.set(e.date, (perDay.get(e.date) ?? 0) + 1);
   const days = [...perDay].map(([date, events]) => ({ date, events })).sort((a, b) => (a.date < b.date ? -1 : 1));
+  // Calcula dia da semana por dia único (no máximo 366) em vez de por evento.
+  const weekdays = [0, 0, 0, 0, 0, 0, 0];
+  for (const d of days) {
+    const day = weekdayOf(d.date);
+    weekdays[day] = (weekdays[day] ?? 0) + d.events;
+  }
 
   return {
     finished: acc.reduce((n, m) => n + m.finished, 0),
@@ -160,6 +170,6 @@ export const buildPeriod = (input: PeriodInput): PeriodStats => {
     weekdays,
     days,
     busiestWeekday: busiestWeekday(weekdays),
-    longestStreak: longestStreak(activeDates),
+    longestStreak: longestStreak(days.map((d) => d.date)),
   };
 };
