@@ -29,11 +29,11 @@ export const servesStreams = (addon: InstalledAddon, type: 'movie' | 'series'): 
  */
 export const streamsForTitle = async (
   addons: InstalledAddon[],
-  opts: { mediaType: MediaType; tmdbId: number; season: number | null; episode: number | null },
+  opts: { mediaType: MediaType; tmdbId?: number; imdbId?: string; season: number | null; episode: number | null },
   resolveImdb: (mediaType: MediaType, tmdbId: number) => Promise<string | null> = tmdbExternalIds,
 ): Promise<TitleStreams> => {
   const type = opts.mediaType === 'tv' ? 'series' : 'movie';
-  const imdbId = await resolveImdb(opts.mediaType, opts.tmdbId).catch(() => null);
+  const imdbId = opts.imdbId ?? (opts.tmdbId ? await resolveImdb(opts.mediaType, opts.tmdbId).catch(() => null) : null);
   if (!imdbId) return { imdbId: null, addons: [] };
   // Série sem progresso salvo: o addon exige `tt:T:E`, então caímos no primeiro episódio.
   const contentId = type === 'series' ? addonContentId(imdbId, opts.season ?? 1, opts.episode ?? 1) : imdbId;

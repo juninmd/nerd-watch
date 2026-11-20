@@ -5,7 +5,7 @@
 **Controle o que você assistiu, está assistindo e quer assistir — filmes, séries e novelas, em streaming ou não.**
 
 App local que junta catálogo (TMDB), domínio público de graça (Internet Archive, com player embutido
-e torrent legal), calendário de lançamentos e progresso "onde parei", com spoilers sob demanda.
+e torrent legal), calendário de lançamentos e progresso "onde parei".
 
 ![Bun](https://img.shields.io/badge/Bun-1.3-000?logo=bun&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
@@ -32,7 +32,7 @@ e torrent legal), calendário de lançamentos e progresso "onde parei", com spoi
 | ⌨️ **Ctrl K** | paleta de comandos (títulos, canais, ações) e atalhos `g`+letra (`?` mostra a lista) |
 | 🧭 **Menu lateral e tema** | menu vertical em quatro grupos (Assistir, Descobrir, Fontes de vídeo, Conta e dados); no celular vira gaveta. Tema escuro (padrão), claro ou do sistema (botão no menu, `v` ou Ajustes). **Importar e backup** (`/data`, `g d`) reúne backup JSON, CSV e MyAnimeList; **Ajustes e avisos** (`/settings`, `g j`) mostra tema, spoilers, atalhos, estado dos avisos de lançamento e **Sair** (só com `ACCESS_TOKEN`) |
 | 🎲 **O que assistir hoje** | sorteia um título da sua lista "quero ver" (filtro de tipo e nota mínima); "Outro" não repete o anterior. Botão na Biblioteca ou na Ctrl K |
-| 📺 **Episódios** | navegação por temporada, sinopse por episódio com **spoiler oculto por padrão** |
+| 📺 **Episódios** | navegação por temporada, sinopse por episódio |
 | ✔️ **Marcar até aqui** | em um episódio, marca ele como "onde parei" e os anteriores (de todas as temporadas) ficam vistos de uma vez, com "Desfazer". O progresso é um marcador por série, então não há visto episódio a episódio |
 | 🎬 **Sinopse, nota e trailer** | via TMDB (filme e série) |
 | 📡 **Onde assistir** | streamings disponíveis na sua região (TMDB watch/providers) |

@@ -1,11 +1,12 @@
+import { overviewEl } from '../ui/overview.ts';
 import { backLinkHtml } from '../ui/back-link.ts';
 import { getTvmazeMore, getTvmazeTitle, type TvmazeDetailDto, type TvmazeMoreDto } from '../api/index.ts';
 import { akasHtml, castHtml, channelsHtml, crewHtml, dateLabel, episodeBadgesHtml, externalLinksHtml, factsHtml, galleryHtml, metaByEpisode, nextPrevHtml, seasonSummaryHtml } from './tvmaze-view.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
-import { renderSpoilerText } from '../ui/spoiler.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
 import { renderTitleError } from './title-error.ts';
+import { wireEpisodeStreams } from '../addons/episode-streams.ts';
 import { pluralize } from '../ui/pluralize.ts';
 
 const episodeCount = (d: TvmazeDetailDto): number => d.seasons.reduce((n, s) => n + s.episodes.length, 0);
@@ -24,7 +25,7 @@ const seasonsHtml = (d: TvmazeDetailDto): string => {
     .join('');
 };
 
-const fillEpisodes = (host: HTMLElement, d: TvmazeDetailDto): void => {
+const fillEpisodes = (host: HTMLElement, d: TvmazeDetailDto, imdbId: () => string | null): void => {
   for (const s of d.seasons) {
     const list = host.querySelector<HTMLElement>(`[data-season="${s.seasonNumber}"]`);
     if (!list) continue;
@@ -32,8 +33,11 @@ const fillEpisodes = (host: HTMLElement, d: TvmazeDetailDto): void => {
       const row = document.createElement('div');
       row.className = 'episode-row';
       row.dataset.ep = `${s.seasonNumber}:${ep.episodeNumber}`;
-      row.innerHTML = `${ep.stillUrl ? `<img class="still" src="${escapeHtml(ep.stillUrl)}" alt="" loading="lazy" decoding="async" />` : ''}<div class="body"><div class="head"><span class="name">${ep.episodeNumber}. ${escapeHtml(ep.name)}</span><span class="date">${ep.airDate ? dateLabel(ep.airDate) : 'data a confirmar'}</span></div><div class="tvm-badges" data-badges></div><div class="overview-slot"></div></div>`;
-      row.querySelector('.overview-slot')?.appendChild(renderSpoilerText(ep.overview || 'Sem sinopse.', 'overview'));
+      row.innerHTML = `${ep.stillUrl ? `<img class="still" src="${escapeHtml(ep.stillUrl)}" alt="" loading="lazy" decoding="async" />` : ''}<div class="body"><div class="head"><span class="name"><button type="button" class="ep-title" aria-expanded="false">${ep.episodeNumber}. ${escapeHtml(ep.name)}</button></span><span class="date">${ep.airDate ? dateLabel(ep.airDate) : 'data a confirmar'}</span></div><div class="tvm-badges" data-badges></div><div class="overview-slot"></div><div class="ep-streams" hidden></div></div>`;
+      row.querySelector('.overview-slot')?.append(overviewEl(ep.overview));
+      wireEpisodeStreams(row, () =>
+        imdbId() ? { imdbId: imdbId() as string, mediaType: 'tv', season: s.seasonNumber, episode: ep.episodeNumber } : { unavailable: 'Sem id do IMDb para esta série (ou ainda carregando): não dá para buscar streams.' },
+      );
       list.appendChild(row);
     }
   }
@@ -117,9 +121,13 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
           (host.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
         }
 
-        fillEpisodes(host, d);
+        let imdb: string | null = null;
+        fillEpisodes(host, d, () => imdb);
         getTvmazeMore(id)
-          .then((m) => fillMore(host, m))
+          .then((m) => {
+            imdb = m.externals.imdb;
+            fillMore(host, m);
+          })
           .catch(() => undefined);
 
         (host.querySelector('#status-actions') as HTMLElement).appendChild(

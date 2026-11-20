@@ -3,19 +3,18 @@ import { resolveVersionStatus } from '../platform/version-info.ts';
 import { icon, type IconName } from '../ui/icons.ts';
 import { notifySummary } from './settings-model.ts';
 import { openShortcutHelp } from './shortcuts.ts';
-import { getShowSpoilers, setShowSpoilers } from './state.ts';
 import { getThemePref, setThemePref, THEME_LABEL, THEME_PREFS, type ThemePref } from './theme.ts';
 import { logout } from './logout.ts';
 
 const THEME_ICON: Record<ThemePref, IconName> = { dark: 'moon', light: 'sun', system: 'monitor' };
 
-/** Ajustes e avisos: aparência, spoilers, atalhos, estado dos avisos de lançamento e sessão. */
+/** Ajustes e avisos: aparência, atalhos, estado dos avisos de lançamento e sessão. */
 export const renderSettings = (host: HTMLElement): void => {
   const pref = getThemePref();
   host.innerHTML = `
     <header class="view-head">
       <h1 class="view-title">Ajustes e avisos</h1>
-      <p class="view-subtitle">Aparência, spoilers, atalhos e o estado dos avisos de lançamento.</p>
+      <p class="view-subtitle">Aparência, atalhos e o estado dos avisos de lançamento.</p>
     </header>
     <div class="conn-grid">
       <section class="conn-card">
@@ -25,10 +24,6 @@ export const renderSettings = (host: HTMLElement): void => {
             (p) => `<button type="button" class="seg-btn" role="radio" aria-checked="${p === pref}" data-theme-pref="${p}">${icon(THEME_ICON[p], 'sm')} ${THEME_LABEL[p]}</button>`,
           ).join('')}
         </div>
-      </section>
-      <section class="conn-card">
-        <div class="conn-head"><span class="conn-ic">${icon('eyeOff')}</span><div><h2>Spoilers</h2><p>Esconde nomes e sinopses de episódios que você ainda não viu.</p></div></div>
-        <label class="switch"><input type="checkbox" id="set-spoilers" ${getShowSpoilers() ? 'checked' : ''} /><span class="switch-track"></span>Mostrar spoilers</label>
       </section>
       <section class="conn-card">
         <div class="conn-head"><span class="conn-ic">${icon('keyboard')}</span><div><h2>Atalhos de teclado</h2><p>Ctrl K abre a paleta; g + letra vai a uma tela; ? lista todos.</p></div></div>
@@ -54,7 +49,6 @@ export const renderSettings = (host: HTMLElement): void => {
       for (const b of host.querySelectorAll<HTMLButtonElement>('[data-theme-pref]')) b.setAttribute('aria-checked', String(b === btn));
     });
   }
-  (host.querySelector('#set-spoilers') as HTMLInputElement).addEventListener('change', (e) => setShowSpoilers((e.target as HTMLInputElement).checked));
   host.querySelector('#set-keys')?.addEventListener('click', openShortcutHelp);
   host.querySelector('#set-logout')?.addEventListener('click', () => void logout());
 

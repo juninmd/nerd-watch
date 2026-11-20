@@ -15,8 +15,20 @@ export interface SearchResultDto {
   voteAverage: number | null;
 }
 
+/** Item achado em um catálogo de addon Stremio; abre na tela do addon (`/addons/<id>/<type>/<itemId>`). */
+export interface AddonSearchHitDto {
+  addonId: string;
+  addonName: string;
+  id: string;
+  type: string;
+  name: string;
+  poster: string | null;
+  year: string | null;
+}
+
 export interface SearchResponse {
   results: SearchResultDto[];
+  addonResults: AddonSearchHitDto[];
   tmdbEnabled: boolean;
 }
 

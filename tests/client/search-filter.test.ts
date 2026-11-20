@@ -12,8 +12,15 @@ describe('search-filter', () => {
 
   test('cada resultado cai em um único filtro e a soma bate com o total', () => {
     const c = countByKind(items);
-    expect(c).toEqual({ all: 5, movie: 1, tv: 2, anime: 1, archive: 1 });
+    expect(c).toEqual({ all: 5, movie: 1, tv: 2, anime: 1, archive: 1, addon: 0 });
     expect(c.movie + c.tv + c.anime + c.archive).toBe(c.all);
+  });
+
+  test('itens de addon entram no total e no filtro próprio, sem misturar com os títulos', () => {
+    const c = countByKind(items, 3);
+    expect(c.all).toBe(8);
+    expect(c.addon).toBe(3);
+    expect(filterByKind(items, 'addon')).toEqual([]);
   });
 
   test('"all" devolve tudo e um filtro vazio devolve lista vazia', () => {

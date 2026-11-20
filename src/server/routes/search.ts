@@ -1,6 +1,9 @@
 import { Hono } from 'hono';
 import { archiveSearchPublicDomain } from '../providers/archive.ts';
 import { anilistSearch } from '../providers/anilist.ts';
+import { getDb } from '../db/database.ts';
+import { searchAddons } from '../providers/stremio/search.ts';
+import { listAddons } from '../repo/stremio-addons.ts';
 import { tmdbEnabled, tmdbImageUrl, tmdbSearchMulti } from '../providers/tmdb.ts';
 import { tvmazeSearchShows } from '../providers/tvmaze.ts';
 import type { SearchResult } from '../types.ts';
@@ -12,13 +15,16 @@ searchRoutes.get('/', async (c) => {
   if (!query) return c.json({ error: 'parâmetro "q" é obrigatório' }, 400);
 
   // Cada fonte falha sozinha: a queda de uma API não esvazia a busca inteira.
-  const [tmdbResults, archiveResults, tvmazeResults, anilistResults] = await Promise.all([
+  const [tmdbResults, archiveResults, tvmazeResults, anilistResults, addonResults] = await Promise.all([
     tmdbEnabled()
       ? tmdbSearchMulti(query).catch(() => [] as Awaited<ReturnType<typeof tmdbSearchMulti>>)
       : Promise.resolve([]),
     archiveSearchPublicDomain(query, 12).catch(() => []),
     tvmazeSearchShows(query).catch(() => [] as Awaited<ReturnType<typeof tvmazeSearchShows>>),
     anilistSearch(query, 12).catch(() => [] as Awaited<ReturnType<typeof anilistSearch>>),
+    getDb()
+      .then((db) => searchAddons(listAddons(db), query))
+      .catch(() => [] as Awaited<ReturnType<typeof searchAddons>>),
   ]);
 
   const mapped: SearchResult[] = [
@@ -72,5 +78,5 @@ searchRoutes.get('/', async (c) => {
     ),
   ];
 
-  return c.json({ results: mapped, tmdbEnabled: tmdbEnabled() });
+  return c.json({ results: mapped, addonResults, tmdbEnabled: tmdbEnabled() });
 });

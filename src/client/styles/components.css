@@ -218,38 +218,6 @@
   color: var(--text);
 }
 
-.spoiler-box {
-  position: relative;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.spoiler-box .content {
-  transition: filter 0.2s var(--ease);
-}
-
-.spoiler-box.hidden .content {
-  filter: blur(7px);
-  user-select: none;
-}
-
-.spoiler-box .reveal {
-  position: absolute;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: var(--scrim);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text);
-  border-radius: inherit;
-}
-
-.spoiler-box.hidden .reveal {
-  display: flex;
-}
-
 .skeleton {
   background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 37%, var(--surface) 63%);
   background-size: 400% 100%;
