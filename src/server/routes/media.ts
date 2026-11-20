@@ -55,7 +55,7 @@ export const createMediaRoutes = (service: Service) => {
   routes.get(
     '/:channel/:message/file',
     handle(async (c, ch, msg) =>
-      serveFile(await service.readyFile(ch, msg, c.req.query('audio')), c.req.header('Range')),
+      serveFile(await service.readyFile(ch, msg, c.req.query('audio')), c.req.header('Range'), c.req.method),
     ),
   );
 

@@ -43,16 +43,17 @@ export const parseRange = (header: string | undefined, size: number): ByteRange 
   return { kind: 'partial', start, end: Math.min(end, size - 1) };
 };
 
-/** Serve o arquivo do disco em stream (`Bun.file().slice`), nunca carregado na memória. */
-export const serveFile = async (file: string, range: string | undefined): Promise<Response> => {
+/** Serve o arquivo do disco em stream (`Bun.file().slice`), nunca carregado na memória. Suporta HEAD sem enviar corpo. */
+export const serveFile = async (file: string, range: string | undefined, method = 'GET'): Promise<Response> => {
   const { size } = await stat(file);
   const parsed = parseRange(range, size);
   const common = { 'Content-Type': mimeOf(file), 'Accept-Ranges': 'bytes' };
   if (parsed.kind === 'unsatisfiable') return new Response(null, { status: 416, headers: { ...common, 'Content-Range': `bytes */${size}` } });
-  const blob = Bun.file(file);
+  const head = method.toUpperCase() === 'HEAD';
+  const blob = head ? null : Bun.file(file);
   if (parsed.kind === 'full') return new Response(blob, { status: 200, headers: { ...common, 'Content-Length': String(size) } });
   const length = parsed.end - parsed.start + 1;
-  return new Response(blob.slice(parsed.start, parsed.end + 1), {
+  return new Response(blob ? blob.slice(parsed.start, parsed.end + 1) : null, {
     status: 206,
     headers: { ...common, 'Content-Range': `bytes ${parsed.start}-${parsed.end}/${size}`, 'Content-Length': String(length) },
   });
