@@ -6,6 +6,7 @@ import { ValidationError } from '../lib/validation-error.ts';
 import { boardsOf } from '../providers/stremio/boards.ts';
 import { AddonError } from '../providers/stremio/client.ts';
 import { type AddonStream, fetchCatalog, fetchManifestFrom, fetchMeta, fetchStreams } from '../providers/stremio/protocol.ts';
+import { addonStatus } from '../providers/stremio/status.ts';
 import { streamsForTitle } from '../providers/stremio/title-streams.ts';
 import { parseAddonUrl } from '../providers/stremio/url.ts';
 import { deleteAddon, getAddon, type InstalledAddon, listAddons, saveAddon } from '../repo/stremio-addons.ts';
@@ -77,18 +78,11 @@ stremioRoutes.post('/addons', (c) =>
   }),
 );
 
-/** Saúde do addon: rebusca o manifest; o cliente mostra "ok" ou a mensagem fixa do erro. */
-stremioRoutes.get('/addons/:id/status', (c) =>
-  withAddon(c, async (addon) => {
-    try {
-      await fetchManifestFrom(addon.manifestUrl);
-      return c.json({ ok: true, error: null });
-    } catch (err) {
-      if (err instanceof AddonError || err instanceof ValidationError) return c.json({ ok: false, error: err.message });
-      throw err;
-    }
-  }),
-);
+/**
+ * Saúde do addon: rebusca o manifest por id, com cache curto e dedupe (ver `providers/stremio/status.ts`).
+ * A tela de addons pede isso para cada addon ao abrir; sem o cache era uma requisição por visita.
+ */
+stremioRoutes.get('/addons/:id/status', (c) => withAddon(c, async (addon) => c.json(await addonStatus(addon))));
 
 /** Streams de todos os addons para um título do TMDB (ex.: Brazuca, que não tem catálogo). */
 stremioRoutes.get('/streams', (c) =>
