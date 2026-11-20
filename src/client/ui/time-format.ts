@@ -4,6 +4,9 @@ const pad = (n: number): string => String(n).padStart(2, '0');
 
 export const localIsoDate = (d: Date): string => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
+/** Nome de arquivo exportado com a data local de hoje (`nerd-watch-backup-2026-11-20.json`). */
+export const datedFileName = (prefix: string, ext: string, now: Date = new Date()): string => `${prefix}-${localIsoDate(now)}.${ext}`;
+
 export const addDays = (d: Date, days: number): Date => {
   const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   copy.setDate(copy.getDate() + days);

@@ -2,8 +2,9 @@ import { exportLibraryCsv, importLibraryCsv, importMalList } from '../api/index.
 import { icon } from '../ui/icons.ts';
 import { csvReportLines, malReportLines, type ReportLines } from './library-io-report.ts';
 import { showToast } from '../app/state.ts';
+import { datedFileName } from '../ui/time-format.ts';
 
-const fileName = (): string => `nerd-watch-biblioteca-${new Date().toISOString().slice(0, 10)}.csv`;
+const fileName = (): string => datedFileName('nerd-watch-biblioteca', 'csv');
 
 /** Mostra o resumo e as linhas com erro. Texto via textContent: títulos vindos do arquivo nunca viram HTML. */
 const showReport = (target: HTMLElement, lines: ReportLines): void => {
