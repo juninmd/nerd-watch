@@ -206,6 +206,16 @@ for (const [name, r] of Object.entries({ ...results.read, ...results.write })) {
 if (JSON_OUT) await Bun.write(JSON_OUT, JSON.stringify(results, null, 2));
 
 server.stop(true);
+const { closeDb } = await import('../src/server/db/database.ts');
+closeDb();
 if (KEEP) console.log(`\nbanco mantido em ${process.env.DB_PATH}`);
-else rmSync(dir, { recursive: true, force: true });
+else {
+  try {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 25 });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EBUSY') throw err;
+    Bun.gc(true);
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 25 });
+  }
+}
 process.exit(0);
