@@ -9,18 +9,22 @@ const SKELETON = `<div class="grid">${Array.from({ length: 12 }, () => '<div cla
 
 /** Catálogo de um addon instalado: escolhe o catálogo, busca (se o addon aceitar) e pagina com `skip`. */
 export const renderAddonBrowse = (host: HTMLElement, addonId: string): void => {
-  host.innerHTML = `${backButtonHtml('addons')}<div class="skeleton" style="height:120px;border-radius:20px"></div>`;
-  wireBackButton(host, '/addons');
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = `${backButtonHtml('addons')}<div class="skeleton" style="height:120px;border-radius:20px"></div>`;
+  wireBackButton(root, '/addons');
 
   listAddons()
     .then((addons) => {
+      if (!root.isConnected) return;
       const addon = addons.find((a) => a.id === addonId);
       if (!addon || addon.catalogs.length === 0) throw new Error('addon sem catálogo');
-      paint(host, addon);
+      paint(root, addon);
     })
     .catch(() => {
-      host.innerHTML = `${backButtonHtml('addons')}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>addon não encontrado ou sem catálogo</div>`;
-      wireBackButton(host, '/addons');
+      if (!root.isConnected) return;
+      root.innerHTML = `${backButtonHtml('addons')}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>addon não encontrado ou sem catálogo</div>`;
+      wireBackButton(root, '/addons');
     });
 };
 
@@ -84,14 +88,14 @@ const paint = (host: HTMLElement, addon: AddonDto): void => {
     more.disabled = true;
     getAddonCatalog(addon.id, cat.type, cat.id, { search: cat.searchable ? q : undefined, skip: shown || undefined })
       .then((items) => {
-        if (mine !== seq) return;
+        if (mine !== seq || !grid.isConnected) return;
         append(items, reset);
         shown += items.length;
         moreRow.hidden = !(cat.paged && items.length > 0);
         more.disabled = false;
       })
       .catch((error: Error) => {
-        if (mine !== seq) return;
+        if (mine !== seq || !grid.isConnected) return;
         if (reset) grid.innerHTML = `<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>${escapeHtml(error.message)}</div>`;
         moreRow.hidden = true;
       });
@@ -100,7 +104,9 @@ const paint = (host: HTMLElement, addon: AddonDto): void => {
   let debounce: ReturnType<typeof setTimeout>;
   search.addEventListener('input', () => {
     clearTimeout(debounce);
-    debounce = setTimeout(() => load(true), 350);
+    debounce = setTimeout(() => {
+      if (search.isConnected) load(true);
+    }, 350);
   });
   select.addEventListener('change', () => {
     search.value = '';
