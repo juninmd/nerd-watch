@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { addDays, formatDuration, localIsoDate, weekCells } from '../../src/client/ui/time-format.ts';
+import { addDays, datedFileName, formatDuration, localIsoDate, weekCells } from '../../src/client/ui/time-format.ts';
 
 describe('localIsoDate', () => {
   test('usa o dia local, não o UTC (23:30 local continua no mesmo dia)', () => {
@@ -8,6 +8,12 @@ describe('localIsoDate', () => {
 
   test('completa mês e dia com zero à esquerda', () => {
     expect(localIsoDate(new Date(2026, 2, 9))).toBe('2026-03-09');
+  });
+});
+
+describe('datedFileName', () => {
+  test('backup exportado às 23:30 leva a data local, não a de amanhã em UTC', () => {
+    expect(datedFileName('nerd-watch-backup', 'json', new Date(2026, 10, 20, 23, 30))).toBe('nerd-watch-backup-2026-11-20.json');
   });
 });
 

@@ -1,6 +1,7 @@
 import { exportBackup, importBackup } from '../api/index.ts';
 import { icon } from '../ui/icons.ts';
 import { showToast } from '../app/state.ts';
+import { datedFileName } from '../ui/time-format.ts';
 
 export const backupCardHtml = (): string => `
   <section class="conn-card" id="conn-backup" tabindex="-1">
@@ -22,7 +23,7 @@ export const bindBackup = (root: HTMLElement): void => {
       const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `nerd-watch-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = datedFileName('nerd-watch-backup', 'json');
       a.click();
       URL.revokeObjectURL(url);
       showToast('backup exportado');
