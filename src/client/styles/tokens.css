@@ -226,9 +226,16 @@ img {
     border: 1px solid ButtonText;
   }
 
-  :focus-visible {
+  :focus-visible,
+  .input:focus-visible,
+  .select:focus-visible,
+  .textarea:focus-visible {
     outline: 2px solid Highlight;
     outline-offset: 2px;
+  }
+
+  .heat-cell:focus-visible {
+    stroke: Highlight;
   }
 }
 
