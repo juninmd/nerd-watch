@@ -4,6 +4,7 @@ import WebTorrent from 'webtorrent';
 import { config, torrentEnabled } from '../config/config.ts';
 import { isPlayableVideo } from '../media/playable.ts';
 import { isSafeTorrentPath } from './magnet.ts';
+import { type EpisodeHint, episodeFileIndex } from './episode-file.ts';
 import { rankVideoFiles, resolveVideoIndex, type TorrentFileLike, type VideoCandidate } from './select.ts';
 
 /**
@@ -439,11 +440,23 @@ export const openArchiveTorrent = async (identifier: string, fileIndex?: number)
  * Abre um vídeo de um torrent que veio de addon, a partir do magnet já normalizado por
  * `addonTorrentRef` (`torrent/addon-torrent.ts`). Usa a mesma chave do provider genérico, então um
  * torrent que já está aberto por outro caminho é reaproveitado em vez de baixar duas vezes.
+ *
+ * `episode` só entra em jogo quando o addon não indica arquivo: em pack de temporada o nome do
+ * arquivo (`S01E02`) escolhe o episódio certo em vez do "primeiro vídeo tocável".
  */
-export const openP2pVideo = async (infoHash: string, magnet: string, fileIndex?: number): Promise<OpenTorrentResult> => {
+export const openP2pVideo = async (
+  infoHash: string,
+  magnet: string,
+  fileIndex?: number,
+  episode?: EpisodeHint,
+): Promise<OpenTorrentResult> => {
   if (!torrentEnabled()) throw new TorrentDisabledError();
   const key = `torrent:${infoHash}`;
   const handle = await openShared(key, () => openFresh(magnet, key, false));
+  if (fileIndex === undefined && episode) {
+    const matched = episodeFileIndex(filesOf(handle.torrent), episode);
+    if (matched !== null) return applyFileIndex(handle, matched);
+  }
   return applyFileIndex(handle, fileIndex);
 };
 

@@ -35,6 +35,10 @@ URL de arquivo. O app toca isso no mesmo motor P2P do Internet Archive:
   o addon para pegar o que ele respondeu agora;
 - `fileIdx` escolhe o arquivo; se o podcast/mkv não tocar no navegador, a lista mostra o erro e o
   usuário escolhe outro stream;
+- **pack de temporada sem `fileIdx`**: o id do episódio (`tt…:T:E`) vira uma busca pelo nome do arquivo
+  (`S01E02`, `1x02`, `Season 1 Episode 2`), então o pack abre no episódio certo em vez do primeiro
+  vídeo tocável. Só `mp4`/`m4v`/`webm` entram na busca — mkv daria 404 no stream;
+- trocar de arquivo no painel manda `fileIndex` explícito e vence a busca por episódio;
 - vale `TORRENT_ENABLED=false` (o botão some), `TORRENT_MAX_ACTIVE` (LRU) e o sweeper de ociosidade:
   sair da tela fecha o torrent, nada fica semeando;
 - o texto do título/trackers vem de terceiros: passa por `cleanName`, `safeTrackers` e `escapeHtml`.

@@ -272,3 +272,50 @@ describe('POST .../streams/:type/:id/:index/open', () => {
     expect((await open(addonId, 0)).status).toBe(502);
   });
 });
+
+describe('pack de temporada sem fileIdx', () => {
+  /** Pack com o E01 menor que o E02: o heurístico padrão pegaria o E01, então o acerto do E02 prova a busca. */
+  const pack = () => {
+    specs.set(HASH, [
+      { path: 'Show.S01E01.1080p.mp4', length: 8_000_000 },
+      { path: 'Show.S01E02.1080p.mp4', length: 12_000_000 },
+      { path: 'Show.S01E02.srt', length: 4_000 },
+    ]);
+  };
+  const serveAnyStreams = (streams: unknown[]) =>
+    setAddonFetch(async (url) => {
+      if (url === MANIFEST_URL) return json(manifest);
+      if (url.includes('/stream/series/')) return json({ streams });
+      return json({}, 404);
+    });
+  const openEpisode = (addonId: string, itemId: string, query = '') =>
+    stremioRoutes.request(`/addons/${addonId}/streams/series/${encodeURIComponent(itemId)}/0/open${query}`, { method: 'POST' });
+
+  test('o nome do arquivo (S01E02) escolhe o episódio certo do pack', async () => {
+    pack();
+    // Sem `fileIdx` no stream: sobra só o id do protocolo (`tt1:1:2`) e o nome dos arquivos.
+    serveAnyStreams([{ ...torrentStream, fileIdx: null, behaviorHints: { filename: 'Show.S01E02.1080p.mkv' } }]);
+    const addonId = await install();
+    const res = await openEpisode(addonId, 'tt1:1:2');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ infoHash: HASH, selected: { index: 1, name: 'Show.S01E02.1080p.mp4' } });
+  });
+
+  test('sem episódio no id (ou sem casar nome) continua no heurístico padrão', async () => {
+    pack();
+    serveAnyStreams([{ ...torrentStream, fileIdx: null }]);
+    const addonId = await install();
+    const res = await openEpisode(addonId, 'tt1');
+    expect(res.status).toBe(200);
+    expect((await res.json()).selected).toMatchObject({ index: 0, name: 'Show.S01E01.1080p.mp4' });
+  });
+
+  test('fileIndex explícito do usuário vence a busca por episódio', async () => {
+    pack();
+    serveAnyStreams([{ ...torrentStream, fileIdx: null }]);
+    const addonId = await install();
+    const res = await openEpisode(addonId, 'tt1:1:2', '?fileIndex=0');
+    expect(res.status).toBe(200);
+    expect((await res.json()).selected).toMatchObject({ index: 0 });
+  });
+});
