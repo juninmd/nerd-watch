@@ -34,6 +34,16 @@ describe('POST /api/library', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  test('descarta posterPath não-https quando source é archive', async () => {
+    const res = await libraryRoutes.request('/', {
+      method: 'POST',
+      body: JSON.stringify({ ...addBody, source: 'archive', sourceId: 'item-1', posterPath: 'javascript:alert(1)' }),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.title.posterUrl).toBeNull();
+  });
 });
 
 describe('GET /api/library', () => {
@@ -70,10 +80,21 @@ describe('PATCH /api/library/:titleId', () => {
     expect(body.currentEpisode).toBe(3);
   });
 
-  test('rejeita rating fora do intervalo 0-10', async () => {
+  test('rejeita rating inválido, notas gigantes ou temporada/episódio fora da faixa', async () => {
     const created = await (await libraryRoutes.request('/', { method: 'POST', body: JSON.stringify(addBody) })).json();
-    const res = await libraryRoutes.request(`/${created.titleId}`, { method: 'PATCH', body: JSON.stringify({ rating: 11 }) });
-    expect(res.status).toBe(400);
+    for (const payload of [
+      { rating: 11 },
+      { rating: -1 },
+      { rating: 7.5 },
+      { rating: '8' },
+      { notes: 'a'.repeat(5001) },
+      { notes: 123 },
+      { currentSeason: -1 },
+      { currentEpisode: 0 },
+    ]) {
+      const res = await libraryRoutes.request(`/${created.titleId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      expect(res.status).toBe(400);
+    }
   });
 });
 
