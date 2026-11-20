@@ -1,8 +1,12 @@
 import { Hono } from 'hono';
 import { getDb } from '../db/database.ts';
+import { hasControlChar } from '../lib/text-guards.ts';
 import { archiveMovieDetails, archiveSearchPublicDomain, isPublicDomainCollection, PUBLIC_DOMAIN_COLLECTIONS } from '../providers/archive.ts';
 import { getLibraryEntryByTitle } from '../repo/library.ts';
 import { upsertTitle } from '../repo/titles.ts';
+import { archiveTorrentUrl } from '../torrent/engine.ts';
+
+const MAX_QUERY_LEN = 200;
 
 export const archiveRoutes = new Hono();
 
@@ -10,6 +14,7 @@ archiveRoutes.get('/collections', (c) => c.json({ collections: Object.entries(PU
 
 archiveRoutes.get('/search', async (c) => {
   const query = c.req.query('q')?.trim() ?? '';
+  if (query.length > MAX_QUERY_LEN || hasControlChar(query)) return c.json({ error: 'consulta inválida' }, 400);
   const collection = c.req.query('collection') ?? 'feature_films';
   if (!isPublicDomainCollection(collection)) return c.json({ error: 'coleção não suportada' }, 400);
   try {
@@ -22,6 +27,7 @@ archiveRoutes.get('/search', async (c) => {
 
 archiveRoutes.get('/:identifier', async (c) => {
   const identifier = c.req.param('identifier');
+  if (!archiveTorrentUrl(identifier)) return c.json({ error: 'identificador inválido' }, 400);
   try {
     const movie = await archiveMovieDetails(identifier);
     if (!movie) return c.json({ error: 'item não encontrado' }, 404);

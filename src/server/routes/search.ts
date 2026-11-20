@@ -2,17 +2,21 @@ import { Hono } from 'hono';
 import { archiveSearchPublicDomain } from '../providers/archive.ts';
 import { anilistSearch } from '../providers/anilist.ts';
 import { getDb } from '../db/database.ts';
+import { hasControlChar } from '../lib/text-guards.ts';
 import { searchAddons } from '../providers/stremio/search.ts';
 import { listAddons } from '../repo/stremio-addons.ts';
 import { tmdbEnabled, tmdbImageUrl, tmdbSearchMulti } from '../providers/tmdb.ts';
 import { tvmazeSearchShows } from '../providers/tvmaze.ts';
 import type { SearchResult } from '../types.ts';
 
+const MAX_QUERY_LEN = 200;
+
 export const searchRoutes = new Hono();
 
 searchRoutes.get('/', async (c) => {
   const query = c.req.query('q')?.trim() ?? '';
   if (!query) return c.json({ error: 'parâmetro "q" é obrigatório' }, 400);
+  if (query.length > MAX_QUERY_LEN || hasControlChar(query)) return c.json({ error: 'consulta inválida' }, 400);
 
   // Cada fonte falha sozinha: a queda de uma API não esvazia a busca inteira.
   const [tmdbResults, archiveResults, tvmazeResults, anilistResults, addonResults] = await Promise.all([
