@@ -108,8 +108,11 @@ const query = async (gql: string, variables: Record<string, unknown>): Promise<R
   } catch {
     throw new CatalogRequestError(502, 'AniList indisponível no momento');
   }
-  if (res.status === 429) throw new CatalogRequestError(429, 'AniList: limite de requisições atingido, tente de novo em instantes');
-  if (!res.ok) throw new CatalogRequestError(502, `AniList respondeu ${res.status}`);
+  if (!res.ok) {
+    await res.body?.cancel();
+    if (res.status === 429) throw new CatalogRequestError(429, 'AniList: limite de requisições atingido, tente de novo em instantes');
+    throw new CatalogRequestError(502, `AniList respondeu ${res.status}`);
+  }
 
   let body: unknown;
   try {

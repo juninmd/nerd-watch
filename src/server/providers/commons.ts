@@ -59,7 +59,8 @@ const httpsUrl = (raw: string | undefined, host?: string): string | null => {
   if (!raw) return null;
   try {
     const u = new URL(raw);
-    return u.protocol === 'https:' && (!host || u.hostname === host) ? u.href : null;
+    if (u.protocol !== 'https:' || u.username || u.password) return null;
+    return !host || u.hostname === host ? u.href : null;
   } catch {
     return null;
   }
@@ -90,7 +91,10 @@ const callApi = async (params: Record<string, string>): Promise<RawPage[]> => {
   const all = { action: 'query', format: 'json', formatversion: '2', prop: 'imageinfo', iiprop: 'url|mime|extmetadata', iiurlwidth: '320', iiextmetadatafilter: 'LicenseShortName|LicenseUrl|Artist|ImageDescription', ...params };
   for (const [k, v] of Object.entries(all)) url.searchParams.set(k, v);
   const res = await fetch(url, { headers: { 'user-agent': USER_AGENT, accept: 'application/json' }, signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`Wikimedia Commons respondeu ${res.status}`);
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`Wikimedia Commons respondeu ${res.status}`);
+  }
   const data = (await res.json()) as { query?: { pages?: RawPage[] } };
   return data.query?.pages ?? [];
 };
