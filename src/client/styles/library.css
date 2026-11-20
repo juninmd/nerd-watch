@@ -9,6 +9,11 @@
   opacity: 0.85;
 }
 
+/* Sobre o gradiente do chip ativo, alpha quebraria o AA do texto de 11.5px. */
+.chip.active .count {
+  opacity: 1;
+}
+
 .grid.as-list {
   grid-template-columns: 1fr;
   gap: 10px;
