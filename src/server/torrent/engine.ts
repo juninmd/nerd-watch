@@ -34,6 +34,8 @@ const MAX_TORRENT_BYTES = 16 * 1024 * 1024;
  * ~90s no pior caso.
  */
 const TORRENT_FETCH_TIMEOUT_MS = 20_000;
+const MAX_TORRENT_REDIRECTS = 4;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export class TorrentDisabledError extends Error {
   constructor() {
@@ -132,8 +134,67 @@ export const assertArchiveOnlySources = (announce: readonly string[], urlList: r
   if (foreign.length > 0) throw new TorrentUntrustedSourceError(foreign);
 };
 
+const assertArchiveHttpsUrl = (raw: string): URL => {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new TorrentUntrustedSourceError([raw]);
+  }
+  const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
+  if (!ARCHIVE_HOST_RE.test(host)) throw new TorrentUntrustedSourceError([host || raw]);
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
+    throw new TorrentUnavailableError('a URL do .torrent precisa ser https:// no archive.org');
+  }
+  return parsed;
+};
+
+const readCappedTorrent = async (res: Response): Promise<Buffer> => {
+  // Checar o header antes de ler o corpo: depois do download o teto já não evita o tráfego.
+  // (`Number(null)` é 0, então ausência de header precisa ser tratada explicitamente.)
+  const declaredHeader = res.headers.get('content-length');
+  const declared = declaredHeader === null ? Number.NaN : Number(declaredHeader);
+  if (Number.isFinite(declared) && declared > MAX_TORRENT_BYTES) {
+    await res.body?.cancel();
+    throw new TorrentUnavailableError('o .torrent deste item é grande demais (Content-Length)');
+  }
+
+  if (!res.body) {
+    // Fallback para mocks mínimos de Response em teste que implementam só `arrayBuffer()`.
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+      throw new TorrentUnavailableError(`a leitura do .torrent deste item falhou (${(err as Error).message})`);
+    }
+    if (buffer.length > MAX_TORRENT_BYTES) throw new TorrentUnavailableError('o .torrent deste item é grande demais');
+    return buffer;
+  }
+
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_TORRENT_BYTES) {
+        await reader.cancel();
+        throw new TorrentUnavailableError('o .torrent deste item é grande demais');
+      }
+      chunks.push(value);
+    }
+  } catch (err) {
+    if (err instanceof TorrentUnavailableError) throw err;
+    throw new TorrentUnavailableError(`a leitura do .torrent deste item falhou (${(err as Error).message})`);
+  }
+  return Buffer.concat(chunks, total);
+};
+
 /**
- * Baixa o `.torrent`, parseia e só devolve o buffer se as fontes forem do archive.org.
+ * Baixa o `.torrent`, parseia e só devolve o buffer se a URL, todos os redirecionamentos e as
+ * fontes declaradas dentro do arquivo forem do archive.org.
  *
  * O `add()` do webtorrent inicia a descoberta (tracker/DHT/web seed) na construção do Torrent, então
  * validar depois dele não adianta: a primeira requisição já teria saído. Esta função é a fronteira —
@@ -141,33 +202,29 @@ export const assertArchiveOnlySources = (announce: readonly string[], urlList: r
  * (sem isso, uma Archive fora do ar viraria 500 em vez de 502).
  */
 export const loadTrustedTorrentBuffer = async (url: string): Promise<Buffer> => {
-  let res: Response;
-  try {
-    res = await fetch(url, { signal: AbortSignal.timeout(TORRENT_FETCH_TIMEOUT_MS) });
-  } catch (err) {
-    throw new TorrentUnavailableError(`não consegui baixar o .torrent deste item (${(err as Error).message})`);
+  let current = assertArchiveHttpsUrl(url);
+  let res: Response | undefined;
+  for (let hop = 0; ; hop++) {
+    try {
+      // `manual`: a Archive redireciona para `ia*.us.archive.org`, e cada salto precisa continuar em `*.archive.org`.
+      res = await fetch(current.href, { redirect: 'manual', signal: AbortSignal.timeout(TORRENT_FETCH_TIMEOUT_MS) });
+    } catch (err) {
+      throw new TorrentUnavailableError(`não consegui baixar o .torrent deste item (${(err as Error).message})`);
+    }
+    if (!REDIRECT_STATUSES.has(res.status)) break;
+    await res.body?.cancel();
+    const location = res.headers.get('location');
+    if (!location) throw new TorrentUnavailableError('a Archive redirecionou o .torrent sem dizer para onde');
+    if (hop >= MAX_TORRENT_REDIRECTS) throw new TorrentUnavailableError('a Archive redirecionou o .torrent demais');
+    current = assertArchiveHttpsUrl(new URL(location, current).href);
   }
-  if (!res.ok) throw new TorrentUnavailableError(`a Archive respondeu ${res.status} para o .torrent deste item`);
-
-  // Checar o header antes de ler o corpo: depois do `arrayBuffer()` o teto já não evita o download.
-  // (`Number(null)` é 0, então ausência de header precisa ser tratada explicitamente.)
-  const declaredHeader = res.headers.get('content-length');
-  const declared = declaredHeader === null ? Number.NaN : Number(declaredHeader);
-  if (Number.isFinite(declared) && declared > MAX_TORRENT_BYTES) {
-    throw new TorrentUnavailableError('o .torrent deste item é grande demais (Content-Length)');
-  }
-
-  // O `arrayBuffer()` tem que ficar dentro do try: a conexão pode cair no meio do corpo (ou o
-  // timeout disparar depois dos headers), e sem isso a rejeição escaparia como 500 em vez de 502.
-  let buffer: Buffer;
-  try {
-    buffer = Buffer.from(await res.arrayBuffer());
-  } catch (err) {
-    throw new TorrentUnavailableError(`a leitura do .torrent deste item falhou (${(err as Error).message})`);
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new TorrentUnavailableError(`a Archive respondeu ${res.status} para o .torrent deste item`);
   }
 
+  const buffer = await readCappedTorrent(res);
   if (buffer.length === 0) throw new TorrentUnavailableError('o .torrent deste item veio vazio');
-  if (buffer.length > MAX_TORRENT_BYTES) throw new TorrentUnavailableError('o .torrent deste item é grande demais');
 
   let parsed: { announce?: string[]; urlList?: string[]; files?: unknown };
   try {
