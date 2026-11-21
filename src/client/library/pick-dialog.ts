@@ -113,7 +113,7 @@ export const openPickDialog = (): void => {
     setActions(true);
     resultEl.innerHTML = `
       <div class="pick-card">
-        <div class="thumb"${posterCss ? ` style="background-image:${posterCss}"` : ''}></div>
+        <div class="thumb"${posterCss ? ` style="${escapeHtml(`background-image:${posterCss}`)}"` : ''}></div>
         <div><span class="pick-name">${escapeHtml(item.title.title)}</span><span class="pick-meta">${escapeHtml(metaLine(item))}</span></div>
       </div>`;
   };
