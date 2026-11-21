@@ -1,6 +1,6 @@
 import { backLinkHtml } from '../ui/back-link.ts';
 import { type CatalogSource, getTmdbTitle, type TmdbDetailDto } from '../api/index.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterCssUrl } from '../ui/card.ts';
 import { renderAddToList } from '../lists/add-to-list.ts';
 import { icon } from '../ui/icons.ts';
 import { renderRefreshMetadata } from '../library/refresh-metadata.ts';
@@ -58,27 +58,34 @@ export const renderTitleDetail = (
 };
 
 const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: string): void => {
-  host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  // Raiz própria dentro de `host`: se o usuário navegar antes da resposta, `root.isConnected` vira falso.
+  const root = document.createElement('div');
+  root.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  host.replaceChildren(root);
+  let loadSeq = 0;
 
   const load = () => {
+    const seq = ++loadSeq;
     // Re-render (status, metadados, temporada) troca o palco: fecha torrent e vídeo desta página, sem tocar no player minimizado.
-    releaseTorrentPlayers(host);
-    stopIfOnPageIn(host);
+    releaseTorrentPlayers(root);
+    stopIfOnPageIn(root);
     getTmdbTitle(mediaType, id)
       .then((d) => {
-        if (!host.isConnected) return;
+        if (!root.isConnected || seq !== loadSeq) return;
         const year = d.releaseDate?.slice(0, 4) ?? '—';
+        const backdropCss = d.backdropUrl ? posterCssUrl(d.backdropUrl) : null;
+        const posterCss = d.posterUrl ? posterCssUrl(d.posterUrl) : null;
         // Fechamento defensivo: algo pode ter começado a tocar entre o início do `load` e a resposta da TMDB.
-        releaseTorrentPlayers(host);
-        stopIfOnPageIn(host);
-        host.innerHTML = `
+        releaseTorrentPlayers(root);
+        stopIfOnPageIn(root);
+        root.innerHTML = `
           ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
-            <div class="backdrop${d.backdropUrl ? '' : ' placeholder'}"${d.backdropUrl ? ` style="background-image:url('${escapeHtml(d.backdropUrl)}')"` : ''}></div>
+            <div class="backdrop${backdropCss ? '' : ' placeholder'}"${backdropCss ? ` style="background-image:${backdropCss}"` : ''}></div>
             <div class="scrim"></div>
             <div class="hero-content">
-              <div class="hero-poster"${d.posterUrl ? ` style="background-image:url('${escapeHtml(d.posterUrl)}')"` : ''}>
-                ${d.posterUrl ? '' : `<div style="display:grid;place-items:center;height:100%;background:var(--gradient-soft);font-size:34px;font-weight:800">${escapeHtml(initials(d.title))}</div>`}
+              <div class="hero-poster"${posterCss ? ` style="background-image:${posterCss}"` : ''}>
+                ${posterCss ? '' : `<div style="display:grid;place-items:center;height:100%;background:var(--gradient-soft);font-size:34px;font-weight:800">${escapeHtml(initials(d.title))}</div>`}
               </div>
               <div class="hero-info">
                 <h1>${escapeHtml(d.title)}</h1>
@@ -125,18 +132,18 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
           </div>
         `;
 
-        attachCollapsingHero(host.querySelector('.hero') as HTMLElement);
+        attachCollapsingHero(root.querySelector('.hero') as HTMLElement);
 
-        for (const btn of host.querySelectorAll<HTMLElement>('[data-jump]')) {
+        for (const btn of root.querySelectorAll<HTMLElement>('[data-jump]')) {
           btn.addEventListener('click', () => {
-            const target = host.querySelector<HTMLElement>(`#${btn.dataset.jump}`);
+            const target = root.querySelector<HTMLElement>(`#${btn.dataset.jump}`);
             const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
             target?.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
             target?.focus({ preventScroll: true });
           });
         }
 
-        const statusHost = host.querySelector('#status-actions') as HTMLElement;
+        const statusHost = root.querySelector('#status-actions') as HTMLElement;
         statusHost.appendChild(
           renderStatusActions({
             titleId: d.titleId,
@@ -148,21 +155,21 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
           }),
         );
 
-        (host.querySelector('#add-to-list') as HTMLElement).appendChild(renderAddToList(d.titleId));
-        (host.querySelector('#refresh-metadata') as HTMLElement).appendChild(renderRefreshMetadata(d.titleId, () => load()));
+        (root.querySelector('#add-to-list') as HTMLElement).appendChild(renderAddToList(d.titleId));
+        (root.querySelector('#refresh-metadata') as HTMLElement).appendChild(renderRefreshMetadata(d.titleId, () => load()));
 
         if (mediaType === 'tv') {
-          renderSourceCompare(host.querySelector('#source-compare') as HTMLElement, id);
-          const ring = host.querySelector('#prem-progress') as HTMLElement;
+          renderSourceCompare(root.querySelector('#source-compare') as HTMLElement, id);
+          const ring = root.querySelector('#prem-progress') as HTMLElement;
           const lib = d.library;
           ring.innerHTML = tmdbProgressHtml(d, lib?.current_season != null && lib.current_episode != null ? { season: lib.current_season, episode: lib.current_episode } : null);
-          renderSeasons(host.querySelector('#seasons-section') as HTMLElement, id, d.title, d.seasons, d.titleId, d.library, load, (m) => {
+          renderSeasons(root.querySelector('#seasons-section') as HTMLElement, id, d.title, d.seasons, d.titleId, d.library, load, (m) => {
             ring.innerHTML = tmdbProgressHtml(d, m);
           });
         }
 
         renderTitleStreams(
-          host.querySelector('#addon-streams-panel') as HTMLElement,
+          root.querySelector('#addon-streams-panel') as HTMLElement,
           {
             tmdbId: Number(id),
             mediaType,
@@ -173,11 +180,11 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
             title: d.title,
             posterUrl: d.posterUrl,
             // O cartão dos streams fica na coluna lateral; o vídeo vai para a principal, acima dos episódios.
-            playerHost: host.querySelector('#addon-stream-player') as HTMLElement,
+            playerHost: root.querySelector('#addon-stream-player') as HTMLElement,
           },
         );
 
-        const subtitlesHost = host.querySelector('#subtitles-panel') as HTMLElement;
+        const subtitlesHost = root.querySelector('#subtitles-panel') as HTMLElement;
         subtitlesHost.appendChild(
           renderSubtitlesPanel({
             tmdbId: Number(id),
@@ -188,7 +195,10 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
           }),
         );
       })
-      .catch(() => renderTitleError(host, load));
+      .catch(() => {
+        if (!root.isConnected || seq !== loadSeq) return;
+        renderTitleError(root, load);
+      });
   };
 
   load();

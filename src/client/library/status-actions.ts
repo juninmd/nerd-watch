@@ -36,22 +36,32 @@ const toEntryDto = (item: LibraryItemDto): LibraryEntryDto => ({
 
 export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => {
   const wrap = document.createElement('div');
+  let busy = false;
 
   const statusRow = document.createElement('div');
   statusRow.className = 'status-select';
   for (const s of STATUS_OPTIONS) {
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = `chip${opts.watchStatus === s.value ? ' active' : ''}`;
     btn.setAttribute('aria-pressed', String(opts.watchStatus === s.value));
     btn.innerHTML = `${icon(s.icon, 'sm')} ${s.label}`;
     btn.addEventListener('click', () => {
+      if (busy) return;
+      busy = true;
+      btn.disabled = true;
       patchLibrary(opts.titleId, { watchStatus: s.value })
         .then((item) => {
           showToast(`marcado como "${s.label.toLowerCase()}"`);
+          if (!wrap.isConnected) return;
           if (s.value === 'watched') burst(btn);
           opts.onChange(toEntryDto(item));
         })
-        .catch(() => showToast('não foi possível atualizar'));
+        .catch(() => {
+          busy = false;
+          btn.disabled = false;
+          showToast('não foi possível atualizar');
+        });
     });
     statusRow.appendChild(btn);
   }
@@ -62,17 +72,22 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
     rewatchRow.className = 'rewatch-row';
     if (opts.watchStatus === 'watched') {
       const rewatch = document.createElement('button');
+      rewatch.type = 'button';
       rewatch.className = 'btn btn-ghost btn-sm';
       rewatch.innerHTML = `${icon('replay', 'sm')} Rever`;
       rewatch.addEventListener('click', () => {
+        if (busy) return;
         // Desabilita durante o pedido: um segundo clique receberia 409 e enganaria o usuário.
+        busy = true;
         rewatch.disabled = true;
         rewatchLibrary(opts.titleId)
           .then((item) => {
             showToast('revisão iniciada');
+            if (!wrap.isConnected) return;
             opts.onChange(toEntryDto(item));
           })
           .catch(() => {
+            busy = false;
             rewatch.disabled = false;
             showToast('não foi possível rever');
           });
@@ -95,32 +110,52 @@ export const renderStatusActions = (opts: StatusActionsOptions): HTMLElement => 
     ratingRow.style.marginTop = '10px';
     const filled = Math.round((opts.rating ?? 0) / 2);
     for (let i = 0; i < 5; i++) {
-      const star = document.createElement('span');
+      const value = (i + 1) * 2;
+      const star = document.createElement('button');
+      star.type = 'button';
       star.className = `star${i < filled ? ' filled' : ''}`;
       star.textContent = '★';
+      star.setAttribute('aria-label', value === opts.rating ? `Remover nota de ${i + 1} estrelas` : `Avaliar com ${i + 1} ${i === 0 ? 'estrela' : 'estrelas'}`);
+      star.setAttribute('aria-pressed', String(value === opts.rating));
       star.addEventListener('click', () => {
-        const value = (i + 1) * 2;
+        if (busy) return;
+        busy = true;
         patchLibrary(opts.titleId, { rating: value === opts.rating ? null : value })
-          .then((item) => opts.onChange(toEntryDto(item)))
-          .catch(() => showToast('não foi possível avaliar'));
+          .then((item) => {
+            if (!wrap.isConnected) return;
+            opts.onChange(toEntryDto(item));
+          })
+          .catch(() => {
+            busy = false;
+            showToast('não foi possível avaliar');
+          });
       });
       ratingRow.appendChild(star);
     }
     wrap.appendChild(ratingRow);
 
     if (opts.entryId) {
+      const entryId = opts.entryId;
       const remove = document.createElement('button');
+      remove.type = 'button';
       remove.className = 'btn btn-ghost btn-sm';
       remove.style.marginTop = '12px';
       remove.innerHTML = `${icon('trash', 'sm')} remover da lista`;
       remove.addEventListener('click', () => {
-        // biome-ignore lint/style/noNonNullAssertion: guardado pelo if acima
-        removeFromLibrary(opts.entryId!)
+        if (busy) return;
+        busy = true;
+        remove.disabled = true;
+        removeFromLibrary(entryId)
           .then(() => {
             showToast('removido da lista');
+            if (!wrap.isConnected) return;
             opts.onChange(null);
           })
-          .catch(() => showToast('não foi possível remover'));
+          .catch(() => {
+            busy = false;
+            remove.disabled = false;
+            showToast('não foi possível remover');
+          });
       });
       wrap.appendChild(remove);
     }
