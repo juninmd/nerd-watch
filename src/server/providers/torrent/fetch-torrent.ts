@@ -88,8 +88,13 @@ export const fetchTorrentBytes = async (start: URL): Promise<Uint8Array> => {
       const location = res.headers.get('location');
       if (!location) throw new SourceError('o host redirecionou o .torrent sem dizer para onde', 502);
       if (hop >= MAX_REDIRECTS) throw new SourceError('o .torrent redirecionou demais', 502);
-      const next = new URL(location, current);
-      if (next.origin !== current.origin || next.protocol !== 'https:') {
+      let next: URL;
+      try {
+        next = new URL(location, current);
+      } catch {
+        throw new SourceError('o host redirecionou o .torrent para um endereço inválido', 502);
+      }
+      if (next.origin !== current.origin || next.protocol !== 'https:' || next.username || next.password) {
         throw new SourceError('o .torrent redireciona para outro endereço; cole o link final do arquivo (o que o navegador baixa)', 400);
       }
       current = next;
