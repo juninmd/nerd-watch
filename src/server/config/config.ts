@@ -8,6 +8,22 @@ interface TelegramRuntimeConfig {
   session?: string;
 }
 
+/** Inteiro positivo opcional (ex.: TELEGRAM_API_ID): lixo vira undefined, nunca NaN. */
+export const positiveIntEnv = (raw: string | undefined): number | undefined => {
+  const trimmed = raw?.trim();
+  if (!trimmed || !/^\d{1,12}$/.test(trimmed)) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+};
+
+/** Porta TCP válida (`min..65535`): lixo, negativo, fracionário ou acima de 65535 cai no padrão. */
+export const portEnv = (raw: string | undefined, fallback: number, min: 0 | 1 = 1): number => {
+  const trimmed = raw?.trim();
+  if (!trimmed || !/^\d{1,5}$/.test(trimmed)) return fallback;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) && parsed >= min && parsed <= 65535 ? parsed : fallback;
+};
+
 /**
  * Ao contrário do resto do config (fixo no boot), os campos do Telegram podem ser configurados pela
  * própria UI em runtime (ver `routes/telegram-settings.ts`) — por isso ficam num objeto mutável separado,
@@ -15,7 +31,7 @@ interface TelegramRuntimeConfig {
  */
 const telegram: TelegramRuntimeConfig = {
   botToken: process.env.TELEGRAM_BOT_TOKEN?.trim() || undefined,
-  apiId: process.env.TELEGRAM_API_ID?.trim() ? Number(process.env.TELEGRAM_API_ID.trim()) : undefined,
+  apiId: positiveIntEnv(process.env.TELEGRAM_API_ID),
   apiHash: process.env.TELEGRAM_API_HASH?.trim() || undefined,
   session: process.env.TELEGRAM_SESSION?.trim() || undefined,
 };
@@ -130,7 +146,7 @@ const notify: NotifyRuntimeConfig = {
 
 export const config = {
   host: listenHost(process.env.HOST),
-  port: Number(process.env.PORT ?? 7799),
+  port: portEnv(process.env.PORT, 7799, 1),
   /**
    * Avisos de lançamento (ver `notify/`). Os destinos vêm SÓ do ambiente, nunca de request: a URL do ntfy/webhook
    * costuma carregar um token. Sem nenhuma URL válida o agendador nem sobe.
@@ -198,7 +214,7 @@ export const config = {
   /** Transmissão para a TV na rede local (DLNA/UPnP + link LAN sob demanda). `port: 0` escolhe porta livre. */
   cast: {
     host: process.env.CAST_HOST?.trim() || undefined,
-    port: numberEnv(process.env.CAST_PORT, 0, 0),
+    port: portEnv(process.env.CAST_PORT, 0, 0),
   },
   telegram,
   drive,
