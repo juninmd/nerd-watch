@@ -9,6 +9,7 @@ import { markThrough } from '../library/mark-progress.ts';
 import { renderTitleError } from './title-error.ts';
 import { pluralize } from '../ui/pluralize.ts';
 import { attachCollapsingHero } from '../ui/collapsing-hero.ts';
+import { playPath } from '../player/episode-play-model.ts';
 import { renderEpisodeBrowser } from './episode-browser.ts';
 import { type EpisodeView, progressFromMarker } from './episode-browser-model.ts';
 import { castSideHtml, progressRingHtml, seasonsSideHtml } from './title-side-view.ts';
@@ -131,6 +132,7 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
               drawProgress();
             }),
           seasonNote: (n) => (more ? seasonSummaryText(more, n) : ''),
+          playPath: (ep) => playPath('tvmaze', id, ep.season, ep.number),
         });
         drawProgress();
 

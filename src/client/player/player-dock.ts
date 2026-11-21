@@ -93,7 +93,7 @@ const keyboardActive = (): boolean => {
   const shell = mode === 'dock' ? dock : el.parentElement;
   const focus = document.activeElement;
   if (focus && shell?.contains(focus)) return true;
-  return mode === 'page' && (!focus || focus === document.body) && location.hash.startsWith('#/watch/');
+  return mode === 'page' && (!focus || focus === document.body) && /^#\/(watch|play)\//.test(location.hash);
 };
 
 const emit = (): void => {

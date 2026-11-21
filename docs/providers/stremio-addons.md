@@ -153,9 +153,13 @@ workflow `Addon probe`, que depende do segredo.
 Addons como o Brazuca declaram só `stream` e `catalogs: []`: não listam títulos, então "explorar" não aparece. A tela de addons diz isso e mostra o status (manifest respondendo ou erro). Na página de um filme/série do TMDB, o painel "Streams dos addons" resolve o IMDb (`tt…`) e consulta cada addon com `stream` (`GET /api/stremio/streams`).
 
 O painel usa o player do app, não uma aba nova: `url` e `ytId` tocam embutidos, `externalUrl` abre fora e
-`infoHash` vai para o motor P2P local (o vídeo aparece na coluna principal; no caso de série, o título do
-episódio abre a lista e o player fica dentro da própria linha). Torrentio, Brazuca e FenixFlix funcionam
-sem catálogo por esse caminho.
+`infoHash` vai para o motor P2P local (o vídeo aparece na coluna principal). Torrentio, Brazuca e FenixFlix
+funcionam sem catálogo por esse caminho.
+
+No episódio de série, "Assistir" num arquivo ou torrent abre o player dedicado (`#/play/{tvmaze|tmdb}/{id}/{temporada}/{episódio}`):
+vídeo grande, fila da temporada e todas as fontes na lateral. A fonte escolhida (addon + resolução) fica salva no
+navegador e é a primeira tentada no próximo episódio; com "próximo episódio automático" ligado, o fim do vídeo marca o
+episódio como visto e abre o seguinte depois de 10 s. Atalhos: Shift+N e Shift+P.
 
 ## Item aberto no catálogo do addon
 
