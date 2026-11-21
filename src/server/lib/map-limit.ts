@@ -6,7 +6,7 @@
  * local. Aqui a ordem do resultado é preservada; o que muda é só quantas ficam em voo.
  */
 export const mapLimit = async <T, R>(items: readonly T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> => {
-  const size = Math.max(1, Math.floor(limit));
+  const size = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : Math.max(1, items.length);
   const out = new Array<R>(items.length);
   let cursor = 0;
 

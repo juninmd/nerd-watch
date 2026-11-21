@@ -19,19 +19,33 @@ export const withCache = <Args extends unknown[], T>(
     const key = keyFn(...args);
     const hit = store.get(key);
     const now = Date.now();
-    if (hit && hit.expiresAt > now) return hit.value;
+    if (hit) {
+      if (hit.expiresAt > now) {
+        // Reinsere no fim para manter ordem LRU em entradas quentes.
+        store.delete(key);
+        store.set(key, hit);
+        return hit.value;
+      }
+      store.delete(key);
+    }
 
     const pending = inflight.get(key);
     if (pending) return pending;
 
     const run = (async (): Promise<T> => {
       const value = await fn(...args);
+      const writtenAt = Date.now();
       store.delete(key);
+      if (store.size >= MAX_ENTRIES) {
+        for (const [k, entry] of store) {
+          if (entry.expiresAt <= writtenAt) store.delete(k);
+        }
+      }
       if (store.size >= MAX_ENTRIES) {
         const oldest = store.keys().next().value;
         if (oldest !== undefined) store.delete(oldest);
       }
-      store.set(key, { value, expiresAt: Date.now() + ttlMs });
+      store.set(key, { value, expiresAt: writtenAt + ttlMs });
       return value;
     })().finally(() => inflight.delete(key));
     inflight.set(key, run);
