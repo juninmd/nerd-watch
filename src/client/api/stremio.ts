@@ -172,6 +172,8 @@ export interface TitleStreamsDto {
     contentId: string;
     streams: TitleStreamDto[];
     error: string | null;
+    /** Quando o id veio do catálogo do addon (ele não aceita o id do app), o nome que ele deu ao item. */
+    matchedTitle?: string;
   }>;
 }
 
@@ -182,6 +184,9 @@ export interface TitleStreamsQuery {
   mediaType: 'movie' | 'tv';
   season?: number | null;
   episode?: number | null;
+  /** Título e ano: usados para achar o item no catálogo de addons que só entendem id próprio (`afhd:…`). */
+  title?: string;
+  year?: string | null;
   /** Item aberto no catálogo de um addon: os streams próprios entram pelo id original. */
   addonId?: string;
   type?: string;
@@ -194,6 +199,8 @@ export const getTitleStreams = (opts: TitleStreamsQuery): Promise<TitleStreamsDt
   if (opts.imdbId) q.set('imdbId', opts.imdbId);
   if (opts.season) q.set('season', String(opts.season));
   if (opts.episode) q.set('episode', String(opts.episode));
+  if (opts.title) q.set('title', opts.title);
+  if (opts.year) q.set('year', opts.year);
   if (opts.addonId && opts.type && opts.itemId) {
     q.set('addonId', opts.addonId);
     q.set('type', opts.type);

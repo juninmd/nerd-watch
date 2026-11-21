@@ -28,7 +28,7 @@ export const renderSeasons = (
         ),
       ),
     marker: () => marker,
-    streams: (ep) => ({ tmdbId: Number(tmdbId), mediaType: 'tv', season: ep.season, episode: ep.number }),
+    streams: (ep) => ({ tmdbId: Number(tmdbId), mediaType: 'tv', season: ep.season, episode: ep.number, title: seriesTitle }),
     playPath: (ep) => playPath('tmdb', tmdbId, ep.season, ep.number),
     onMark: (ep) =>
       markThrough(titleId, ep.season, ep.number, (m) => {

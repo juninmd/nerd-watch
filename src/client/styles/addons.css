@@ -222,6 +222,13 @@
   justify-content: center;
 }
 
+/* "via catálogo: Nome": o id veio do catálogo do addon, não do id do app. */
+.addon-stream-group .stream-via {
+  display: block;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
 /* Atalho dos addons instalados no Início: mesma linguagem visual dos cards, sem capa. */
 .addon-tile {
   flex: 0 0 168px;

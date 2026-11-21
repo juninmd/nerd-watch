@@ -58,14 +58,18 @@ const groupInner = (g: Group, expanded: boolean): string => {
   return `${cards}${toggle}${capNote}`;
 };
 
+/** Cabeçalho do grupo; quando o id veio do catálogo do addon, dizer de onde saiu o match. */
+const groupHead = (g: Group): string =>
+  `<h4>${escapeHtml(g.name)} <small>${escapeHtml(g.host)}</small>${g.matchedTitle ? `<small class="stream-via">via catálogo: ${escapeHtml(g.matchedTitle)}</small>` : ''}</h4>`;
+
 const groupHtml = (g: Group, expanded: boolean): string =>
-  `<div class="addon-stream-group" data-group="${escapeHtml(g.addonId)}"><h4>${escapeHtml(g.name)} <small>${escapeHtml(g.host)}</small></h4>${groupInner(g, expanded)}</div>`;
+  `<div class="addon-stream-group" data-group="${escapeHtml(g.addonId)}">${groupHead(g)}${groupInner(g, expanded)}</div>`;
 
 /** Re-renderiza só o corpo de um grupo (abrir/fechar a lista longa) sem tocar nos outros. */
 const repaintGroup = (container: HTMLElement, group: Group, expanded: boolean): void => {
   const wrap = container.querySelector<HTMLElement>(`[data-group="${CSS.escape(group.addonId)}"]`);
   if (!wrap) return;
-  wrap.innerHTML = `<h4>${escapeHtml(group.name)} <small>${escapeHtml(group.host)}</small></h4>${groupInner(group, expanded)}`;
+  wrap.innerHTML = `${groupHead(group)}${groupInner(group, expanded)}`;
 };
 
 /**
