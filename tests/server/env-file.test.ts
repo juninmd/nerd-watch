@@ -45,6 +45,13 @@ describe('updateEnvVar', () => {
     updateEnvVar('TELEGRAM_BOT_TOKEN', 'new', TEST_PATH);
     expect(readFileSync(TEST_PATH, 'utf-8')).toBe('PORT=7799\nTELEGRAM_BOT_TOKEN=new\n');
   });
+
+  test('remove linhas duplicadas da mesma chave para evitar sobrescrita silenciosa no próximo boot', () => {
+    writeFileSync(TEST_PATH, 'PORT=7799\nTMDB_API_KEY=old1\nDB_PATH=data/x.db\nTMDB_API_KEY=old2\n');
+    updateEnvVar('TMDB_API_KEY', 'fresh', TEST_PATH);
+    const lines = readFileSync(TEST_PATH, 'utf-8').trim().split('\n');
+    expect(lines).toEqual(['PORT=7799', 'TMDB_API_KEY=fresh', 'DB_PATH=data/x.db']);
+  });
 });
 
 describe('updateEnvVar — o valor volta igual quando o Bun lê o arquivo no próximo boot', () => {

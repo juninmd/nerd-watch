@@ -1,4 +1,5 @@
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { chmodSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 
 const ENV_PATH = '.env';
 
@@ -30,21 +31,39 @@ export const updateEnvVar = (key: string, value: string, path: string = ENV_PATH
     : [];
   const prefix = `${key}=`;
   const line = `${prefix}${encodeEnvValue(value)}`;
-  const index = lines.findIndex((l) => l.startsWith(prefix));
-  if (index >= 0) lines[index] = line;
-  else lines.push(line);
+  // Remove duplicatas antigas da mesma chave (um .env editado à mão com duas linhas faria a segunda vencer no próximo boot).
+  let replaced = false;
+  const next: string[] = [];
+  for (const existing of lines) {
+    if (existing.startsWith(prefix)) {
+      if (!replaced) {
+        next.push(line);
+        replaced = true;
+      }
+      continue;
+    }
+    next.push(existing);
+  }
+  if (!replaced) next.push(line);
 
-  const content = lines.join('\n').replace(/\n*$/, '\n');
-  writeFileSync(path, content, { mode: 0o600 });
-  // `mode` no writeFileSync só é aplicado na CRIAÇÃO do arquivo — se o .env já existia (ex.: copiado de
-  // .env.example, herdando o umask, tipicamente 644/mundo-legível), atualizações seguintes mantinham a
-  // permissão antiga mesmo depois de gravar TELEGRAM_SESSION nele. chmod explícito cobre os dois casos.
-  // (No-op efetivo no Windows, que não tem bits POSIX — lá o controle real é a ACL do arquivo/pasta.)
+  const content = next.join('\n').replace(/\n*$/, '\n');
+  // Gravação atômica (arquivo temporário + rename): evita .env truncado se o processo cair no meio da escrita.
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
   try {
-    chmodSync(path, 0o600);
+    writeFileSync(tmp, content, { mode: 0o600 });
+    try {
+      chmodSync(tmp, 0o600);
+    } catch (err) {
+      // best-effort — no Windows não há bits POSIX; em POSIX avisa se não conseguiu restringir.
+      console.warn('[env-file] não foi possível restringir permissões de', path, '—', err instanceof Error ? err.message : err);
+    }
+    renameSync(tmp, path);
   } catch (err) {
-    // best-effort — não bloqueia a gravação da credencial por causa disso, mas uma falha aqui (ex.: EPERM
-    // num arquivo de outro dono) deixa a credencial world-readable sem nenhum sinal se ficar em silêncio.
-    console.warn('[env-file] não foi possível restringir permissões de', path, '—', err instanceof Error ? err.message : err);
+    try {
+      rmSync(tmp, { force: true });
+    } catch {
+      // limpeza melhor esforço
+    }
+    throw err;
   }
 };
