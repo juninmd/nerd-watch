@@ -278,7 +278,10 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
       return;
     }
     if (canSearch(ctx) && searchState === 'idle') {
+      const startedCtx = ctx;
+      const startedToken = token;
       void runSearch().then(() => {
+        if (ctx !== startedCtx || token !== startedToken) return;
         const next = toggleDecision({ current, last: lastChoice, available: options.map((o) => o.id) });
         if (next.kind === 'select') void select(next.id);
         else announce('Nenhuma legenda encontrada para este título.');
