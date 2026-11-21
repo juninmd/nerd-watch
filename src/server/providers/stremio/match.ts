@@ -51,7 +51,8 @@ export const bestCatalogMatch = <T extends CatalogCandidate>(items: readonly T[]
 
     const exact = name === wanted;
     const prefix = !exact && (name.startsWith(`${wanted} `) || wanted.startsWith(`${name} `));
-    const contained = !exact && !prefix && (name.includes(wanted) || wanted.includes(name));
+    // Fronteira de palavra: evita que títulos curtos ("Up") casem dentro de outra palavra ("Startup").
+    const contained = !exact && !prefix && (` ${name} `.includes(` ${wanted} `) || ` ${wanted} `.includes(` ${name} `));
     const yearMatch = Boolean(wantedYear && yearOf(item.year) === wantedYear);
 
     // Sem ano, só nome idêntico é confiável: "Bleach" não pode casar "Bleach: Thousand-Year Blood War".

@@ -129,10 +129,12 @@ export const resolveAddonItem = async (
   const best = bestCatalogMatch(items, { title: opts.title, year: opts.year });
   if (!best) return null;
 
-  if (type === 'series' && opts.season !== null && opts.episode !== null) {
+  if (type === 'series') {
+    const season = opts.season ?? 1;
+    const episode = opts.episode ?? 1;
     const meta = await fetchMetaFn(addon.baseUrl, type, best.id).catch(() => null);
-    const episode = meta?.videos.find((video) => video.season === opts.season && video.episode === opts.episode);
-    if (episode) return { contentId: episode.id, matchedTitle: best.name };
+    const hit = meta?.videos.find((video) => video.season === season && video.episode === episode);
+    if (hit) return { contentId: hit.id, matchedTitle: best.name };
   }
   return { contentId: best.id, matchedTitle: best.name };
 };
@@ -180,7 +182,8 @@ export const streamsForTitle = async (
   // Só exclui o addon do fan-out quando ele já foi consultado pelo id original.
   const skipId = ownServes ? ownAddon?.id : undefined;
   const byIdAddons = contentId ? addons.filter((a) => servesStreams(a, type, contentId) && a.id !== skipId) : [];
-  const bySearchAddons = opts.title
+  const searchTitle = opts.title?.trim() || undefined;
+  const bySearchAddons = searchTitle
     ? addons.filter((a) => a.id !== skipId && !byIdAddons.some((b) => b.id === a.id) && servesStreamsBySearch(a, type)).slice(0, 3)
     : [];
 
@@ -188,7 +191,7 @@ export const streamsForTitle = async (
     own && ownAddon && ownServes ? streamsOfAddon(ownAddon, own.type, own.itemId, fetchFn) : Promise.resolve(null),
     mapLimit(byIdAddons, ADDON_CONCURRENCY, (a) => streamsOfAddon(a, type, contentId as string, fetchFn)),
     mapLimit(bySearchAddons, 2, async (a): Promise<AddonStreamsResult | null> => {
-      const hit = await resolveAddonItem(a, type, { title: opts.title as string, year: opts.year ?? null, season: opts.season, episode: opts.episode }, resolveDeps).catch(() => null);
+      const hit = await resolveAddonItem(a, type, { title: searchTitle as string, year: opts.year ?? null, season: opts.season, episode: opts.episode }, resolveDeps).catch(() => null);
       if (!hit) return null;
       const group = await streamsOfAddon(a, type, hit.contentId, fetchFn);
       // Addon que respondeu "nada" para o item casado não vira card vazio; erro continua visível.
