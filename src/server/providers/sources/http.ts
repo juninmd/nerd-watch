@@ -80,7 +80,6 @@ export type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Respo
 export const fetchHeaders = async (doFetch: Fetcher, url: string | URL, init: RequestInit, ms: number): Promise<Response> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
-  timer.unref?.();
   try {
     return await doFetch(url, { ...init, signal: controller.signal });
   } finally {

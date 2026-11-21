@@ -20,7 +20,6 @@ export const makeFetch = (override?: FetchFn): { get(): FetchFn; set(next?: Fetc
 export const fetchHeaders = async (fetchFn: FetchFn, url: string, init: RequestInit, timeoutMs: number): Promise<Response> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  timer.unref?.();
   try {
     return await fetchFn(url, { ...init, redirect: 'manual', signal: controller.signal });
   } finally {
@@ -39,7 +38,6 @@ export interface CappedResponse {
 export const fetchCapped = async (fetchFn: FetchFn, url: string, init: RequestInit, timeoutMs: number, maxBytes: number): Promise<CappedResponse> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  timer.unref?.();
   try {
     const res = await fetchFn(url, { ...init, redirect: 'manual', signal: controller.signal });
     // Respostas fora de 2xx (redirects e erros) não têm corpo útil para os chamadores: cancela cedo sem baixar.

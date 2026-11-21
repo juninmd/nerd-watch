@@ -104,7 +104,6 @@ export const getJson = async <T>(service: Service, url: URL, headers: Record<str
 export const getStream = async (service: Service, url: URL, headers: Record<string, string>): Promise<Response> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), HEAD_TIMEOUT_MS);
-  timer.unref?.();
   try {
     const res = await send(url, { headers, signal: controller.signal });
     if (res.status === 401 || res.status === 403) {
