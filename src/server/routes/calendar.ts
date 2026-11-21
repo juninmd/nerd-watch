@@ -43,7 +43,7 @@ calendarRoutes.get('/detail', async (c) => {
   const source = c.req.query('source') ?? '';
   const id = c.req.query('id') ?? '';
   const media = c.req.query('media') === 'movie' ? 'movie' : 'tv';
-  if (!isDetailSource(source) || !/^\d{1,10}$/.test(id)) return c.json({ error: 'source e id válidos são obrigatórios' }, 400);
+  if (!isDetailSource(source) || !/^[1-9]\d{0,9}$/.test(id)) return c.json({ error: 'source e id válidos são obrigatórios' }, 400);
   try {
     c.header('Cache-Control', 'private, max-age=300');
     return c.json({ info: await calendarInfoFor(source, Number(id), media) });

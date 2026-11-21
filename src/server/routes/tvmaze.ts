@@ -12,7 +12,7 @@ import { TVMAZE_ATTRIBUTION, tvmazeSearchShows, tvmazeShowDetails, type TvmazeEp
 
 export const tvmazeRoutes = new Hono();
 
-const ID_RE = /^\d{1,10}$/;
+const ID_RE = /^[1-9]\d{0,9}$/;
 const MAX_QUERY_LEN = 200;
 
 /** Falha do catálogo vira a mensagem nossa com o status dele; qualquer outra exceção segue para o 500 do Hono. */
