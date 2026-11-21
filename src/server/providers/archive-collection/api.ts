@@ -8,7 +8,7 @@ const http = makeFetch();
 export const setArchiveCollectionFetchForTests = (next?: Parameters<typeof http.set>[0]): void => http.set(next);
 
 /** Identificador da Internet Archive (coleção ou item). Restrito: ele entra na query Lucene e em URLs. */
-export const ARCHIVE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+export const ARCHIVE_ID = /^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
 const JSON_MAX_BYTES = 2 * 1024 * 1024;
 const THUMB_MAX_BYTES = 2 * 1024 * 1024;
