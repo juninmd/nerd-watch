@@ -1,8 +1,10 @@
 import { ValidationError } from '../lib/validation-error.ts';
 import { hasControlChar } from '../lib/text-guards.ts';
 import { withCache } from '../lib/cache.ts';
+import { readTextLimited } from './sources/http.ts';
 
 const MINUTES = 60_000;
+const MAX_JSON_BYTES = 4 * 1024 * 1024;
 
 /**
  * Wikimedia Commons: acervo de mídia livre (domínio público e licenças Creative Commons), sem chave. Tem filmes
@@ -95,7 +97,12 @@ const callApi = async (params: Record<string, string>): Promise<RawPage[]> => {
     await res.body?.cancel();
     throw new Error(`Wikimedia Commons respondeu ${res.status}`);
   }
-  const data = (await res.json()) as { query?: { pages?: RawPage[] } };
+  let data: { query?: { pages?: RawPage[] } };
+  try {
+    data = JSON.parse(await readTextLimited(res, MAX_JSON_BYTES)) as { query?: { pages?: RawPage[] } };
+  } catch {
+    throw new Error('Wikimedia Commons devolveu uma resposta inesperada');
+  }
   return data.query?.pages ?? [];
 };
 
