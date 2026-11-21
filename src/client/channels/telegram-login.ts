@@ -115,19 +115,26 @@ export const renderTelegramLogin = (host: HTMLElement): void => {
   `;
 
   const bindCancel = (root: HTMLElement) => {
-    root.querySelector('#tg-cancel')?.addEventListener('click', () => {
+    const cancelBtn = root.querySelector<HTMLButtonElement>('#tg-cancel');
+    cancelBtn?.addEventListener('click', () => {
+      cancelBtn.disabled = true;
       stopPolling();
-      cancelTelegramLogin().finally(() => refresh());
+      cancelTelegramLogin().finally(() => {
+        if (host.isConnected) refresh();
+      });
     });
   };
 
   const startLogin = (btn: HTMLButtonElement) => {
     btn.disabled = true;
+    const gen = generation;
     startTelegramLogin()
-      .then(() => poll(generation))
+      .then(() => {
+        if (host.isConnected && gen === generation) poll(gen);
+      })
       .catch((err) => {
-        showToast(err instanceof Error ? err.message : 'não foi possível iniciar o login');
-        btn.disabled = false;
+        if (host.isConnected) showToast(err instanceof Error ? err.message : 'não foi possível iniciar o login');
+        if (btn.isConnected) btn.disabled = false;
       });
   };
 
@@ -148,6 +155,7 @@ export const renderTelegramLogin = (host: HTMLElement): void => {
         </form>
       </details>`);
     const form = root.querySelector('#tg-creds') as HTMLFormElement;
+    const credsSubmit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const idEl = form.querySelector('#tg-api-id') as HTMLInputElement;
@@ -157,24 +165,37 @@ export const renderTelegramLogin = (host: HTMLElement): void => {
       (form.querySelector('#tg-api-id-err') as HTMLElement).textContent = idErr ?? '';
       (form.querySelector('#tg-api-hash-err') as HTMLElement).textContent = hashErr ?? '';
       if (idErr || hashErr) return;
+      if (credsSubmit) credsSubmit.disabled = true;
       saveTelegramSettings({ apiId: Number(idEl.value.trim()), apiHash: hashEl.value.trim() })
-        .then(() => refresh())
-        .catch((err) => showToast(err instanceof Error ? err.message : 'falha ao salvar'));
+        .then(() => {
+          if (host.isConnected) refresh();
+        })
+        .catch((err) => {
+          if (credsSubmit?.isConnected) credsSubmit.disabled = false;
+          if (host.isConnected) showToast(err instanceof Error ? err.message : 'falha ao salvar');
+        });
     });
-    root.querySelector('#tg-bot')?.addEventListener('submit', (e) => {
+    const botForm = root.querySelector<HTMLFormElement>('#tg-bot');
+    const botSubmit = botForm?.querySelector<HTMLButtonElement>('button[type="submit"]');
+    botForm?.addEventListener('submit', (e) => {
       e.preventDefault();
       const input = root.querySelector('#tg-bot-token') as HTMLInputElement;
       if (!input.value.trim()) {
         (root.querySelector('#tg-bot-token-err') as HTMLElement).textContent = 'cole o token do bot';
         return;
       }
+      if (botSubmit) botSubmit.disabled = true;
       saveTelegramSettings({ botToken: input.value.trim() })
         .then(() => {
+          if (!host.isConnected) return;
           showToast('token do bot salvo');
           input.value = '';
           refresh();
         })
-        .catch((err) => showToast(err instanceof Error ? err.message : 'falha ao salvar'));
+        .catch((err) => {
+          if (botSubmit?.isConnected) botSubmit.disabled = false;
+          if (host.isConnected) showToast(err instanceof Error ? err.message : 'falha ao salvar');
+        });
     });
   };
 
@@ -285,16 +306,22 @@ export const renderTelegramLogin = (host: HTMLElement): void => {
       </div>`);
     bindAvatarFallback(root);
     root.querySelector('#tg-import')?.addEventListener('click', () => navigate('/telegram?import=1'));
-    root.querySelector('#tg-logout')?.addEventListener('click', () => {
+    const logoutBtn = root.querySelector<HTMLButtonElement>('#tg-logout');
+    logoutBtn?.addEventListener('click', () => {
       if (!confirm('Encerrar a sessão do Telegram? Você precisará escanear o QR de novo para voltar a usar sua conta (canais já importados continuam).')) return;
+      logoutBtn.disabled = true;
       remember(false);
       logoutTelegram()
         .then(() => {
+          if (!host.isConnected) return;
           showToast('sessão encerrada');
           announce();
           refresh();
         })
-        .catch(() => showToast('não foi possível encerrar a sessão'));
+        .catch(() => {
+          if (logoutBtn.isConnected) logoutBtn.disabled = false;
+          if (host.isConnected) showToast('não foi possível encerrar a sessão');
+        });
     });
   };
 
@@ -322,33 +349,46 @@ export const renderTelegramLogin = (host: HTMLElement): void => {
     if (!host.isConnected || gen !== generation) return;
     getTelegramLoginStatus()
       .then((state) => {
-        if (gen !== generation) return;
+        if (!host.isConnected || gen !== generation) return;
         renderLoginState(state, gen);
-        if (state.status === 'pending' || state.status === 'need_password') pollTimer = setTimeout(() => poll(gen), 1500);
+        if (host.isConnected && gen === generation && (state.status === 'pending' || state.status === 'need_password')) {
+          pollTimer = setTimeout(() => poll(gen), 1500);
+        }
       })
       .catch(() => {
-        if (gen === generation) pollTimer = setTimeout(() => poll(gen), 3000);
+        if (host.isConnected && gen === generation) pollTimer = setTimeout(() => poll(gen), 3000);
       });
   };
 
   const refresh = () => {
     stopPolling();
+    const gen = generation;
     getTelegramSettings(true)
       .then((s) => {
+        if (!host.isConnected || gen !== generation) return;
         setChip(s.personalConfigured, s.personalConfigured ? 'conectado' : s.apiCredentialsConfigured ? 'desconectado' : 'não configurado');
         if (s.personalConfigured) return renderConnected(s.personalAccount);
         if (wasConnected()) announce();
         if (!s.apiCredentialsConfigured) return renderCredentials();
         // Voltar à página no meio de um login: retoma o QR em vez de oferecer "entrar" (que falharia com "já em andamento").
-        const gen = generation;
         return getTelegramLoginStatus().then((state) => {
-          if (gen !== generation) return;
+          if (!host.isConnected || gen !== generation) return;
           if (state.status === 'pending' || state.status === 'need_password') poll(gen);
           else renderReady();
         });
       })
-      .catch(() => mount('<p class="hint">não foi possível consultar o Telegram agora</p>'));
+      .catch(() => {
+        if (host.isConnected && gen === generation) mount('<p class="hint">não foi possível consultar o Telegram agora</p>');
+      });
   };
 
   refresh();
+  // Saiu da tela: para o polling e o contador de expiração do QR em segundo plano.
+  const observer = new MutationObserver(() => {
+    if (!host.isConnected) {
+      stopPolling();
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 };

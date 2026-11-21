@@ -129,7 +129,7 @@ export const renderSourceCard = (host: HTMLElement, initial: SourceDto, onChange
     timer = setTimeout(() => {
       getSourceOAuthState(source.id)
         .then((state) => {
-          if (gen !== generation) return;
+          if (gen !== generation || !host.isConnected) return;
           if (state.status === 'connected' || state.connected) {
             source = { ...source, connected: true, configured: true };
             showToast(`${source.title} conectado`);
@@ -146,7 +146,7 @@ export const renderSourceCard = (host: HTMLElement, initial: SourceDto, onChange
           poll(gen, startedAt);
         })
         .catch(() => {
-          if (gen !== generation) return;
+          if (gen !== generation || !host.isConnected) return;
           // Servidor fora do ar durante a autorização: o teto de tempo vale também aqui, senão o polling nunca para.
           if (Date.now() - startedAt > POLL_MAX_MS) return draw();
           poll(gen, startedAt);
