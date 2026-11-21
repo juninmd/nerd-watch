@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isFetchableSubtitleUrl } from '../../src/server/subtitles/url-guard.ts';
+import { isFetchableSubtitleUrl, isPublicAddress } from '../../src/server/subtitles/url-guard.ts';
 import { fetchSubtitleBytes, loadSubtitleAsVtt, MAX_SUBTITLE_BYTES } from '../../src/server/subtitles/load.ts';
 import { setHostResolver } from '../../src/server/subtitles/load.ts';
 // Nomes de teste resolvem para um IP público de documentação: nada sai para a rede.
@@ -71,10 +71,19 @@ describe('isFetchableSubtitleUrl: host literal (SecOps)', () => {
     ['subdomínio localhost com ponto final', 'http://api.localhost./a.srt'],
     ['6to4 embute IPv4 interno', 'http://[2002:7f00:1::]/a.srt'],
     ['Teredo embute IPv4', 'http://[2001:0:4136:e378::]/a.srt'],
+    ['IPv6 reservado com hextet curto (0002::1)', 'http://[2::1]/a.srt'],
+    ['IPv6 reservado com hextet curto (003a::1)', 'http://[3a::1]/a.srt'],
+    ['IPv6 de documentação 2001:db8::/32', 'http://[2001:db8::1]/a.srt'],
     ['texto que não é URL', 'não é url'],
     ['vazio', ''],
   ])('recusa %s', (_label, url) => {
     expect(isFetchableSubtitleUrl(url)).toBe(false);
+  });
+
+  test('isPublicAddress recusa octetos IPv4 fora de 0..255 e IPv6 com hextet curto', () => {
+    expect(isPublicAddress('1.999.1.1')).toBe(false);
+    expect(isPublicAddress('2::1')).toBe(false);
+    expect(isPublicAddress('2001:4860:4860::8888')).toBe(true);
   });
 });
 
