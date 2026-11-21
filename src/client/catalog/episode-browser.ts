@@ -1,6 +1,6 @@
 import type { EpisodeMarker } from '../library/episode-progress.ts';
 import type { StreamsQueryResolver } from '../addons/episode-streams.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterCssUrl } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { dateLabel } from './tvmaze-view.ts';
 import { openEpisodeModal } from './episode-modal.ts';
@@ -114,8 +114,10 @@ export const renderEpisodeBrowser = (host: HTMLElement, opts: EpisodeBrowserOpti
       return;
     }
     out.innerHTML = shown.map((ep) => cardHtml(ep, episodeState(marker, ep), Boolean(opts.onMark))).join('');
-    // Via CSSOM: a URL da imagem nunca vira marcação.
-    for (const el of out.querySelectorAll<HTMLElement>('[data-still]')) el.style.backgroundImage = `url("${el.dataset.still}")`;
+    // Via CSSOM + posterCssUrl: escapa aspas/barras e a URL da imagem nunca vira marcação.
+    for (const el of out.querySelectorAll<HTMLElement>('[data-still]')) {
+      if (el.dataset.still) el.style.backgroundImage = posterCssUrl(el.dataset.still);
+    }
   };
 
   const loadSeason = () => {
@@ -125,15 +127,15 @@ export const renderEpisodeBrowser = (host: HTMLElement, opts: EpisodeBrowserOpti
     opts
       .load(season)
       .then((eps) => {
-        if (mine !== seq) return;
+        if (mine !== seq || !out.isConnected) return;
         episodes = eps;
         draw();
       })
       .catch(() => {
-        if (mine === seq) out.innerHTML = `<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar os episódios</div>`;
+        if (mine === seq && out.isConnected) out.innerHTML = `<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar os episódios</div>`;
       })
       .finally(() => {
-        if (mine === seq) out.removeAttribute('aria-busy');
+        if (mine === seq && out.isConnected) out.removeAttribute('aria-busy');
       });
   };
 
@@ -177,7 +179,7 @@ export const renderEpisodeBrowser = (host: HTMLElement, opts: EpisodeBrowserOpti
       if (!ep) return;
       t.disabled = true;
       opts.onMark(ep).catch(() => {
-        t.disabled = false;
+        if (t.isConnected) t.disabled = false;
       });
     }
   });
