@@ -143,7 +143,7 @@ const openShareCard = (s: StatsSummary): void => {
       status.textContent = 'Pronto. Baixe o PNG para compartilhar.';
     })
     .catch(() => {
-      status.textContent = 'Não foi possível gerar o cartão neste navegador.';
+      if (dlg.isConnected) status.textContent = 'Não foi possível gerar o cartão neste navegador.';
     });
 };
 
@@ -210,9 +210,10 @@ export const renderStats = (host: HTMLElement, query: URLSearchParams): void => 
 
   const load = (): void => {
     const token = ++loadSeq;
+    root.setAttribute('aria-busy', 'true');
     getStats({ year, tz, hpd })
       .then((s) => {
-        if (token !== loadSeq) return;
+        if (token !== loadSeq || !body.isConnected) return;
         latest = s;
         const years = yearOptions(s.firstYear, currentYear);
         if (!years.includes(year)) years.unshift(year);
@@ -226,7 +227,7 @@ export const renderStats = (host: HTMLElement, query: URLSearchParams): void => 
         root.setAttribute('aria-busy', 'false');
       })
       .catch((err: unknown) => {
-        if (token !== loadSeq) return;
+        if (token !== loadSeq || !body.isConnected) return;
         const msg = err instanceof Error ? err.message : 'erro desconhecido';
         root.setAttribute('aria-busy', 'false');
         body.innerHTML = `<div class="empty-state"><div class="big">${icon('alert')}</div>Não foi possível carregar as estatísticas (${escapeHtml(msg)}).</div>`;

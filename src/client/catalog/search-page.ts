@@ -26,7 +26,7 @@ const resultCard = (r: SearchResultDto): string => `
       <div class="title">${escapeHtml(r.title)}</div>
       <div class="sub">${r.releaseDate ? escapeHtml(r.releaseDate.slice(0, 4)) : ''}${r.voteAverage ? ` · ⭐ ${r.voteAverage.toFixed(1)}` : ''}</div>
     </div>
-    <button class="btn btn-primary btn-sm" data-add aria-label="Adicionar ${escapeHtml(r.title)} à biblioteca" style="position:absolute;bottom:64px;right:8px;padding:6px 10px;box-shadow:0 4px 12px -2px rgba(0,0,0,.6)">+ biblioteca</button>
+    <button type="button" class="btn btn-primary btn-sm" data-add aria-label="Adicionar ${escapeHtml(r.title)} à biblioteca" style="position:absolute;bottom:64px;right:8px;padding:6px 10px;box-shadow:0 4px 12px -2px rgba(0,0,0,.6)">+ biblioteca</button>
   </div>
 `;
 
@@ -138,10 +138,13 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
           e.preventDefault();
           open();
         });
-        el.querySelector('[data-add]')?.addEventListener('click', (e) => {
+        const addBtn = el.querySelector<HTMLButtonElement>('[data-add]');
+        addBtn?.addEventListener('click', (e) => {
           e.stopPropagation();
+          if (addBtn.disabled) return;
           const match = data.results.find((r) => r.source === source && r.sourceId === id);
           if (!match) return;
+          addBtn.disabled = true;
           addToLibrary({
             source,
             sourceId: id,
@@ -153,7 +156,10 @@ export const renderSearch = (host: HTMLElement, query: string): void => {
             voteAverage: match.voteAverage,
           })
             .then(() => showToast(`"${match.title}" adicionado à sua lista`))
-            .catch(() => showToast('não foi possível adicionar'));
+            .catch(() => showToast('não foi possível adicionar'))
+            .finally(() => {
+              if (addBtn.isConnected) addBtn.disabled = false;
+            });
         });
       }
       };

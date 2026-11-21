@@ -1,5 +1,5 @@
 import { moveItem } from '../../server/lists/rules.ts';
-import { escapeHtml, posterCssUrl } from '../ui/card.ts';
+import { escapeHtml, posterStyleAttr } from '../ui/card.ts';
 import { backLinkHtml } from '../ui/back-link.ts';
 import { icon } from '../ui/icons.ts';
 import { deleteList, getAllListItems, reorderList, removeTitleFromList, updateList, type ListItemDto, type ListSummaryDto } from '../api/lists.ts';
@@ -26,7 +26,7 @@ export const renderListDetail = (host: HTMLElement, listId: string): void => {
       .map((item, i) => {
         const name = escapeHtml(item.title.title);
         const year = escapeHtml(item.title.releaseDate?.slice(0, 4) ?? '');
-        const poster = item.title.posterUrl ? ` style="${escapeHtml(`background-image:${posterCssUrl(item.title.posterUrl)}`)}"` : '';
+        const poster = posterStyleAttr(item.title.posterUrl);
         return `<li class="list-item" tabindex="-1" data-index="${i}">
           <span class="list-pos" aria-hidden="true">${i + 1}</span>
           <span class="list-thumb"${poster} aria-hidden="true"></span>
