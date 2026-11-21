@@ -2,6 +2,7 @@ import type { Database } from 'bun:sqlite';
 import { type LinkCandidate, type LinkDecision, matchParsedName } from '../media-name/match.ts';
 import { parseMediaName } from '../media-name/parse.ts';
 import type { TelegramItemRow, TitleSource } from '../types.ts';
+import { SQL_BATCH } from './titles.ts';
 
 /** Vínculo de um vídeo do canal com um episódio da biblioteca, como a API e a UI o veem. */
 export interface ItemLink {
@@ -102,15 +103,24 @@ const refreshWithCandidates = (
     .all(channelId)
     .filter((i) => !only || only.has(i.message_id));
   const write = db.query(AUTO_WRITE);
+  const clear = db.query(
+    `UPDATE telegram_items SET title_id = NULL, season_number = NULL, episode_number = NULL, episode_end = NULL,
+     link_status = NULL, link_source = NULL, link_confidence = NULL WHERE id = ?`,
+  );
   const counts = { linked: 0, suggested: 0, unlinked: 0 };
   db.transaction(() => {
     for (const item of items) {
       const d = decideItemLink(item, candidates);
       if (d.status === 'unlinked') {
-        db.query(
-          `UPDATE telegram_items SET title_id = NULL, season_number = NULL, episode_number = NULL, episode_end = NULL,
-           link_status = NULL, link_source = NULL, link_confidence = NULL WHERE id = ?`,
-        ).run(item.id);
+        const alreadyClean =
+          item.title_id === null &&
+          item.link_status === null &&
+          item.link_source === null &&
+          item.season_number === null &&
+          item.episode_number === null &&
+          item.episode_end === null &&
+          item.link_confidence === null;
+        if (!alreadyClean) clear.run(item.id);
         counts.unlinked++;
         continue;
       }
@@ -179,13 +189,17 @@ export interface LinkedTitleInfo {
 
 export const loadLinkedTitles = (db: Database, titleIds: string[]): Map<string, LinkedTitleInfo> => {
   const ids = [...new Set(titleIds)];
-  if (ids.length === 0) return new Map();
-  const rows = db
-    .query<{ id: string; title: string; source: TitleSource; poster_path: string | null }, string[]>(
-      `SELECT id, title, source, poster_path FROM titles WHERE id IN (${ids.map(() => '?').join(', ')})`,
-    )
-    .all(...ids);
-  return new Map(rows.map((r) => [r.id, { id: r.id, title: r.title, source: r.source, posterPath: r.poster_path }]));
+  const found = new Map<string, LinkedTitleInfo>();
+  for (let i = 0; i < ids.length; i += SQL_BATCH) {
+    const chunk = ids.slice(i, i + SQL_BATCH);
+    const rows = db
+      .query<{ id: string; title: string; source: TitleSource; poster_path: string | null }, string[]>(
+        `SELECT id, title, source, poster_path FROM titles WHERE id IN (${chunk.map(() => '?').join(', ')})`,
+      )
+      .all(...chunk);
+    for (const r of rows) found.set(r.id, { id: r.id, title: r.title, source: r.source, posterPath: r.poster_path });
+  }
+  return found;
 };
 
 /** Vínculo do vídeo na forma da API; nulo quando não há vínculo (ou o título saiu do banco). */
