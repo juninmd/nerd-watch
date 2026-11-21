@@ -26,15 +26,21 @@ export const readJsonObject = async (c: Context, maxBytes = JSON_BODY_MAX_BYTES)
   if (reader) {
     const chunks: Uint8Array[] = [];
     let total = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel().catch(() => undefined);
-        throw new BodyError('corpo grande demais', 413);
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel().catch(() => undefined);
+          throw new BodyError('corpo grande demais', 413);
+        }
+        chunks.push(value);
       }
-      chunks.push(value);
+    } catch (err) {
+      if (err instanceof BodyError) throw err;
+      await reader.cancel().catch(() => undefined);
+      throw new BodyError('corpo inválido: leitura interrompida', 400);
     }
     text = new TextDecoder().decode(Buffer.concat(chunks));
   }

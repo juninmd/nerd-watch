@@ -88,6 +88,7 @@ export const downloadPhoto = async (url: string): Promise<Uint8Array | null> => 
       chunks.push(value);
     }
   } catch {
+    await reader.cancel().catch(() => undefined);
     return null;
   }
   if (total === 0) return null;

@@ -79,9 +79,16 @@ export const resetThumbRetries = (): void => lastTry.clear();
  */
 export const ensureThumbs = async (db: Database, channel: TelegramChannel, items: TelegramItemRow[]): Promise<TelegramItemRow[]> => {
   if (!items.some(needsThumb)) return items;
+  const now = Date.now();
   const last = lastTry.get(channel.id);
-  if (last !== undefined && Date.now() - last < RETRY_AFTER_MS) return items;
-  lastTry.set(channel.id, Date.now());
+  if (last !== undefined && now - last < RETRY_AFTER_MS) return items;
+  // Limpa entradas vencidas para o mapa não crescer indefinidamente com canais removidos.
+  if (lastTry.size > 100) {
+    for (const [id, ts] of lastTry) {
+      if (now - ts >= RETRY_AFTER_MS) lastTry.delete(id);
+    }
+  }
+  lastTry.set(channel.id, now);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const budget = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, thumbLimits.waitMs);

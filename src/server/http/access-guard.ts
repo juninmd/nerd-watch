@@ -47,15 +47,20 @@ const readCapped = async (req: Request, max: number): Promise<string | undefined
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel().catch(() => undefined);
-      return undefined;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > max) {
+        await reader.cancel().catch(() => undefined);
+        return undefined;
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch {
+    await reader.cancel().catch(() => undefined);
+    return '';
   }
   return new TextDecoder().decode(Buffer.concat(chunks));
 };
@@ -117,7 +122,10 @@ export const createAccess = (opts: AccessOptions): Access => {
     const field = new URLSearchParams(body).get('token') ?? '';
     const candidate = field.length <= MAX_TOKEN_CHARS ? field : '';
 
-    if (failures.isFull()) return pageResponse(c, 'Muitas tentativas. Aguarde alguns minutos.', 429);
+    if (failures.isFull()) {
+      c.header('Retry-After', String(Math.ceil(LOGIN_WINDOW_MS / 1000)));
+      return pageResponse(c, 'Muitas tentativas. Aguarde alguns minutos.', 429);
+    }
     if (candidate !== '' && safeEqual(candidate, token)) {
       setCookie(c, SESSION_COOKIE, sessionValue(token, generation), cookieFlags(c));
       return c.redirect('/', 303);
