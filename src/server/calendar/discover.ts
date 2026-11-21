@@ -24,7 +24,8 @@ const localDate = (epochSeconds: number): string => todayIso(new Date(epochSecon
 
 /** Estreias públicas dos próximos dias, sem depender da biblioteca: filmes (TMDB, se houver chave), séries de streaming (TVmaze) e anime (AniList). */
 export const discoverUpcoming = async (days: number, from = todayIso()): Promise<DiscoverResult> => {
-  const span = Math.min(Math.max(Math.ceil(days), 1), DISCOVER_MAX_DAYS);
+  const rawDays = Number.isFinite(days) ? Math.ceil(days) : 1;
+  const span = Math.min(Math.max(rawDays, 1), DISCOVER_MAX_DAYS);
   const to = addDaysIso(from, span);
   const dates = Array.from({ length: span + 1 }, (_, i) => addDaysIso(from, i));
 

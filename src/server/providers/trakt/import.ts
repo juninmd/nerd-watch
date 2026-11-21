@@ -1,5 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import { tmdbEnabled } from '../../config/config.ts';
+import { mapLimit } from '../../lib/map-limit.ts';
 import { getLibraryEntriesByTitles, upsertLibraryEntry } from '../../repo/library.ts';
 import { findTmdbTitles, upsertTitle } from '../../repo/titles.ts';
 import type { LibraryEntryRow, MediaType, TitleRow } from '../../types.ts';
@@ -38,19 +39,6 @@ interface Work {
 const DETAIL_CONCURRENCY = 4;
 
 const keyOf = (w: { mediaType: MediaType; tmdbId: number }): string => `${w.mediaType}:${w.tmdbId}`;
-
-const mapLimit = async <T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> => {
-  const out = new Array<R>(items.length);
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const index = next++;
-      out[index] = await fn(items[index] as T);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return out;
-};
 
 const toCurrent = (entry: LibraryEntryRow | undefined): CurrentEntry | null =>
   entry ? { status: entry.watch_status, season: entry.current_season, episode: entry.current_episode } : null;
@@ -113,6 +101,9 @@ export const importWatched = async (db: Database, tmdb: TmdbLookup = liveTmdb): 
           releaseDate: details.release_date,
           voteAverage: details.vote_average,
         });
+        // Mantém o mapa em dia na mesma transação: se filme e série vierem com o mesmo id TMDB no mesmo lote,
+        // o segundo cai na checagem de colisão de tipo em vez de sobrescrever o título recém-criado.
+        titleById.set(title.source_id, title);
       }
       // Dois tipos com o mesmo id TMDB caem no mesmo título (chave é só source+id): não mexe no que não é deste tipo.
       if (title.media_type !== w.mediaType) {
@@ -128,7 +119,8 @@ export const importWatched = async (db: Database, tmdb: TmdbLookup = liveTmdb): 
         counts.unchanged++;
         continue;
       }
-      upsertLibraryEntry(db, title.id, { watchStatus: plan.watchStatus, currentSeason: plan.pointer?.season, currentEpisode: plan.pointer?.episode });
+      const saved = upsertLibraryEntry(db, title.id, { watchStatus: plan.watchStatus, currentSeason: plan.pointer?.season, currentEpisode: plan.pointer?.episode });
+      entryByTitle.set(title.id, saved);
       if (entry) counts.updated++;
       else counts.imported++;
     }

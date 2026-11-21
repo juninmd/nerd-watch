@@ -139,6 +139,23 @@ describe('importWatched: sem TMDB nunca inventa título', () => {
     expect(counts).toEqual({ imported: 0, updated: 0, unchanged: 0, skippedNoTmdb: 0, failed: 1 });
     expect(db.query('SELECT COUNT(*) AS n FROM titles').get()).toEqual({ n: 0 });
   });
+
+  test('colisão de id TMDB entre filme e série no mesmo lote não sobrescreve o filme já criado', async () => {
+    const colliding = {
+      ...catalog,
+      'tv:101': details('Série com mesmo id', [{ season_number: 1, episode_count: 2 }]),
+    };
+    installFakeTrakt({
+      movies: [movieWatched(101)],
+      shows: [showWatched(101, { 1: [1] })],
+    });
+
+    const counts = await importWatched(db, fakeTmdb(colliding));
+
+    expect(counts).toEqual({ imported: 1, updated: 0, unchanged: 0, skippedNoTmdb: 0, failed: 1 });
+    const movie = getLibraryEntryByTitle(db, seedId('movie', 101));
+    expect(movie?.watch_status).toBe('watched');
+  });
 });
 
 describe('importWatched: série completa exige prova da TMDB', () => {
