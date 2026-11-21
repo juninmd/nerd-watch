@@ -1,6 +1,6 @@
 import { backLinkHtml } from '../ui/back-link.ts';
 import { getAnilistTitle, type AnilistDetailDto } from '../api/index.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterCssUrl } from '../ui/card.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
 import { trailerFrameHtml } from '../player/trailer-embed.ts';
 import { renderTitleError } from './title-error.ts';
@@ -25,15 +25,20 @@ const nextEpisodeLine = (d: AnilistDetailDto): string => {
 };
 
 export const renderAnilistDetail = (host: HTMLElement, id: string): void => {
-  host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  let loadSeq = 0;
 
   const load = () => {
+    const seq = ++loadSeq;
     getAnilistTitle(id)
       .then((d) => {
+        if (!root.isConnected || seq !== loadSeq) return;
         const format = d.format ? (FORMAT_LABEL[d.format] ?? d.format) : d.mediaType === 'movie' ? 'Filme' : 'Anime';
         const status = d.status ? (STATUS_LABEL[d.status] ?? d.status.toLowerCase()) : null;
         const subtitle = d.romaji && d.romaji !== d.title ? d.romaji : null;
-        host.innerHTML = `
+        root.innerHTML = `
           ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
             <div class="backdrop" style="filter:blur(24px) brightness(0.5);transform:scale(1.1)"></div>
@@ -74,20 +79,21 @@ export const renderAnilistDetail = (host: HTMLElement, id: string): void => {
           </div>
         `;
 
-        // Via CSSOM, não innerHTML: a URL nunca é parseada como marcação (mesmo critério do detalhe do Archive).
+        // Via CSSOM + posterCssUrl: escapa aspas/barras e a URL nunca é parseada como marcação.
         if (d.posterUrl) {
-          (host.querySelector('.backdrop') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
-          (host.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
+          const cssUrl = posterCssUrl(d.posterUrl);
+          (root.querySelector('.backdrop') as HTMLElement).style.backgroundImage = cssUrl;
+          (root.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = cssUrl;
         }
 
-        host.querySelector('[data-jump="trailer"]')?.addEventListener('click', () => {
-          const target = host.querySelector<HTMLElement>('#trailer');
+        root.querySelector('[data-jump="trailer"]')?.addEventListener('click', () => {
+          const target = root.querySelector<HTMLElement>('#trailer');
           const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
           target?.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
           target?.focus({ preventScroll: true });
         });
 
-        (host.querySelector('#status-actions') as HTMLElement).appendChild(
+        (root.querySelector('#status-actions') as HTMLElement).appendChild(
           renderStatusActions({
             titleId: d.titleId,
             entryId: d.library?.id ?? null,
@@ -98,7 +104,9 @@ export const renderAnilistDetail = (host: HTMLElement, id: string): void => {
           }),
         );
       })
-      .catch(() => renderTitleError(host, load));
+      .catch(() => {
+        if (root.isConnected && seq === loadSeq) renderTitleError(root, load);
+      });
   };
 
   load();
