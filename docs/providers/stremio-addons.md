@@ -23,6 +23,7 @@ quadros do Descobrir e busca de legendas. Abrir o addon pelo botão "explorar" c
 - Tempo limite de 10 s e teto de 2 MB por resposta; falhas viram mensagens fixas (400/502/504), sem repassar texto do addon.
 - Fan-out com **teto de 4 addons em voo** por título (ordem preservada no resultado): rajada vira 429 no addon e segura sockets do app local.
 - O "status" de cada addon tem cache curto no servidor (60 s para resposta boa, 10 s para erro) com dedupe em voo: abrir a tela de addons não refaz um manifest por addon a cada visita.
+- As respostas JSON (`catalog`, `meta`, `stream`, manifest) ficam em cache pelo `cacheMaxAge` que o próprio addon declara, com **teto de 5 min** (link de debrid expira antes de uma hora), 200 entradas e sem cache de erro.
 - O link guardado (`stremio_addons.manifest_url`) pode ter token no caminho: **nunca volta para o cliente** (a API devolve só o domínio), não aparece na lista de fontes de legenda indisponíveis e **não entra no backup**.
 - Tudo que o addon devolve é normalizado: imagens e streams só `http(s)`; `ytId` vira embed `youtube-nocookie`; o resto é descartado. No HTML, tudo passa por `escapeHtml`.
 - Limite de 20 addons instalados.
@@ -153,9 +154,13 @@ workflow `Addon probe`, que depende do segredo.
 Addons como o Brazuca declaram só `stream` e `catalogs: []`: não listam títulos, então "explorar" não aparece. A tela de addons diz isso e mostra o status (manifest respondendo ou erro). Na página de um filme/série do TMDB, o painel "Streams dos addons" resolve o IMDb (`tt…`) e consulta cada addon com `stream` (`GET /api/stremio/streams`).
 
 O painel usa o player do app, não uma aba nova: `url` e `ytId` tocam embutidos, `externalUrl` abre fora e
-`infoHash` vai para o motor P2P local (o vídeo aparece na coluna principal; no caso de série, o título do
-episódio abre a lista e o player fica dentro da própria linha). Torrentio, Brazuca e FenixFlix funcionam
-sem catálogo por esse caminho.
+`infoHash` vai para o motor P2P local (o vídeo aparece na coluna principal). Torrentio, Brazuca e FenixFlix
+funcionam sem catálogo por esse caminho.
+
+No episódio de série, "Assistir" num arquivo ou torrent abre o player dedicado (`#/play/{tvmaze|tmdb}/{id}/{temporada}/{episódio}`):
+vídeo grande, fila da temporada e todas as fontes na lateral. A fonte escolhida (addon + resolução) fica salva no
+navegador e é a primeira tentada no próximo episódio; com "próximo episódio automático" ligado, o fim do vídeo marca o
+episódio como visto e abre o seguinte depois de 10 s. Atalhos: Shift+N e Shift+P.
 
 ## Item aberto no catálogo do addon
 

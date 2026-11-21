@@ -1,6 +1,7 @@
 import { getTmdbSeason, type LibraryEntryDto, type TmdbDetailDto } from '../api/index.ts';
 import type { EpisodeMarker } from '../library/episode-progress.ts';
 import { markThrough } from '../library/mark-progress.ts';
+import { playPath } from '../player/episode-play-model.ts';
 import { renderEpisodeBrowser } from './episode-browser.ts';
 import type { EpisodeView } from './episode-browser-model.ts';
 
@@ -28,6 +29,7 @@ export const renderSeasons = (
       ),
     marker: () => marker,
     streams: (ep) => ({ tmdbId: Number(tmdbId), mediaType: 'tv', season: ep.season, episode: ep.number }),
+    playPath: (ep) => playPath('tmdb', tmdbId, ep.season, ep.number),
     onMark: (ep) =>
       markThrough(titleId, ep.season, ep.number, (m) => {
         marker = m;

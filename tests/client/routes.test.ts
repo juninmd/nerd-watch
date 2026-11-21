@@ -26,6 +26,10 @@ describe('resolveRoute', () => {
     expect(resolveRoute('/title/tmdb/tv/1399')).toMatchObject({ def: { id: 'title' }, params: ['tmdb', 'tv', '1399'] });
     expect(resolveRoute('/title/archive/_/night_of_the_living_dead')?.params).toEqual(['archive', '_', 'night_of_the_living_dead']);
     expect(resolveRoute('/telegram/abc%20def')).toMatchObject({ def: { id: 'channel' }, params: ['abc%20def'] });
+    expect(resolveRoute('/play/tvmaze/552/1/4')).toMatchObject({ def: { id: 'play' }, params: ['tvmaze', '552', '1', '4'] });
+    // Só fontes com player dedicado e ids numéricos: o resto não abre a tela.
+    expect(idOf('/play/archive/552/1/4')).toBeNull();
+    expect(idOf('/play/tmdb/abc/1/4')).toBeNull();
     expect(resolveRoute('/lists/minha-lista')).toMatchObject({ def: { id: 'listDetail' }, params: ['minha-lista'] });
     expect(resolveRoute('/watch/canal-1/42')).toMatchObject({ def: { id: 'watch' }, params: ['canal-1', '42'] });
     expect(idOf('/watch/canal-1/start')).toBe('watch');

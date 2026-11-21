@@ -32,6 +32,7 @@ export interface TrackSlot {
 
 export const createTrackSlot = (): TrackSlot => {
   let mounted: MountedTrack | null = null;
+  let cancelPending: (() => void) | null = null;
 
   const shift = (offsetMs: number): void => {
     if (!mounted) return;
@@ -43,6 +44,9 @@ export const createTrackSlot = (): TrackSlot => {
   };
 
   const drop = (): void => {
+    const cancel = cancelPending;
+    cancelPending = null;
+    cancel?.();
     if (!mounted) return;
     mounted.el.remove();
     URL.revokeObjectURL(mounted.url);
@@ -66,13 +70,19 @@ export const createTrackSlot = (): TrackSlot => {
     mounted = track;
     return new Promise((resolve) => {
       let timer: ReturnType<typeof setTimeout> | null = null;
+      let done = false;
       const finish = (ok: boolean) => {
+        if (done) return;
+        done = true;
+        if (cancelPending === abort) cancelPending = null;
         if (timer) clearTimeout(timer);
         el.removeEventListener('load', onLoad);
         el.removeEventListener('error', onError);
         if (!ok) dropIf(track);
         resolve(ok ? track : null);
       };
+      const abort = () => finish(false);
+      cancelPending = abort;
       const onLoad = () => {
         if (mounted !== track) return finish(false);
         track.cues = Array.from(el.track.cues ?? []).map((cue) => ({ cue, start: cue.startTime, end: cue.endTime }));

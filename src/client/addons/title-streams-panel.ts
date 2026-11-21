@@ -18,6 +18,8 @@ export interface StreamsView {
   captions: CaptionContext | null;
   /** Onde o vídeo/torrent aparece. Sem ele, o painel cria um slot no topo (caso do episódio). */
   playerHost?: HTMLElement | null;
+  /** Quem chama assume o clique (ex.: abrir o player dedicado); `true` = não tocar aqui. */
+  onPick?: (group: Group, stream: Stream) => boolean;
 }
 
 export interface TitleStreamsView {
@@ -169,12 +171,15 @@ export const mountStreams = (container: HTMLElement, dto: TitleStreamsDto, view:
       if (more.dataset.more) expanded.add(group.addonId);
       else expanded.delete(group.addonId);
       repaintGroup(container, group, expanded.has(group.addonId));
+      // O botão clicado foi recriado no repaintGroup: devolve o foco ao controle equivalente.
+      container.querySelector<HTMLElement>(`[data-group="${CSS.escape(group.addonId)}"] .stream-more`)?.focus();
       return;
     }
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-addon]');
     if (!button) return;
     const found = findAddonStream(dto, button.dataset.addon, Number(button.dataset.index));
     if (!found) return;
+    if (view.onPick?.(found.group, found.stream)) return;
     if (found.stream.kind === 'torrent') playTorrent(found.group, found.stream);
     else playUrl(found.group, found.stream);
   };
@@ -186,7 +191,7 @@ export const renderTitleStreams = (host: HTMLElement, opts: TitleStreamsQuery, v
   if (card) card.hidden = true;
   getTitleStreams(opts)
     .then((dto) => {
-      if (!dto.addons.length) return;
+      if (!host.isConnected || !dto.addons.length) return;
       if (card) card.hidden = false;
       mountStreams(host, dto, {
         title: view.title,

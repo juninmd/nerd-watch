@@ -1,6 +1,7 @@
 import { checkResolvedHost } from '../../subtitles/load.ts';
 import { isFetchableSubtitleUrl } from '../../subtitles/url-guard.ts';
 import { type FetchFn, fetchCapped, makeFetch } from '../public-http.ts';
+import { cachedAddonJson, clearAddonCache } from './cache.ts';
 
 /** Resposta de addon é JSON pequeno; acima disso é abuso (ou addon quebrado). */
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -22,27 +23,41 @@ export class AddonError extends Error {
 }
 
 const fetcher = makeFetch();
-/** Só para teste. */
-export const setAddonFetch = (next?: FetchFn): void => fetcher.set(next);
+/** Só para teste. Trocar o `fetch` também limpa o cache: o caso de teste quer ver a resposta nova. */
+export const setAddonFetch = (next?: FetchFn): void => {
+  fetcher.set(next);
+  clearAddonCache();
+};
 
 /** GET JSON com teto de bytes e de tempo, redirect manual (cada salto passa pela mesma barreira de host público). */
-export const getAddonJson = async (rawUrl: string): Promise<unknown> => {
+const fetchAddonJson = async (rawUrl: string): Promise<unknown> => {
   let current = rawUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    if (!isFetchableSubtitleUrl(current) || (await checkResolvedHost(current)) !== 'public') {
+    if (!isFetchableSubtitleUrl(current)) {
       throw new AddonError('untrusted_url', 'endereço do addon não é um site público');
+    }
+    const resolved = await checkResolvedHost(current);
+    if (resolved === 'private') {
+      throw new AddonError('untrusted_url', 'endereço do addon não é um site público');
+    }
+    if (resolved !== 'public') {
+      throw new AddonError('unreachable', 'não foi possível conectar ao addon');
     }
     let res: Awaited<ReturnType<typeof fetchCapped>>;
     try {
       res = await fetchCapped(fetcher.get(), current, { headers: { accept: 'application/json' } }, TIMEOUT_MS, MAX_BYTES);
     } catch (err) {
-      const aborted = err instanceof Error && err.name === 'AbortError';
+      const aborted = err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError');
       throw new AddonError(aborted ? 'timeout' : 'unreachable', aborted ? 'o addon demorou demais para responder' : 'não foi possível conectar ao addon');
     }
     if (REDIRECT_STATUS.has(res.status)) {
       const location = res.headers.get('location');
       if (!location) throw new AddonError('http_status', 'o addon respondeu um redirecionamento inválido');
-      current = new URL(location, current).href;
+      try {
+        current = new URL(location, current).href;
+      } catch {
+        throw new AddonError('http_status', 'o addon respondeu um redirecionamento inválido');
+      }
       continue;
     }
     if (res.status < 200 || res.status >= 300) throw new AddonError('http_status', `o addon respondeu ${res.status}`);
@@ -55,3 +70,9 @@ export const getAddonJson = async (rawUrl: string): Promise<unknown> => {
   }
   throw new AddonError('http_status', 'redirecionamentos demais');
 };
+
+/**
+ * Entrada usada por todo o protocolo: a mesma URL não vira requisição de novo dentro do TTL que o
+ * addon pediu (`cacheMaxAge`), com teto de 5 min. Erro nunca entra no cache.
+ */
+export const getAddonJson = (rawUrl: string): Promise<unknown> => cachedAddonJson(rawUrl, fetchAddonJson);
