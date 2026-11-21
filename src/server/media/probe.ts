@@ -13,8 +13,10 @@ const CACHE_MAX_ENTRIES = 256;
  */
 export const createProber = (ffprobe: string) => {
   const cache = new Map<string, ProbeInfo>();
+  const inflight = new Map<string, Promise<ProbeInfo | null>>();
 
   const remember = (key: string, value: ProbeInfo): void => {
+    cache.delete(key);
     cache.set(key, value);
     if (cache.size > CACHE_MAX_ENTRIES) {
       const oldest = cache.keys().next().value;
@@ -25,18 +27,32 @@ export const createProber = (ffprobe: string) => {
   return {
     async probe(file: string, fileKey: string): Promise<ProbeInfo | null> {
       const hit = cache.get(fileKey);
-      if (hit) return hit;
-      const run = await runCapped(ffprobe, probeArgs(file), { timeoutMs: PROBE_TIMEOUT_MS, maxBytes: MAX_PROBE_BYTES });
-      if (!run.ok || !run.stdout) return null;
-      let json: unknown;
-      try {
-        json = JSON.parse(new TextDecoder().decode(run.stdout));
-      } catch {
-        return null;
+      if (hit) {
+        // Reinsere no fim para manter ordem LRU.
+        cache.delete(fileKey);
+        cache.set(fileKey, hit);
+        return hit;
       }
-      const info = parseProbe(json);
-      remember(fileKey, info);
-      return info;
+      const pending = inflight.get(fileKey);
+      if (pending) return pending;
+
+      const task = (async (): Promise<ProbeInfo | null> => {
+        const run = await runCapped(ffprobe, probeArgs(file), { timeoutMs: PROBE_TIMEOUT_MS, maxBytes: MAX_PROBE_BYTES });
+        if (!run.ok || !run.stdout) return null;
+        let json: unknown;
+        try {
+          json = JSON.parse(new TextDecoder().decode(run.stdout));
+        } catch {
+          return null;
+        }
+        const info = parseProbe(json);
+        remember(fileKey, info);
+        return info;
+      })().finally(() => {
+        inflight.delete(fileKey);
+      });
+      inflight.set(fileKey, task);
+      return task;
     },
   };
 };

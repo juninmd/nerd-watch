@@ -95,15 +95,20 @@ export const readCapped = async (stream: ReadableStream<Uint8Array>, max: number
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel();
-      return null;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > max) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch (err) {
+    await reader.cancel().catch(() => undefined);
+    throw err;
   }
   const out = new Uint8Array(total);
   let offset = 0;
@@ -130,6 +135,7 @@ export const runCapped = async (
 ): Promise<CappedRun> => {
   const proc = spawnTracked(cmd, args);
   const timer = setTimeout(() => killProcess(proc), opts.timeoutMs);
+  timer.unref?.();
   try {
     const stdout = await readCapped(proc.stdout, opts.maxBytes);
     if (stdout === null) {
