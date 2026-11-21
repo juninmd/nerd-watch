@@ -1,7 +1,7 @@
 import { backLinkHtml } from '../ui/back-link.ts';
 import { getTvmazeMore, getTvmazeTitle, type TvmazeDetailDto, type TvmazeEpisodeMeta, type TvmazeMoreDto } from '../api/index.ts';
 import { akasHtml, channelsHtml, crewHtml, episodeTypeTag, externalLinksHtml, factsHtml, galleryHtml, metaByEpisode, nextPrevHtml, seasonSummaryText } from './tvmaze-view.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterCssUrl } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
 import type { EpisodeMarker } from '../library/episode-progress.ts';
@@ -35,19 +35,25 @@ const fillMore = (host: HTMLElement, m: TvmazeMoreDto, counts: Map<number, numbe
 };
 
 export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
-  host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  // Raiz dedicada por visita: evita sobrescrever outra rota no #view compartilhado e descarta ouvintes ao sair.
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
   // Cada recarga (mudou o status) repinta a ficha: o ouvinte de cliques da anterior sai junto.
   let clicks: AbortController | null = null;
+  let loadSeq = 0;
 
   const load = () => {
+    const seq = ++loadSeq;
     getTvmazeTitle(id)
       .then((d) => {
+        if (!root.isConnected || seq !== loadSeq) return;
         const year = d.premiered?.slice(0, 4) ?? '—';
         let marker = markerOf(d);
         let more: TvmazeMoreDto | null = null;
         let meta = new Map<string, TvmazeEpisodeMeta>();
         const counts = new Map(d.seasons.map((s) => [s.seasonNumber, s.episodes.length]));
-        host.innerHTML = `
+        root.innerHTML = `
           ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
             <div class="backdrop backdrop-blur"></div>
@@ -94,21 +100,22 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
           </div>
         `;
 
-        // Via CSSOM, não innerHTML: a URL nunca é parseada como marcação (mesmo critério do detalhe do Archive).
+        // Via CSSOM + posterCssUrl: escapa aspas/barras e a URL nunca é parseada como marcação.
         if (d.posterUrl) {
-          (host.querySelector('.backdrop') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
-          (host.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
+          const cssUrl = posterCssUrl(d.posterUrl);
+          (root.querySelector('.backdrop') as HTMLElement).style.backgroundImage = cssUrl;
+          (root.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = cssUrl;
         }
-        attachCollapsingHero(host.querySelector('.hero') as HTMLElement);
+        attachCollapsingHero(root.querySelector('.hero') as HTMLElement);
 
-        const progressEl = host.querySelector('#tvm-progress') as HTMLElement;
+        const progressEl = root.querySelector('#tvm-progress') as HTMLElement;
         const drawProgress = () => {
           const { watched, total } = progressFromMarker([...counts].map(([number, count]) => ({ number, count })), marker);
           const next = more?.nextEpisode ? `T${more.nextEpisode.season} · E${more.nextEpisode.number ?? '?'} — ${more.nextEpisode.name}` : marker ? `parou em T${marker.season} · Ep ${marker.episode}` : null;
           progressEl.innerHTML = progressRingHtml(watched, total, next);
         };
 
-        const episodesEl = host.querySelector('#tvm-episodes') as HTMLElement;
+        const episodesEl = root.querySelector('#tvm-episodes') as HTMLElement;
         const browser = renderEpisodeBrowser(episodesEl, {
           seriesTitle: d.title,
           seasons: d.seasons.map((s) => ({ number: s.seasonNumber, name: s.name, count: s.episodes.length })),
@@ -138,16 +145,16 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
 
         getTvmazeMore(id)
           .then((m) => {
-            if (!host.isConnected) return;
+            if (!root.isConnected || seq !== loadSeq) return;
             more = m;
             meta = metaByEpisode(m.episodes);
-            fillMore(host, m, counts);
+            fillMore(root, m, counts);
             drawProgress();
             browser.reload();
           })
           .catch(() => undefined);
 
-        host.querySelector('[data-jump-episodes]')?.addEventListener('click', () => {
+        root.querySelector('[data-jump-episodes]')?.addEventListener('click', () => {
           const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
           episodesEl.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
           episodesEl.querySelector<HTMLElement>('.season-tabs .chip.active')?.focus({ preventScroll: true });
@@ -156,7 +163,7 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
         // Lateral: elenco abre o modal da pessoa; temporada da linha do tempo leva à aba dela.
         clicks?.abort();
         clicks = new AbortController();
-        host.addEventListener('click', (e) => {
+        root.addEventListener('click', (e) => {
           const t = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-person], button[data-cast-more], button[data-season-jump]');
           if (!t) return;
           if (t.dataset.person && more) {
@@ -164,9 +171,9 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
             if (c) openPersonModal({ id: c.person.id, name: c.person.name, imageUrl: c.person.imageUrl, role: c.character?.name ?? null, seriesTitle: d.title, currentShowId: Number(id) });
           } else if ('castMore' in t.dataset) {
             const open = t.getAttribute('aria-expanded') !== 'true';
-            for (const li of host.querySelectorAll<HTMLElement>('#prem-cast-list [data-more]')) li.hidden = !open;
+            for (const li of root.querySelectorAll<HTMLElement>('#prem-cast-list [data-more]')) li.hidden = !open;
             t.setAttribute('aria-expanded', String(open));
-            t.textContent = open ? 'Mostrar menos' : `Ver elenco completo (+${host.querySelectorAll('#prem-cast-list [data-more]').length})`;
+            t.textContent = open ? 'Mostrar menos' : `Ver elenco completo (+${root.querySelectorAll('#prem-cast-list [data-more]').length})`;
           } else if (t.dataset.seasonJump) {
             browser.selectSeason(Number(t.dataset.seasonJump));
             const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -175,7 +182,7 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
           }
         }, { signal: clicks.signal });
 
-        (host.querySelector('#status-actions') as HTMLElement).appendChild(
+        (root.querySelector('#status-actions') as HTMLElement).appendChild(
           renderStatusActions({
             titleId: d.titleId,
             entryId: d.library?.id ?? null,
@@ -186,7 +193,9 @@ export const renderTvmazeDetail = (host: HTMLElement, id: string): void => {
           }),
         );
       })
-      .catch(() => renderTitleError(host, load));
+      .catch(() => {
+        if (root.isConnected && seq === loadSeq) renderTitleError(root, load);
+      });
   };
 
   load();
