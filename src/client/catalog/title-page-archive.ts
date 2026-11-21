@@ -7,18 +7,23 @@ import { renderStatusActions } from '../library/status-actions.ts';
 import { renderSubtitlesPanel } from '../player/subtitles.ts';
 import { renderTitleError } from './title-error.ts';
 import { renderTorrentPanel } from '../player/torrent-player.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterCssUrl } from '../ui/card.ts';
 import { titlePath } from '../ui/title-link.ts';
 
 export const renderArchiveDetail = (host: HTMLElement, identifier: string): void => {
-  host.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = `<div class="skeleton" style="height:320px;border-radius:20px"></div>`;
+  let loadSeq = 0;
 
   const load = () => {
+    const seq = ++loadSeq;
     // Re-renderizar a página (ex.: mudar o status) destruiria o palco com o vídeo dentro; estaciona antes e o player retoma o mesmo vídeo.
     parkPlayer();
     getArchiveTitle(identifier)
       .then((d) => {
-        host.innerHTML = `
+        if (!root.isConnected || seq !== loadSeq) return;
+        root.innerHTML = `
           ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
             <div class="backdrop" style="filter:blur(24px) brightness(0.5);transform:scale(1.1)"></div>
@@ -29,7 +34,7 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
                 <h1>${escapeHtml(d.title)}</h1>
                 <div class="hero-meta">
                   <span class="badge badge-archive">domínio público</span>
-                  ${d.year ? `<span>${d.year}</span>` : ''}
+                  ${d.year ? `<span>${escapeHtml(String(d.year))}</span>` : ''}
                   <span>Internet Archive</span>
                 </div>
                 <p class="hero-overview">${escapeHtml(d.overview || 'Sem sinopse disponível para este item.')}</p>
@@ -80,15 +85,14 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
           </div>
         `;
 
-        // Via propriedade CSSOM, não innerHTML: o navegador parseia isso como um único valor CSS,
-        // então aspas/parênteses no identifier não conseguem fechar o url() e injetar outra declaração
-        // (diferente de interpolar em `style="...url('${...}')"`, onde HTML é parseado antes do CSS).
-        (host.querySelector('.backdrop') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
-        (host.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = `url("${d.posterUrl}")`;
+        // Via propriedade CSSOM + posterCssUrl: escapa aspas/barras e a URL nunca é parseada como marcação.
+        const cssUrl = posterCssUrl(d.posterUrl);
+        (root.querySelector('.backdrop') as HTMLElement).style.backgroundImage = cssUrl;
+        (root.querySelector('.hero-poster') as HTMLElement).style.backgroundImage = cssUrl;
 
         // Player do app por padrão quando o item tem MP4/WebM; sem arquivo compatível (ou se o navegador não tocar), o embed da Archive.
-        const playerHost = host.querySelector('#main-player') as HTMLElement;
-        const switchHost = host.querySelector('#player-switch') as HTMLElement;
+        const playerHost = root.querySelector('#main-player') as HTMLElement;
+        const switchHost = root.querySelector('#player-switch') as HTMLElement;
         const showEmbed = (reason: string) => {
           playerHost.innerHTML = `<div class="player-frame"><iframe src="${escapeHtml(d.embedUrl)}" allowfullscreen title="${escapeHtml(d.title)}"></iframe></div>`;
           switchHost.textContent = reason;
@@ -135,7 +139,7 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
         if (d.directVideoUrl) showAppPlayer(d.directVideoUrl);
         else showEmbed('');
 
-        const statusHost = host.querySelector('#status-actions') as HTMLElement;
+        const statusHost = root.querySelector('#status-actions') as HTMLElement;
         statusHost.appendChild(
           renderStatusActions({
             titleId: d.titleId,
@@ -147,13 +151,15 @@ export const renderArchiveDetail = (host: HTMLElement, identifier: string): void
           }),
         );
 
-        const subtitlesHost = host.querySelector('#subtitles-panel') as HTMLElement;
+        const subtitlesHost = root.querySelector('#subtitles-panel') as HTMLElement;
         subtitlesHost.appendChild(renderSubtitlesPanel({ query: `${d.title} ${d.year ?? ''}`.trim() }));
 
-        const torrentHost = host.querySelector('#torrent-panel') as HTMLElement | null;
+        const torrentHost = root.querySelector('#torrent-panel') as HTMLElement | null;
         torrentHost?.appendChild(renderTorrentPanel({ identifier: d.identifier, title: d.title, posterUrl: d.posterUrl }));
       })
-      .catch(() => renderTitleError(host, load));
+      .catch(() => {
+        if (root.isConnected && seq === loadSeq) renderTitleError(root, load);
+      });
   };
 
   load();
