@@ -30,6 +30,7 @@ export const renderLibraryHistory = (titleId: string): HTMLElement => {
     more.disabled = true;
     getLibraryHistory(titleId, PAGE_SIZE, offset)
       .then((page) => {
+        if (!wrap.isConnected) return;
         loaded = true;
         const firstNew = list.children.length;
         for (const item of page.items as LibraryHistoryItemDto[]) {
@@ -48,12 +49,13 @@ export const renderLibraryHistory = (titleId: string): HTMLElement => {
         }
       })
       .catch(() => {
+        if (!wrap.isConnected) return;
         // Erro não apaga o que já foi carregado: só avisa e deixa tentar de novo.
         setStatus('Não foi possível carregar o histórico. Tente de novo.');
       })
       .finally(() => {
         loading = false;
-        more.disabled = false;
+        if (wrap.isConnected) more.disabled = false;
       });
   };
 

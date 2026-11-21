@@ -31,18 +31,33 @@ const showReport = (target: HTMLElement, lines: ReportLines): void => {
 };
 
 /** Lê o arquivo escolhido, manda ao servidor e mostra o relatório. Falha de rede ou de validação vira aviso, sem derrubar a tela. */
-const bindImport = (input: HTMLInputElement, report: HTMLElement, run: (text: string) => Promise<ReportLines>, label: string): void => {
+const bindImport = (
+  input: HTMLInputElement,
+  trigger: HTMLButtonElement,
+  report: HTMLElement,
+  run: (text: string) => Promise<ReportLines>,
+  label: string,
+): void => {
+  let importing = false;
   input.addEventListener('change', async () => {
     const file = input.files?.[0];
     input.value = '';
-    if (!file) return;
+    if (!file || importing) return;
+    importing = true;
+    trigger.disabled = true;
     report.textContent = `${label}: importando…`;
     try {
-      showReport(report, await run(await file.text()));
+      const lines = await run(await file.text());
+      if (!report.isConnected) return;
+      showReport(report, lines);
       showToast(`${label} concluído`);
     } catch (err) {
+      if (!report.isConnected) return;
       report.textContent = err instanceof Error ? err.message : `falha ao importar ${label}`;
       showToast(`falha ao importar ${label}`);
+    } finally {
+      importing = false;
+      if (trigger.isConnected) trigger.disabled = false;
     }
   });
 };
@@ -68,7 +83,13 @@ export const renderLibraryIo = (host: HTMLElement): void => {
   const csvInput = host.querySelector('#lib-csv-file') as HTMLInputElement;
   const malInput = host.querySelector('#lib-mal-file') as HTMLInputElement;
 
-  (host.querySelector('#btn-lib-export') as HTMLButtonElement).addEventListener('click', async () => {
+  const exportBtn = host.querySelector('#btn-lib-export') as HTMLButtonElement;
+  const csvBtn = host.querySelector('#btn-lib-csv') as HTMLButtonElement;
+  const malBtn = host.querySelector('#btn-lib-mal') as HTMLButtonElement;
+
+  exportBtn.addEventListener('click', async () => {
+    if (exportBtn.disabled) return;
+    exportBtn.disabled = true;
     try {
       const blob = await exportLibraryCsv();
       const url = URL.createObjectURL(blob);
@@ -80,11 +101,13 @@ export const renderLibraryIo = (host: HTMLElement): void => {
       showToast('CSV da biblioteca baixado');
     } catch {
       showToast('falha ao baixar o CSV');
+    } finally {
+      if (exportBtn.isConnected) exportBtn.disabled = false;
     }
   });
 
-  (host.querySelector('#btn-lib-csv') as HTMLButtonElement).addEventListener('click', () => csvInput.click());
-  (host.querySelector('#btn-lib-mal') as HTMLButtonElement).addEventListener('click', () => malInput.click());
-  bindImport(csvInput, report, async (text) => csvReportLines(await importLibraryCsv(text)), 'CSV');
-  bindImport(malInput, report, async (xml) => malReportLines(await importMalList(xml)), 'MyAnimeList');
+  csvBtn.addEventListener('click', () => csvInput.click());
+  malBtn.addEventListener('click', () => malInput.click());
+  bindImport(csvInput, csvBtn, report, async (text) => csvReportLines(await importLibraryCsv(text)), 'CSV');
+  bindImport(malInput, malBtn, report, async (xml) => malReportLines(await importMalList(xml)), 'MyAnimeList');
 };
