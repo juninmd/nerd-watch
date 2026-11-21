@@ -1,5 +1,5 @@
 import { type LibraryItemDto, listLibrary } from '../api/index.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterCssUrl } from '../ui/card.ts';
 import { filterPickCandidates, type PickFilters, type PickType, pickRandom } from './pick-random.ts';
 import { navigate } from '../app/router.ts';
 import { libraryItemPath } from '../ui/title-link.ts';
@@ -109,10 +109,11 @@ export const openPickDialog = (): void => {
     current = pickRandom(candidates, { avoidId: current?.titleId ?? null });
     if (!current) return;
     const item = current;
+    const posterCss = item.title.posterUrl ? posterCssUrl(item.title.posterUrl) : null;
     setActions(true);
     resultEl.innerHTML = `
       <div class="pick-card">
-        <div class="thumb"${item.title.posterUrl ? ` style="background-image:url('${escapeHtml(item.title.posterUrl)}')"` : ''}></div>
+        <div class="thumb"${posterCss ? ` style="background-image:${posterCss}"` : ''}></div>
         <div><span class="pick-name">${escapeHtml(item.title.title)}</span><span class="pick-meta">${escapeHtml(metaLine(item))}</span></div>
       </div>`;
   };
