@@ -3,30 +3,16 @@ import { backLinkHtml } from '../ui/back-link.ts';
 import { escapeHtml, initials } from '../ui/card.ts';
 import { pluralize } from '../ui/pluralize.ts';
 import { titlePath } from '../ui/title-link.ts';
-import { dateLabel } from './tvmaze-view.ts';
 import { renderTitleError } from './title-error.ts';
+import { groupCredits, personFacts } from './person-facts.ts';
 
 const creditsHtml = (heading: string, credits: TvmazePersonDto['cast']): string => {
   if (credits.length === 0) return '';
-  // Um mesmo show pode aparecer várias vezes (vários personagens): agrupa e junta os papéis.
-  const byShow = new Map<number, { name: string; roles: string[] }>();
-  for (const c of credits) {
-    const entry = byShow.get(c.showId) ?? { name: c.showName, roles: [] };
-    if (c.role && !entry.roles.includes(c.role)) entry.roles.push(c.voice ? `${c.role} (voz)` : c.role);
-    byShow.set(c.showId, entry);
-  }
-  const rows = [...byShow.entries()]
-    .map(([id, e]) => `<a class="tvm-credit" href="#${titlePath('tvmaze', 'tv', String(id))}"><strong>${escapeHtml(e.name)}</strong>${e.roles.length ? `<span class="dim">${escapeHtml(e.roles.join(', '))}</span>` : ''}</a>`)
+  const byShow = groupCredits(credits);
+  const rows = byShow
+    .map((e) => `<a class="tvm-credit" href="#${titlePath('tvmaze', 'tv', String(e.showId))}"><strong>${escapeHtml(e.name)}</strong>${e.roles.length ? `<span class="dim">${escapeHtml(e.roles.join(', '))}</span>` : ''}</a>`)
     .join('');
-  return `<div class="section-head"><h2>${heading} <span class="dim">· ${pluralize(byShow.size, 'série', 'séries')}</span></h2></div><div class="tvm-credits">${rows}</div>`;
-};
-
-const ageLabel = (p: TvmazePersonDto): string | null => {
-  if (!p.birthday) return null;
-  const end = p.deathday ? new Date(`${p.deathday}T00:00:00`) : new Date();
-  const born = new Date(`${p.birthday}T00:00:00`);
-  const years = end.getFullYear() - born.getFullYear() - (end < new Date(end.getFullYear(), born.getMonth(), born.getDate()) ? 1 : 0);
-  return years >= 0 ? `${years} anos${p.deathday ? ' ao falecer' : ''}` : null;
+  return `<div class="section-head"><h2>${heading} <span class="dim">· ${pluralize(byShow.length, 'série', 'séries')}</span></h2></div><div class="tvm-credits">${rows}</div>`;
 };
 
 /** Página de uma pessoa da TVmaze: foto, dados e créditos de elenco e equipe (cada série leva à ficha dela). */
@@ -38,13 +24,7 @@ export const renderTvmazePerson = (host: HTMLElement, id: string): void => {
     getTvmazePerson(id)
       .then((p) => {
         if (!root.isConnected) return;
-        const facts = [
-          p.birthday ? `nasc. ${dateLabel(p.birthday)}` : null,
-          p.deathday ? `faleceu em ${dateLabel(p.deathday)}` : null,
-          ageLabel(p),
-          p.country,
-          p.gender,
-        ].filter((f): f is string => Boolean(f));
+        const facts = personFacts(p);
         root.innerHTML = `
           ${backLinkHtml('#/search', 'Voltar', true)}
           <div class="tvm-person-head">

@@ -1,11 +1,10 @@
-import type { TvmazeCastMember, TvmazeCrewMember, TvmazeEpisodeMeta, TvmazeImage, TvmazeMoreDto, TvmazePerson } from '../api/index.ts';
+import type { TvmazeCrewMember, TvmazeEpisodeMeta, TvmazeImage, TvmazeMoreDto, TvmazePerson } from '../api/index.ts';
 import { escapeHtml, initials } from '../ui/card.ts';
 import { pluralize } from '../ui/pluralize.ts';
 
 /** HTML puro (sem DOM) das seções extras da ficha TVmaze: testável direto. Todo dado externo passa por `escapeHtml`. */
 
 const PERSON_HREF = (id: number): string => `#/person/tvmaze/${id}`;
-const MAX_CAST = 24;
 const MAX_IMAGES = 18;
 
 export const dateLabel = (iso: string | null): string => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'a confirmar');
@@ -20,14 +19,6 @@ export const personCardHtml = (p: TvmazePerson, line1: string | null, line2: str
     ${line1 ? `<span class="tvm-person-sub">${escapeHtml(line1)}</span>` : ''}
     ${line2 ? `<span class="tvm-person-sub dim">${escapeHtml(line2)}</span>` : ''}
   </a>`;
-
-export const castHtml = (cast: TvmazeCastMember[]): string => {
-  if (cast.length === 0) return '';
-  const shown = cast.slice(0, MAX_CAST);
-  const more = cast.length - shown.length;
-  const cards = shown.map((c) => personCardHtml(c.person, c.character?.name ?? null, c.voice ? 'voz' : c.self ? 'ele(a) mesmo(a)' : c.person.country)).join('');
-  return `<div class="section-head"><h2>Elenco</h2></div><div class="tvm-people">${cards}</div>${more > 0 ? `<p class="hint">e mais ${pluralize(more, 'pessoa', 'pessoas')} no elenco (veja na TVmaze)</p>` : ''}`;
-};
 
 /** Equipe agrupada por função (Criador, Produtor Executivo…), na ordem em que a TVmaze lista. */
 export const groupCrew = (crew: TvmazeCrewMember[]): Array<{ role: string; people: TvmazePerson[] }> => {
@@ -147,20 +138,22 @@ export const metaByEpisode = (episodes: TvmazeEpisodeMeta[]): Map<string, Tvmaze
   return map;
 };
 
-export const seasonSummaryHtml = (m: TvmazeMoreDto, seasonNumber: number): string => {
+/** Linha da temporada (estreia, final, encomenda, emissora) mostrada sob as abas de episódios. */
+export const seasonSummaryText = (m: Pick<TvmazeMoreDto, 'seasons'>, seasonNumber: number): string => {
   const s = m.seasons.find((x) => x.number === seasonNumber);
   if (!s) return '';
-  const bits = [
+  return [
     s.premiereDate ? `estreia ${dateLabel(s.premiereDate)}` : null,
     s.endDate ? `final ${dateLabel(s.endDate)}` : null,
     s.episodeOrder ? pluralize(s.episodeOrder, 'episódio encomendado', 'episódios encomendados') : null,
     s.channel,
-  ].filter((b): b is string => Boolean(b));
-  return bits.length ? `<p class="hint tvm-season-meta">${escapeHtml(bits.join(' · '))}</p>` : '';
+  ]
+    .filter((b): b is string => Boolean(b))
+    .join(' · ');
 };
 
-export const episodeBadgesHtml = (e: TvmazeEpisodeMeta | undefined): string => {
-  if (!e) return '';
-  const bits = [e.rating ? `<span class="tvm-rate">★ ${e.rating.toFixed(1)}</span>` : '', e.runtime ? `<span class="dim">${e.runtime} min</span>` : '', e.type && e.type !== 'regular' ? `<span class="tvm-chip">${escapeHtml(e.type === 'significant_special' ? 'especial' : e.type === 'insignificant_special' ? 'extra' : e.type)}</span>` : ''];
-  return bits.filter(Boolean).join(' ');
+/** Selo de tipo do episódio (especial/extra); episódio comum não tem selo. */
+export const episodeTypeTag = (e: Pick<TvmazeEpisodeMeta, 'type'> | undefined): string | null => {
+  if (!e?.type || e.type === 'regular') return null;
+  return e.type === 'significant_special' ? 'especial' : e.type === 'insignificant_special' ? 'extra' : e.type;
 };

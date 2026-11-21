@@ -1,156 +1,40 @@
-import { overviewEl } from '../ui/overview.ts';
-import {
-  getTmdbSeason,
-  markProgressThrough,
-  patchLibrary,
-  removeFromLibrary,
-  type LibraryEntryDto,
-  type MarkThroughResult,
-  type TmdbDetailDto,
-} from '../api/index.ts';
-import { escapeHtml } from '../ui/card.ts';
-import { icon } from '../ui/icons.ts';
-import { isEpisodeWatched } from '../library/episode-progress.ts';
-import { wireEpisodeStreams } from '../addons/episode-streams.ts';
-import { getVideo, stopIfOnPageIn } from '../player/player-dock.ts';
-import { releaseTorrentPlayers } from '../player/torrent-player.ts';
-import { showToast } from '../app/state.ts';
+import { getTmdbSeason, type LibraryEntryDto, type TmdbDetailDto } from '../api/index.ts';
+import type { EpisodeMarker } from '../library/episode-progress.ts';
+import { markThrough } from '../library/mark-progress.ts';
+import { renderEpisodeBrowser } from './episode-browser.ts';
+import type { EpisodeView } from './episode-browser-model.ts';
 
-const dateLabel = (iso: string | null): string => {
-  if (!iso) return '';
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-
-/** Desfaz a marcação com o estado que estava antes (ou tira a entrada, se a série não estava na lista). */
-const undoMark = (titleId: string, result: MarkThroughResult, refresh: () => void): void => {
-  const restore = result.previous
-    ? patchLibrary(titleId, {
-        watchStatus: result.previous.watchStatus,
-        currentSeason: result.previous.currentSeason,
-        currentEpisode: result.previous.currentEpisode,
-      })
-    : removeFromLibrary(result.item.id);
-  restore
-    .then(() => {
-      showToast('progresso desfeito');
-      refresh();
-    })
-    .catch(() => showToast('não foi possível desfazer'));
-};
-
+/** Episódios de uma série da TMDB: cada temporada carrega sob demanda; o detalhe e os links abrem no modal. */
 export const renderSeasons = (
   container: HTMLElement,
   tmdbId: string,
+  seriesTitle: string,
   seasons: TmdbDetailDto['seasons'],
   titleId: string,
   library: LibraryEntryDto | null,
   refreshParent: () => void,
+  onMarkerChange: (m: EpisodeMarker | null) => void,
 ): void => {
-  const real = seasons.filter((s) => s.episodeCount > 0);
-  if (real.length === 0) {
-    container.innerHTML = '';
-    return;
-  }
-
-  let activeSeason = library?.current_season && real.some((s) => s.seasonNumber === library.current_season) ? library.current_season : real[0]?.seasonNumber ?? 1;
-
-  container.innerHTML = `
-    <div class="section-head"><h2>Episódios</h2></div>
-    <div class="season-tabs" id="season-tabs" role="group" aria-label="Temporadas"></div>
-    <div id="episode-list"></div>
-  `;
-
-  const tabsEl = container.querySelector('#season-tabs') as HTMLElement;
-  const listEl = container.querySelector('#episode-list') as HTMLElement;
-
-  const renderTabs = () => {
-    tabsEl.innerHTML = real
-      .map((s) => `<button type="button" class="chip${s.seasonNumber === activeSeason ? ' active' : ''}" data-season="${s.seasonNumber}" aria-pressed="${s.seasonNumber === activeSeason}">${escapeHtml(s.name)}</button>`)
-      .join('');
-    tabsEl.querySelectorAll<HTMLButtonElement>('.chip').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        activeSeason = Number(btn.dataset.season);
-        renderTabs();
-        // O re-render troca os botões; sem devolver o foco, quem usa teclado perde a posição a cada troca.
-        tabsEl.querySelector<HTMLButtonElement>('.chip.active')?.focus();
-        loadEpisodes();
-      });
-    });
-  };
-
-  const loadEpisodes = () => {
-    // Trocar de temporada recria as linhas; um player/episódio aberto nelas ficaria tocando sem controles.
-    const video = getVideo();
-    const ownsPlayer = Boolean(listEl.querySelector('.torrent-panel, .inline-player, iframe')) || Boolean(video && listEl.contains(video));
-    if (ownsPlayer) {
-      stopIfOnPageIn(listEl);
-      releaseTorrentPlayers(listEl);
-    }
-    listEl.setAttribute('aria-busy', 'true');
-    listEl.innerHTML = Array.from({ length: 4 }, () => '<div class="skeleton" style="height:96px;margin-bottom:10px"></div>').join('');
-    const requestedSeason = activeSeason;
-    getTmdbSeason(tmdbId, requestedSeason)
-      .then((data) => {
-        if (requestedSeason !== activeSeason) return;
-        listEl.removeAttribute('aria-busy');
-        if (data.episodes.length === 0) {
-          listEl.innerHTML = `<div class="empty-state"><div class="big">${icon('film')}</div>sem episódios listados para esta temporada</div>`;
-          return;
-        }
-        listEl.innerHTML = '';
-        const marker = library?.current_season != null && library?.current_episode != null ? { season: library.current_season, episode: library.current_episode } : null;
-        for (const ep of data.episodes) {
-          const isCurrent = marker?.season === activeSeason && marker?.episode === ep.episodeNumber;
-          const watched = !isCurrent && isEpisodeWatched(marker, activeSeason, ep.episodeNumber);
-          const row = document.createElement('div');
-          row.className = `episode-row${isCurrent ? ' current' : ''}${watched ? ' watched' : ''}`;
-          row.innerHTML = `
-            <div class="still"${ep.stillUrl ? ` style="background-image:url('${escapeHtml(ep.stillUrl)}')"` : ''}></div>
-            <div class="body">
-              <div class="head">
-                <span class="name"><button type="button" class="ep-title" aria-expanded="false">${ep.episodeNumber}. ${escapeHtml(ep.name)}</button>${watched ? ' <span class="seen">visto</span>' : ''}</span>
-                <span class="date">${dateLabel(ep.airDate)}</span>
-              </div>
-              <div class="overview-slot"></div>
-              <div class="ep-streams" hidden></div>
-              <button class="btn btn-ghost btn-sm mark-current" style="margin-top:10px" type="button">
-                ${isCurrent ? '✓ é onde você parou' : watched ? '↩ voltar o marcador para cá' : '📍 marcar até aqui'}
-              </button>
-            </div>
-          `;
-          row.querySelector('.overview-slot')?.append(overviewEl(ep.overview));
-          wireEpisodeStreams(row, () => ({ tmdbId: Number(tmdbId), mediaType: 'tv', season: requestedSeason, episode: ep.episodeNumber }));
-          if (!isCurrent) {
-            row.querySelector<HTMLButtonElement>('.mark-current')?.addEventListener('click', (e) => {
-              const btn = e.currentTarget as HTMLButtonElement;
-              // Desabilitar durante o envio evita o duplo clique; o servidor também não regrava o mesmo marcador.
-              btn.disabled = true;
-              markProgressThrough(titleId, activeSeason, ep.episodeNumber)
-                .then((res) => {
-                  if (!res.changed) {
-                    showToast('já estava marcado até aqui');
-                    btn.disabled = false;
-                    return;
-                  }
-                  showToast(`marcado até T${activeSeason} · Ep ${ep.episodeNumber}`, { label: 'Desfazer', run: () => undoMark(titleId, res, refreshParent) });
-                  refreshParent();
-                })
-                .catch(() => {
-                  btn.disabled = false;
-                  showToast('não foi possível marcar');
-                });
-            });
-          }
-          listEl.appendChild(row);
-        }
-      })
-      .catch(() => {
-        if (requestedSeason !== activeSeason) return;
-        listEl.removeAttribute('aria-busy');
-        listEl.innerHTML = `<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível carregar os episódios</div>`;
-      });
-  };
-
-  renderTabs();
-  loadEpisodes();
+  let marker: EpisodeMarker | null = library?.current_season != null && library.current_episode != null ? { season: library.current_season, episode: library.current_episode } : null;
+  const browser = renderEpisodeBrowser(container, {
+    seriesTitle,
+    seasons: seasons.map((s) => ({ number: s.seasonNumber, name: s.name, count: s.episodeCount })),
+    initialSeason: marker?.season ?? seasons.find((s) => s.seasonNumber > 0 && s.episodeCount > 0)?.seasonNumber ?? 1,
+    load: (n) =>
+      getTmdbSeason(tmdbId, n).then((data) =>
+        data.episodes.map(
+          (ep): EpisodeView => ({ season: n, number: ep.episodeNumber, name: ep.name, airDate: ep.airDate, runtime: ep.runtime, overview: ep.overview || null, stillUrl: ep.stillUrl, rating: null }),
+        ),
+      ),
+    marker: () => marker,
+    streams: (ep) => ({ tmdbId: Number(tmdbId), mediaType: 'tv', season: ep.season, episode: ep.number }),
+    onMark: (ep) =>
+      markThrough(titleId, ep.season, ep.number, (m) => {
+        marker = m;
+        onMarkerChange(m);
+        // Série que não estava na lista entra nela: o cartão "Sua lista" precisa refletir; senão basta repintar os episódios.
+        if (!library) refreshParent();
+        else browser.refresh();
+      }),
+  });
 };

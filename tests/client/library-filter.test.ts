@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { countByStatus, filterBySource, filterByStatus } from '../../src/client/library/library-filter.ts';
+import { countByStatus, filterByName, filterBySource, filterByStatus } from '../../src/client/library/library-filter.ts';
 
 const item = (watchStatus: 'want' | 'watching' | 'watched' | 'dropped', source: 'tmdb' | 'archive' | 'telegram') => ({ watchStatus, title: { source } });
 
@@ -25,5 +25,16 @@ describe('filtros', () => {
     const tmdb = filterBySource(items, 'tmdb');
     expect(countByStatus(tmdb).all).toBe(2);
     expect(filterByStatus(tmdb, 'watching')).toEqual([item('watching', 'tmdb')]);
+  });
+});
+
+describe('filterByName', () => {
+  const items = [{ title: { title: 'Pokémon' } }, { title: { title: 'The King of Queens' } }];
+
+  test('ignora acento e caixa; vazio devolve tudo', () => {
+    expect(filterByName(items, 'POKEMON').map((i) => i.title.title)).toEqual(['Pokémon']);
+    expect(filterByName(items, 'queens').map((i) => i.title.title)).toEqual(['The King of Queens']);
+    expect(filterByName(items, '  ')).toBe(items);
+    expect(filterByName(items, 'zzz')).toEqual([]);
   });
 });

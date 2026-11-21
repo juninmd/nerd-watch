@@ -14,6 +14,14 @@ export const filterBySource = <T extends Filterable>(items: T[], source: SourceF
 export const filterByStatus = <T extends Filterable>(items: T[], status: StatusFilter): T[] =>
   status === 'all' ? items : items.filter((i) => i.watchStatus === status);
 
+const fold = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+/** Filtro por nome, sem acento e sem caixa ("pokemon" acha "Pokémon"). Vazio devolve tudo. */
+export const filterByName = <T extends { title: { title: string } }>(items: T[], query: string): T[] => {
+  const q = fold(query.trim());
+  return q ? items.filter((i) => fold(i.title.title).includes(q)) : items;
+};
+
 type Sortable = { rating: number | null; title: { title: string } };
 
 /** "recentes" é a ordem que o servidor já manda (atividade). Os demais ordenam uma cópia; empate fica na ordem original. */
