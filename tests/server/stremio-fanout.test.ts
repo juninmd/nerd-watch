@@ -11,6 +11,7 @@ const addon = (id: string): InstalledAddon => ({
   id,
   manifestUrl: `https://${id}.example.com/manifest.json`,
   baseUrl: `https://${id}.example.com`,
+  enabled: true,
   addedAt: '2026-01-01',
   manifest: {
     id,
