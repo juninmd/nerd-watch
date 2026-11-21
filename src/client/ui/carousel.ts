@@ -33,7 +33,14 @@ export const mountCarousel = (rail: HTMLElement, opts: { label: string }): HTMLE
     root.classList.toggle('is-static', atStart && atEnd);
   };
   rail.addEventListener('scroll', sync, { passive: true });
-  new ResizeObserver(sync).observe(rail);
+  const ro = new ResizeObserver(() => {
+    if (!rail.isConnected) {
+      ro.disconnect();
+      return;
+    }
+    sync();
+  });
+  ro.observe(rail);
 
   // Tab já leva o foco cartão a cartão (e o navegador rola até ele); as setas fazem o mesmo sem sair da faixa.
   rail.addEventListener('keydown', (e) => {
