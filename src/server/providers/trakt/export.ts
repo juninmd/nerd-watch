@@ -55,7 +55,8 @@ const toHistoryBody = (batch: Item[]): Record<string, Array<{ ids: { tmdb: numbe
  * Série: se já existe qualquer episódio dela no Trakt, a série é considerada presente e não é reenviada (limite documentado).
  */
 export const exportWatched = async (db: Database, options: ExportOptions = {}): Promise<ExportCounts> => {
-  const batchSize = options.batchSize ?? 100;
+  const rawBatch = options.batchSize ?? 100;
+  const batchSize = Number.isFinite(rawBatch) ? Math.max(1, Math.floor(rawBatch)) : 100;
   const pauseMs = options.pauseMs ?? 1100;
 
   const remote = await fetchWatchedLists();
@@ -86,7 +87,7 @@ export const exportWatched = async (db: Database, options: ExportOptions = {}): 
       const res = (await traktRequest('POST', '/sync/history', toHistoryBody(batch))) as { not_found?: Record<string, unknown[] | undefined> };
       const notFound = Object.values(res?.not_found ?? {}).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0);
       counts.notFound += notFound;
-      counts.exported += batch.length - notFound;
+      counts.exported += Math.max(0, batch.length - notFound);
     } catch (err) {
       if (err instanceof SourceError) throw new PartialExportError(err, counts);
       throw err;
