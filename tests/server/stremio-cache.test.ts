@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { addonCacheSize, cachedAddonJson, clearAddonCache, DEFAULT_TTL_MS, MAX_ENTRIES, MAX_TTL_MS, ttlFromBody } from '../../src/server/providers/stremio/cache.ts';
+import {
+  addonCacheSize,
+  cachedAddonJson,
+  clearAddonCache,
+  DEFAULT_TTL_MS,
+  invalidateAddonCache,
+  MAX_ENTRIES,
+  MAX_TTL_MS,
+  ttlFromBody,
+} from '../../src/server/providers/stremio/cache.ts';
 
 /**
  * Cache curto das respostas de addon: o protocolo já diz por quanto tempo a resposta vale
@@ -87,5 +96,51 @@ describe('cachedAddonJson', () => {
     const fetchJson = async () => ({ cacheMaxAge: 60 });
     for (let i = 0; i < MAX_ENTRIES + 5; i++) await cachedAddonJson(`https://a.example/${i}.json`, fetchJson);
     expect(addonCacheSize()).toBeLessThanOrEqual(MAX_ENTRIES);
+  });
+
+  test('entrada renovada move para o fim e não é expulsa primeiro pelo teto', async () => {
+    let now = 1_000;
+    let callsA = 0;
+    await cachedAddonJson('https://a.example/0.json', async () => ({ cacheMaxAge: 10, v: ++callsA }), { now: () => now });
+    for (let i = 1; i < MAX_ENTRIES; i++) {
+      await cachedAddonJson(`https://a.example/${i}.json`, async () => ({ cacheMaxAge: 600 }), { now: () => now });
+    }
+    // 0.json expira e é renovada; em seguida entram mais 5 entradas que disparam trim().
+    now += 15_000;
+    await cachedAddonJson('https://a.example/0.json', async () => ({ cacheMaxAge: 600, v: ++callsA }), { now: () => now });
+    for (let i = MAX_ENTRIES; i < MAX_ENTRIES + 5; i++) {
+      await cachedAddonJson(`https://a.example/${i}.json`, async () => ({ cacheMaxAge: 600 }), { now: () => now });
+    }
+    // 0.json foi renovada por último, então continua no cache.
+    const hit = await cachedAddonJson('https://a.example/0.json', async () => ({ cacheMaxAge: 600, v: ++callsA }), { now: () => now });
+    expect(hit).toMatchObject({ v: 2 });
+    expect(callsA).toBe(2);
+  });
+
+  test('entrada expirada é removida quando o refresh falha', async () => {
+    let now = 1_000;
+    await cachedAddonJson('https://a.example/stale.json', async () => ({ cacheMaxAge: 5 }), { now: () => now });
+    expect(addonCacheSize()).toBe(1);
+    now += 10_000;
+    await expect(
+      cachedAddonJson(
+        'https://a.example/stale.json',
+        async () => {
+          throw new Error('falha');
+        },
+        { now: () => now },
+      ),
+    ).rejects.toThrow('falha');
+    expect(addonCacheSize()).toBe(0);
+  });
+
+  test('invalidateAddonCache limpa apenas URLs do addon removido', async () => {
+    const ok = async () => ({ cacheMaxAge: 60 });
+    await cachedAddonJson('https://addon-a.example/token1/stream/movie/tt1.json', ok);
+    await cachedAddonJson('https://addon-a.example/token1/meta/movie/tt1.json', ok);
+    await cachedAddonJson('https://addon-a.example/token10/stream/movie/tt1.json', ok);
+    await cachedAddonJson('https://addon-b.example/stream/movie/tt1.json', ok);
+    invalidateAddonCache('https://addon-a.example/token1');
+    expect(addonCacheSize()).toBe(2);
   });
 });

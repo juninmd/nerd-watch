@@ -34,15 +34,30 @@ export const clearAddonCache = (): void => {
 
 export const addonCacheSize = (): number => entries.size;
 
+/** Remove entradas em cache de um addon específico (ao remover ou reinstalar). */
+export const invalidateAddonCache = (baseUrl: string): void => {
+  const prefix = `${baseUrl.replace(/\/+$/, '')}/`;
+  for (const key of entries.keys()) {
+    if (key.startsWith(prefix)) entries.delete(key);
+  }
+};
+
 /** `cacheMaxAge` (segundos) do corpo, limitado ao teto; valor ausente/zero/lixo cai no padrão. */
 export const ttlFromBody = (body: unknown, fallbackMs = DEFAULT_TTL_MS): number => {
   const raw = typeof body === 'object' && body !== null ? (body as { cacheMaxAge?: unknown }).cacheMaxAge : undefined;
   const seconds = typeof raw === 'number' ? raw : Number.NaN;
   if (!Number.isFinite(seconds) || seconds <= 0) return fallbackMs;
-  return Math.min(Math.floor(seconds * 1000), MAX_TTL_MS);
+  const ms = Math.floor(seconds * 1000);
+  if (ms <= 0) return fallbackMs;
+  return Math.min(ms, MAX_TTL_MS);
 };
 
-const trim = (): void => {
+const trim = (nowMs: number): void => {
+  if (entries.size <= MAX_ENTRIES) return;
+  // Expira primeiro entradas vencidas para não expulsar respostas ainda frescas.
+  for (const [key, entry] of entries) {
+    if (nowMs - entry.at >= entry.ttlMs) entries.delete(key);
+  }
   if (entries.size <= MAX_ENTRIES) return;
   // Map preserva a ordem de inserção: as mais antigas saem primeiro.
   for (const key of entries.keys()) {
@@ -58,14 +73,20 @@ export const cachedAddonJson = async (
 ): Promise<unknown> => {
   const now = options.now ?? Date.now;
   const hit = entries.get(url);
-  if (hit && now() - hit.at < hit.ttlMs) return hit.value;
+  if (hit) {
+    if (now() - hit.at < hit.ttlMs) return hit.value;
+    entries.delete(url);
+  }
 
   const pending = inflight.get(url);
   if (pending) return pending;
 
   const task = fetchJson(url).then((value) => {
-    entries.set(url, { at: now(), ttlMs: ttlFromBody(value, options.ttlMs ?? DEFAULT_TTL_MS), value });
-    trim();
+    const writtenAt = now();
+    // Reinsere no fim para manter a ordem de recência na evicção do Map.
+    entries.delete(url);
+    entries.set(url, { at: writtenAt, ttlMs: ttlFromBody(value, options.ttlMs ?? DEFAULT_TTL_MS), value });
+    trim(writtenAt);
     return value;
   });
   inflight.set(url, task);
