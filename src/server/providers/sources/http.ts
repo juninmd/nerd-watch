@@ -20,25 +20,30 @@ export const isHttpsUrl = (value: string): boolean => {
   }
 };
 
-/** Lê o corpo até `maxBytes`; passou do teto, cancela e devolve null (nunca guarda um arquivo grande na memória). */
+/** Lê o corpo até `maxBytes`; passou do teto ou caiu no meio, cancela e devolve null (nunca guarda um arquivo grande na memória). */
 export const readCapped = async (res: Response, maxBytes: number): Promise<Uint8Array | null> => {
   const declared = Number(res.headers.get('content-length'));
   if (declared > maxBytes || !res.body) {
-    await res.body?.cancel();
+    await res.body?.cancel().catch(() => undefined);
     return null;
   }
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel();
-      return null;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch {
+    await reader.cancel().catch(() => undefined);
+    return null;
   }
   if (total === 0) return null;
   const out = new Uint8Array(total);
@@ -71,6 +76,7 @@ export type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Respo
 export const fetchHeaders = async (doFetch: Fetcher, url: string | URL, init: RequestInit, ms: number): Promise<Response> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
+  timer.unref?.();
   try {
     return await doFetch(url, { ...init, signal: controller.signal });
   } finally {
@@ -83,23 +89,28 @@ export const readTextLimited = async (res: Response, maxBytes: number): Promise<
   const declaredHeader = res.headers.get('content-length');
   const declared = declaredHeader === null ? Number.NaN : Number(declaredHeader);
   if (Number.isFinite(declared) && declared > maxBytes) {
-    await res.body?.cancel();
+    await res.body?.cancel().catch(() => undefined);
     throw new Error('resposta grande demais');
   }
   if (!res.body) return '';
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (let reads = 0; reads < 100_000; reads++) {
-    const { done, value } = await reader.read();
-    if (done) return new TextDecoder().decode(Buffer.concat(chunks));
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel();
-      throw new Error('resposta grande demais');
+  try {
+    for (let reads = 0; reads < 100_000; reads++) {
+      const { done, value } = await reader.read();
+      if (done) return new TextDecoder().decode(Buffer.concat(chunks));
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error('resposta grande demais');
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+    await reader.cancel().catch(() => undefined);
+    throw new Error('resposta com chunks demais');
+  } catch (err) {
+    await reader.cancel().catch(() => undefined);
+    throw err;
   }
-  await reader.cancel();
-  throw new Error('resposta com chunks demais');
 };

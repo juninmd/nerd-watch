@@ -20,6 +20,7 @@ export const makeFetch = (override?: FetchFn): { get(): FetchFn; set(next?: Fetc
 export const fetchHeaders = async (fetchFn: FetchFn, url: string, init: RequestInit, timeoutMs: number): Promise<Response> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  timer.unref?.();
   try {
     return await fetchFn(url, { ...init, redirect: 'manual', signal: controller.signal });
   } finally {
@@ -38,6 +39,7 @@ export interface CappedResponse {
 export const fetchCapped = async (fetchFn: FetchFn, url: string, init: RequestInit, timeoutMs: number, maxBytes: number): Promise<CappedResponse> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  timer.unref?.();
   try {
     const res = await fetchFn(url, { ...init, redirect: 'manual', signal: controller.signal });
     // Respostas fora de 2xx (redirects e erros) não têm corpo útil para os chamadores: cancela cedo sem baixar.
@@ -55,15 +57,20 @@ export const fetchCapped = async (fetchFn: FetchFn, url: string, init: RequestIn
     if (!reader) return { status: res.status, headers: res.headers, bytes: new Uint8Array() };
     const chunks: Uint8Array[] = [];
     let total = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel().catch(() => undefined);
-        return { status: res.status, headers: res.headers, bytes: null };
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel().catch(() => undefined);
+          return { status: res.status, headers: res.headers, bytes: null };
+        }
+        chunks.push(value);
       }
-      chunks.push(value);
+    } catch (err) {
+      await reader.cancel().catch(() => undefined);
+      throw err;
     }
     const bytes = new Uint8Array(total);
     let offset = 0;
