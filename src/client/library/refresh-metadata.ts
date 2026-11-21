@@ -10,15 +10,16 @@ export const renderRefreshMetadata = (titleId: string, onDone: () => void): HTML
   btn.className = 'btn btn-ghost btn-sm';
   btn.textContent = '🔄 Atualizar metadados';
   btn.addEventListener('click', () => {
+    if (btn.disabled) return;
     btn.disabled = true;
     refreshTitleMetadata(titleId)
       .then((r) => {
         showToast(`metadados atualizados: ${r.seasons} temporada(s), ${r.episodes} episódio(s)`);
-        onDone();
+        if (wrap.isConnected) onDone();
       })
       .catch((err: unknown) => {
         showToast(err instanceof Error ? err.message : 'não foi possível atualizar');
-        btn.disabled = false;
+        if (btn.isConnected) btn.disabled = false;
       });
   });
 
