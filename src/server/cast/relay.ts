@@ -1,10 +1,14 @@
 import { randomBytes } from 'node:crypto';
+import { safeRange } from '../providers/sources/http.ts';
 import type { CastDevice } from './dlna-xml.ts';
 import { renderTvWatchPage } from './tv-page.ts';
 
 const MAX_SESSIONS = 10;
 const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_TTL_MS = 6 * 60 * 60_000;
+const MAX_EXTERNAL_REDIRECTS = 4;
+const EXTERNAL_HEAD_TIMEOUT_MS = 20_000;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const DLNA_FEATURES = 'DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000';
 const TOKEN_RE = /^[a-f0-9]{32}$/;
 
@@ -69,9 +73,14 @@ const isBlockedExternalHost = (hostname: string): boolean => {
     host === 'localhost' ||
     host.endsWith('.localhost') ||
     host === '::1' ||
+    host === '::' ||
+    host === '0:0:0:0:0:0:0:1' ||
+    host.startsWith('::ffff:127.') ||
+    host.startsWith('::ffff:169.254.') ||
+    host.startsWith('fe80:') ||
     host === '0.0.0.0' ||
     host.startsWith('127.') ||
-    host === '169.254.169.254'
+    host.startsWith('169.254.')
   );
 };
 
@@ -171,9 +180,37 @@ export const createCastRelay = (opts: CastRelayOptions): CastRelay => {
     stopServerIfEmpty();
   };
 
+  const fetchExternal = async (startUrl: string, method: 'GET' | 'HEAD', headers: Headers): Promise<Response> => {
+    let current = startUrl;
+    for (let hop = 0; ; hop++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), EXTERNAL_HEAD_TIMEOUT_MS);
+      timer.unref?.();
+      let res: Response;
+      try {
+        // `manual`: cada redirecionamento precisa passar por `isSafeMediaSrc` (evita redirect para loopback/metadata).
+        res = await externalFetch(current, { method, headers, redirect: 'manual', signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!REDIRECT_STATUSES.has(res.status)) return res;
+      await res.body?.cancel().catch(() => undefined);
+      const location = res.headers.get('location');
+      if (!location || hop >= MAX_EXTERNAL_REDIRECTS) throw new Error('redirecionamento inválido');
+      let next: string;
+      try {
+        next = new URL(location, current).href;
+      } catch {
+        throw new Error('redirecionamento inválido');
+      }
+      if (!isSafeMediaSrc(next) || next.startsWith('/api/')) throw new Error('redirecionamento bloqueado');
+      current = next;
+    }
+  };
+
   const proxyResource = async (req: Request, src: string, fallbackMime: string): Promise<Response> => {
     const forwardHeaders = new Headers();
-    const range = req.headers.get('range');
+    const range = safeRange(req.headers.get('range') ?? undefined);
     if (range) forwardHeaders.set('range', range);
     const ifRange = req.headers.get('if-range');
     if (ifRange) forwardHeaders.set('if-range', ifRange);
@@ -181,10 +218,14 @@ export const createCastRelay = (opts: CastRelayOptions): CastRelay => {
 
     const upstream = src.startsWith('/api/')
       ? await opts.internalFetch(new Request(`http://127.0.0.1${src}`, { method, headers: forwardHeaders }))
-      : await externalFetch(src, { method, headers: forwardHeaders });
+      : await fetchExternal(src, method, forwardHeaders);
 
     const headers = copyMediaHeaders(upstream, fallbackMime);
-    return new Response(method === 'HEAD' ? null : upstream.body, {
+    if (method === 'HEAD') {
+      await upstream.body?.cancel().catch(() => undefined);
+      return new Response(null, { status: upstream.status, headers });
+    }
+    return new Response(upstream.body, {
       status: upstream.status,
       headers,
     });
