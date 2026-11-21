@@ -29,20 +29,31 @@ export const setAddonFetch = (next?: FetchFn): void => fetcher.set(next);
 export const getAddonJson = async (rawUrl: string): Promise<unknown> => {
   let current = rawUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    if (!isFetchableSubtitleUrl(current) || (await checkResolvedHost(current)) !== 'public') {
+    if (!isFetchableSubtitleUrl(current)) {
       throw new AddonError('untrusted_url', 'endereço do addon não é um site público');
+    }
+    const resolved = await checkResolvedHost(current);
+    if (resolved === 'private') {
+      throw new AddonError('untrusted_url', 'endereço do addon não é um site público');
+    }
+    if (resolved !== 'public') {
+      throw new AddonError('unreachable', 'não foi possível conectar ao addon');
     }
     let res: Awaited<ReturnType<typeof fetchCapped>>;
     try {
       res = await fetchCapped(fetcher.get(), current, { headers: { accept: 'application/json' } }, TIMEOUT_MS, MAX_BYTES);
     } catch (err) {
-      const aborted = err instanceof Error && err.name === 'AbortError';
+      const aborted = err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError');
       throw new AddonError(aborted ? 'timeout' : 'unreachable', aborted ? 'o addon demorou demais para responder' : 'não foi possível conectar ao addon');
     }
     if (REDIRECT_STATUS.has(res.status)) {
       const location = res.headers.get('location');
       if (!location) throw new AddonError('http_status', 'o addon respondeu um redirecionamento inválido');
-      current = new URL(location, current).href;
+      try {
+        current = new URL(location, current).href;
+      } catch {
+        throw new AddonError('http_status', 'o addon respondeu um redirecionamento inválido');
+      }
       continue;
     }
     if (res.status < 200 || res.status >= 300) throw new AddonError('http_status', `o addon respondeu ${res.status}`);
