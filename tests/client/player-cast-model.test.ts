@@ -6,6 +6,7 @@ import {
   castStatusLabel,
   formatDeviceSubtitle,
   remotePlaybackView,
+  resumeAfterCast,
 } from '../../src/client/player/player-cast-model.ts';
 
 const baseItem: DockItem = {
@@ -68,5 +69,18 @@ describe('player-cast-model', () => {
       sliderValue: 0,
       timeLabel: '0:00',
     });
+  });
+});
+
+describe('resumeAfterCast', () => {
+  test('volta o player local para onde a TV parou', () => {
+    expect(resumeAfterCast({ state: 'PAUSED_PLAYBACK', positionSeconds: 102.7, durationSeconds: 3600 })).toBe(102);
+  });
+
+  test('sem posição conhecida (ou zero) não mexe no vídeo', () => {
+    expect(resumeAfterCast(null)).toBeNull();
+    expect(resumeAfterCast({ state: 'UNKNOWN', positionSeconds: null, durationSeconds: null })).toBeNull();
+    expect(resumeAfterCast({ state: 'STOPPED', positionSeconds: 0, durationSeconds: null })).toBeNull();
+    expect(resumeAfterCast({ state: 'PLAYING', positionSeconds: Number.NaN, durationSeconds: null })).toBeNull();
   });
 });
