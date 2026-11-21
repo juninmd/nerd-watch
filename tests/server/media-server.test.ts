@@ -146,6 +146,17 @@ describe('readCapped (miniatura grande demais)', () => {
   test('corpo vazio não é miniatura', async () => {
     expect(await readCapped(new Response(new Uint8Array(0)), THUMB_MAX_BYTES)).toBeNull();
   });
+
+  test('erro no meio da leitura vira null em vez de derrubar a importação', async () => {
+    const broken = new Response(
+      new ReadableStream({
+        pull(controller) {
+          controller.error(new Error('conexão caiu'));
+        },
+      }),
+    );
+    expect(await readCapped(broken, THUMB_MAX_BYTES)).toBeNull();
+  });
 });
 
 describe('legenda e duração', () => {

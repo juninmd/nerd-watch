@@ -25,6 +25,26 @@ describe('fetchCapped — cancela corpo fora de 2xx', () => {
       expect(cancelled).toBe(true);
     }
   });
+
+  test('propaga erro de leitura no meio do corpo sem deixar stream pendente', async () => {
+    await expect(
+      fetchCapped(
+        async () =>
+          new Response(
+            new ReadableStream({
+              pull(controller) {
+                controller.error(new Error('queda no meio'));
+              },
+            }),
+            { status: 200 },
+          ),
+        'https://example.com/broken',
+        {},
+        5000,
+        1024,
+      ),
+    ).rejects.toThrow('queda no meio');
+  });
 });
 
 describe('checkResolvedHost — falha fechada em IP literal e URL inválida', () => {

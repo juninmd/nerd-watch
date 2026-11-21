@@ -106,6 +106,7 @@ export const getJson = async <T>(service: Service, url: URL, headers: Record<str
 export const getStream = async (service: Service, url: URL, headers: Record<string, string>): Promise<Response> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), HEAD_TIMEOUT_MS);
+  timer.unref?.();
   try {
     const res = await send(url, { headers, signal: controller.signal });
     if (res.status === 401 || res.status === 403) {
@@ -118,7 +119,7 @@ export const getStream = async (service: Service, url: URL, headers: Record<stri
   }
 };
 
-/** Lê o corpo com teto de bytes: passou do limite, para de ler e devolve null. */
+/** Lê o corpo com teto de bytes: passou do limite (ou caiu no meio), para de ler e devolve null. */
 export const readCapped = async (res: Response, max: number): Promise<Uint8Array | null> => {
   const declared = Number(res.headers.get('content-length'));
   const reader = res.body?.getReader();
@@ -128,15 +129,20 @@ export const readCapped = async (res: Response, max: number): Promise<Uint8Array
   }
   const chunks: Uint8Array[] = [];
   let total = 0;
-  let chunk = await reader.read();
-  while (!chunk.done) {
-    total += chunk.value.byteLength;
-    if (total > max) {
-      await reader.cancel().catch(() => undefined);
-      return null;
+  try {
+    let chunk = await reader.read();
+    while (!chunk.done) {
+      total += chunk.value.byteLength;
+      if (total > max) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(chunk.value);
+      chunk = await reader.read();
     }
-    chunks.push(chunk.value);
-    chunk = await reader.read();
+  } catch {
+    await reader.cancel().catch(() => undefined);
+    return null;
   }
   if (total === 0) return null;
   const out = new Uint8Array(total);
