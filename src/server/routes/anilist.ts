@@ -11,7 +11,7 @@ import type { MediaType } from '../types.ts';
 
 export const anilistRoutes = new Hono();
 
-const ID_RE = /^\d{1,10}$/;
+const ID_RE = /^[1-9]\d{0,9}$/;
 const SEARCH_LIMIT = 12;
 
 const providerError = (c: Context, err: unknown) => {
@@ -54,19 +54,22 @@ anilistRoutes.get('/:id', async (c) => {
     const media = await anilistDetails(Number(id));
     const db = await getDb();
     const mediaType = mediaTypeOf(media.format);
-    const titleRow = upsertTitle(db, {
-      source: 'anilist',
-      sourceId: String(media.id),
-      mediaType,
-      title: media.title,
-      originalTitle: media.romaji,
-      overview: media.overview,
-      posterPath: media.imageUrl,
-      releaseDate: media.year ? `${media.year}-01-01` : null,
-      voteAverage: media.averageScore === null ? null : media.averageScore / 10,
-    });
-    setCatalogStats(db, titleRow.id, { genres: media.genres, runtimeMinutes: media.runtimeMinutes });
-    persistNextEpisode(db, titleRow.id, media.nextAiringEpisode);
+    const titleRow = db.transaction(() => {
+      const row = upsertTitle(db, {
+        source: 'anilist',
+        sourceId: String(media.id),
+        mediaType,
+        title: media.title,
+        originalTitle: media.romaji,
+        overview: media.overview,
+        posterPath: media.imageUrl,
+        releaseDate: media.year ? `${media.year}-01-01` : null,
+        voteAverage: media.averageScore === null ? null : media.averageScore / 10,
+      });
+      setCatalogStats(db, row.id, { genres: media.genres, runtimeMinutes: media.runtimeMinutes });
+      persistNextEpisode(db, row.id, media.nextAiringEpisode);
+      return row;
+    })();
 
     return c.json({
       titleId: titleRow.id,

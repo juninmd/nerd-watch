@@ -19,6 +19,8 @@ import type { MediaType } from '../types.ts';
 export const tmdbRoutes = new Hono();
 
 const isMediaType = (v: string): v is MediaType => v === 'movie' || v === 'tv';
+const POSITIVE_ID_RE = /^[1-9]\d{0,9}$/;
+const SEASON_NUM_RE = /^\d{1,4}$/;
 
 const handleProviderError = (c: Context, err: unknown) => {
   if (err instanceof TmdbNotConfiguredError) return c.json({ error: err.message }, 501);
@@ -28,8 +30,9 @@ const handleProviderError = (c: Context, err: unknown) => {
 
 /** Compara a série com a TVmaze (status, estreia, nota). Sem correspondência segura, devolve `match: null` em vez de chutar. */
 tmdbRoutes.get('/tv/:id/compare', async (c) => {
-  const id = Number(c.req.param('id'));
-  if (!Number.isInteger(id)) return c.json({ error: 'parâmetros inválidos' }, 400);
+  const rawId = c.req.param('id');
+  if (!POSITIVE_ID_RE.test(rawId)) return c.json({ error: 'parâmetros inválidos' }, 400);
+  const id = Number(rawId);
   try {
     const d = await tmdbTitleDetails('tv', id);
     const year = d.release_date?.slice(0, 4) ?? null;
@@ -48,8 +51,9 @@ tmdbRoutes.get('/tv/:id/compare', async (c) => {
 
 tmdbRoutes.get('/:mediaType/:id', async (c) => {
   const mediaType = c.req.param('mediaType');
-  const id = Number(c.req.param('id'));
-  if (!isMediaType(mediaType) || !Number.isInteger(id)) return c.json({ error: 'parâmetros inválidos' }, 400);
+  const rawId = c.req.param('id');
+  if (!isMediaType(mediaType) || !POSITIVE_ID_RE.test(rawId)) return c.json({ error: 'parâmetros inválidos' }, 400);
+  const id = Number(rawId);
 
   try {
     const [details, providers, trailerKey] = await Promise.all([
@@ -58,19 +62,22 @@ tmdbRoutes.get('/:mediaType/:id', async (c) => {
       tmdbTrailerKey(mediaType, id).catch(() => null),
     ]);
     const db = await getDb();
-    const titleRow = upsertTitle(db, {
-      source: 'tmdb',
-      sourceId: String(id),
-      mediaType,
-      title: details.title,
-      overview: details.overview,
-      posterPath: details.poster_path,
-      backdropPath: details.backdrop_path,
-      releaseDate: details.release_date,
-      voteAverage: details.vote_average,
-    });
-    // Gêneros e duração são catálogo: preenchidos a cada detalhe aberto, sem tocar na lista do usuário.
-    setCatalogStats(db, titleRow.id, { genres: details.genres, runtimeMinutes: details.runtimeMinutes });
+    const titleRow = db.transaction(() => {
+      const row = upsertTitle(db, {
+        source: 'tmdb',
+        sourceId: String(id),
+        mediaType,
+        title: details.title,
+        overview: details.overview,
+        posterPath: details.poster_path,
+        backdropPath: details.backdrop_path,
+        releaseDate: details.release_date,
+        voteAverage: details.vote_average,
+      });
+      // Gêneros e duração são catálogo: preenchidos a cada detalhe aberto, sem tocar na lista do usuário.
+      setCatalogStats(db, row.id, { genres: details.genres, runtimeMinutes: details.runtimeMinutes });
+      return row;
+    })();
     const libraryEntry = getLibraryEntryByTitle(db, titleRow.id);
 
     return c.json({
@@ -106,46 +113,51 @@ tmdbRoutes.get('/:mediaType/:id', async (c) => {
 
 tmdbRoutes.get('/:mediaType/:id/season/:num', async (c) => {
   const mediaType = c.req.param('mediaType');
-  const id = Number(c.req.param('id'));
-  const seasonNumber = Number(c.req.param('num'));
-  if (mediaType !== 'tv' || !Number.isInteger(id) || !Number.isInteger(seasonNumber)) {
+  const rawId = c.req.param('id');
+  const rawSeason = c.req.param('num');
+  if (mediaType !== 'tv' || !POSITIVE_ID_RE.test(rawId) || !SEASON_NUM_RE.test(rawSeason)) {
     return c.json({ error: 'parâmetros inválidos' }, 400);
   }
+  const id = Number(rawId);
+  const seasonNumber = Number(rawSeason);
 
   try {
     const [details, episodes] = await Promise.all([tmdbTitleDetails('tv', id), tmdbSeasonEpisodes(id, seasonNumber)]);
     const seasonMeta = details.seasons?.find((s) => s.season_number === seasonNumber);
     const db = await getDb();
-    const titleRow = upsertTitle(db, {
-      source: 'tmdb',
-      sourceId: String(id),
-      mediaType: 'tv',
-      title: details.title,
-      overview: details.overview,
-      posterPath: details.poster_path,
-      backdropPath: details.backdrop_path,
-      releaseDate: details.release_date,
-      voteAverage: details.vote_average,
-    });
-    const seasonRow = upsertSeason(db, titleRow.id, {
-      seasonNumber,
-      name: seasonMeta?.name ?? `Temporada ${seasonNumber}`,
-      overview: seasonMeta?.overview ?? null,
-      airDate: seasonMeta?.air_date ?? null,
-      posterPath: seasonMeta?.poster_path ?? null,
-    });
-    const cached = replaceEpisodes(
-      db,
-      seasonRow.id,
-      episodes.map((e) => ({
-        episodeNumber: e.episode_number,
-        name: e.name,
-        overview: e.overview,
-        airDate: e.air_date,
-        runtime: e.runtime,
-        stillPath: e.still_path,
-      })),
-    );
+    const { titleRow, cached } = db.transaction(() => {
+      const row = upsertTitle(db, {
+        source: 'tmdb',
+        sourceId: String(id),
+        mediaType: 'tv',
+        title: details.title,
+        overview: details.overview,
+        posterPath: details.poster_path,
+        backdropPath: details.backdrop_path,
+        releaseDate: details.release_date,
+        voteAverage: details.vote_average,
+      });
+      const seasonRow = upsertSeason(db, row.id, {
+        seasonNumber,
+        name: seasonMeta?.name ?? `Temporada ${seasonNumber}`,
+        overview: seasonMeta?.overview ?? null,
+        airDate: seasonMeta?.air_date ?? null,
+        posterPath: seasonMeta?.poster_path ?? null,
+      });
+      const eps = replaceEpisodes(
+        db,
+        seasonRow.id,
+        episodes.map((e) => ({
+          episodeNumber: e.episode_number,
+          name: e.name,
+          overview: e.overview,
+          airDate: e.air_date,
+          runtime: e.runtime,
+          stillPath: e.still_path,
+        })),
+      );
+      return { titleRow: row, cached: eps };
+    })();
 
     return c.json({
       titleId: titleRow.id,
