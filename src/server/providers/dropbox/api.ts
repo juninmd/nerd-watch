@@ -1,5 +1,5 @@
 import type { NewTelegramItem } from '../../repo/telegram.ts';
-import { fetchHeaders, isHttpsUrl, plainFetch, readCapped, safeRange, THUMB_MAX_BYTES } from '../sources/http.ts';
+import { fetchHeaders, isHttpsUrl, plainFetch, readCapped, readTextLimited, safeRange, THUMB_MAX_BYTES } from '../sources/http.ts';
 import { relayMedia, syntheticMessageId, titleFromFilename, VIDEO_EXT } from '../sources/service.ts';
 import { SourceError } from '../sources/types.ts';
 import { dropboxOAuth } from './oauth.ts';
@@ -8,6 +8,8 @@ const RPC = 'https://api.dropboxapi.com/2';
 const CONTENT = 'https://content.dropboxapi.com/2';
 const TIMEOUT_MS = 20_000;
 const PAGE_LIMIT = 200;
+const MAX_JSON_BYTES = 8 * 1024 * 1024;
+const MAX_ERROR_BYTES = 64 * 1024;
 const MAX_PAGES = 50;
 const MAX_FILES = 500;
 export const NOT_FOUND_FOLDER = 'pasta não encontrada no Dropbox (confira o caminho e se a sua conta tem acesso)';
@@ -49,7 +51,12 @@ export const normalizeFolderPath = (input: string): { path: string; name: string
 
 /** Status do Dropbox -> mensagem nossa. O corpo do erro (que pode ter detalhes internos) nunca sai daqui. */
 const serviceError = async (res: Response, notFound: string): Promise<SourceError> => {
-  const body = (await res.json().catch(() => ({}))) as { error_summary?: unknown };
+  let body: { error_summary?: unknown } = {};
+  try {
+    body = JSON.parse(await readTextLimited(res, MAX_ERROR_BYTES)) as { error_summary?: unknown };
+  } catch {
+    // corpo inválido ou grande demais: segue para o status genérico
+  }
   const pathMissing = res.status === 409 && typeof body.error_summary === 'string' && body.error_summary.includes('not_found');
   return res.status === 404 || pathMissing ? new SourceError(notFound, 404) : new SourceError(`o Dropbox respondeu ${res.status}`, 502);
 };
@@ -63,7 +70,11 @@ const rpc = async <T>(endpoint: string, body: unknown, notFound: string): Promis
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!res.ok) throw await serviceError(res, notFound);
-  return (await res.json()) as T;
+  try {
+    return JSON.parse(await readTextLimited(res, MAX_JSON_BYTES)) as T;
+  } catch {
+    throw new SourceError('resposta inesperada do Dropbox', 502);
+  }
 };
 
 const isVideo = (e: DropboxEntry): e is DropboxVideo =>

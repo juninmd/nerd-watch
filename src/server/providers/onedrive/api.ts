@@ -1,5 +1,5 @@
 import type { NewTelegramItem } from '../../repo/telegram.ts';
-import { fetchHeaders, isHttpsUrl, plainFetch, readCapped, safeRange, THUMB_MAX_BYTES } from '../sources/http.ts';
+import { fetchHeaders, isHttpsUrl, plainFetch, readCapped, readTextLimited, safeRange, THUMB_MAX_BYTES } from '../sources/http.ts';
 import { relayMedia, syntheticMessageId, titleFromFilename, VIDEO_EXT } from '../sources/service.ts';
 import { SourceError } from '../sources/types.ts';
 import { onedriveOAuth } from './oauth.ts';
@@ -10,6 +10,7 @@ const TIMEOUT_MS = 20_000;
 const PAGE_SIZE = 200;
 const MAX_PAGES = 50;
 const MAX_FILES = 500;
+const MAX_JSON_BYTES = 8 * 1024 * 1024;
 export const NOT_FOUND_FOLDER = 'pasta não encontrada no OneDrive (confira o caminho e se a sua conta tem acesso)';
 export const NOT_FOUND_FILE = 'vídeo não encontrado nessa pasta do OneDrive';
 
@@ -69,7 +70,11 @@ const graphJson = async <T>(url: string, notFound: string): Promise<T> => {
     await res.body?.cancel();
     throw serviceError(res.status, notFound);
   }
-  return (await res.json()) as T;
+  try {
+    return JSON.parse(await readTextLimited(res, MAX_JSON_BYTES)) as T;
+  } catch {
+    throw new SourceError('resposta inesperada do OneDrive', 502);
+  }
 };
 
 /** `@odata.nextLink` vem do servidor, mas só seguimos se continuar sendo o Graph (senão o Bearer vazaria). */
@@ -147,7 +152,12 @@ export const downloadOneDriveThumb = async (fileRef: string): Promise<Uint8Array
   });
   if (res.ok) return readCapped(res, THUMB_MAX_BYTES);
   const location = res.headers.get('location');
+  await res.body?.cancel();
   if (res.status < 300 || res.status >= 400 || !location || !isHttpsUrl(location)) return null;
   const image = await plainFetch(location, { redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS) });
-  return image.ok ? readCapped(image, THUMB_MAX_BYTES) : null;
+  if (!image.ok) {
+    await image.body?.cancel();
+    return null;
+  }
+  return readCapped(image, THUMB_MAX_BYTES);
 };

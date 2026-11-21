@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { config, driveClientConfigured } from '../../config/config.ts';
 import { updateEnvVar } from '../../config/env-file.ts';
+import { readTextLimited } from '../sources/http.ts';
 
 /** Só leitura: o app lista e baixa vídeos, nunca escreve nem apaga nada no Drive. */
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
@@ -8,6 +9,7 @@ export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const FLOW_TTL_MS = 10 * 60_000;
 /** Renova um pouco antes do vencimento para uma requisição longa não começar com token quase expirado. */
 const EXPIRY_MARGIN_MS = 60_000;
+const MAX_TOKEN_BYTES = 64 * 1024;
 
 export class DriveNotConnectedError extends Error {
   constructor(message = 'Google Drive não conectado — conecte em Conexões') {
@@ -64,7 +66,12 @@ const postToken = async (params: Record<string, string>, fetchFn: FetchFn): Prom
     body: new URLSearchParams(params).toString(),
     signal: AbortSignal.timeout(15_000),
   });
-  const body = (await res.json().catch(() => ({}))) as TokenResponse;
+  let body: TokenResponse = {};
+  try {
+    body = JSON.parse(await readTextLimited(res, MAX_TOKEN_BYTES)) as TokenResponse;
+  } catch {
+    // corpo inválido ou grande demais: segue com objeto vazio para cair na checagem de status/campos
+  }
   return { ...body, status: res.status };
 };
 
@@ -152,11 +159,16 @@ export const completeAuthFlow = async (input: { state: string | null; code: stri
   if (!result.refresh_token) return fail('o Google não devolveu o refresh token — revogue o app em myaccount.google.com/permissions e conecte de novo');
 
   store.save(result.refresh_token);
-  cache = { token: result.access_token, expiresAt: now + (result.expires_in ?? 3600) * 1000 };
+  cache = { token: result.access_token, expiresAt: expiresAtFrom(now, result.expires_in) };
   return set({ status: 'connected' });
 };
 
 // --- Access token ---
+
+const expiresAtFrom = (now: number, expiresIn: number | undefined): number => {
+  const ttlSeconds = typeof expiresIn === 'number' && Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600;
+  return now + ttlSeconds * 1000;
+};
 
 let cache: { token: string; expiresAt: number } | null = null;
 let refreshing: Promise<string> | null = null;
@@ -177,7 +189,7 @@ const refresh = async (now: number): Promise<string> => {
     throw new DriveReauthRequiredError();
   }
   if (result.status !== 200 || !result.access_token) throw new Error('não foi possível renovar o acesso ao Google Drive agora');
-  cache = { token: result.access_token, expiresAt: now + (result.expires_in ?? 3600) * 1000 };
+  cache = { token: result.access_token, expiresAt: expiresAtFrom(now, result.expires_in) };
   return result.access_token;
 };
 
@@ -210,10 +222,12 @@ export const disconnectDrive = async (): Promise<void> => {
   pending.clear();
   flowState = { status: 'idle' };
   if (!token) return;
-  await driveFetch(config.driveEndpoints.revokeUrl, {
+  const res = await driveFetch(config.driveEndpoints.revokeUrl, {
     method: 'POST',
+    redirect: 'error',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ token }).toString(),
     signal: AbortSignal.timeout(10_000),
-  }).catch(() => undefined);
+  }).catch(() => null);
+  await res?.body?.cancel();
 };
