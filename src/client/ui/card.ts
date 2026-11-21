@@ -37,6 +37,10 @@ export const showPosterFallback = (poster: HTMLElement, title: string): void => 
 /** Valor de `background-image` seguro para URL com aspas ou barra invertida (vem de catálogos de terceiros). */
 export const posterCssUrl = (url: string): string => `url("${url.replace(/["\\]/g, '\\$&')}")`;
 
+/** Atributo ` style="background-image:..."` pronto para HTML (escapa aspas do `url("...")` para não fechar o atributo). */
+export const posterStyleAttr = (url: string | null | undefined): string =>
+  url ? ` style="${escapeHtml(`background-image:${posterCssUrl(url)}`)}"` : '';
+
 /**
  * A TMDB entrega a mesma imagem em várias larguras. Com `srcset`, uma tela de alta densidade recebe a versão
  * maior (o `w342` fixo ficava borrado em telas 2x) e uma tela comum não baixa mais do que precisa.

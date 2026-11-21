@@ -1,6 +1,6 @@
 import { type AddonDto, type AddonItemDto, getAddonCatalog, listAddons } from '../api/stremio.ts';
 import { navigate } from '../app/router.ts';
-import { escapeHtml, renderCard } from '../ui/card.ts';
+import { escapeHtml, posterStyleAttr, renderCard } from '../ui/card.ts';
 import { backButtonHtml, wireBackButton } from '../ui/back-button.ts';
 import { icon } from '../ui/icons.ts';
 import { addonItemPath } from './addon-links.ts';
@@ -31,7 +31,7 @@ export const renderAddonBrowse = (host: HTMLElement, addonId: string): void => {
 const paint = (host: HTMLElement, addon: AddonDto): void => {
   host.innerHTML = `
     <header class="view-head addon-hero">
-      ${addon.background ? `<div class="addon-hero-bg" aria-hidden="true" style="background-image:url('${escapeHtml(addon.background)}')"></div>` : ''}
+      ${addon.background ? `<div class="addon-hero-bg" aria-hidden="true"${posterStyleAttr(addon.background)}></div>` : ''}
       ${backButtonHtml('addons')}
       <h1 class="view-title">${escapeHtml(addon.name)}</h1>
       <p class="view-subtitle">${escapeHtml(addon.host)}</p>

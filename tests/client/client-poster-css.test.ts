@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { initials, posterCssUrl, posterSrcset, titleHue } from '../../src/client/ui/card.ts';
+import { initials, posterCssUrl, posterSrcset, posterStyleAttr, titleHue } from '../../src/client/ui/card.ts';
 
 describe('posterCssUrl', () => {
   test('URL comum vira url("...") sem alterar nada', () => {
@@ -12,6 +12,16 @@ describe('posterCssUrl', () => {
     expect(css).toBe('url("https://a.test/x\\").evil{}/*")');
     expect(css.startsWith('url("')).toBe(true);
     expect(css.endsWith('")')).toBe(true);
+  });
+});
+
+describe('posterStyleAttr', () => {
+  test('escapa aspas do url("...") para nunca fechar o atributo style="..."', () => {
+    const attr = posterStyleAttr('https://image.tmdb.org/t/p/w500/a.jpg');
+    expect(attr).toBe(' style="background-image:url(&quot;https://image.tmdb.org/t/p/w500/a.jpg&quot;)"');
+    expect(attr.match(/"/g)).toHaveLength(2);
+    expect(posterStyleAttr(null)).toBe('');
+    expect(posterStyleAttr('')).toBe('');
   });
 });
 
