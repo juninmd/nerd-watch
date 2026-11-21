@@ -2,6 +2,10 @@ import type { FetchFn } from '../oauth/client.ts';
 
 /** Miniatura: 2 MB no máximo (o `saveThumb` ainda valida jpeg/png). */
 export const THUMB_MAX_BYTES = 2 * 1024 * 1024;
+const RANGE_RE = /^bytes=\d*-\d*$/;
+
+/** `Range` do navegador repassado só se for `bytes=a-b`; qualquer outro valor é descartado em vez de chegar ao upstream. */
+export const safeRange = (range: string | undefined): string | undefined => (range && RANGE_RE.test(range) ? range : undefined);
 
 let plain: FetchFn = (input, init) => fetch(input, init);
 
