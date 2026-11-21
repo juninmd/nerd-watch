@@ -97,7 +97,7 @@ const SUBTITLE_FORMATS = new Set(['subrip', 'webvtt']);
 
 export const pickSubtitleUrl = (identifier: string, files: ArchiveFile[] | undefined): string | null => {
   const sub = files?.find((f) => SUBTITLE_FORMATS.has((f.format ?? '').toLowerCase()) || /\.(srt|vtt)$/i.test(f.name));
-  return sub ? `https://archive.org/download/${encodeURIComponent(identifier)}/${encodeURIComponent(sub.name)}` : null;
+  return sub ? `https://archive.org/download/${encodeURIComponent(identifier)}/${sub.name.split('/').map(encodeURIComponent).join('/')}` : null;
 };
 
 const toOverview = (description: ArchiveDoc['description']): string => {

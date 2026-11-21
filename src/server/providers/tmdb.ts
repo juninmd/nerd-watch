@@ -2,8 +2,10 @@ import { withCache } from '../lib/cache.ts';
 import { config, tmdbEnabled } from '../config/config.ts';
 import { normalizeGenres, normalizeRuntimeMinutes } from '../stats/catalog-fields.ts';
 import type { MediaType } from '../types.ts';
+import { readTextLimited } from './sources/http.ts';
 
 const MINUTES = 60_000;
+const MAX_JSON_BYTES = 8 * 1024 * 1024;
 
 const BASE = 'https://api.themoviedb.org/3';
 const IMG_BASE = 'https://image.tmdb.org/t/p';
@@ -53,7 +55,11 @@ const call = async <T>(path: string, params: Record<string, string | number> = {
     await res.body?.cancel();
     throw new TmdbRequestError(res.status, `TMDB ${path} respondeu ${res.status}`);
   }
-  return (await res.json()) as T;
+  try {
+    return JSON.parse(await readTextLimited(res, MAX_JSON_BYTES)) as T;
+  } catch {
+    throw new TmdbRequestError(502, `TMDB ${path} devolveu resposta inesperada`);
+  }
 };
 
 export interface TmdbSearchItem {
