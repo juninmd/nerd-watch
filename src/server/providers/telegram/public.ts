@@ -6,9 +6,12 @@
  * busca a página da mensagem individual de novo a cada play, pra sempre devolver um link fresco.
  */
 import { withCache } from '../../lib/cache.ts';
+import { readTextLimited } from '../sources/http.ts';
 
 const BASE = 'https://t.me';
 const USER_AGENT = 'Mozilla/5.0 (compatible; nerd-watch/0.1)';
+const MAX_PAGE_BYTES = 4 * 1024 * 1024;
+const MAX_EMBED_BYTES = 2 * 1024 * 1024;
 
 export class TelegramChannelNotFoundError extends Error {
   constructor(handle: string) {
@@ -55,7 +58,7 @@ export interface TelegramChannelInfo {
 export const isTelegramPhotoUrl = (raw: string): boolean => {
   try {
     const u = new URL(raw);
-    if (u.protocol !== 'https:' || u.username || u.password) return false;
+    if (u.protocol !== 'https:' || u.username || u.password || u.port) return false;
     const host = u.hostname.toLowerCase().replace(/\.$/, '');
     return /(^|\.)(telesco\.pe|cdn-telegram\.org|telegram\.org|t\.me)$/.test(host);
   } catch {
@@ -128,8 +131,11 @@ export const fetchPublicChannelPage = async (handle: string, opts: { before?: st
   if (opts.query) url.searchParams.set('q', opts.query);
 
   const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`t.me respondeu ${res.status}`);
-  const html = await res.text();
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`t.me respondeu ${res.status}`);
+  }
+  const html = await readTextLimited(res, MAX_PAGE_BYTES);
   return { info: parsePublicChannelInfo(html), items: parsePublicChannelHtml(html, handle), oldestId: oldestPostId(html, handle) };
 };
 
@@ -146,8 +152,16 @@ export const resolvePublicPlayUrl = withCache(5 * 60_000, async (handle: string,
     headers: { 'User-Agent': USER_AGENT },
     signal: AbortSignal.timeout(15000),
   });
-  if (!res.ok) return null;
-  const html = await res.text();
+  if (!res.ok) {
+    await res.body?.cancel();
+    return null;
+  }
+  let html: string;
+  try {
+    html = await readTextLimited(res, MAX_EMBED_BYTES);
+  } catch {
+    return null;
+  }
   const match = html.match(/<video src="([^"]+)"/);
   const url = match ? decodeEntities(match[1] as string) : null;
   return url && isTelegramPhotoUrl(url) ? url : null;

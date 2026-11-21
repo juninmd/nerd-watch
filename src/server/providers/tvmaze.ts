@@ -2,6 +2,7 @@ import { withCache } from '../lib/cache.ts';
 import { CatalogRequestError, htmlToText, httpsUrlOrNull } from '../lib/catalog-text.ts';
 import { normalizeGenres, normalizeRuntimeMinutes } from '../stats/catalog-fields.ts';
 import { createRateLimiter, RateLimitExceededError } from '../lib/rate-limit.ts';
+import { readTextLimited } from './sources/http.ts';
 
 /**
  * TVmaze: séries e datas de exibição de episódios. Sem chave. Dados sob CC BY-SA: a atribuição
@@ -11,6 +12,7 @@ import { createRateLimiter, RateLimitExceededError } from '../lib/rate-limit.ts'
 const MINUTES = 60_000;
 const BASE = 'https://api.tvmaze.com';
 const TIMEOUT_MS = 10_000;
+const MAX_JSON_BYTES = 8 * 1024 * 1024;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const TVMAZE_ATTRIBUTION = { name: 'TVmaze', url: 'https://www.tvmaze.com/', license: 'CC BY-SA' } as const;
@@ -47,7 +49,7 @@ export const tvmazeGet = async (path: string, params: Record<string, string | st
     throw new CatalogRequestError(502, `TVmaze respondeu ${res.status}`);
   }
   try {
-    return await res.json();
+    return JSON.parse(await readTextLimited(res, MAX_JSON_BYTES));
   } catch {
     throw new CatalogRequestError(502, 'TVmaze devolveu uma resposta inesperada');
   }

@@ -1,4 +1,5 @@
 import { config, telegramBotEnabled } from '../../config/config.ts';
+import { readTextLimited } from '../sources/http.ts';
 
 /**
  * Bot do Telegram: a Bot API não tem `getChatHistory` (isso só existe na Client API/TDLib) — um bot só
@@ -7,6 +8,7 @@ import { config, telegramBotEnabled } from '../../config/config.ts';
  * (fora do escopo daqui — documentado no `.env.example`).
  */
 const MAX_CLOUD_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_BOT_JSON_BYTES = 4 * 1024 * 1024;
 const API_BASE = (token: string) => `https://api.telegram.org/bot${token}`;
 
 export class TelegramBotNotConfiguredError extends Error {
@@ -49,7 +51,12 @@ const call = async <T>(method: string, params: Record<string, string> = {}): Pro
     // O erro original do fetch pode ecoar a URL inteira com o token do bot no caminho.
     throw new Error(`Telegram Bot API: ${method} falhou (rede)`);
   }
-  const data = (await res.json().catch(() => null)) as { ok: boolean; result?: T; description?: string } | null;
+  let data: { ok: boolean; result?: T; description?: string } | null = null;
+  try {
+    data = JSON.parse(await readTextLimited(res, MAX_BOT_JSON_BYTES)) as { ok: boolean; result?: T; description?: string };
+  } catch {
+    data = null;
+  }
   if (!data?.ok) throw new Error(data?.description ?? `Telegram Bot API: ${method} falhou (HTTP ${res.status})`);
   // biome-ignore lint/style/noNonNullAssertion: data.ok garante result presente pela própria API
   return data.result!;

@@ -2,6 +2,7 @@ import { withCache } from '../lib/cache.ts';
 import { CatalogRequestError, httpsUrlOrNull } from '../lib/catalog-text.ts';
 import { createRateLimiter, RateLimitExceededError } from '../lib/rate-limit.ts';
 import { hasControlChar } from '../lib/text-guards.ts';
+import { readTextLimited } from './sources/http.ts';
 import { isRecord } from './tvmaze.ts';
 
 /**
@@ -69,12 +70,11 @@ const summary = async (lang: PersonBio['lang'], name: string): Promise<unknown> 
     await res.body?.cancel();
     throw new CatalogRequestError(502, `Wikipédia respondeu ${res.status}`);
   }
-  const declared = Number(res.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > MAX_SUMMARY_BYTES) {
-    await res.body?.cancel().catch(() => undefined);
+  try {
+    return JSON.parse(await readTextLimited(res, MAX_SUMMARY_BYTES));
+  } catch {
     return null;
   }
-  return res.json().catch(() => null);
 };
 
 /** `null` quando nenhum idioma tem um resumo confiável para o nome. */
