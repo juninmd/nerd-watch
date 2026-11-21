@@ -175,6 +175,9 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
             mediaType,
             season: mediaType === 'tv' ? (d.library?.current_season ?? null) : null,
             episode: mediaType === 'tv' ? (d.library?.current_episode ?? null) : null,
+            // Nome/ano permitem achar o item em addons que só entendem id próprio (`afhd:…`).
+            title: d.title,
+            year: d.releaseDate?.slice(0, 4) ?? null,
           },
           {
             title: d.title,

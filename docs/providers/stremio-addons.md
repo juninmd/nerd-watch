@@ -35,6 +35,21 @@ os **8 primeiros** de cada addon e um botão "mostrar todos (N)"; acima de 500 a
 teto do addon. Isso evita montar centenas de cartões no DOM de uma vez e deixa a comparação entre addons
 legível.
 
+### Addon que usa id próprio (`afhd:…`, `kitsu:…`)
+
+Alguns addons não respondem pelo id do app (`tt…`) e publicam catálogo pesquisável. Quando a página do
+título manda `title` e `year`, o app:
+
+1. procura o título no catálogo pesquisável do addon (uma requisição por addon, no máximo 3 addons);
+2. aceita só casamento confiável — nome idêntico, ou prefixo/trecho **com o ano batendo** (sem isso,
+   "Bleach" casaria "Bleach: Thousand-Year Blood War");
+3. em série, resolve o episódio pelo `videos` do `meta` (o id de episódio desses addons não segue
+   `S:E`);
+4. consulta os streams com o id que o addon devolveu e marca o grupo com "via catálogo: {nome}".
+
+Sem `title`/`year` na requisição, nenhum addon é consultado por busca — nada muda para quem só usa
+addons baseados em IMDb.
+
 ## O que cada recurso faz no app
 
 ### Manifest: o que o app guarda

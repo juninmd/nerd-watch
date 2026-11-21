@@ -112,8 +112,24 @@ stremioRoutes.get('/streams', (c) =>
       const v = c.req.query(k);
       return v && /^\d{1,4}$/.test(v) ? Number(v) : null;
     };
+    // Nome/ano do título: só servem para achar o item no catálogo de addon que usa id próprio.
+    const title = c.req.query('title')?.trim() ?? '';
+    if (title.length > 200 || hasControlChar(title)) throw new ValidationError('title inválido');
+    const year = c.req.query('year')?.trim() ?? '';
+    if (year !== '' && !/^\d{4}$/.test(year)) throw new ValidationError('year inválido');
     const addons = listEnabledAddons(await getDb());
-    return c.json(await streamsForTitle(addons, { mediaType, tmdbId: hasTmdb ? tmdbId : undefined, imdbId: imdbRaw, season: num('season'), episode: num('episode'), own }));
+    return c.json(
+      await streamsForTitle(addons, {
+        mediaType,
+        tmdbId: hasTmdb ? tmdbId : undefined,
+        imdbId: imdbRaw,
+        season: num('season'),
+        episode: num('episode'),
+        title: title || undefined,
+        year: year || null,
+        own,
+      }),
+    );
   }),
 );
 
