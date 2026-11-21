@@ -89,8 +89,12 @@ export const removeOrphanParts = async (dir: string): Promise<number> => {
   let removed = 0;
   for (const name of names) {
     if (!OWN_PART.test(name)) continue;
-    await rm(path.join(dir, name), { force: true }).catch(() => undefined);
-    removed += 1;
+    try {
+      await rm(path.join(dir, name), { force: true });
+      removed += 1;
+    } catch {
+      // arquivo ocupado (ex.: EBUSY no Windows): não conta como removido
+    }
   }
   return removed;
 };
