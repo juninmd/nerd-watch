@@ -21,7 +21,9 @@ export const startBackgroundJobs = (): void => {
   startTorrentSweeper();
   startMetadataRefreshJob();
   installShutdownHandlers();
-  void cleanupMediaCache(mediaSettings());
+  void cleanupMediaCache(mediaSettings()).catch((err: unknown) =>
+    console.warn('[media] limpeza de cache falhou:', err instanceof Error ? err.name : 'erro'),
+  );
 
   // Addons configurados no ambiente: o link fica fora do repositório e a instalação manual continua valendo.
   void seedAddonsFromConfig(config.addons.manifestUrls)

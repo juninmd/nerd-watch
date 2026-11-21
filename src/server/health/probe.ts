@@ -30,7 +30,7 @@ export const probeSources = async (
     TARGETS.map(async (t): Promise<SourceProbe> => {
       const start = now();
       try {
-        const res = await fetcher(t.url, { ...t.init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+        const res = await fetcher(t.url, { ...t.init, redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS) });
         await res.body?.cancel?.().catch(() => undefined);
         return { id: t.id, label: t.label, ok: res.ok, ms: res.ok ? Math.round(now() - start) : null };
       } catch {
