@@ -41,6 +41,8 @@ const loadDataEntries = (): Promise<PaletteEntry[]> => {
   if (dataPromise && Date.now() - loadedAt < TTL_MS) return dataPromise;
   loadedAt = Date.now();
   dataPromise = Promise.allSettled([listLibrary(), listTelegramChannels(), listSavedViews()]).then(([lib, ch, sv]) => {
+    // Se todas as fontes falharam, não guarda lista vazia no cache por 30 s.
+    if (lib.status === 'rejected' && ch.status === 'rejected' && sv.status === 'rejected') dataPromise = null;
     // Visões salvas viram ações: Ctrl K + nome aplica a visão na biblioteca de uma vez.
     const views: PaletteEntry[] =
       sv.status === 'fulfilled'
@@ -104,6 +106,7 @@ export const openCommandPalette = (): void => {
   document.body.appendChild(dialog);
   const d = dialog;
   d.addEventListener('close', () => {
+    if (dialog === d) dialog = null;
     d.remove();
     if (opener?.isConnected) opener.focus();
   });

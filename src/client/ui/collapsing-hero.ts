@@ -30,6 +30,10 @@ export const attachCollapsingHero = (hero: HTMLElement): void => {
     hero.classList.toggle('is-collapsed', p >= 1);
   };
   const schedule = () => {
+    if (!hero.isConnected) {
+      ctrl.abort();
+      return;
+    }
     if (!frame) frame = requestAnimationFrame(update);
   };
   addEventListener('scroll', schedule, { passive: true, signal: ctrl.signal });

@@ -12,7 +12,8 @@ const THEME_ICON: Record<ThemePref, IconName> = { dark: 'moon', light: 'sun', sy
 /** Ajustes e avisos: aparência, atalhos, estado dos avisos de lançamento e sessão. */
 export const renderSettings = (host: HTMLElement): void => {
   const pref = getThemePref();
-  host.innerHTML = `
+  const root = document.createElement('div');
+  root.innerHTML = `
     <header class="view-head">
       <h1 class="view-title">Ajustes e avisos</h1>
       <p class="view-subtitle">Aparência, atalhos e o estado dos avisos de lançamento.</p>
@@ -43,21 +44,30 @@ export const renderSettings = (host: HTMLElement): void => {
         <div class="conn-actions"><button class="btn btn-ghost" id="set-logout" type="button">${icon('logout', 'sm')} Sair</button></div>
       </section>
     </div>`;
+  host.replaceChildren(root);
 
-  for (const btn of host.querySelectorAll<HTMLButtonElement>('[data-theme-pref]')) {
+  for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-theme-pref]')) {
     btn.addEventListener('click', () => {
       setThemePref(btn.dataset.themePref as ThemePref);
-      for (const b of host.querySelectorAll<HTMLButtonElement>('[data-theme-pref]')) b.setAttribute('aria-checked', String(b === btn));
+      for (const b of root.querySelectorAll<HTMLButtonElement>('[data-theme-pref]')) b.setAttribute('aria-checked', String(b === btn));
     });
   }
-  host.querySelector('#set-keys')?.addEventListener('click', openShortcutHelp);
-  host.querySelector('#set-logout')?.addEventListener('click', () => void logout());
+  root.querySelector('#set-keys')?.addEventListener('click', openShortcutHelp);
+  const logoutBtn = root.querySelector<HTMLButtonElement>('#set-logout');
+  logoutBtn?.addEventListener('click', () => {
+    if (logoutBtn.disabled) return;
+    logoutBtn.disabled = true;
+    void logout().finally(() => {
+      if (logoutBtn.isConnected) logoutBtn.disabled = false;
+    });
+  });
 
   void health()
     .then((h) => {
-      const notifyText = host.querySelector<HTMLElement>('#set-notify-text');
-      const chip = host.querySelector<HTMLElement>('#set-notify-chip');
-      const sessionCard = host.querySelector<HTMLElement>('#set-session');
+      if (!root.isConnected) return;
+      const notifyText = root.querySelector<HTMLElement>('#set-notify-text');
+      const chip = root.querySelector<HTMLElement>('#set-notify-chip');
+      const sessionCard = root.querySelector<HTMLElement>('#set-session');
       if (!notifyText || !chip || !sessionCard) return;
       notifyText.textContent = notifySummary(h.notifyEnabled, h.notifyLeadDays);
       chip.className = `chip-status ${h.notifyEnabled ? 'ok' : 'off'}`;
@@ -66,16 +76,22 @@ export const renderSettings = (host: HTMLElement): void => {
       sessionCard.hidden = !h.accessEnabled;
     })
     .catch(() => {
-      const notifyText = host.querySelector<HTMLElement>('#set-notify-text');
+      if (!root.isConnected) return;
+      const notifyText = root.querySelector<HTMLElement>('#set-notify-text');
       if (notifyText) notifyText.textContent = 'Não foi possível consultar o servidor.';
     });
 
-  void mountVersion(host);
+  void mountVersion(root).catch(() => {
+    if (!root.isConnected) return;
+    const text = root.querySelector<HTMLElement>('#set-version-text');
+    if (text) text.textContent = 'Versão indisponível neste momento.';
+  });
 };
 
-const mountVersion = async (host: HTMLElement): Promise<void> => {
+const mountVersion = async (root: HTMLElement): Promise<void> => {
   const status = await resolveVersionStatus();
-  const text = host.querySelector<HTMLElement>('#set-version-text');
+  if (!root.isConnected) return;
+  const text = root.querySelector<HTMLElement>('#set-version-text');
   if (!text) return;
   if (!status) {
     text.textContent = 'Versão indisponível neste momento.';
@@ -83,14 +99,14 @@ const mountVersion = async (host: HTMLElement): Promise<void> => {
   }
   text.textContent = `${status.installed ? 'Versão instalada' : 'Versão do servidor'}: v${status.version}`;
   if (!status.latest) return;
-  host.querySelector('#set-version-card')?.classList.add('has-update');
-  const chip = host.querySelector<HTMLElement>('#set-version-chip');
+  root.querySelector('#set-version-card')?.classList.add('has-update');
+  const chip = root.querySelector<HTMLElement>('#set-version-chip');
   if (chip) {
     chip.textContent = `Nova v${status.latest.version}`;
     chip.hidden = false;
   }
   text.textContent += ` · disponível: v${status.latest.version}`;
-  const actions = host.querySelector<HTMLElement>('#set-version-actions');
+  const actions = root.querySelector<HTMLElement>('#set-version-actions');
   if (!actions) return;
   actions.innerHTML = `<a class="btn btn-primary" href="${escapeHtml(status.latest.url)}" target="_blank" rel="noopener noreferrer">${icon('download', 'sm')} Baixar v${escapeHtml(status.latest.version)}</a>`;
   actions.hidden = false;
