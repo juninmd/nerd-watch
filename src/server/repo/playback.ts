@@ -126,7 +126,9 @@ export const upsertPlaybackEntry = (db: Database, e: PlaybackEntry): boolean =>
       $done: e.done ? 1 : 0,
       $meta: e.meta ? JSON.stringify(e.meta) : null,
     });
-    db.exec(`DELETE FROM playback_positions WHERE key IN (SELECT key FROM playback_positions ORDER BY at DESC LIMIT -1 OFFSET ${PLAYBACK_MAX_ROWS})`);
+    const count = db.query<{ n: number }, []>('SELECT COUNT(*) AS n FROM playback_positions').get()?.n ?? 0;
+    if (count <= PLAYBACK_MAX_ROWS) return true;
+    db.exec(`DELETE FROM playback_positions WHERE key IN (SELECT key FROM playback_positions ORDER BY at DESC, key ASC LIMIT -1 OFFSET ${PLAYBACK_MAX_ROWS})`);
     // A gravação mais antiga do teto cai no próprio prune: dizer "aplicada" faria o cliente achar que ela está no servidor.
     return db.query('SELECT 1 FROM playback_positions WHERE key = ?').get(e.key) !== null;
   })();
