@@ -67,6 +67,8 @@ export const createCastController = (host: CastHost): CastController => {
   let session: CastSessionDto | null = null;
   let playback: CastPlaybackDto | null = null;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let scanSeq = 0;
+  let launchSeq = 0;
 
   const stopPolling = () => {
     if (pollTimer) {
@@ -246,21 +248,26 @@ export const createCastController = (host: CastHost): CastController => {
   };
 
   const scan = async () => {
+    const seq = ++scanSeq;
     scanning = true;
     errorMsg = '';
     paint();
     try {
       const res = await discoverCastDevices();
+      if (seq !== scanSeq) return;
       interfaces = res.interfaces;
       if (!selectedHost || !interfaces.some((i) => i.address === selectedHost)) {
         selectedHost = res.defaultHost ?? '';
       }
       devices = res.devices;
     } catch (err) {
+      if (seq !== scanSeq) return;
       errorMsg = err instanceof Error ? err.message : 'não foi possível buscar TVs na rede';
     } finally {
-      scanning = false;
-      paint();
+      if (seq === scanSeq) {
+        scanning = false;
+        paint();
+      }
     }
   };
 
@@ -268,12 +275,15 @@ export const createCastController = (host: CastHost): CastController => {
     const item = host.item();
     const video = host.video();
     if (!item || !canCastItem(item)) return;
+    const seq = ++launchSeq;
     busy = true;
     errorMsg = '';
     paint();
     try {
       if (session) await stopCastSession(session.id).catch(() => {});
+      if (seq !== launchSeq) return;
       const subtitleVtt = await readActiveSubtitleVtt(video);
+      if (seq !== launchSeq) return;
       const startAt = video && Number.isFinite(video.currentTime) ? Math.floor(video.currentTime) : 0;
       const res = await startCastSession({
         src: item.src,
@@ -285,6 +295,11 @@ export const createCastController = (host: CastHost): CastController => {
         host: selectedHost || undefined,
         deviceId,
       });
+      // Se o usuário parou ou trocou de transmissão enquanto criava a sessão, encerra a sessão órfã.
+      if (seq !== launchSeq) {
+        void stopCastSession(res.session.id).catch(() => {});
+        return;
+      }
       session = res.session;
       playback = res.session.device ? { state: 'PLAYING', positionSeconds: startAt, durationSeconds: null } : null;
       if (res.session.device) {
@@ -296,26 +311,30 @@ export const createCastController = (host: CastHost): CastController => {
       }
       host.onStateChange();
     } catch (err) {
+      if (seq !== launchSeq) return;
       errorMsg = err instanceof Error ? err.message : 'falha ao iniciar transmissão';
     } finally {
-      busy = false;
-      paint();
+      if (seq === launchSeq) {
+        busy = false;
+        paint();
+      }
     }
   };
 
   const sendControl = async (action: 'play' | 'pause' | 'seek', seconds?: number) => {
     if (!session?.device) return;
+    const targetId = session.id;
     busy = true;
     errorMsg = '';
     paint();
     try {
       const res = await controlCastSession(
-        session.id,
+        targetId,
         action === 'seek' ? { action: 'seek', seconds: seconds ?? 0 } : { action },
       );
-      if (res.playback) playback = res.playback;
+      if (session?.id === targetId && res.playback) playback = res.playback;
     } catch (err) {
-      errorMsg = err instanceof Error ? err.message : 'falha ao controlar a TV';
+      if (session?.id === targetId) errorMsg = err instanceof Error ? err.message : 'falha ao controlar a TV';
     } finally {
       busy = false;
       paint();
@@ -323,6 +342,8 @@ export const createCastController = (host: CastHost): CastController => {
   };
 
   const stop = async (): Promise<void> => {
+    launchSeq++;
+    busy = false;
     stopPolling();
     const active = session;
     session = null;

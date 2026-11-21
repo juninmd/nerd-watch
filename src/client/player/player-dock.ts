@@ -187,11 +187,19 @@ const validStart = (seconds: number | null | undefined): number | null =>
 
 /** Último `t` aplicado nesta sessão de player; um fallback de erro recarrega o mesmo ponto. */
 let requestedStart: number | null = null;
+/** Listener de `loadedmetadata` pendente do item atual: precisa sair se outro item carregar antes. */
+let pendingMetaSeek: (() => void) | null = null;
+
+const clearPendingMetaSeek = (): void => {
+  if (video && pendingMetaSeek) video.removeEventListener('loadedmetadata', pendingMetaSeek);
+  pendingMetaSeek = null;
+};
 
 const load = (i: number, startAt?: number | null): void => {
   const item = queue[i];
   const el = video;
   if (!item || !dock || !el) return;
+  clearPendingMetaSeek();
   persist();
   index = i;
   overlays.clear();
@@ -215,10 +223,10 @@ const load = (i: number, startAt?: number | null): void => {
   if (playerKindOf(item) === 'embed') clearVideo(el);
   else el.src = item.src;
   el.playbackRate = rate;
-  el.addEventListener(
-    'loadedmetadata',
-    () => {
-      if (resumeAt === null) return;
+  if (playerKindOf(item) !== 'embed') {
+    const onMeta = () => {
+      pendingMetaSeek = null;
+      if (current() !== item || resumeAt === null) return;
       // Duração só descoberta agora: não deixa um `t` fora do vídeo cair no início e apagar o progresso.
       if (Number.isFinite(el.duration) && resumeAt >= el.duration) {
         if (saved !== null && saved < el.duration) el.currentTime = saved;
@@ -227,9 +235,10 @@ const load = (i: number, startAt?: number | null): void => {
       // Um `t` colado no fim não pode marcar como assistido só por abrir: nesse caso volta ao ponto salvo.
       const linkNearEnd = requestedStart !== null && resumeAt === requestedStart && isFinished(resumeAt, el.duration);
       el.currentTime = linkNearEnd ? (saved !== null && saved < el.duration ? saved : 0) : resumeAt;
-    },
-    { once: true },
-  );
+    };
+    pendingMetaSeek = onMeta;
+    el.addEventListener('loadedmetadata', onMeta, { once: true });
+  }
   attemptPlay();
   if (playerKindOf(item) !== 'embed') {
     void prepareForItem(item, el, { resumeAt, safeStart: saved, isCurrent: () => current() === item, onMessage: showToast });
@@ -244,6 +253,7 @@ const load = (i: number, startAt?: number | null): void => {
 
 /** Encerra o vídeo e guarda a posição. */
 export const stopPlayer = (): void => {
+  clearPendingMetaSeek();
   persist();
   overlays.clear();
   captions?.clear();
@@ -340,7 +350,7 @@ const onVideoError = (): void => {
   });
   const opts = { resumeAt: resolved.resumeAt, safeStart: saved, isCurrent: () => current() === item, onMessage: showToast };
   void handleUnplayable(item, video, opts).then((handled) => {
-    if (!handled) onPlayError(item.src, handlers);
+    if (!handled && current() === item) onPlayError(item.src, handlers);
   });
 };
 

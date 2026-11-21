@@ -127,8 +127,9 @@ const convert = async (item: MediaItem, video: HTMLVideoElement, plan: PlanDto, 
   video.addEventListener(
     'loadedmetadata',
     () => {
+      if (!opts.isCurrent()) return;
       const start = resumeOrFallback(resumeAt, Number.isFinite(video.duration) ? video.duration : null, opts.safeStart);
-      if (start < video.duration) video.currentTime = start;
+      if (Number.isFinite(video.duration) && start < video.duration) video.currentTime = start;
     },
     { once: true },
   );
@@ -140,7 +141,9 @@ const convert = async (item: MediaItem, video: HTMLVideoElement, plan: PlanDto, 
 const startFlow = (item: MediaItem, video: HTMLVideoElement, plan: PlanDto, opts: FallbackOptions): void => {
   // Falha de rede ou resposta de erro do servidor vira aviso, nunca promessa rejeitada sem ninguém ouvindo.
   const flow = convert(item, video, plan, opts)
-    .catch(() => opts.onMessage(FAILED))
+    .catch(() => {
+      if (opts.isCurrent()) opts.onMessage(FAILED);
+    })
     .finally(() => flows.delete(item.key));
   remember(flows, item.key, flow);
 };

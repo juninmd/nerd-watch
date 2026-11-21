@@ -56,8 +56,8 @@ const bufferedEnd = (v: HTMLVideoElement): number => {
 };
 
 const toggleStageFullscreen = (stage: HTMLElement): void => {
-  if (document.fullscreenElement) void document.exitFullscreen();
-  else void stage.requestFullscreen?.();
+  if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+  else void stage.requestFullscreen?.().catch(() => undefined);
 };
 
 /**
@@ -157,8 +157,8 @@ export const mountPageControls = (stage: HTMLElement, video: HTMLVideoElement, a
     else if (act === 'cast') api.openCast();
     else if (act === 'fullscreen') toggleStageFullscreen(stage);
     else if (act === 'pip') {
-      if (document.pictureInPictureElement) void document.exitPictureInPicture();
-      else void video.requestPictureInPicture?.();
+      if (document.pictureInPictureElement) void document.exitPictureInPicture().catch(() => undefined);
+      else void video.requestPictureInPicture?.().catch(() => undefined);
     } else if (act === 'speed') {
       menu.hidden = !menu.hidden;
       speedBtn.setAttribute('aria-expanded', String(!menu.hidden));
@@ -166,6 +166,11 @@ export const mountPageControls = (stage: HTMLElement, video: HTMLVideoElement, a
     }
   });
 
+  const endDrag = (): void => {
+    if (!dragging) return;
+    dragging = false;
+    repaint();
+  };
   seek.addEventListener('pointerdown', () => {
     dragging = true;
   });
@@ -173,10 +178,10 @@ export const mountPageControls = (stage: HTMLElement, video: HTMLVideoElement, a
     const d = video.duration;
     if (d && Number.isFinite(d)) video.currentTime = (Number(seek.value) / SEEK_STEPS) * d;
   });
-  seek.addEventListener('change', () => {
-    dragging = false;
-    repaint();
-  });
+  seek.addEventListener('change', endDrag);
+  // Clicar no trilho sem mover o polegar (ou soltar fora da barra) não dispara `change`: soltar aqui evita travar `dragging`.
+  window.addEventListener('pointerup', endDrag, { signal });
+  window.addEventListener('pointercancel', endDrag, { signal });
   vol.addEventListener('input', () => {
     video.volume = Number(vol.value) / 100;
     video.muted = video.volume === 0;
