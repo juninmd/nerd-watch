@@ -55,8 +55,9 @@ export const safeThumbUrl = (value: unknown): string | null => {
 
 const toItem = (video: unknown): NewTelegramItem | null => {
   if (!isRecord(video) || typeof video.id !== 'string' || !VIDEO_ID.test(video.id)) return null;
-  const created = typeof video.created_time === 'number' && video.created_time > 0 ? new Date(video.created_time * 1000).toISOString() : null;
-  const duration = typeof video.duration === 'number' ? Math.round(video.duration) : null;
+  const createdDate = typeof video.created_time === 'number' && Number.isFinite(video.created_time) && video.created_time > 0 ? new Date(video.created_time * 1000) : null;
+  const created = createdDate && !Number.isNaN(createdDate.getTime()) ? createdDate.toISOString() : null;
+  const duration = typeof video.duration === 'number' && Number.isFinite(video.duration) ? Math.round(video.duration) : null;
   const title = typeof video.title === 'string' ? video.title.trim() : '';
   return {
     messageId: syntheticMessageId(created, video.id),
