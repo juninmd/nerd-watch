@@ -6,7 +6,7 @@ import { ValidationError } from '../lib/validation-error.ts';
 import { boardsOf } from '../providers/stremio/boards.ts';
 import { AddonError } from '../providers/stremio/client.ts';
 import { type AddonStream, fetchCatalog, fetchManifestFrom, fetchMeta, fetchStreams } from '../providers/stremio/protocol.ts';
-import { addonStatus } from '../providers/stremio/status.ts';
+import { addonStatus, invalidateAddonStatus } from '../providers/stremio/status.ts';
 import { streamsForTitle } from '../providers/stremio/title-streams.ts';
 import { parseAddonUrl } from '../providers/stremio/url.ts';
 import { deleteAddon, getAddon, type InstalledAddon, listAddons, listEnabledAddons, saveAddon, setAddonEnabled } from '../repo/stremio-addons.ts';
@@ -116,18 +116,23 @@ stremioRoutes.get('/streams', (c) =>
 );
 
 /** Liga/desliga o addon sem remover: desligado continua instalado, mas fora das consultas automáticas. */
-stremioRoutes.patch('/addons/:id', async (c) => {
-  const body = await c.req.json<{ enabled?: unknown }>().catch(() => null);
-  if (!body || typeof body.enabled !== 'boolean') return c.json({ error: 'enabled (true|false) é obrigatório' }, 400);
-  const db = await getDb();
-  const id = c.req.param('id');
-  if (!setAddonEnabled(db, id, body.enabled)) return c.json({ error: 'addon não encontrado' }, 404);
-  const addon = getAddon(db, id);
-  return addon ? c.json(toDto(addon)) : c.json({ error: 'addon não encontrado' }, 404);
-});
+stremioRoutes.patch('/addons/:id', (c) =>
+  guardInput(c, async () => {
+    const body = await readJsonObject(c);
+    assertKnownKeys(body, ['enabled']);
+    if (typeof body.enabled !== 'boolean') return c.json({ error: 'enabled (true|false) é obrigatório' }, 400);
+    const db = await getDb();
+    const id = c.req.param('id');
+    if (!setAddonEnabled(db, id, body.enabled)) return c.json({ error: 'addon não encontrado' }, 404);
+    const addon = getAddon(db, id);
+    return addon ? c.json(toDto(addon)) : c.json({ error: 'addon não encontrado' }, 404);
+  }),
+);
 
 stremioRoutes.delete('/addons/:id', async (c) => {
-  const removed = deleteAddon(await getDb(), c.req.param('id'));
+  const id = c.req.param('id');
+  const removed = deleteAddon(await getDb(), id);
+  if (removed) invalidateAddonStatus(id);
   return removed ? c.json({ ok: true }) : c.json({ error: 'addon não encontrado' }, 404);
 });
 
