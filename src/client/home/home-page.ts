@@ -3,7 +3,7 @@ import { type CalendarEntryDto, type CatalogSource, getCalendar, getStats, healt
 import { listAddons } from '../api/stremio.ts';
 import { addonPath } from '../addons/addon-links.ts';
 import { watchPath } from '../channels/telegram-items.ts';
-import { escapeHtml, renderCard } from '../ui/card.ts';
+import { escapeHtml, posterStyleAttr, renderCard } from '../ui/card.ts';
 import { confirmClearContinueWatching, continueWatchingCards, refreshResumeCards } from '../player/continue-watching.ts';
 import { renderTelegramFeed } from '../channels/telegram-feed.ts';
 import { icon, type IconName } from '../ui/icons.ts';
@@ -34,7 +34,7 @@ const upcomingRows = (entries: CalendarEntryDto[], todayIso: string): string =>
     .map(
       (e) => `
       <div class="calendar-item" data-source="${e.titleSource}" data-source-id="${escapeHtml(e.titleSourceId)}" data-media="${e.mediaType}" tabindex="0" role="link">
-        <div class="thumb"${e.posterUrl ? ` style="background-image:url('${escapeHtml(e.posterUrl)}')"` : ''}>${e.posterUrl ? '' : icon('film')}</div>
+        <div class="thumb"${posterStyleAttr(e.posterUrl)}>${e.posterUrl ? '' : icon('film')}</div>
         <div class="info"><div class="t">${escapeHtml(e.titleName)}</div><div class="s">${entryLine(e)}</div></div>
         <div class="s">${e.date === todayIso ? 'hoje' : 'amanhã'}</div>
       </div>`,

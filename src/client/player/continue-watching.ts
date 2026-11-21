@@ -1,4 +1,4 @@
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterStyleAttr } from '../ui/card.ts';
 import { clearContinueWatching, continueWatching, removeFromContinueWatching } from './player-dock.ts';
 import { icon } from '../ui/icons.ts';
 import { navigate } from '../app/router.ts';
@@ -21,7 +21,7 @@ export const continueWatchingCards = (): HTMLElement[] =>
     card.setAttribute('role', 'link');
     card.setAttribute('aria-label', `continuar ${meta.title} de ${formatDuration(resumeAt)}`);
     card.innerHTML = `
-      <div class="resume-thumb${meta.poster ? '' : ' placeholder'}"${meta.poster ? ` style="background-image:url('${escapeHtml(mediaUrl(meta.poster))}')"` : ''}>
+      <div class="resume-thumb${meta.poster ? '' : ' placeholder'}"${meta.poster ? posterStyleAttr(mediaUrl(meta.poster)) : ''}>
         ${meta.poster ? '' : icon('film')}
         <span class="resume-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><i style="width:${percent}%"></i></span>
       </div>

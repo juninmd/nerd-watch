@@ -1,5 +1,5 @@
 import { getTelegramChannel, listTelegramChannels, type TelegramChannelDetailDto, type TelegramChannelDto } from '../api/index.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterStyleAttr } from '../ui/card.ts';
 import {
   type DockItem,
   getAutoplay,
@@ -179,7 +179,7 @@ const render = (host: HTMLElement, d: TelegramChannelDetailDto, channels: Telegr
       <h1 class="watch-title">${escapeHtml(now.item.title)}</h1>
       ${fileName ? `<p class="watch-file">arquivo: ${escapeHtml(fileName)}</p>` : ''}
       <div class="watch-channel">
-        <a class="watch-avatar" href="#/telegram/${escapeHtml(d.titleId)}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(mediaUrl(d.posterUrl))}')"` : ''} aria-hidden="true" tabindex="-1"></a>
+        <a class="watch-avatar" href="#/telegram/${escapeHtml(d.titleId)}"${d.posterUrl ? posterStyleAttr(mediaUrl(d.posterUrl)) : ''} aria-hidden="true" tabindex="-1"></a>
         <div class="watch-channel-text"><a href="#/telegram/${escapeHtml(d.titleId)}"><b>${escapeHtml(d.title)}</b></a><small>${escapeHtml(meta)}</small></div>
         <div class="watch-actions">
           ${canShareAppLink() ? `<button class="btn btn-ghost btn-sm" id="watch-link" type="button" title="Copiar link deste vídeo">${icon('link', 'sm')} link</button>` : ''}

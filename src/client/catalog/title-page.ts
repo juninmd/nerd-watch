@@ -1,6 +1,6 @@
 import { backLinkHtml } from '../ui/back-link.ts';
 import { type CatalogSource, getTmdbTitle, type TmdbDetailDto } from '../api/index.ts';
-import { escapeHtml, posterCssUrl } from '../ui/card.ts';
+import { escapeHtml, posterStyleAttr } from '../ui/card.ts';
 import { renderAddToList } from '../lists/add-to-list.ts';
 import { icon } from '../ui/icons.ts';
 import { renderRefreshMetadata } from '../library/refresh-metadata.ts';
@@ -73,19 +73,19 @@ const renderTmdbDetail = (host: HTMLElement, mediaType: 'movie' | 'tv', id: stri
       .then((d) => {
         if (!root.isConnected || seq !== loadSeq) return;
         const year = d.releaseDate?.slice(0, 4) ?? '—';
-        const backdropCss = d.backdropUrl ? posterCssUrl(d.backdropUrl) : null;
-        const posterCss = d.posterUrl ? posterCssUrl(d.posterUrl) : null;
+        const backdropStyle = posterStyleAttr(d.backdropUrl);
+        const posterStyle = posterStyleAttr(d.posterUrl);
         // Fechamento defensivo: algo pode ter começado a tocar entre o início do `load` e a resposta da TMDB.
         releaseTorrentPlayers(root);
         stopIfOnPageIn(root);
         root.innerHTML = `
           ${backLinkHtml('#/library', 'Voltar', true)}
           <div class="hero">
-            <div class="backdrop${backdropCss ? '' : ' placeholder'}"${backdropCss ? ` style="background-image:${backdropCss}"` : ''}></div>
+            <div class="backdrop${backdropStyle ? '' : ' placeholder'}"${backdropStyle}></div>
             <div class="scrim"></div>
             <div class="hero-content">
-              <div class="hero-poster"${posterCss ? ` style="background-image:${posterCss}"` : ''}>
-                ${posterCss ? '' : `<div style="display:grid;place-items:center;height:100%;background:var(--gradient-soft);font-size:34px;font-weight:800">${escapeHtml(initials(d.title))}</div>`}
+              <div class="hero-poster"${posterStyle}>
+                ${posterStyle ? '' : `<div style="display:grid;place-items:center;height:100%;background:var(--gradient-soft);font-size:34px;font-weight:800">${escapeHtml(initials(d.title))}</div>`}
               </div>
               <div class="hero-info">
                 <h1>${escapeHtml(d.title)}</h1>

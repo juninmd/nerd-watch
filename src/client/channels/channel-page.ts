@@ -10,7 +10,7 @@ import {
   type TelegramChannelDetailDto,
 } from '../api/index.ts';
 import { backLinkHtml } from '../ui/back-link.ts';
-import { escapeHtml, paintPoster } from '../ui/card.ts';
+import { escapeHtml, paintPoster, posterStyleAttr } from '../ui/card.ts';
 import { linkBadge, openLinkDialog } from './telegram-link.ts';
 import { getQueueOrder, type QueueOrder, savedPosition, setQueueOrder } from '../player/player-dock.ts';
 import { renderStatusActions } from '../library/status-actions.ts';
@@ -87,10 +87,10 @@ const renderDetail = (host: HTMLElement, d: TelegramChannelDetailDto, reload: ()
   host.innerHTML = `
     ${backLinkHtml('#/telegram', 'Canais')}
     <div class="hero">
-      <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? ` style="background-image:url('${escapeHtml(mediaUrl(d.posterUrl))}')"` : ''}></div>
+      <div class="backdrop${d.posterUrl ? '' : ' placeholder'}"${d.posterUrl ? posterStyleAttr(mediaUrl(d.posterUrl)) : ''}></div>
       <div class="scrim"></div>
       <div class="hero-content">
-        ${d.posterUrl ? `<div class="hero-avatar" style="background-image:url('${escapeHtml(mediaUrl(d.posterUrl))}')" role="img" aria-label="foto de ${escapeHtml(d.title)}"></div>` : ''}
+        ${d.posterUrl ? `<div class="hero-avatar"${posterStyleAttr(mediaUrl(d.posterUrl))} role="img" aria-label="foto de ${escapeHtml(d.title)}"></div>` : ''}
         <div class="hero-info">
           <h1>${escapeHtml(d.title)}</h1>
           <div class="hero-meta">
