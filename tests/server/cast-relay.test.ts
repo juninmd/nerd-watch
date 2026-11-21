@@ -108,4 +108,27 @@ describe('cast relay: sessões, proxy interno, cabeçalhos DLNA e encerramento',
     clock += 2000;
     expect(relay.getSession(session.id)).toBeUndefined();
   });
+
+  test('bloqueia redirect externo para loopback/link-local e sanitiza Range inválido', async () => {
+    const seen: Array<{ url: string; range: string | null }> = [];
+    const relay = createCastRelay({
+      internalFetch: () => new Response('ok'),
+      externalFetch: (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        const h = new Headers(init?.headers);
+        seen.push({ url, range: h.get('range') });
+        if (url === 'https://cdn.example.com/evil.mp4') {
+          return new Response(null, { status: 302, headers: { location: 'http://127.0.0.1:8080/secret' } });
+        }
+        return new Response('ok', { status: 200 });
+      }) as typeof fetch,
+    });
+    const evil = relay.createSession({ mediaSrc: 'https://cdn.example.com/evil.mp4', title: 'Redirect' });
+    const blocked = await relay.handleRequest(
+      new Request(`http://192.168.1.10:9999/s/${evil.token}/media`, { headers: { Range: 'bytes=0-1,2-3' } }),
+    );
+    expect(blocked.status).toBe(502);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.range).toBeNull();
+  });
 });
