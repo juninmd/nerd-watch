@@ -115,11 +115,15 @@ describe('streamsForTitle com addon de id próprio', () => {
     expect(result.addons[0]?.streams[0]).toMatchObject({ kind: 'url', url: 'https://cdn.example.com/ep1.mp4' });
   });
 
-  test('sem nome do título não consulta catálogo nenhum', async () => {
+  test('sem nome do título (ou só espaços) não consulta catálogo nenhum', async () => {
     const fake = deps();
     const result = await streamsForTitle([addon()], { mediaType: 'tv', imdbId: 'tt0434665', season: 1, episode: 1 }, async () => null, async () => [stream], fake);
     expect(fake.calls).toEqual([]);
     expect(result.addons).toHaveLength(0);
+
+    const blank = await streamsForTitle([addon()], { mediaType: 'tv', imdbId: 'tt0434665', season: 1, episode: 1, title: '   ' }, async () => null, async () => [stream], fake);
+    expect(fake.calls).toEqual([]);
+    expect(blank.addons).toHaveLength(0);
   });
 
   test('addon que aceita o id do app é consultado por id, não por busca', async () => {

@@ -42,4 +42,9 @@ describe('bestCatalogMatch', () => {
     expect(bestCatalogMatch([], { title: 'Bleach' })).toBeNull();
     expect(bestCatalogMatch([item('Naruto')], { title: 'Bleach' })).toBeNull();
   });
+
+  test('nome contido exige fronteira de palavra (Up não casa Startup no mesmo ano)', () => {
+    expect(bestCatalogMatch([item('Startup', '2009')], { title: 'Up', year: '2009' })).toBeNull();
+    expect(bestCatalogMatch([item('The Up Adventure', '2009')], { title: 'Up', year: '2009' })?.name).toBe('The Up Adventure');
+  });
 });
