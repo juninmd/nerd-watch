@@ -17,7 +17,9 @@ export const backupCardHtml = (): string => `
   </section>`;
 
 export const bindBackup = (root: HTMLElement): void => {
-  (root.querySelector('#btn-export') as HTMLButtonElement).addEventListener('click', async () => {
+  const exportBtn = root.querySelector('#btn-export') as HTMLButtonElement;
+  exportBtn.addEventListener('click', async () => {
+    exportBtn.disabled = true;
     try {
       const data = await exportBackup();
       const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
@@ -29,20 +31,26 @@ export const bindBackup = (root: HTMLElement): void => {
       showToast('backup exportado');
     } catch {
       showToast('falha ao exportar backup');
+    } finally {
+      if (exportBtn.isConnected) exportBtn.disabled = false;
     }
   });
 
   const input = root.querySelector('#import-file') as HTMLInputElement;
-  (root.querySelector('#btn-import') as HTMLButtonElement).addEventListener('click', () => input.click());
+  const importBtn = root.querySelector('#btn-import') as HTMLButtonElement;
+  importBtn.addEventListener('click', () => input.click());
   input.addEventListener('change', async () => {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
+    importBtn.disabled = true;
     try {
       const res = await importBackup(JSON.parse(await file.text()));
       showToast(`backup importado: ${res.imported.titles} títulos, ${res.imported.libraryEntries} na lista`);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'falha ao importar backup');
+    } finally {
+      if (importBtn.isConnected) importBtn.disabled = false;
     }
   });
 };
