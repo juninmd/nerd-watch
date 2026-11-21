@@ -6,7 +6,7 @@ import { currentRoute, navigate } from '../app/router.ts';
 import { hdStill, isPlayable } from '../player/episode-play-model.ts';
 import { stopIfOnPageIn } from '../player/player-dock.ts';
 import { releaseTorrentPlayers } from '../player/torrent-player.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterCssUrl } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { dateLabel } from './tvmaze-view.ts';
 import { episodeCode, type EpisodeState, type EpisodeView } from './episode-browser-model.ts';
@@ -109,16 +109,16 @@ export const openEpisodeModal = (opts: EpisodeModalOptions): void => {
         if (mine !== seq || !d.isConnected) return;
         dto = res;
         if (!res.addons.length) {
-          slot.innerHTML = '<p class="hint">Instale um addon de streams em <a href="#/addons">Addons</a> para ver links aqui.</p>';
+          slot.innerHTML = '<p class="hint">Instale um addon de streams em <a href="#/addons" data-close-nav>Addons</a> para ver links aqui.</p>';
           return;
         }
         drawStreams();
       })
       .catch(() => {
-        if (mine === seq) slot.innerHTML = '<p class="hint" role="alert">não foi possível consultar os addons agora.</p>';
+        if (mine === seq && d.isConnected) slot.innerHTML = '<p class="hint" role="alert">não foi possível consultar os addons agora.</p>';
       })
       .finally(() => {
-        if (mine === seq) slot.removeAttribute('aria-busy');
+        if (mine === seq && d.isConnected) slot.removeAttribute('aria-busy');
       });
   };
 
@@ -167,9 +167,10 @@ export const openEpisodeModal = (opts: EpisodeModalOptions): void => {
           <div id="ep-streams"></div>
         </section>
       </div>`;
-    // Via CSSOM: a URL nunca é parseada como marcação.
+    // Via CSSOM + posterCssUrl: escapa aspas/barras e a URL nunca é parseada como marcação.
     // Capa em alta no modal (a miniatura da lista continua leve).
-    if (ep.stillUrl) (d.querySelector('.ep-modal-still') as HTMLElement).style.backgroundImage = `url("${hdStill(ep.stillUrl)}")`;
+    const still = hdStill(ep.stillUrl);
+    if (still) (d.querySelector('.ep-modal-still') as HTMLElement).style.backgroundImage = posterCssUrl(still);
     loadStreams(ep);
   };
 
@@ -194,13 +195,15 @@ export const openEpisodeModal = (opts: EpisodeModalOptions): void => {
         (d.querySelector<HTMLElement>('[data-mark]:not([disabled])') ?? d.querySelector<HTMLElement>('[data-close]'))?.focus();
       })
       .catch(() => {
-        btn.disabled = false;
+        if (btn.isConnected) btn.disabled = false;
       });
   };
 
   d.addEventListener('click', (e) => {
     if (e.target === d) return d.close();
-    const t = (e.target as HTMLElement).closest<HTMLElement>('button');
+    const el = e.target as HTMLElement;
+    if (el.closest('[data-close-nav]')) return d.close();
+    const t = el.closest<HTMLElement>('button');
     if (!t) return;
     if (t.dataset.step) step(Number(t.dataset.step));
     else if ('close' in t.dataset) d.close();

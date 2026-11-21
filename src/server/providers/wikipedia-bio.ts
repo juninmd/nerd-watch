@@ -14,6 +14,7 @@ const MINUTES = 60_000;
 const TIMEOUT_MS = 4_000;
 const MAX_NAME = 120;
 const MAX_EXTRACT = 900;
+const MAX_SUMMARY_BYTES = 512 * 1024;
 const USER_AGENT = 'nerd-watch/1.0 (https://github.com/juninmd/nerd-watch; open-source local media tracker)';
 const LANGS = ['pt', 'en'] as const;
 // Só termos de tela: "writer"/"singer" aceitavam homônimos de fora (autor, cantor) com a bio de outra pessoa.
@@ -38,8 +39,11 @@ export const pickBio = (raw: unknown, lang: PersonBio['lang']): PersonBio | null
   const urls = isRecord(raw.content_urls) && isRecord(raw.content_urls.desktop) ? raw.content_urls.desktop : null;
   // Parênteses (ex.: `Fulano_(ator)`) viram %28/%29: o cliente nunca recebe aspas ou parênteses crus num href.
   const url = httpsUrlOrNull(typeof urls?.page === 'string' ? urls.page.replace(/\(/g, '%28').replace(/\)/g, '%29') : null);
-  if (!url || !new URL(url).hostname.endsWith('.wikipedia.org')) return null;
-  const cut = extract.length > MAX_EXTRACT ? `${extract.slice(0, extract.lastIndexOf(' ', MAX_EXTRACT))}…` : extract;
+  if (!url) return null;
+  const parsed = new URL(url);
+  if (parsed.username || parsed.password || parsed.port || !parsed.hostname.endsWith('.wikipedia.org')) return null;
+  const cutAt = extract.lastIndexOf(' ', MAX_EXTRACT);
+  const cut = extract.length > MAX_EXTRACT ? `${extract.slice(0, cutAt > 0 ? cutAt : MAX_EXTRACT)}…` : extract;
   return { extract: cut, url, lang };
 };
 
@@ -64,6 +68,11 @@ const summary = async (lang: PersonBio['lang'], name: string): Promise<unknown> 
   if (!res.ok) {
     await res.body?.cancel();
     throw new CatalogRequestError(502, `Wikipédia respondeu ${res.status}`);
+  }
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_SUMMARY_BYTES) {
+    await res.body?.cancel().catch(() => undefined);
+    return null;
   }
   return res.json().catch(() => null);
 };
