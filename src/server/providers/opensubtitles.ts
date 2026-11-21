@@ -1,5 +1,8 @@
 import { withCache } from '../lib/cache.ts';
 import { config, openSubtitlesEnabled } from '../config/config.ts';
+import { readTextLimited } from './sources/http.ts';
+
+const MAX_JSON_BYTES = 4 * 1024 * 1024;
 
 /**
  * REST API oficial da OpenSubtitles.com (a antiga API XML-RPC de opensubtitles.org foi
@@ -50,7 +53,11 @@ const call = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
     await res.body?.cancel();
     throw new OpenSubtitlesRequestError(res.status, `OpenSubtitles respondeu ${res.status}`);
   }
-  return (await res.json()) as T;
+  try {
+    return JSON.parse(await readTextLimited(res, MAX_JSON_BYTES)) as T;
+  } catch {
+    throw new OpenSubtitlesRequestError(502, 'OpenSubtitles devolveu uma resposta inesperada');
+  }
 };
 
 interface OsSubtitleFile {

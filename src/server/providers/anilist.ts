@@ -3,6 +3,7 @@ import { CatalogRequestError, htmlToText, httpsUrlOrNull } from '../lib/catalog-
 import { normalizeGenres, normalizeRuntimeMinutes } from '../stats/catalog-fields.ts';
 import { validTrailerKey } from '../calendar/info.ts';
 import { createRateLimiter, RateLimitExceededError } from '../lib/rate-limit.ts';
+import { readTextLimited } from './sources/http.ts';
 
 /**
  * AniList: anime. GraphQL público, sem chave. Limite documentado: 90 req/min, mas o próprio
@@ -12,6 +13,7 @@ import { createRateLimiter, RateLimitExceededError } from '../lib/rate-limit.ts'
 const MINUTES = 60_000;
 const ENDPOINT = 'https://graphql.anilist.co';
 const TIMEOUT_MS = 10_000;
+const MAX_JSON_BYTES = 4 * 1024 * 1024;
 
 const limiter = createRateLimiter('AniList', 30, MINUTES);
 
@@ -101,6 +103,7 @@ const query = async (gql: string, variables: Record<string, unknown>): Promise<R
   try {
     res = await fetch(ENDPOINT, {
       method: 'POST',
+      redirect: 'error',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ query: gql, variables }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -116,7 +119,7 @@ const query = async (gql: string, variables: Record<string, unknown>): Promise<R
 
   let body: unknown;
   try {
-    body = await res.json();
+    body = JSON.parse(await readTextLimited(res, MAX_JSON_BYTES));
   } catch {
     throw unexpected();
   }

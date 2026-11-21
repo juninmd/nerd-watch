@@ -1,10 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { readTextLimited } from '../sources/http.ts';
 import { SourceError } from '../sources/types.ts';
 import { readSetting, writeSetting } from '../sources/settings.ts';
 
 const FLOW_TTL_MS = 10 * 60_000;
 /** Renova um pouco antes do vencimento para uma requisição longa não começar com token quase expirado. */
 const EXPIRY_MARGIN_MS = 60_000;
+const MAX_TOKEN_BYTES = 64 * 1024;
 
 export class OAuthNotConnectedError extends SourceError {
   constructor(name: string) {
@@ -95,12 +97,18 @@ export const createOAuthClient = (spec: OAuthSpec): OAuthClient => {
       body: new URLSearchParams(body).toString(),
       signal: AbortSignal.timeout(15_000),
     });
-    const json = (await res.json().catch(() => ({}))) as TokenResponse;
+    let json: TokenResponse = {};
+    try {
+      json = JSON.parse(await readTextLimited(res, MAX_TOKEN_BYTES)) as TokenResponse;
+    } catch {
+      // corpo inválido ou grande demais: segue com objeto vazio para cair na checagem de status/campos
+    }
     return { ...json, status: res.status };
   };
 
   const remember = (token: string, expiresIn: number | undefined, now: number) => {
-    cache = { token, expiresAt: now + (expiresIn ?? 3600) * 1000 };
+    const ttlSeconds = typeof expiresIn === 'number' && Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600;
+    cache = { token, expiresAt: now + ttlSeconds * 1000 };
   };
 
   const refresh = async (now: number): Promise<string> => {
@@ -190,8 +198,11 @@ export const createOAuthClient = (spec: OAuthSpec): OAuthClient => {
 
     async authedFetch(url, init = {}) {
       // Sem seguir redirect por padrão: o Bearer não pode acompanhar um 3xx para outra origem.
-      const call = async () =>
-        fetchImpl(url, { redirect: 'manual', ...init, headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${await client.accessToken()}` } });
+      const call = async () => {
+        const headers = new Headers(init.headers);
+        headers.set('Authorization', `Bearer ${await client.accessToken()}`);
+        return fetchImpl(url, { redirect: 'manual', ...init, headers });
+      };
       let res = await call();
       if (res.status === 401) {
         await res.body?.cancel();
