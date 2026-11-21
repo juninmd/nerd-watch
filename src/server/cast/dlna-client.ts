@@ -15,6 +15,10 @@ import { isSafeLanUrl } from './network.ts';
 
 const SOAP_TIMEOUT_MS = 5000;
 const MAX_SOAP_BYTES = 256 * 1024;
+/** Quantas vezes (e com que intervalo) esperamos a TV terminar de carregar antes de pular para o ponto pausado. */
+const RESUME_ATTEMPTS = 10;
+const RESUME_INTERVAL_MS = 700;
+const READY_STATES = new Set<DlnaTransportState>(['PLAYING', 'PAUSED_PLAYBACK']);
 
 const readCappedText = async (res: Response, maxBytes: number): Promise<string> => {
   const declared = Number(res.headers.get('content-length'));
@@ -85,7 +89,12 @@ const sendSoapAction = async (
   }
 };
 
-export const createDlnaClient = (fetcher: typeof fetch = fetch): DlnaClient => {
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const createDlnaClient = (
+  fetcher: typeof fetch = fetch,
+  wait: (ms: number) => Promise<void> = sleep,
+): DlnaClient => {
   const play = async (device: CastDevice): Promise<void> => {
     await sendSoapAction(device.controlUrl, 'Play', '<InstanceID>0</InstanceID><Speed>1</Speed>', fetcher);
   };
@@ -125,12 +134,25 @@ export const createDlnaClient = (fetcher: typeof fetch = fetch): DlnaClient => {
       fetcher,
     );
     await play(device);
-    if (startAt && startAt > 2) {
-      try {
-        await seek(device, startAt);
-      } catch {
-        // Nem toda TV aceita Seek imediato antes do buffer inicial; o vídeo segue tocando do começo.
+    if (startAt && startAt > 2) await seekWhenReady(device, startAt);
+  };
+
+  /**
+   * Logo após o Play a TV fica em TRANSITIONING e recusa (ou ignora) o Seek, e o vídeo começava do zero.
+   * Espera ela reportar PLAYING/PAUSED e só então pula; falhou todas as tentativas, segue do começo.
+   */
+  const seekWhenReady = async (device: CastDevice, seconds: number): Promise<void> => {
+    for (let attempt = 0; attempt < RESUME_ATTEMPTS; attempt++) {
+      const xml = await sendSoapAction(device.controlUrl, 'GetTransportInfo', '<InstanceID>0</InstanceID>', fetcher).catch(() => '');
+      if (xml && READY_STATES.has(parseTransportInfo(xml))) {
+        try {
+          await seek(device, seconds);
+          return;
+        } catch {
+          // Algumas TVs aceitam PLAYING antes do buffer; tenta de novo no próximo ciclo.
+        }
       }
+      await wait(RESUME_INTERVAL_MS);
     }
   };
 

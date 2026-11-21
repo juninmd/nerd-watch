@@ -12,7 +12,7 @@ import {
 import { showToast } from '../app/state.ts';
 import { escapeHtml } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
-import { canCastItem, castSeekTarget, formatDeviceSubtitle, remotePlaybackView } from './player-cast-model.ts';
+import { canCastItem, castSeekTarget, formatDeviceSubtitle, remotePlaybackView, resumeAfterCast } from './player-cast-model.ts';
 import type { DockItem } from './player-dock.ts';
 
 const POLL_MS = 3000;
@@ -346,8 +346,11 @@ export const createCastController = (host: CastHost): CastController => {
     busy = false;
     stopPolling();
     const active = session;
+    const resumeAt = active?.device ? resumeAfterCast(playback) : null;
     session = null;
     playback = null;
+    const video = host.video();
+    if (video && resumeAt !== null) video.currentTime = resumeAt;
     host.onStateChange();
     if (active) await stopCastSession(active.id).catch(() => {});
     if (dialog?.open) paint();

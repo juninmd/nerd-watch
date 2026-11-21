@@ -62,3 +62,9 @@ export const remotePlaybackView = (playback: CastPlaybackDto | null | undefined)
     timeLabel,
   };
 };
+
+/** Ao parar a TV, o player local volta para onde a TV estava; sem posição conhecida, não mexe no vídeo. */
+export const resumeAfterCast = (playback: CastPlaybackDto | null): number | null => {
+  const pos = playback?.positionSeconds;
+  return typeof pos === 'number' && Number.isFinite(pos) && pos > 0 ? Math.floor(pos) : null;
+};
