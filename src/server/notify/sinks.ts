@@ -91,7 +91,7 @@ export const buildSinks = (options: SinkOptions): NotifySink[] => {
 
   const token = options.telegramBotToken?.trim();
   const chatId = options.telegramChatId?.trim();
-  if (token && chatId && /^[\w:-]{10,200}$/.test(token)) {
+  if (token && chatId && /^[\w:-]{10,200}$/.test(token) && /^[^\r\n\0]{1,128}$/.test(chatId)) {
     const telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
     sinks.push({
       name: 'telegram',
