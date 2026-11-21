@@ -185,7 +185,6 @@ export const createCastRelay = (opts: CastRelayOptions): CastRelay => {
     for (let hop = 0; ; hop++) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), EXTERNAL_HEAD_TIMEOUT_MS);
-      timer.unref?.();
       let res: Response;
       try {
         // `manual`: cada redirecionamento precisa passar por `isSafeMediaSrc` (evita redirect para loopback/metadata).
