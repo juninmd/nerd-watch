@@ -91,25 +91,26 @@ export const countTelegramItemsByChannel = (db: Database): Map<string, number> =
 export const upsertTelegramChannel = (
   db: Database,
   input: { handle: string; mode: TelegramChannelMode; displayName?: string; posterUrl?: string | null },
-): TelegramChannel => {
-  const existing = getTelegramChannelByHandle(db, input.handle);
-  if (existing) return existing;
+): TelegramChannel =>
+  db.transaction((): TelegramChannel => {
+    const existing = getTelegramChannelByHandle(db, input.handle);
+    if (existing) return existing;
 
-  const titleRow = upsertTitle(db, {
-    source: 'telegram',
-    sourceId: input.handle,
-    mediaType: 'tv',
-    title: input.displayName ?? `@${input.handle}`,
-    posterPath: input.posterUrl ?? null,
-  });
+    const titleRow = upsertTitle(db, {
+      source: 'telegram',
+      sourceId: input.handle,
+      mediaType: 'tv',
+      title: input.displayName ?? `@${input.handle}`,
+      posterPath: input.posterUrl ?? null,
+    });
 
-  db.query(
-    `INSERT INTO telegram_channels (id, mode, handle, cursor, created_at) VALUES ($id, $mode, $handle, NULL, $createdAt)`,
-  ).run({ $id: titleRow.id, $mode: input.mode, $handle: input.handle, $createdAt: new Date().toISOString() });
+    db.query(
+      `INSERT INTO telegram_channels (id, mode, handle, cursor, created_at) VALUES ($id, $mode, $handle, NULL, $createdAt)`,
+    ).run({ $id: titleRow.id, $mode: input.mode, $handle: input.handle, $createdAt: new Date().toISOString() });
 
-  // biome-ignore lint/style/noNonNullAssertion: acabamos de inserir esta linha
-  return getTelegramChannel(db, titleRow.id)!;
-};
+    // biome-ignore lint/style/noNonNullAssertion: acabamos de inserir esta linha
+    return getTelegramChannel(db, titleRow.id)!;
+  })();
 
 /** Apaga o `title` do canal; o ON DELETE CASCADE leva junto telegram_channels, telegram_items e a entrada da lista. */
 export const deleteTelegramChannel = (db: Database, id: string): boolean =>
@@ -184,7 +185,9 @@ export const upsertTelegramItems = (db: Database, channelId: string, items: NewT
 /** Remove os itens que não estão mais na origem (ex.: vídeo apagado da pasta do Drive). Devolve quantos saíram. */
 export const pruneTelegramItems = (db: Database, channelId: string, keepMessageIds: string[]): number => {
   const keep = new Set(keepMessageIds);
-  const stale = listTelegramItems(db, channelId).filter((i) => !keep.has(i.message_id));
+  const existing = db.query<{ message_id: string }, [string]>('SELECT message_id FROM telegram_items WHERE channel_id = ?').all(channelId);
+  const stale = existing.filter((i) => !keep.has(i.message_id));
+  if (stale.length === 0) return 0;
   const remove = db.query('DELETE FROM telegram_items WHERE channel_id = ? AND message_id = ?');
   db.transaction(() => {
     for (const item of stale) remove.run(channelId, item.message_id);
