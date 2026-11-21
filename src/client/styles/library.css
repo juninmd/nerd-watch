@@ -224,3 +224,14 @@
   justify-content: flex-end;
   gap: 10px;
 }
+
+/* Biblioteca grande: o navegador pula estilo, layout e pintura dos cards fora da tela (5000 itens: ~2,2 s para ~0,4 s
+   por tecla no filtro). O tamanho reservado evita a barra de rolagem pular; `auto` guarda o real depois do 1º desenho. */
+#lib-list .grid > .card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 168px auto 320px;
+}
+
+#lib-list .grid.as-list > .card {
+  contain-intrinsic-size: auto 600px auto 102px;
+}
