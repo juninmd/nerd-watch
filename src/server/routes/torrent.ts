@@ -26,7 +26,9 @@ torrentRoutes.post('/open', (c) =>
     // `typeof` e não só truthiness: um JSON com número/array/bool derrubava o handler com 500.
     const identifier = typeof body.identifier === 'string' ? body.identifier.trim() : '';
     if (!identifier) return c.json({ error: 'identifier é obrigatório' }, 400);
-    if (body.fileIndex !== undefined && !Number.isInteger(body.fileIndex)) return c.json({ error: 'fileIndex inválido' }, 400);
+    if (body.fileIndex !== undefined && (!Number.isInteger(body.fileIndex) || (body.fileIndex as number) < 0)) {
+      return c.json({ error: 'fileIndex inválido' }, 400);
+    }
 
     try {
       return c.json(await openArchiveTorrent(identifier, body.fileIndex as number | undefined));
@@ -65,9 +67,9 @@ torrentRoutes.delete('/:infoHash', (c) => {
  */
 const streamHandler = (c: Context) => {
   const infoHash = c.req.param('infoHash');
-  const fileIndex = Number(c.req.param('fileIndex'));
-  if (!infoHash || !Number.isInteger(fileIndex)) return Response.json({ error: 'torrent não está aberto' }, { status: 404 });
-  return serveTorrentFile(infoHash, fileIndex, c.req.header('Range'), c.req.method);
+  const rawIndex = c.req.param('fileIndex') ?? '';
+  if (!infoHash || !/^\d{1,6}$/.test(rawIndex)) return Response.json({ error: 'torrent não está aberto' }, { status: 404 });
+  return serveTorrentFile(infoHash, Number(rawIndex), c.req.header('Range'), c.req.method);
 };
 
 // Só GET: o Hono despacha HEAD para o handler de GET mantendo `c.req.method === 'HEAD'`, que é o

@@ -39,15 +39,21 @@ export const readBodyText = async (req: Request, maxBytes: number): Promise<stri
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel();
-      throw new InputError(`arquivo grande demais: o limite é ${mib(maxBytes)}`, 413);
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new InputError(`arquivo grande demais: o limite é ${mib(maxBytes)}`, 413);
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch (err) {
+    if (err instanceof InputError) throw err;
+    await reader.cancel().catch(() => undefined);
+    throw new InputError('leitura do arquivo interrompida', 400);
   }
 
   const bytes = new Uint8Array(total);

@@ -19,8 +19,9 @@ const MAX_BODY_BYTES = 8 * 1024;
 const MAX_PAGE = 500;
 
 const intParam = (raw: string | undefined, fallback: number, min: number, max: number): number => {
-  const n = Number.parseInt(raw ?? '', 10);
-  return Number.isFinite(n) ? Math.min(Math.max(n, min), max) : fallback;
+  if (!raw || !/^\d+$/.test(raw)) return fallback;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) ? Math.min(Math.max(n, min), max) : fallback;
 };
 
 playbackRoutes.get('/', async (c) => {

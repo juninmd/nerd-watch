@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { telegramPersonalEnabled } from '../config/config.ts';
 import { getDb } from '../db/database.ts';
 import { guardInput, readJsonObject } from '../http/json-body.ts';
+import { hasControlChar } from '../lib/text-guards.ts';
 import { PrivateChannelNotFoundError } from '../providers/telegram/peer.ts';
 import { TelegramFloodWaitError, floodWaitResponse } from '../providers/telegram/flood-wait.ts';
 import { TelegramPersonalNotConfiguredError } from '../providers/telegram/personal.ts';
@@ -43,7 +44,9 @@ telegramHistoryRoutes.post('/:id/search', (c) =>
   guardInput(c, async () => {
     const body = await readJsonObject(c);
     const query = typeof body.q === 'string' ? body.q.trim() : '';
-    if (!query || query.length > SEARCH_MAX_CHARS) return c.json({ error: `informe um texto de 1 a ${SEARCH_MAX_CHARS} caracteres` }, 400);
+    if (!query || query.length > SEARCH_MAX_CHARS || hasControlChar(query)) {
+      return c.json({ error: `informe um texto de 1 a ${SEARCH_MAX_CHARS} caracteres` }, 400);
+    }
 
     const db = await getDb();
     const channel = getTelegramChannel(db, c.req.param('id'));
