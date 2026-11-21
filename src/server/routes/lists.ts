@@ -3,6 +3,7 @@ import { getDb } from '../db/database.ts';
 import { LIST_BULK_MAX, LIST_ITEMS_MAX, readTitleIds, validateDescription, validateListName, validateTitleIds } from '../lists/rules.ts';
 import {
   addTitlesToList,
+  countListItems,
   createList,
   deleteList,
   getListPage,
@@ -95,8 +96,7 @@ listsRoutes.patch('/:id', (c) =>
     const db = await getDb();
     const row = updateList(db, c.req.param('id'), patch);
     if (!row) return c.json({ error: 'lista não encontrada' }, 404);
-    const count = getListPage(db, row.id, { limit: 1, offset: 0 })?.total ?? 0;
-    return c.json(listDto(row, { itemCount: count, containsTitle: null }));
+    return c.json(listDto(row, { itemCount: countListItems(db, row.id), containsTitle: null }));
   }),
 );
 

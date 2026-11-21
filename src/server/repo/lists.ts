@@ -51,6 +51,9 @@ const marks = (n: number): string => Array.from({ length: n }, () => '?').join('
 
 export const getListRow = (db: Database, id: string): ListRow | null => db.query<ListRow, [string]>('SELECT * FROM lists WHERE id = ?').get(id);
 
+export const countListItems = (db: Database, listId: string): number =>
+  db.query<{ n: number }, [string]>('SELECT COUNT(*) AS n FROM list_items WHERE list_id = ?').get(listId)?.n ?? 0;
+
 export const createList = (db: Database, input: { name: string; description: string | null }): ListRow => {
   const at = new Date().toISOString();
   const row: ListRow = { id: crypto.randomUUID(), name: input.name, description: input.description, created_at: at, updated_at: at };
