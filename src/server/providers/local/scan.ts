@@ -3,7 +3,7 @@ import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { NewTelegramItem } from '../../repo/telegram.ts';
 import { VIDEO_EXT, syntheticMessageId, titleFromFilename } from '../sources/service.ts';
-import { insideAnyRoot, realRoots } from './roots.ts';
+import { insideAnyRoot, isInside, realRoots } from './roots.ts';
 import { isSafeLocalRelative, locateVideo } from './access.ts';
 
 /** Profundidade 1 = filhos diretos da pasta do canal; a recursão para ao chegar em 3. */
@@ -23,7 +23,15 @@ interface Found {
  * Walks the tree collecting videos. Symlinks and junctions are skipped, and a directory is entered only after its
  * realpath is confirmed inside a root, so a junction that points out of the root cannot be read through the scan.
  */
-const walk = async (dir: string, relDir: string, depth: number, roots: string[], found: Found[], budget: { left: number }): Promise<void> => {
+const walk = async (
+  folderReal: string,
+  dir: string,
+  relDir: string,
+  depth: number,
+  roots: string[],
+  found: Found[],
+  budget: { left: number },
+): Promise<void> => {
   const entries: Dirent[] = await readdir(dir, { withFileTypes: true }).catch(() => []);
   for (const entry of entries) {
     if (budget.left-- <= 0) return;
@@ -33,11 +41,11 @@ const walk = async (dir: string, relDir: string, depth: number, roots: string[],
     if (entry.isDirectory()) {
       if (depth >= MAX_DEPTH || !isSafeLocalRelative(rel)) continue;
       const real = await realpath(full).catch(() => null);
-      if (real && insideAnyRoot(roots, real)) await walk(full, rel, depth + 1, roots, found, budget);
+      if (real && isInside(folderReal, real) && insideAnyRoot(roots, real)) await walk(folderReal, full, rel, depth + 1, roots, found, budget);
     } else if (entry.isFile() && VIDEO_EXT.test(entry.name) && isSafeLocalRelative(rel)) {
       const info = await stat(full).catch(() => null);
       const real = info ? await realpath(full).catch(() => null) : null;
-      if (info && real && insideAnyRoot(roots, real)) found.push({ rel, modified: info.mtime });
+      if (info && real && isInside(folderReal, real) && insideAnyRoot(roots, real)) found.push({ rel, modified: info.mtime });
     }
   }
 };
@@ -46,7 +54,7 @@ const walk = async (dir: string, relDir: string, depth: number, roots: string[],
 export const scanFolder = async (folderReal: string): Promise<NewTelegramItem[]> => {
   const roots = await realRoots();
   const found: Found[] = [];
-  await walk(folderReal, '', 1, roots, found, { left: MAX_ENTRIES });
+  await walk(folderReal, folderReal, '', 1, roots, found, { left: MAX_ENTRIES });
   return found
     .sort((a, b) => b.modified.getTime() - a.modified.getTime())
     .slice(0, MAX_ITEMS)
@@ -75,10 +83,11 @@ export const sidecarThumb = async (handle: string, fileRef: string | null): Prom
   const roots = await realRoots();
   for (const name of names) {
     const real = await realpath(path.join(dir, name)).catch(() => null);
-    if (!real || !insideAnyRoot(roots, real)) continue;
+    if (!real || !isInside(dir, real) || !insideAnyRoot(roots, real)) continue;
     const info = await stat(real).catch(() => null);
     if (!info?.isFile() || info.size === 0 || info.size > SIDECAR_MAX_BYTES) continue;
-    return new Uint8Array(await readFile(real));
+    const bytes = await readFile(real).catch(() => null);
+    if (bytes && bytes.length > 0) return new Uint8Array(bytes);
   }
   return null;
 };
