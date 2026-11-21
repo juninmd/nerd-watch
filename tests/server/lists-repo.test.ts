@@ -151,4 +151,11 @@ describe('listas: leitura paginada e capas', () => {
     addTitlesToList(db, y.id, [a]);
     expect(listNamesByTitle(db).get(a)).toEqual(['alfa', 'Zeta']);
   });
+
+  test('IDs duplicados no mesmo lote são deduplicados sem erro de UNIQUE', () => {
+    const [a, b] = makeTitles(2) as [string, string];
+    const list = createList(db, { name: 'Sem duplicar', description: null });
+    expect(addTitlesToList(db, list.id, [a, b, a, b])).toEqual({ added: 2, existing: 0 });
+    expect(getListPage(db, list.id, { limit: 10, offset: 0 })?.items.map((i) => i.titleId)).toEqual([a, b]);
+  });
 });
