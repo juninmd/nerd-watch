@@ -85,7 +85,9 @@ const parseTimed = (lines: string[]): Cue[] => {
 const parseAss = (lines: string[]): Cue[] => {
   const cues: Cue[] = [];
   let inEvents = false;
-  let columns: string[] = [];
+  let startIdx = -1;
+  let endIdx = -1;
+  let textIdx = -1;
   for (const raw of lines) {
     const line = raw.trim();
     if (/^\[.*\]$/.test(line)) {
@@ -94,28 +96,29 @@ const parseAss = (lines: string[]): Cue[] => {
     }
     if (!inEvents) continue;
     if (/^format:/i.test(line)) {
-      columns = line
+      const columns = line
         .slice(line.indexOf(':') + 1)
         .split(',')
         .map((c) => c.trim().toLowerCase());
+      startIdx = columns.indexOf('start');
+      endIdx = columns.indexOf('end');
+      textIdx = columns.indexOf('text');
       continue;
     }
-    if (!/^dialogue:/i.test(line) || columns.length === 0) continue;
+    if (!/^dialogue:/i.test(line) || startIdx < 0 || endIdx < 0 || textIdx < 0) continue;
     const fields = line.slice(line.indexOf(':') + 1).split(',');
-    const at = (name: string) => fields[columns.indexOf(name)]?.trim() ?? '';
-    const startMatch = ASS_TIME.exec(at('start'));
-    const endMatch = ASS_TIME.exec(at('end'));
+    const startMatch = ASS_TIME.exec(fields[startIdx]?.trim() ?? '');
+    const endMatch = ASS_TIME.exec(fields[endIdx]?.trim() ?? '');
     if (!startMatch || !endMatch) continue;
     const start = toMillis(startMatch[1] ?? '', startMatch[2] ?? '', startMatch[3] ?? '', startMatch[4] ?? '');
     const end = toMillis(endMatch[1] ?? '', endMatch[2] ?? '', endMatch[3] ?? '', endMatch[4] ?? '');
+    if (start === null || end === null || end <= start) continue;
     // O texto é a última coluna e pode conter vírgulas: junta o que sobrou depois da coluna dele.
-    const textIndex = columns.indexOf('text');
     const text = fields
-      .slice(textIndex)
+      .slice(textIdx)
       .join(',')
       .replace(/\\[Nn]/g, '\n')
       .replace(/\\h/g, ' ');
-    if (start === null || end === null || end <= start || textIndex < 0) continue;
     cues.push({ start, end, text: text.split('\n') });
   }
   return cues;
