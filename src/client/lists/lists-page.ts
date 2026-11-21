@@ -1,4 +1,4 @@
-import { escapeHtml, posterCssUrl } from '../ui/card.ts';
+import { escapeHtml, posterStyleAttr } from '../ui/card.ts';
 import { icon } from '../ui/icons.ts';
 import { createList, listLists, type ListSummaryDto } from '../api/lists.ts';
 import { listLibrary } from '../api/library.ts';
@@ -18,7 +18,7 @@ const cardHtml = (list: ListSummaryDto): string => {
     covers.length === 0
       ? '<span class="list-cover empty" aria-hidden="true"></span>'
       : covers
-          .map((c) => `<span class="list-cover"${c.posterUrl ? ` style="${escapeHtml(`background-image:${posterCssUrl(c.posterUrl)}`)}"` : ''} aria-hidden="true"></span>`)
+          .map((c) => `<span class="list-cover"${posterStyleAttr(c.posterUrl)} aria-hidden="true"></span>`)
           .join('');
   return `<a class="list-card" href="#/lists/${encodeURIComponent(list.id)}" aria-label="${escapeHtml(list.name)}, ${plural(list.itemCount)}">
       <span class="list-mosaic">${mosaic}</span>
@@ -30,7 +30,7 @@ const cardHtml = (list: ListSummaryDto): string => {
 /** Mesmo cartão das listas comuns, com a regra no lugar do contador seco; leva à biblioteca já filtrada. */
 const smartCardHtml = (l: SmartList): string => {
   const covers = l.covers.length
-    ? l.covers.map((c) => `<span class="list-cover"${c ? ` style="${escapeHtml(`background-image:${posterCssUrl(c)}`)}"` : ''} aria-hidden="true"></span>`).join('')
+    ? l.covers.map((c) => `<span class="list-cover"${posterStyleAttr(c)} aria-hidden="true"></span>`).join('')
     : '<span class="list-cover empty" aria-hidden="true"></span>';
   return `<a class="list-card" href="#/library?view=${encodeURIComponent(l.id)}" aria-label="${escapeHtml(l.name)}, ${plural(l.count)}, lista inteligente">
       <span class="list-mosaic">${covers}</span>
