@@ -160,7 +160,7 @@ export const plexThumb = async (thumbPath: string | null | undefined): Promise<U
 
 /** `addedAt` tem resolução de segundo: o hash de `syntheticMessageId` colidiria entre itens da mesma varredura. Aqui o ratingKey ocupa a parte baixa (únicos enquanto o ID for < 1e6). */
 const plexMessageId = (addedAt: number | undefined, ratingKey: string): string => {
-  const seconds = typeof addedAt === 'number' && Number.isFinite(addedAt) && addedAt > 0 ? Math.floor(addedAt) : 0;
+  const seconds = typeof addedAt === 'number' && Number.isFinite(addedAt) && addedAt > 0 && addedAt < 9_000_000_000 ? Math.floor(addedAt) : 0;
   return String(seconds * 1_000_000 + (Number(ratingKey) % 1_000_000));
 };
 

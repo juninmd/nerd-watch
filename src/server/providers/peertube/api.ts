@@ -57,7 +57,7 @@ const toItem = (host: string, video: Record<string, unknown>): NewTelegramItem |
   const uuid = typeof video.uuid === 'string' && isVideoUuid(video.uuid) ? video.uuid : null;
   if (!uuid) return null;
   const name = typeof video.name === 'string' ? video.name.trim() : '';
-  const duration = typeof video.duration === 'number' ? Math.round(video.duration) : null;
+  const duration = typeof video.duration === 'number' && Number.isFinite(video.duration) ? Math.round(video.duration) : null;
   const published = typeof video.publishedAt === 'string' && Number.isFinite(Date.parse(video.publishedAt)) ? video.publishedAt : null;
   return {
     messageId: syntheticMessageId(published, uuid),
