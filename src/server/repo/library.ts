@@ -130,8 +130,8 @@ const selectItem = (db: Database, titleId: string): LibraryItem => {
 /** Grava a entrada e o histórico na mesma transação: sem evento órfão nem mudança sem evento. */
 export const upsertLibraryEntry = (db: Database, titleId: string, patch: LibraryPatch): LibraryItem => {
   const now = new Date().toISOString();
-  const existing = getLibraryEntryByTitle(db, titleId);
   db.transaction(() => {
+    const existing = getLibraryEntryByTitle(db, titleId);
     if (!existing) {
       db.query(
         `INSERT INTO library_entries (id, title_id, watch_status, rating, notes, current_season, current_episode, added_at, updated_at)
@@ -209,19 +209,28 @@ export type BulkLibraryAction = { type: 'status'; watchStatus: WatchStatus } | {
 
 /** Aplica a mesma ação a várias entradas (por título) numa transação só; devolve quantas existiam e foram afetadas. */
 export const bulkLibraryAction = (db: Database, titleIds: string[], action: BulkLibraryAction): number => {
-  if (titleIds.length === 0) return 0;
-  const marks = titleIds.map(() => '?').join(',');
+  const unique = [...new Set(titleIds)];
+  if (unique.length === 0) return 0;
   const run = db.transaction((): number => {
-    if (action.type === 'remove') return db.query(`DELETE FROM library_entries WHERE title_id IN (${marks})`).run(...titleIds).changes;
+    let total = 0;
     const now = new Date().toISOString();
-    const before = db
-      .query<{ title_id: string; watch_status: WatchStatus }, string[]>(`SELECT title_id, watch_status FROM library_entries WHERE title_id IN (${marks})`)
-      .all(...titleIds);
-    const result = db
-      .query(`UPDATE library_entries SET watch_status = ?, updated_at = ? WHERE title_id IN (${marks})`)
-      .run(action.watchStatus, now, ...titleIds);
-    for (const row of before) recordStatusChange(db, row.title_id, row.watch_status, action.watchStatus, now);
-    return result.changes;
+    for (let i = 0; i < unique.length; i += SQL_BATCH) {
+      const chunk = unique.slice(i, i + SQL_BATCH);
+      const marks = chunk.map(() => '?').join(',');
+      if (action.type === 'remove') {
+        total += db.query(`DELETE FROM library_entries WHERE title_id IN (${marks})`).run(...chunk).changes;
+        continue;
+      }
+      const before = db
+        .query<{ title_id: string; watch_status: WatchStatus }, string[]>(`SELECT title_id, watch_status FROM library_entries WHERE title_id IN (${marks})`)
+        .all(...chunk);
+      const result = db
+        .query(`UPDATE library_entries SET watch_status = ?, updated_at = ? WHERE title_id IN (${marks})`)
+        .run(action.watchStatus, now, ...chunk);
+      for (const row of before) recordStatusChange(db, row.title_id, row.watch_status, action.watchStatus, now);
+      total += result.changes;
+    }
+    return total;
   });
   return run();
 };
