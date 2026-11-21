@@ -57,10 +57,12 @@ export const renderTelegramFeed = (host: HTMLElement, opts: Opts = {}): void => 
   /** Só relê o que já está no banco local: barato, e é o que mostra o resultado de uma rodada de sincronização. */
   const load = (): Promise<void> =>
     listRecentTelegramItems(limit)
-      .then(({ items }) => paint(items))
+      .then(({ items }) => {
+        if (host.isConnected) paint(items);
+      })
       .catch(() => {
         // Em atualização silenciosa, manter a lista antiga é melhor que trocá-la por um erro.
-        if (!host.querySelector('.rail')) host.innerHTML = '<div class="empty-state">não foi possível carregar os vídeos dos canais</div>';
+        if (host.isConnected && !host.querySelector('.rail')) host.innerHTML = '<div class="empty-state">não foi possível carregar os vídeos dos canais</div>';
       });
 
   /** Lê os canais no Telegram e repinta. `manual` ignora o intervalo mínimo e avisa o resultado. */

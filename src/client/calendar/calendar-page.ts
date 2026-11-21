@@ -109,6 +109,8 @@ export const renderCalendar = (host: HTMLElement): void => {
       ? `<h2 class="view-subtitle" style="margin:18px 0 10px">Estreias para descobrir</h2>${groups(found)}${warn}`
       : warn;
     if (shown.length === 0 && found.length === 0) {
+      observer?.disconnect();
+      spotEl.innerHTML = '';
       entriesEl.innerHTML =
         (dayFilter
           ? `<div class="empty-state">nada previsto para ${dayLabel(dayFilter)} — <button class="btn btn-ghost btn-sm" id="clear-day" type="button">ver todos os dias</button></div>`
@@ -140,6 +142,10 @@ export const renderCalendar = (host: HTMLElement): void => {
       ? null
       : new IntersectionObserver(
           (hits) => {
+            if (!entriesEl.isConnected) {
+              observer?.disconnect();
+              return;
+            }
             for (const hit of hits) {
               if (!hit.isIntersecting) continue;
               const el = hit.target as HTMLElement;
@@ -157,6 +163,7 @@ export const renderCalendar = (host: HTMLElement): void => {
           { rootMargin: '200px' },
         );
   const observeMissingInfo = () => {
+    observer?.disconnect();
     for (const el of entriesEl.querySelectorAll<HTMLElement>('[data-needs-info]')) observer?.observe(el);
   };
 

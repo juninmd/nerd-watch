@@ -103,10 +103,12 @@ export const openMyChannelsDialog = (onImported: () => void): void => {
   filter.addEventListener('input', render);
 
   importBtn.addEventListener('click', async () => {
+    if (importing) return;
     importing = true;
     const handles = [...picked];
     let ok = 0;
     for (const [i, handle] of handles.entries()) {
+      if (!dialog.isConnected) break;
       importBtn.textContent = `importando ${i + 1}/${handles.length}…`;
       importBtn.disabled = true;
       try {
@@ -121,20 +123,23 @@ export const openMyChannelsDialog = (onImported: () => void): void => {
       }
     }
     importing = false;
-    importBtn.textContent = 'importar selecionados';
     if (ok > 0) {
       showToast(`${ok} canal(is) importado(s)`);
       onImported();
     }
+    if (!dialog.isConnected) return;
+    importBtn.textContent = 'importar selecionados';
     render();
   });
 
   listMyTelegramChannels()
     .then((res) => {
+      if (!dialog.isConnected) return;
       channels = res.channels;
       render();
     })
     .catch((err) => {
+      if (!dialog.isConnected) return;
       body.innerHTML = `<p class="hint" style="color:var(--danger)">${escapeHtml(err instanceof Error ? err.message : 'não foi possível listar os canais')}</p>`;
     });
 };
