@@ -49,7 +49,12 @@ export const syncSourceChannel = async (db: Database, channel: TelegramChannel):
   await localizeThumbs(db, channel, listTelegramItems(db, channel.id));
   // Link remoto que não virou arquivo local pode exigir token ou expirar: o navegador não deve tentar carregá-lo.
   const current = listTelegramItems(db, channel.id);
-  for (const item of current) if (needsThumb(item) && item.thumbnail_url) setTelegramItemThumbnail(db, channel.id, item.message_id, null);
+  const staleThumbs = current.filter((item) => needsThumb(item) && item.thumbnail_url);
+  if (staleThumbs.length > 0) {
+    db.transaction(() => {
+      for (const item of staleThumbs) setTelegramItemThumbnail(db, channel.id, item.message_id, null);
+    })();
+  }
   const oldest = current[0]?.message_id ?? null;
   if (oldest) updateChannelCursor(db, channel.id, oldest);
   return current.length;
@@ -109,7 +114,9 @@ const hash3 = (text: string): number => {
  */
 export const syntheticMessageId = (dateIso: string | null | undefined, stableKey: string): string => {
   const ms = Date.parse(dateIso ?? '');
-  return String((Number.isFinite(ms) ? ms : 0) * 1000 + hash3(stableKey));
+  // Garante inteiro não negativo e seguro (`^\d+$`): datas anteriores a 1970 gerariam id negativo e falhariam no store de miniaturas.
+  const safeMs = Number.isFinite(ms) && ms > 0 && ms < 9_000_000_000_000 ? ms : 0;
+  return String(safeMs * 1000 + hash3(stableKey));
 };
 
 export const VIDEO_EXT = /\.(mp4|m4v|mkv|webm|mov|avi|ogv|ts|wmv)$/i;

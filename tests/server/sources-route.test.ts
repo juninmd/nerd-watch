@@ -171,6 +171,8 @@ describe('utilitários', () => {
     expect(syntheticMessageId('2026-10-19T12:00:00.000Z', 'arquivo-b')).not.toBe(a);
     expect(BigInt(syntheticMessageId('2026-10-26T12:00:00.000Z', 'arquivo-a'))).toBeGreaterThan(BigInt(a));
     expect(syntheticMessageId(null, 'x')).toMatch(/^\d+$/);
+    // Datas anteriores a 1970 (ex.: filmes clássicos) nunca podem gerar id negativo.
+    expect(syntheticMessageId('1925-01-01T00:00:00.000Z', 'chaplin')).toMatch(/^\d+$/);
   });
 
   test('uniqueMessageIds: colisão de ID não derruba um vídeo; quem não colide mantém o ID', () => {
