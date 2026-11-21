@@ -1,6 +1,6 @@
 import { config } from '../../config/config.ts';
 import type { NewTelegramItem } from '../../repo/telegram.ts';
-import { fetchHeaders } from '../sources/http.ts';
+import { fetchHeaders, readCapped, safeRange } from '../sources/http.ts';
 import { DriveReauthRequiredError, driveFetch, getAccessToken, invalidateAccessToken } from './oauth.ts';
 
 export class DriveFolderNotFoundError extends Error {
@@ -148,24 +148,33 @@ export const downloadDriveThumb = async (thumbnailLink: string): Promise<Uint8Ar
   // O Google devolve `=s220`; um pouco maior fica nítido nos cards sem pesar.
   url.pathname = url.pathname.replace(/=s\d+$/, '=s480');
   const res = await authedGet(url).catch(() => null);
-  if (!res?.ok) return null;
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  return bytes.length > 0 && bytes.length <= THUMB_MAX_BYTES ? bytes : null;
+  if (!res) return null;
+  if (!res.ok) {
+    await res.body?.cancel().catch(() => undefined);
+    return null;
+  }
+  return readCapped(res, THUMB_MAX_BYTES);
 };
 
 /** Repassa o `Range` do navegador ao Drive e devolve o corpo em stream (o token nunca sai do servidor). */
 export const streamDriveFile = async (fileId: string, range: string | undefined): Promise<Response> => {
   const url = api(`/files/${fileId}`, { alt: 'media' });
+  const rangeHeader = safeRange(range);
   const call = async () =>
-    fetchHeaders(driveFetch, url, { headers: { Authorization: `Bearer ${await getAccessToken()}`, ...(range ? { Range: range } : {}) } }, 30_000);
+    fetchHeaders(driveFetch, url, { headers: { Authorization: `Bearer ${await getAccessToken()}`, ...(rangeHeader ? { Range: rangeHeader } : {}) } }, 30_000);
   let upstream = await call();
   if (upstream.status === 401) {
+    await upstream.body?.cancel().catch(() => undefined);
     invalidateAccessToken();
     upstream = await call();
   }
-  if (upstream.status === 401) throw new DriveReauthRequiredError();
+  if (upstream.status === 401) {
+    await upstream.body?.cancel().catch(() => undefined);
+    throw new DriveReauthRequiredError();
+  }
 
   if (upstream.status !== 200 && upstream.status !== 206 && upstream.status !== 416) {
+    await upstream.body?.cancel().catch(() => undefined);
     return new Response(JSON.stringify({ error: upstream.status === 404 ? 'vídeo não encontrado no Google Drive' : `o Google Drive respondeu ${upstream.status}` }), {
       status: upstream.status === 404 ? 404 : 502,
       headers: { 'Content-Type': 'application/json' },

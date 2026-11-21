@@ -1,5 +1,5 @@
 import type { NewTelegramItem } from '../../repo/telegram.ts';
-import { type Fetcher, fetchHeaders, readTextLimited } from '../sources/http.ts';
+import { type Fetcher, fetchHeaders, readTextLimited, safeRange } from '../sources/http.ts';
 import { isSafeRelativePath } from '../sources/paths.ts';
 import { VIDEO_EXT, relayMedia, syntheticMessageId, titleFromFilename } from '../sources/service.ts';
 import { SourceError } from '../sources/types.ts';
@@ -54,7 +54,8 @@ const pathOf = (cfg: S3Config, bucket: string, key?: string): string => {
 
 /** GET assinado. A chave e o segredo só entram na assinatura, nunca em erro, log ou resposta. */
 const signedGet = async (cfg: S3Config, path: string, query: Array<[string, string]>, range?: string): Promise<Response> => {
-  const extra: Record<string, string> = range ? { Range: range } : {};
+  const rangeHeader = safeRange(range);
+  const extra: Record<string, string> = rangeHeader ? { Range: rangeHeader } : {};
   const signed = signV4(
     { method: 'GET', host: new URL(cfg.origin).host, path, query, headers: extra, payloadHash: EMPTY_SHA256 },
     { accessKey: cfg.accessKey, secretKey: cfg.secretKey, region: cfg.region, service: 's3' },

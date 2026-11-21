@@ -1,6 +1,8 @@
 import { hasControlChar } from '../../lib/text-guards.ts';
-import { readTextLimited } from './http.ts';
+import { readTextLimited, safeRange } from './http.ts';
 import { SourceError } from './types.ts';
+
+export { safeRange };
 
 /** Servidor de mídia da casa (Jellyfin, Plex): quem responde e como chamamos o segredo nas mensagens. */
 export interface Service {
@@ -28,7 +30,6 @@ const JSON_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_ITEMS = 500;
 const PAGE_SIZE = 200;
 const MAX_PAGES = 5;
-const RANGE_RE = /^bytes=\d*-\d*$/;
 
 /** null quando o endereço vale; senão a mensagem para o usuário. LAN (IP privado) é o uso normal, então é aceita. */
 export const serverUrlProblem = (value: string): string | null => {
@@ -68,9 +69,6 @@ export const serverPath = (raw: unknown, pattern: RegExp): string | null => {
   if (typeof raw !== 'string' || !pattern.test(raw) || raw.includes('//') || hasControlChar(raw) || /%(2e|2f|5c)/i.test(raw)) return null;
   return raw.split('/').some((segment) => segment === '..' || segment === '.') ? null : raw;
 };
-
-/** `Range` do navegador repassado só se for `bytes=a-b`; qualquer outro valor é descartado em vez de repassado. */
-export const safeRange = (range: string | undefined): string | undefined => (range && RANGE_RE.test(range) ? range : undefined);
 
 const authRefused = (service: Service): SourceError => new SourceError(`${service.secretLabel} recusado pelo ${service.name} — confira em Conexões`, 409);
 

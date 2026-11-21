@@ -1,5 +1,5 @@
 import type { NewTelegramItem } from '../../repo/telegram.ts';
-import { type Fetcher, fetchHeaders, readTextLimited } from '../sources/http.ts';
+import { type Fetcher, fetchHeaders, readTextLimited, safeRange } from '../sources/http.ts';
 import { isSafeRemotePath, normalizeRemotePath } from '../sources/paths.ts';
 import { VIDEO_EXT, relayMedia, syntheticMessageId, titleFromFilename } from '../sources/service.ts';
 import { SourceError } from '../sources/types.ts';
@@ -127,13 +127,17 @@ const childPrefix = (folder: string): string => (folder === '/' ? '/' : `${folde
 export const listVideos = async (cfg: WebdavConfig, folder: string): Promise<NewTelegramItem[]> => {
   const files: Array<{ path: string; modified: string | null }> = [];
   const queue: Array<{ path: string; depth: number }> = [{ path: folder, depth: 0 }];
+  const visited = new Set<string>([folder]);
   for (let requests = 0; queue.length > 0 && requests < MAX_REQUESTS && files.length < MAX_FILES; requests++) {
     const dir = queue.shift() as { path: string; depth: number };
     for (const entry of await propfind(cfg, dir.path, '1')) {
       // Só filhos diretos da pasta pedida: um servidor que devolve irmãos ou o próprio diretório é ignorado.
       if (entry.path === dir.path || !entry.path.startsWith(childPrefix(dir.path))) continue;
       if (entry.collection) {
-        if (dir.depth < MAX_DEPTH) queue.push({ path: entry.path, depth: dir.depth + 1 });
+        if (dir.depth < MAX_DEPTH && !visited.has(entry.path)) {
+          visited.add(entry.path);
+          queue.push({ path: entry.path, depth: dir.depth + 1 });
+        }
       } else if (VIDEO_EXT.test(entry.path)) files.push({ path: entry.path, modified: entry.modified });
     }
   }
@@ -173,6 +177,7 @@ export const folderOfHandle = (handle: string): string | null => {
 export const openVideo = async (folder: string, fileRef: string, range: string | undefined): Promise<Response> => {
   const cfg = webdavConfig();
   if (!isSafeRemotePath(fileRef) || !fileRef.startsWith(childPrefix(folder)) || !VIDEO_EXT.test(fileRef)) throw new SourceError('vídeo não encontrado nessa pasta', 404);
-  const res = await send(cfg, 'GET', fileRef, range ? { Range: range } : {});
+  const rangeHeader = safeRange(range);
+  const res = await send(cfg, 'GET', fileRef, rangeHeader ? { Range: rangeHeader } : {});
   return relayMedia(res, 'vídeo não encontrado no WebDAV');
 };

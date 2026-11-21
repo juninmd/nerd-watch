@@ -1,3 +1,4 @@
+import { safeRange } from '../sources/http.ts';
 import { registerDescriptor, registerSource } from '../sources/registry.ts';
 import { relayMedia } from '../sources/service.ts';
 import { type FileSource, SourceError } from '../sources/types.ts';
@@ -37,7 +38,8 @@ export const peertubeSource: FileSource = {
     if (choice.kind === 'embed') {
       return Response.json({ error: 'este vídeo só toca pelo site da instância', embedUrl: embedUrlOf(ref.host, fileRef) }, { status: 409 });
     }
-    const upstream = await fetchHeaders(currentFetch(), choice.url, { headers: range ? { Range: range } : {} }, MEDIA_TIMEOUT_MS).catch(() => {
+    const rangeHeader = safeRange(range);
+    const upstream = await fetchHeaders(currentFetch(), choice.url, { headers: rangeHeader ? { Range: rangeHeader } : {} }, MEDIA_TIMEOUT_MS).catch(() => {
       throw new SourceError('não foi possível falar com a instância do PeerTube agora', 502);
     });
     return relayMedia(upstream, 'vídeo não encontrado nessa instância do PeerTube');
