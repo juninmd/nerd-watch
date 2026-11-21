@@ -120,6 +120,16 @@ describe('fetchTorrentBytes — redirecionamento só para a mesma origem', () =>
     scriptFetch([new Response(null, { status: 302 })]);
     await expectSourceError(fetchTorrentBytes(new URL(ORIGIN)), 502, /sem dizer para onde/);
   });
+
+  test('redirecionamento com Location malformada vira 502 em vez de TypeError', async () => {
+    scriptFetch([new Response(null, { status: 302, headers: { location: 'http://[::1' } })]);
+    await expectSourceError(fetchTorrentBytes(new URL(ORIGIN)), 502, /endereço inválido/);
+  });
+
+  test('recusa redirect na mesma origem que injeta credenciais na URL', async () => {
+    scriptFetch([new Response(null, { status: 302, headers: { location: 'https://user:pass@archive.org/x.torrent' } })]);
+    await expectSourceError(fetchTorrentBytes(new URL(ORIGIN)), 400, /cole o link final/);
+  });
 });
 
 describe('fetchTorrentBytes — erros do host nunca viram o corpo remoto', () => {

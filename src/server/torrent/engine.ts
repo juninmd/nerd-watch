@@ -144,7 +144,7 @@ const assertArchiveHttpsUrl = (raw: string): URL => {
   }
   const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
   if (!ARCHIVE_HOST_RE.test(host)) throw new TorrentUntrustedSourceError([host || raw]);
-  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
+  if (parsed.protocol !== 'https:' || parsed.port || parsed.username || parsed.password) {
     throw new TorrentUnavailableError('a URL do .torrent precisa ser https:// no archive.org');
   }
   return parsed;
@@ -217,7 +217,13 @@ export const loadTrustedTorrentBuffer = async (url: string): Promise<Buffer> => 
     const location = res.headers.get('location');
     if (!location) throw new TorrentUnavailableError('a Archive redirecionou o .torrent sem dizer para onde');
     if (hop >= MAX_TORRENT_REDIRECTS) throw new TorrentUnavailableError('a Archive redirecionou o .torrent demais');
-    current = assertArchiveHttpsUrl(new URL(location, current).href);
+    let nextHref: string;
+    try {
+      nextHref = new URL(location, current).href;
+    } catch {
+      throw new TorrentUnavailableError('a Archive redirecionou o .torrent para um endereço inválido');
+    }
+    current = assertArchiveHttpsUrl(nextHref);
   }
   if (!res.ok) {
     await res.body?.cancel();
@@ -315,18 +321,32 @@ const evictIfNeeded = (): void => {
 
 const waitForMetadata = (torrent: Torrent, identifier: string): Promise<void> =>
   new Promise((resolve, reject) => {
+    const detach = (event: string, fn: (...args: never[]) => void) => {
+      const emitter = torrent as unknown as { off?: (e: string, f: (...args: never[]) => void) => void; removeListener?: (e: string, f: (...args: never[]) => void) => void };
+      if (typeof emitter.off === 'function') emitter.off(event, fn);
+      else if (typeof emitter.removeListener === 'function') emitter.removeListener(event, fn);
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      detach('ready', onReady);
+      detach('error', onError);
+    };
+    const onReady = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (err: Error) => {
+      cleanup();
+      reject(new TorrentUnavailableError(`${identifier}: ${err.message}`));
+    };
     const timer = setTimeout(() => {
+      cleanup();
       reject(new TorrentUnavailableError(`metadata não chegou em ${config.torrent.metadataTimeoutMs / 1000}s (nenhum peer respondeu)`));
     }, config.torrent.metadataTimeoutMs);
+    timer.unref?.();
 
-    torrent.once('ready', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-    torrent.once('error', (err: Error) => {
-      clearTimeout(timer);
-      reject(new TorrentUnavailableError(`${identifier}: ${err.message}`));
-    });
+    torrent.once('ready', onReady);
+    torrent.once('error', onError);
   });
 
 export interface OpenTorrentResult {
@@ -634,10 +654,10 @@ export const openTorrentStream = (infoHash: string, fileIndex: number, start: nu
   const file = handle.torrent.files[fileIndex] as TorrentFile | undefined;
   if (!file || file.length === 0) return null;
 
+  // Cria o iterador antes de contar o stream ativo: se lançar de forma síncrona, o handle não fica preso.
+  const iterator = file[Symbol.asyncIterator]({ start, end: paddedIterEnd(start, end) });
   handle.lastAccess = Date.now();
   handle.activeStreams++;
-
-  const iterator = file[Symbol.asyncIterator]({ start, end: paddedIterEnd(start, end) });
   return streamExactBytes(iterator, end - start + 1, () => {
     handle.activeStreams = Math.max(0, handle.activeStreams - 1);
   });
