@@ -24,6 +24,8 @@
 .grid > .card:nth-child(7), .rail > .card:nth-child(7) { --n: 6; }
 .grid > .card:nth-child(8), .rail > .card:nth-child(8) { --n: 7; }
 .grid > .card:nth-child(n + 9), .rail > .card:nth-child(n + 9) { --n: 8; }
+/* Fora da primeira tela a cascata não aparece; animar milhares de cards só custava frames na biblioteca grande. */
+.grid > .card:nth-child(n + 41), .rail > .card:nth-child(n + 41) { animation: none; }
 
 @keyframes card-in {
   from { opacity: 0; transform: translateY(16px) scale(0.96); }
