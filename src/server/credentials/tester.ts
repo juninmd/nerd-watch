@@ -47,9 +47,9 @@ export const testCredential = async (key: string, value: string): Promise<TestRe
         // GET no webhook só lê os metadados; não posta mensagem. Só webhooks HTTPS do Discord: o teste não pode virar
         // um GET do servidor para um endereço qualquer (SSRF) nem enviar o token em HTTP claro.
         const parsed = new URL(value);
-        const host = parsed.hostname.toLowerCase();
+        const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
         const isDiscordHost = host === 'discord.com' || host === 'discordapp.com' || host.endsWith('.discord.com');
-        if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !isDiscordHost || !parsed.pathname.startsWith('/api/webhooks/')) {
+        if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port || !isDiscordHost || !parsed.pathname.startsWith('/api/webhooks/')) {
           return { ok: false, message: 'só webhooks HTTPS do discord.com podem ser testados' };
         }
         return byStatus(await doFetch(parsed.href), 'Discord respondeu: webhook válido');

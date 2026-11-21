@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
+import { config } from '../config/config.ts';
 import { getDb } from '../db/database.ts';
 import { guardInput, readJsonObject } from '../http/json-body.ts';
-import { fetchHeaders } from '../providers/sources/http.ts';
-import { originAllowed } from '../http/security.ts';
+import { fetchHeaders, safeRange } from '../providers/sources/http.ts';
+import { requestAllowed } from '../http/security.ts';
 import {
   countTelegramItemsByChannel,
   deleteTelegramChannel,
@@ -315,7 +316,9 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
   // mas essa rota tem efeito colateral real e caro (proxy de download via MTProto/Bot API) — sem esse check
   // qualquer aba de terceiro aberta no mesmo navegador podia forçar downloads repetidos contra o Telegram
   // do usuário só com fetch(), sem precisar ler a resposta (CORS não bloqueia isso, é abuso por efeito colateral).
-  if (!originAllowed(c.req.header('Origin') ?? '', c.req.header('Host') ?? '')) return c.json({ error: 'origem não permitida' }, 403);
+  if (!requestAllowed('POST', c.req.header('Host') ?? '', c.req.header('Origin') ?? '', config.access.token !== undefined)) {
+    return c.json({ error: 'origem não permitida' }, 403);
+  }
 
   const db = await getDb();
   const channel = getTelegramChannel(db, c.req.param('id'));
@@ -353,11 +356,11 @@ telegramRoutes.get('/channels/:id/items/:messageId/play', async (c) => {
         : c.json({ error: 'arquivo não encontrado no Telegram' }, 404);
     }
 
-    // Proxy: a URL da Bot API carrega o token do bot no path — nunca expor isso direto pro cliente.
-    const range = c.req.header('Range');
+    // Proxy: a URL da Bot API carrega o token do bot no path — nunca expor isso direto pro cliente nem seguir redirect.
+    const range = safeRange(c.req.header('Range'));
     let upstream: Response;
     try {
-      upstream = await fetchHeaders(fetch, resolved.url, { headers: range ? { Range: range } : {} }, 30_000);
+      upstream = await fetchHeaders(fetch, resolved.url, { redirect: 'error', headers: range ? { Range: range } : {} }, 30_000);
     } catch {
       return c.json({ error: 'não foi possível baixar o vídeo do Telegram agora' }, 502);
     }
