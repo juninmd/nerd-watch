@@ -30,11 +30,18 @@ describe('pickBio', () => {
     expect(pickBio(null, 'en')).toBeNull();
   });
 
-  test('codifica parênteses do link e corta texto longo numa palavra', () => {
+  test('codifica parênteses do link e corta texto longo numa palavra (ou no teto sem espaço)', () => {
     const bio = pickBio(page(`Victor Williams is an American actor. ${'word '.repeat(400)}`, 'https://en.wikipedia.org/wiki/Victor_Williams_(actor)'), 'en');
     expect(bio?.url).toBe('https://en.wikipedia.org/wiki/Victor_Williams_%28actor%29');
     expect(bio?.extract.length).toBeLessThanOrEqual(901);
     expect(bio?.extract.endsWith('…')).toBe(true);
+
+    const noSpace = pickBio(page(`actor-${'a'.repeat(1200)}`), 'en');
+    expect(noSpace?.extract.length).toBe(901);
+    expect(noSpace?.extract.endsWith('…')).toBe(true);
+
+    expect(pickBio(page('An American actor.', 'https://user@en.wikipedia.org/wiki/X'), 'en')).toBeNull();
+    expect(pickBio(page('An American actor.', 'https://en.wikipedia.org:8443/wiki/X'), 'en')).toBeNull();
   });
 });
 
