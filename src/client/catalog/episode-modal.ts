@@ -2,7 +2,8 @@ import { getTitleStreams, type TitleStreamsDto } from '../api/stremio.ts';
 import type { StreamsQueryResolver } from '../addons/episode-streams.ts';
 import { countStreamKinds, DEFAULT_STREAM_FILTER, filterTitleStreams, type StreamFilter, type StreamKind } from '../addons/stream-filter.ts';
 import { mountStreams } from '../addons/title-streams-panel.ts';
-import { currentRoute } from '../app/router.ts';
+import { currentRoute, navigate } from '../app/router.ts';
+import { hdStill, isPlayable } from '../player/episode-play-model.ts';
 import { stopIfOnPageIn } from '../player/player-dock.ts';
 import { releaseTorrentPlayers } from '../player/torrent-player.ts';
 import { escapeHtml } from '../ui/card.ts';
@@ -19,6 +20,8 @@ export interface EpisodeModalOptions {
   streams: (ep: EpisodeView) => ReturnType<StreamsQueryResolver>;
   /** Marca "visto até aqui"; devolve o novo estado para o botão. Ausente = série fora da sua lista. */
   onMark?: (ep: EpisodeView) => Promise<void>;
+  /** Caminho do player dedicado; com ele, "assistir" num arquivo/torrent abre a tela própria em vez de tocar no modal. */
+  playPath?: (ep: EpisodeView) => string;
 }
 
 const KIND_LABEL: Record<StreamKind, string> = { all: 'Todos', p2p: 'P2P', direct: 'Direto', external: 'Externo' };
@@ -77,6 +80,12 @@ export const openEpisodeModal = (opts: EpisodeModalOptions): void => {
       title: `${opts.seriesTitle} · ${episodeCode(ep)}`,
       posterUrl: null,
       route: currentRoute().path,
+      onPick: (g, st) => {
+        if (!opts.playPath || !isPlayable(st)) return false;
+        d.close();
+        navigate(`${opts.playPath(ep)}?addon=${encodeURIComponent(g.addonId)}&i=${st.index}`);
+        return true;
+      },
       // Mesma busca de legendas que a linha de episódio antiga fazia.
       captions:
         'unavailable' in q
@@ -159,7 +168,8 @@ export const openEpisodeModal = (opts: EpisodeModalOptions): void => {
         </section>
       </div>`;
     // Via CSSOM: a URL nunca é parseada como marcação.
-    if (ep.stillUrl) (d.querySelector('.ep-modal-still') as HTMLElement).style.backgroundImage = `url("${ep.stillUrl}")`;
+    // Capa em alta no modal (a miniatura da lista continua leve).
+    if (ep.stillUrl) (d.querySelector('.ep-modal-still') as HTMLElement).style.backgroundImage = `url("${hdStill(ep.stillUrl)}")`;
     loadStreams(ep);
   };
 

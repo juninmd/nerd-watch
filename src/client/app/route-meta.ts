@@ -26,7 +26,7 @@ export const routeLabel = (path: string, query: URLSearchParams): string => {
   }
   if (Object.hasOwn(EXACT_LABELS, path)) return EXACT_LABELS[path] as string;
   if (path.startsWith('/telegram/')) return 'Canal do Telegram';
-  if (path.startsWith('/watch/')) return 'Assistir';
+  if (path.startsWith('/watch/') || path.startsWith('/play/')) return 'Assistir';
   if (path.startsWith('/title/')) return 'Título';
   if (path.startsWith('/person/')) return 'Pessoa';
   if (path.startsWith('/addons/')) return 'Addon do Stremio';

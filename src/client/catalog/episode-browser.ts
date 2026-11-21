@@ -15,6 +15,7 @@ export interface EpisodeBrowserOptions {
   marker: () => EpisodeMarker | null;
   streams: (ep: EpisodeView) => ReturnType<StreamsQueryResolver>;
   onMark?: (ep: EpisodeView) => Promise<void>;
+  playPath?: (ep: EpisodeView) => string;
   /** Linha extra sob as abas (estreia, final, emissora da temporada). */
   seasonNote?: (season: number) => string;
 }
@@ -171,6 +172,7 @@ export const renderEpisodeBrowser = (host: HTMLElement, opts: EpisodeBrowserOpti
         stateOf: (ep) => episodeState(opts.marker(), ep),
         streams: opts.streams,
         onMark: opts.onMark,
+        playPath: opts.playPath,
       });
     } else if (t.dataset.mark && opts.onMark) {
       const ep = episodes.find((x) => x.number === Number(t.dataset.mark));

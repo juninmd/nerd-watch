@@ -18,6 +18,8 @@ export interface StreamsView {
   captions: CaptionContext | null;
   /** Onde o vídeo/torrent aparece. Sem ele, o painel cria um slot no topo (caso do episódio). */
   playerHost?: HTMLElement | null;
+  /** Quem chama assume o clique (ex.: abrir o player dedicado); `true` = não tocar aqui. */
+  onPick?: (group: Group, stream: Stream) => boolean;
 }
 
 export interface TitleStreamsView {
@@ -175,6 +177,7 @@ export const mountStreams = (container: HTMLElement, dto: TitleStreamsDto, view:
     if (!button) return;
     const found = findAddonStream(dto, button.dataset.addon, Number(button.dataset.index));
     if (!found) return;
+    if (view.onPick?.(found.group, found.stream)) return;
     if (found.stream.kind === 'torrent') playTorrent(found.group, found.stream);
     else playUrl(found.group, found.stream);
   };

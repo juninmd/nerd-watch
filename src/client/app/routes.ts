@@ -24,6 +24,7 @@ const PAGES = {
   channels: () => import('../channels/channels-page.ts'),
   channel: () => import('../channels/channel-page.ts'),
   watch: () => import('../player/watch-page.ts'),
+  play: () => import('../player/episode-play-page.ts'),
   connections: () => import('../connections/connections-page.ts'),
   data: () => import('../connections/data-page.ts'),
   credentials: () => import('../credentials/credentials-page.ts'),
@@ -93,6 +94,14 @@ export const ROUTES: readonly RouteDef[] = [
     open: async (params) => {
       const { renderWatch } = await PAGES.watch();
       return (host, query) => renderWatch(host, params[0] as string, params[1] as string, query);
+    },
+  },
+  {
+    id: 'play',
+    pattern: /^\/play\/(tvmaze|tmdb)\/(\d{1,10})\/(\d{1,4})\/(\d{1,5})$/,
+    open: async (params) => {
+      const { renderEpisodePlay } = await PAGES.play();
+      return (host, query) => renderEpisodePlay(host, params[0] as 'tvmaze' | 'tmdb', param(params, 1), Number(params[2]), Number(params[3]), query);
     },
   },
   { id: 'connections', pattern: /^\/connections$/, open: async () => (await PAGES.connections()).renderConnections },
