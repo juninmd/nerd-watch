@@ -195,20 +195,22 @@ export const getListPage = (db: Database, listId: string, opts: { limit: number;
 export const addTitlesToList = (db: Database, listId: string, titleIds: string[]): { added: number; existing: number } | null =>
   db.transaction((): { added: number; existing: number } | null => {
     if (!getListRow(db, listId)) return null;
+    // Deduplica mantendo a ordem de envio: IDs repetidos no mesmo lote não podem estourar UNIQUE.
+    const uniqueIds = [...new Set(titleIds)];
 
     const known = new Set<string>();
-    for (const batch of chunks(titleIds)) {
+    for (const batch of chunks(uniqueIds)) {
       for (const r of db.query<{ id: string }, string[]>(`SELECT id FROM titles WHERE id IN (${marks(batch.length)})`).all(...batch)) known.add(r.id);
     }
-    if (known.size !== new Set(titleIds).size) throw new ValidationError('há títulos que não existem no catálogo local');
+    if (known.size !== uniqueIds.length) throw new ValidationError('há títulos que não existem no catálogo local');
 
     const present = new Set<string>();
-    for (const batch of chunks(titleIds)) {
+    for (const batch of chunks(uniqueIds)) {
       for (const r of db
         .query<{ title_id: string }, string[]>(`SELECT title_id FROM list_items WHERE list_id = ? AND title_id IN (${marks(batch.length)})`)
         .all(listId, ...batch)) present.add(r.title_id);
     }
-    const fresh = titleIds.filter((id) => !present.has(id));
+    const fresh = uniqueIds.filter((id) => !present.has(id));
     const count = db.query<{ n: number }, [string]>('SELECT COUNT(*) AS n FROM list_items WHERE list_id = ?').get(listId)?.n ?? 0;
     if (count + fresh.length > LIST_ITEMS_MAX) throw new ValidationError(`a lista não pode passar de ${LIST_ITEMS_MAX} itens`);
 

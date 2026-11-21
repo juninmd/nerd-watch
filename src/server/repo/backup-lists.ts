@@ -19,6 +19,7 @@ export interface ListsBackupFields {
   savedViews?: SavedViewRow[];
 }
 
+const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isText = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 const isPosition = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
 
@@ -34,23 +35,23 @@ const requireArray = (data: Record<string, unknown>, key: string): unknown[] | u
  */
 export const validateListsBackup = (data: Record<string, unknown>): void => {
   for (const row of requireArray(data, 'lists') ?? []) {
-    const r = row as Record<string, unknown>;
-    if (!isText(r.id)) throw new ValidationError('lista sem id');
-    validateListName(r.name);
-    validateDescription(r.description);
+    if (!isPlainObject(row)) throw new ValidationError('entrada de lista inválida');
+    if (!isText(row.id) || !isText(row.created_at) || !isText(row.updated_at)) throw new ValidationError('lista sem id ou datas obrigatórias');
+    validateListName(row.name);
+    validateDescription(row.description);
   }
   for (const row of requireArray(data, 'listItems') ?? []) {
-    const r = row as Record<string, unknown>;
-    if (!isText(r.list_id) || !isText(r.title_id) || !isPosition(r.position) || !isText(r.added_at)) {
+    if (!isPlainObject(row)) throw new ValidationError('item de lista inválido');
+    if (!isText(row.list_id) || !isText(row.title_id) || !isPosition(row.position) || !isText(row.added_at)) {
       throw new ValidationError('item de lista inválido (list_id, title_id, position ou added_at)');
     }
   }
   for (const row of requireArray(data, 'savedViews') ?? []) {
-    const r = row as Record<string, unknown>;
-    if (!isText(r.id)) throw new ValidationError('visão sem id');
-    parseViewName(r.name);
-    if (typeof r.query !== 'string') throw new ValidationError('visão sem combinação (query)');
-    parseStoredViewQuery(r.query);
+    if (!isPlainObject(row)) throw new ValidationError('visão salva inválida');
+    if (!isText(row.id) || !isText(row.created_at) || !isText(row.updated_at)) throw new ValidationError('visão sem id ou datas obrigatórias');
+    parseViewName(row.name);
+    if (typeof row.query !== 'string') throw new ValidationError('visão sem combinação (query)');
+    parseStoredViewQuery(row.query);
   }
 };
 

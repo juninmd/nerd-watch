@@ -52,16 +52,22 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v ===
 export const validateBackup = (data: unknown): BackupData => {
   if (!isPlainObject(data) || data.version !== 1) throw new InvalidBackupError('formato de backup inválido ou versão incompatível');
   for (const key of ['titles', 'seasons', 'episodes', 'libraryEntries']) {
-    if (!Array.isArray(data[key])) throw new InvalidBackupError(`campo "${key}" ausente ou inválido`);
+    const list = data[key];
+    if (!Array.isArray(list)) throw new InvalidBackupError(`campo "${key}" ausente ou inválido`);
+    if (list.some((row) => !isPlainObject(row))) throw new InvalidBackupError(`campo "${key}" contém entrada inválida`);
   }
-  if (data.telegramChannels !== undefined && !Array.isArray(data.telegramChannels)) {
-    throw new InvalidBackupError('campo "telegramChannels" inválido');
+  if (data.telegramChannels !== undefined) {
+    if (!Array.isArray(data.telegramChannels) || data.telegramChannels.some((row) => !isPlainObject(row))) {
+      throw new InvalidBackupError('campo "telegramChannels" inválido');
+    }
   }
-  if (data.telegramItems !== undefined && !Array.isArray(data.telegramItems)) {
-    throw new InvalidBackupError('campo "telegramItems" inválido');
+  if (data.telegramItems !== undefined) {
+    if (!Array.isArray(data.telegramItems) || data.telegramItems.some((row) => !isPlainObject(row))) {
+      throw new InvalidBackupError('campo "telegramItems" inválido');
+    }
   }
-  for (const entry of data.libraryEntries as unknown[]) {
-    const count = (entry as { rewatch_count?: unknown } | null)?.rewatch_count;
+  for (const entry of data.libraryEntries as Record<string, unknown>[]) {
+    const count = entry.rewatch_count;
     if (count !== undefined && (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0)) {
       throw new InvalidBackupError('libraryEntries: rewatch_count deve ser um inteiro não negativo');
     }
@@ -69,7 +75,8 @@ export const validateBackup = (data: unknown): BackupData => {
   if (data.libraryHistory !== undefined) {
     if (!Array.isArray(data.libraryHistory)) throw new InvalidBackupError('campo "libraryHistory" inválido');
     for (const row of data.libraryHistory as unknown[]) {
-      const kind = (row as { kind?: unknown } | null)?.kind;
+      if (!isPlainObject(row)) throw new InvalidBackupError('libraryHistory: entrada inválida');
+      const kind = row.kind;
       if (typeof kind !== 'string' || !(LIBRARY_HISTORY_KINDS as readonly string[]).includes(kind)) {
         throw new InvalidBackupError('libraryHistory: tipo de evento desconhecido');
       }

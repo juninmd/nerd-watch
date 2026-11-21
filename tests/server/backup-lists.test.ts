@@ -130,4 +130,29 @@ describe('backup com dados inválidos: nada é importado', () => {
       expect((await importDump(dump)).status).toBe(400);
     }
   });
+
+  test('entradas nulas ou sem datas obrigatórias em listas/visões/títulos viram 400 (nunca 500)', async () => {
+    seed();
+    const good = await exportDump();
+    for (const mutate of [
+      (d: Record<string, unknown>) => {
+        d.lists = [null];
+      },
+      (d: Record<string, unknown>) => {
+        d.savedViews = ['nao-objeto'];
+      },
+      (d: Record<string, unknown>) => {
+        d.titles = [null];
+      },
+      (d: Record<string, unknown>) => {
+        const list = (d.lists as Array<Record<string, unknown>>)[0];
+        if (list) list.created_at = '';
+      },
+    ]) {
+      const dump = structuredClone(good);
+      mutate(dump);
+      freshDb();
+      expect((await importDump(dump)).status).toBe(400);
+    }
+  });
 });
