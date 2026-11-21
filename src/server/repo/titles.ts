@@ -18,33 +18,34 @@ export interface NewTitle {
   voteAverage?: number | null;
 }
 
-export const upsertTitle = (db: Database, input: NewTitle): TitleRow => {
-  const existing = db
-    .query<TitleRow, [string, string]>('SELECT * FROM titles WHERE source = ? AND source_id = ?')
-    .get(input.source, input.sourceId);
-  if (existing) return existing;
+export const upsertTitle = (db: Database, input: NewTitle): TitleRow =>
+  db.transaction((): TitleRow => {
+    const existing = db
+      .query<TitleRow, [string, string]>('SELECT * FROM titles WHERE source = ? AND source_id = ?')
+      .get(input.source, input.sourceId);
+    if (existing) return existing;
 
-  const id = crypto.randomUUID();
-  db.query(
-    `INSERT INTO titles (id, source, source_id, media_type, title, original_title, overview, poster_path, backdrop_path, release_date, vote_average, created_at)
-     VALUES ($id, $source, $sourceId, $mediaType, $title, $originalTitle, $overview, $posterPath, $backdropPath, $releaseDate, $voteAverage, $createdAt)`,
-  ).run({
-    $id: id,
-    $source: input.source,
-    $sourceId: input.sourceId,
-    $mediaType: input.mediaType,
-    $title: input.title,
-    $originalTitle: input.originalTitle ?? null,
-    $overview: input.overview ?? null,
-    $posterPath: input.posterPath ?? null,
-    $backdropPath: input.backdropPath ?? null,
-    $releaseDate: input.releaseDate ?? null,
-    $voteAverage: input.voteAverage ?? null,
-    $createdAt: new Date().toISOString(),
-  });
-  // biome-ignore lint/style/noNonNullAssertion: acabamos de inserir esta linha
-  return db.query<TitleRow, [string]>('SELECT * FROM titles WHERE id = ?').get(id)!;
-};
+    const id = crypto.randomUUID();
+    db.query(
+      `INSERT INTO titles (id, source, source_id, media_type, title, original_title, overview, poster_path, backdrop_path, release_date, vote_average, created_at)
+       VALUES ($id, $source, $sourceId, $mediaType, $title, $originalTitle, $overview, $posterPath, $backdropPath, $releaseDate, $voteAverage, $createdAt)`,
+    ).run({
+      $id: id,
+      $source: input.source,
+      $sourceId: input.sourceId,
+      $mediaType: input.mediaType,
+      $title: input.title,
+      $originalTitle: input.originalTitle ?? null,
+      $overview: input.overview ?? null,
+      $posterPath: input.posterPath ?? null,
+      $backdropPath: input.backdropPath ?? null,
+      $releaseDate: input.releaseDate ?? null,
+      $voteAverage: input.voteAverage ?? null,
+      $createdAt: new Date().toISOString(),
+    });
+    // biome-ignore lint/style/noNonNullAssertion: acabamos de inserir esta linha
+    return db.query<TitleRow, [string]>('SELECT * FROM titles WHERE id = ?').get(id)!;
+  })();
 
 export interface CatalogStats {
   /** `null` = o provider não trouxe o campo: a coluna guarda o valor anterior (ausência não apaga). */
@@ -119,44 +120,45 @@ export const upsertSeason = (
   db: Database,
   titleId: string,
   season: { seasonNumber: number; name: string; overview?: string | null; airDate?: string | null; posterPath?: string | null },
-): SeasonRow => {
-  const existing = db
-    .query<SeasonRow, [string, number]>('SELECT * FROM seasons WHERE title_id = ? AND season_number = ?')
-    .get(titleId, season.seasonNumber);
-  if (existing) {
-    // Nome, sinopse e data de temporada mudam na TMDB; a linha é só catálogo (nada do usuário fica aqui).
-    const next = {
-      name: season.name,
-      overview: season.overview ?? null,
-      air_date: season.airDate ?? null,
-      poster_path: season.posterPath ?? null,
-    };
-    db.query('UPDATE seasons SET name = $name, overview = $overview, air_date = $air_date, poster_path = $poster_path WHERE id = $id').run({
-      $id: existing.id,
-      $name: next.name,
-      $overview: next.overview,
-      $air_date: next.air_date,
-      $poster_path: next.poster_path,
-    });
-    return { ...existing, ...next };
-  }
+): SeasonRow =>
+  db.transaction((): SeasonRow => {
+    const existing = db
+      .query<SeasonRow, [string, number]>('SELECT * FROM seasons WHERE title_id = ? AND season_number = ?')
+      .get(titleId, season.seasonNumber);
+    if (existing) {
+      // Nome, sinopse e data de temporada mudam na TMDB; a linha é só catálogo (nada do usuário fica aqui).
+      const next = {
+        name: season.name,
+        overview: season.overview ?? null,
+        air_date: season.airDate ?? null,
+        poster_path: season.posterPath ?? null,
+      };
+      db.query('UPDATE seasons SET name = $name, overview = $overview, air_date = $air_date, poster_path = $poster_path WHERE id = $id').run({
+        $id: existing.id,
+        $name: next.name,
+        $overview: next.overview,
+        $air_date: next.air_date,
+        $poster_path: next.poster_path,
+      });
+      return { ...existing, ...next };
+    }
 
-  const id = crypto.randomUUID();
-  db.query(
-    `INSERT INTO seasons (id, title_id, season_number, name, overview, air_date, poster_path)
-     VALUES ($id, $titleId, $seasonNumber, $name, $overview, $airDate, $posterPath)`,
-  ).run({
-    $id: id,
-    $titleId: titleId,
-    $seasonNumber: season.seasonNumber,
-    $name: season.name,
-    $overview: season.overview ?? null,
-    $airDate: season.airDate ?? null,
-    $posterPath: season.posterPath ?? null,
-  });
-  // biome-ignore lint/style/noNonNullAssertion: acabamos de inserir esta linha
-  return db.query<SeasonRow, [string]>('SELECT * FROM seasons WHERE id = ?').get(id)!;
-};
+    const id = crypto.randomUUID();
+    db.query(
+      `INSERT INTO seasons (id, title_id, season_number, name, overview, air_date, poster_path)
+       VALUES ($id, $titleId, $seasonNumber, $name, $overview, $airDate, $posterPath)`,
+    ).run({
+      $id: id,
+      $titleId: titleId,
+      $seasonNumber: season.seasonNumber,
+      $name: season.name,
+      $overview: season.overview ?? null,
+      $airDate: season.airDate ?? null,
+      $posterPath: season.posterPath ?? null,
+    });
+    // biome-ignore lint/style/noNonNullAssertion: acabamos de inserir esta linha
+    return db.query<SeasonRow, [string]>('SELECT * FROM seasons WHERE id = ?').get(id)!;
+  })();
 
 export const replaceEpisodes = (
   db: Database,
@@ -194,15 +196,18 @@ export const getSeasonsWithEpisodes = (db: Database, titleId: string): Array<Sea
     .all(titleId);
   if (seasons.length === 0) return [];
 
-  const placeholders = seasons.map(() => '?').join(', ');
-  const episodes = db
-    .query<EpisodeRow, string[]>(`SELECT * FROM episodes WHERE season_id IN (${placeholders}) ORDER BY episode_number`)
-    .all(...seasons.map((s) => s.id));
+  const seasonIds = seasons.map((s) => s.id);
   const episodesBySeason = new Map<string, EpisodeRow[]>();
-  for (const ep of episodes) {
-    const list = episodesBySeason.get(ep.season_id);
-    if (list) list.push(ep);
-    else episodesBySeason.set(ep.season_id, [ep]);
+  for (let i = 0; i < seasonIds.length; i += SQL_BATCH) {
+    const chunk = seasonIds.slice(i, i + SQL_BATCH);
+    const episodes = db
+      .query<EpisodeRow, string[]>(`SELECT * FROM episodes WHERE season_id IN (${chunk.map(() => '?').join(', ')}) ORDER BY episode_number`)
+      .all(...chunk);
+    for (const ep of episodes) {
+      const list = episodesBySeason.get(ep.season_id);
+      if (list) list.push(ep);
+      else episodesBySeason.set(ep.season_id, [ep]);
+    }
   }
   return seasons.map((season) => ({ ...season, episodes: episodesBySeason.get(season.id) ?? [] }));
 };

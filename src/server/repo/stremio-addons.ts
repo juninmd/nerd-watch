@@ -85,31 +85,33 @@ export const getAddon = (db: Database, id: string): InstalledAddon | null => {
 };
 
 /** Reinstalar o mesmo link só atualiza o manifest guardado (idempotente, preservando ligado/desligado). */
-export const saveAddon = (db: Database, input: { manifestUrl: string; baseUrl: string; manifest: AddonManifest }): InstalledAddon => {
-  const existing = db.query('SELECT * FROM stremio_addons WHERE manifest_url = ?').get(input.manifestUrl) as AddonRow | null;
-  if (existing) {
-    db.query('UPDATE stremio_addons SET manifest = ?, base_url = ? WHERE id = ?').run(JSON.stringify(input.manifest), input.baseUrl, existing.id);
-    return toAddon({ ...existing, base_url: input.baseUrl, manifest: JSON.stringify(input.manifest) });
-  }
-  const count = (db.query('SELECT COUNT(*) AS n FROM stremio_addons').get() as { n: number }).n;
-  if (count >= STREMIO_ADDONS_MAX) throw new ValidationError(`limite de ${STREMIO_ADDONS_MAX} addons; remova algum antes`);
-  const row: AddonRow = {
-    id: crypto.randomUUID(),
-    manifest_url: input.manifestUrl,
-    base_url: input.baseUrl,
-    manifest: JSON.stringify(input.manifest),
-    added_at: new Date().toISOString(),
-    enabled: 1,
-  };
-  db.query('INSERT INTO stremio_addons (id, manifest_url, base_url, manifest, added_at, enabled) VALUES (?, ?, ?, ?, ?, ?)').run(
-    row.id,
-    row.manifest_url,
-    row.base_url,
-    row.manifest,
-    row.added_at,
-    row.enabled,
-  );
-  return toAddon(row);
-};
+export const saveAddon = (db: Database, input: { manifestUrl: string; baseUrl: string; manifest: AddonManifest }): InstalledAddon =>
+  db.transaction((): InstalledAddon => {
+    const encoded = JSON.stringify(input.manifest);
+    const existing = db.query('SELECT * FROM stremio_addons WHERE manifest_url = ?').get(input.manifestUrl) as AddonRow | null;
+    if (existing) {
+      db.query('UPDATE stremio_addons SET manifest = ?, base_url = ? WHERE id = ?').run(encoded, input.baseUrl, existing.id);
+      return toAddon({ ...existing, base_url: input.baseUrl, manifest: encoded });
+    }
+    const count = (db.query('SELECT COUNT(*) AS n FROM stremio_addons').get() as { n: number }).n;
+    if (count >= STREMIO_ADDONS_MAX) throw new ValidationError(`limite de ${STREMIO_ADDONS_MAX} addons; remova algum antes`);
+    const row: AddonRow = {
+      id: crypto.randomUUID(),
+      manifest_url: input.manifestUrl,
+      base_url: input.baseUrl,
+      manifest: encoded,
+      added_at: new Date().toISOString(),
+      enabled: 1,
+    };
+    db.query('INSERT INTO stremio_addons (id, manifest_url, base_url, manifest, added_at, enabled) VALUES (?, ?, ?, ?, ?, ?)').run(
+      row.id,
+      row.manifest_url,
+      row.base_url,
+      row.manifest,
+      row.added_at,
+      row.enabled,
+    );
+    return toAddon(row);
+  })();
 
 export const deleteAddon = (db: Database, id: string): boolean => db.query('DELETE FROM stremio_addons WHERE id = ?').run(id).changes > 0;
