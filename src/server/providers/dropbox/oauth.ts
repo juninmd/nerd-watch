@@ -1,10 +1,12 @@
 import type { FetchFn } from '../oauth/client.ts';
 import { createOAuthClient } from '../oauth/client.ts';
+import { readTextLimited } from '../sources/http.ts';
 import { readSetting } from '../sources/settings.ts';
 
 export const DROPBOX_APP_KEY_ENV = 'DROPBOX_APP_KEY';
 const TOKEN_URL = 'https://api.dropboxapi.com/oauth2/token';
 const REVOKE_URL = 'https://api.dropboxapi.com/2/auth/token/revoke';
+const MAX_TOKEN_BYTES = 64 * 1024;
 
 /** Só leitura: lista pastas e baixa/mostra vídeos. Nada de escrita. */
 export const DROPBOX_SCOPE = 'files.metadata.read files.content.read';
@@ -18,18 +20,25 @@ const revokeDropbox = async (refreshToken: string, fetchFn: FetchFn): Promise<vo
   if (!appKey) return;
   const tokenRes = await fetchFn(TOKEN_URL, {
     method: 'POST',
+    redirect: 'error',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken, client_id: appKey }).toString(),
     signal: AbortSignal.timeout(15_000),
   });
-  const body = (await tokenRes.json().catch(() => ({}))) as { access_token?: string };
+  let body: { access_token?: string } = {};
+  try {
+    body = JSON.parse(await readTextLimited(tokenRes, MAX_TOKEN_BYTES)) as { access_token?: string };
+  } catch {
+    return;
+  }
   if (!body.access_token) return;
-  await fetchFn(REVOKE_URL, {
+  const revokeRes = await fetchFn(REVOKE_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${body.access_token}` },
     redirect: 'manual',
     signal: AbortSignal.timeout(15_000),
   });
+  await revokeRes.body?.cancel();
 };
 
 /** Cliente público (PKCE, sem client secret). `token_access_type=offline` é o que faz o Dropbox devolver refresh token. */

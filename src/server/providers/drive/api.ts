@@ -1,6 +1,6 @@
 import { config } from '../../config/config.ts';
 import type { NewTelegramItem } from '../../repo/telegram.ts';
-import { fetchHeaders, readCapped, safeRange } from '../sources/http.ts';
+import { fetchHeaders, readCapped, readTextLimited, safeRange } from '../sources/http.ts';
 import { DriveReauthRequiredError, driveFetch, getAccessToken, invalidateAccessToken } from './oauth.ts';
 
 export class DriveFolderNotFoundError extends Error {
@@ -60,6 +60,8 @@ const api = (path: string, params: Record<string, string>): URL => {
   return url;
 };
 
+const MAX_JSON_BYTES = 8 * 1024 * 1024;
+
 export const getFolderName = async (folderId: string): Promise<string> => {
   const res = await authedGet(api(`/files/${folderId}`, { fields: 'id,name,mimeType' }));
   if (!res.ok) {
@@ -67,7 +69,12 @@ export const getFolderName = async (folderId: string): Promise<string> => {
     if (res.status === 404 || res.status === 403) throw new DriveFolderNotFoundError();
     throw new Error(`o Google Drive respondeu ${res.status}`);
   }
-  const file = (await res.json()) as DriveFile;
+  let file: DriveFile;
+  try {
+    file = JSON.parse(await readTextLimited(res, MAX_JSON_BYTES)) as DriveFile;
+  } catch {
+    throw new Error('resposta inesperada do Google Drive');
+  }
   if (file.mimeType !== FOLDER_MIME) throw new DriveFolderNotFoundError();
   return file.name;
 };
@@ -92,7 +99,12 @@ export const listFolderVideos = async (folderId: string): Promise<DriveFile[]> =
       if (res.status === 404 || res.status === 403) throw new DriveFolderNotFoundError();
       throw new Error(`o Google Drive respondeu ${res.status}`);
     }
-    const body = (await res.json()) as { files?: DriveFile[]; nextPageToken?: string };
+    let body: { files?: DriveFile[]; nextPageToken?: string };
+    try {
+      body = JSON.parse(await readTextLimited(res, MAX_JSON_BYTES)) as { files?: DriveFile[]; nextPageToken?: string };
+    } catch {
+      throw new Error('resposta inesperada do Google Drive');
+    }
     files.push(...(body.files ?? []));
     pageToken = body.nextPageToken;
     if (!pageToken) break;
