@@ -33,7 +33,9 @@ export const s3Config = (): S3Config => {
   const region = readSetting(S3_ENV.region);
   const accessKey = readSetting(S3_ENV.accessKey);
   const secretKey = readSetting(S3_ENV.secretKey);
-  if (!endpoint || !region || !accessKey || !secretKey) throw new SourceError('configure o endpoint, a região e as chaves do S3 em Conexões', 501);
+  if (!endpoint || endpoint.search || endpoint.hash || !region || !accessKey || !secretKey) {
+    throw new SourceError('configure o endpoint, a região e as chaves do S3 em Conexões', 501);
+  }
   return { origin: endpoint.origin, basePath: endpoint.pathname.replace(/\/+$/, ''), region, accessKey, secretKey };
 };
 

@@ -25,7 +25,9 @@ export const webdavConfig = (): WebdavConfig => {
   const base = cleanHttpUrl(readSetting(WEBDAV_ENV.url) ?? '');
   const user = readSetting(WEBDAV_ENV.user);
   const password = readSetting(WEBDAV_ENV.password);
-  if (!base || !user || !password) throw new SourceError('configure o endereço, o usuário e a senha do WebDAV em Conexões', 501);
+  if (!base || base.search || base.hash || !user || !password) {
+    throw new SourceError('configure o endereço, o usuário e a senha do WebDAV em Conexões', 501);
+  }
   return { origin: base.origin, basePath: base.pathname.replace(/\/+$/, ''), user, password };
 };
 
