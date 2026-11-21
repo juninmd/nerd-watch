@@ -4,6 +4,7 @@ import { assertKnownKeys, guardInput, readJsonObject } from '../http/json-body.t
 import { hasControlChar } from '../lib/text-guards.ts';
 import { ValidationError } from '../lib/validation-error.ts';
 import { boardsOf } from '../providers/stremio/boards.ts';
+import { invalidateAddonCache } from '../providers/stremio/cache.ts';
 import { AddonError } from '../providers/stremio/client.ts';
 import { type AddonStream, fetchCatalog, fetchManifestFrom, fetchMeta, fetchStreams } from '../providers/stremio/protocol.ts';
 import { addonStatus, invalidateAddonStatus } from '../providers/stremio/status.ts';
@@ -75,6 +76,7 @@ stremioRoutes.post('/addons', (c) =>
     const parsed = parseAddonUrl(body.url);
     const manifest = await fetchManifestFrom(parsed.manifestUrl);
     const addon = saveAddon(await getDb(), { manifestUrl: parsed.manifestUrl, baseUrl: parsed.baseUrl, manifest });
+    invalidateAddonCache(parsed.baseUrl);
     return c.json(toDto(addon), 201);
   }),
 );
@@ -131,8 +133,13 @@ stremioRoutes.patch('/addons/:id', (c) =>
 
 stremioRoutes.delete('/addons/:id', async (c) => {
   const id = c.req.param('id');
-  const removed = deleteAddon(await getDb(), id);
-  if (removed) invalidateAddonStatus(id);
+  const db = await getDb();
+  const existing = getAddon(db, id);
+  const removed = deleteAddon(db, id);
+  if (removed) {
+    invalidateAddonStatus(id);
+    if (existing) invalidateAddonCache(existing.baseUrl);
+  }
   return removed ? c.json({ ok: true }) : c.json({ error: 'addon não encontrado' }, 404);
 });
 
