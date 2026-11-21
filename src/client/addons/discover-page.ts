@@ -23,15 +23,18 @@ const railSection = (board: AddonBoardDto): string => `
  * um addon lento ou fora do ar só deixa o próprio trilho com aviso.
  */
 export const renderDiscover = (host: HTMLElement): void => {
-  host.innerHTML = `${backButtonHtml()}<div class="skeleton" style="height:120px;border-radius:20px"></div>`;
-  wireBackButton(host, '/addons');
+  const root = document.createElement('div');
+  host.replaceChildren(root);
+  root.innerHTML = `${backButtonHtml()}<div class="skeleton" style="height:120px;border-radius:20px"></div>`;
+  wireBackButton(root, '/addons');
 
   listBoards()
     .then((boards) => {
+      if (!root.isConnected) return;
       const groups = groupBoards(boards);
       const rails = railsOf(groups);
       if (rails.length === 0) {
-        host.innerHTML = `
+        root.innerHTML = `
           ${backButtonHtml()}
           <header class="view-head"><h1 class="view-title">Descobrir nos addons</h1></header>
           <div class="empty-state">
@@ -39,22 +42,23 @@ export const renderDiscover = (host: HTMLElement): void => {
             nenhum addon instalado publica catálogo — os que só entregam streams aparecem na página do título.
             <p><a class="btn btn-primary btn-sm" href="#/addons">gerenciar addons</a></p>
           </div>`;
-        wireBackButton(host, '/addons');
+        wireBackButton(root, '/addons');
         return;
       }
-      host.innerHTML = `
+      root.innerHTML = `
         ${backButtonHtml()}
         <header class="view-head">
           <h1 class="view-title">Descobrir nos addons</h1>
           <p class="view-subtitle">${rails.length} catálogo(s) de ${groups.length} addon(s). O conteúdo é de quem publica cada addon.</p>
         </header>
         ${rails.map(railSection).join('')}`;
-      wireBackButton(host, '/addons');
-      for (const board of rails) void fillRail(host, board);
+      wireBackButton(root, '/addons');
+      for (const board of rails) void fillRail(root, board);
     })
     .catch(() => {
-      host.innerHTML = `${backButtonHtml()}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível listar os catálogos dos addons</div>`;
-      wireBackButton(host, '/addons');
+      if (!root.isConnected) return;
+      root.innerHTML = `${backButtonHtml()}<div class="empty-state" role="alert"><div class="big">${icon('alert')}</div>não foi possível listar os catálogos dos addons</div>`;
+      wireBackButton(root, '/addons');
     });
 };
 

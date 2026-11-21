@@ -1,7 +1,7 @@
 import { type LibraryItemDto, linkTelegramItem, listLibrary, type TelegramItemLinkDto, unlinkTelegramItem } from '../api/index.ts';
 import { normalizeSearch } from './telegram-items.ts';
 import { showToast } from '../app/state.ts';
-import { escapeHtml } from '../ui/card.ts';
+import { escapeHtml, posterStyleAttr } from '../ui/card.ts';
 
 const episodeLabel = (l: TelegramItemLinkDto): string => `T${l.seasonNumber} · Ep ${l.episodeNumber}${l.episodeEnd ? `–${l.episodeEnd}` : ''}`;
 
@@ -16,7 +16,7 @@ export const linkBadge = (link: TelegramItemLinkDto | null): string => {
   if (!link) return '';
   const name = escapeHtml(link.title ?? 'título da biblioteca');
   const src = safePoster(link.posterUrl);
-  const poster = src ? `<span class="tg-link-poster" style="background-image:url('${escapeHtml(src)}')" aria-hidden="true"></span>` : '';
+  const poster = src ? `<span class="tg-link-poster"${posterStyleAttr(src)} aria-hidden="true"></span>` : '';
   if (link.status === 'linked') {
     return `<div class="tg-link-line">${poster}<span class="badge badge-watching">vinculado · ${name} · ${episodeLabel(link)}</span></div>`;
   }
@@ -107,25 +107,32 @@ export const openLinkDialog = (opts: LinkDialogOptions): void => {
     error.textContent = '';
     linkTelegramItem(opts.channelId, opts.messageId, { titleId: selected, seasonNumber, episodeNumber })
       .then(() => {
-        dialog.close();
+        if (dialog.isConnected) dialog.close();
         opts.onDone();
       })
-      .catch((err: unknown) => fail(err instanceof Error ? err.message : 'não foi possível vincular agora'));
+      .catch((err: unknown) => {
+        if (dialog.isConnected) fail(err instanceof Error ? err.message : 'não foi possível vincular agora');
+      });
   });
 
-  dialog.querySelector('#tg-link-clear')?.addEventListener('click', () => {
+  const clearBtn = dialog.querySelector<HTMLButtonElement>('#tg-link-clear');
+  clearBtn?.addEventListener('click', () => {
+    clearBtn.disabled = true;
     unlinkTelegramItem(opts.channelId, opts.messageId)
       .then(() => {
-        dialog.close();
+        if (dialog.isConnected) dialog.close();
         opts.onDone();
       })
-      .catch(() => showToast('não foi possível remover o vínculo agora'));
+      .catch(() => {
+        if (clearBtn.isConnected) clearBtn.disabled = false;
+        showToast('não foi possível remover o vínculo agora');
+      });
   });
   dialog.querySelector('#tg-link-cancel')?.addEventListener('click', () => dialog.close());
 
   dialog.addEventListener('close', () => {
     dialog.remove();
-    trigger?.focus();
+    if (trigger?.isConnected) trigger.focus();
   });
 
   document.body.appendChild(dialog);
@@ -134,10 +141,11 @@ export const openLinkDialog = (opts: LinkDialogOptions): void => {
 
   listLibrary()
     .then((res) => {
+      if (!dialog.isConnected) return;
       series = res.items.filter((it) => it.title.mediaType === 'tv');
       renderList();
     })
     .catch(() => {
-      list.innerHTML = '<p class="hint">não foi possível carregar a biblioteca agora</p>';
+      if (dialog.isConnected) list.innerHTML = '<p class="hint">não foi possível carregar a biblioteca agora</p>';
     });
 };
