@@ -67,6 +67,15 @@ describe('start', () => {
 });
 
 describe('complete', () => {
+  test('falha de rede na troca do código não é tratada como código recusado', async () => {
+    const state = await authorize();
+    client.setFetchForTests(async () => {
+      throw new TypeError('fetch failed');
+    });
+    const result = await client.complete({ state, code: 'abc', error: null }, 2_000);
+    expect(result).toEqual({ status: 'error', error: 'não foi possível falar com Servico X — confira a conexão e tente conectar de novo' });
+  });
+
   test('troca o código (com o verifier do PKCE) e guarda o refresh token', async () => {
     const state = await authorize();
     fake(() => json({ access_token: 'acc', refresh_token: 'ref-1', expires_in: 3600 }));
