@@ -174,8 +174,13 @@ export const createOAuthClient = (spec: OAuthSpec): OAuthClient => {
       if (!flow || flow.expiresAt <= now) return fail('pedido de autorização desconhecido ou expirado — tente conectar de novo');
       if (input.error || !input.code) return fail(input.error === 'access_denied' ? `acesso negado em ${spec.name}` : `${spec.name} não devolveu o código de autorização`);
 
-      const result = await postToken({ code: input.code, code_verifier: flow.verifier, grant_type: 'authorization_code', redirect_uri: flow.redirectUri }).catch(() => null);
-      if (result?.status !== 200 || !result.access_token) return fail(`${spec.name} recusou o código de autorização`);
+      // Rede fora/timeout não é recusa: o usuário precisa saber que é para tentar de novo, não revisar a conta.
+      const result = await postToken({ code: input.code, code_verifier: flow.verifier, grant_type: 'authorization_code', redirect_uri: flow.redirectUri }).catch((err: unknown) => {
+        console.warn(`[oauth] troca do código com ${spec.name} falhou na rede: ${err instanceof Error ? err.message : 'erro desconhecido'}`);
+        return null;
+      });
+      if (!result) return fail(`não foi possível falar com ${spec.name} — confira a conexão e tente conectar de novo`);
+      if (result.status !== 200 || !result.access_token) return fail(`${spec.name} recusou o código de autorização`);
       if (!result.refresh_token) return fail(`${spec.name} não devolveu o refresh token — revogue o app na sua conta e conecte de novo`);
 
       writeSetting(spec.refreshTokenEnv, result.refresh_token);

@@ -153,9 +153,14 @@ export const completeAuthFlow = async (input: { state: string | null; code: stri
       redirect_uri: flow.redirectUri,
     },
     driveFetch,
-  ).catch(() => null);
+  ).catch((err: unknown) => {
+    // Rede fora/timeout não é recusa: o usuário precisa saber que é para tentar de novo, não revisar a conta.
+    console.warn(`[drive oauth] troca do código falhou na rede: ${err instanceof Error ? err.message : 'erro desconhecido'}`);
+    return null;
+  });
 
-  if (result?.status !== 200 || !result.access_token) return fail('o Google recusou o código de autorização');
+  if (!result) return fail('não foi possível falar com o Google — confira a conexão e tente conectar de novo');
+  if (result.status !== 200 || !result.access_token) return fail('o Google recusou o código de autorização');
   if (!result.refresh_token) return fail('o Google não devolveu o refresh token — revogue o app em myaccount.google.com/permissions e conecte de novo');
 
   store.save(result.refresh_token);

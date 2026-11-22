@@ -129,6 +129,19 @@ describe('fluxo de autorização', () => {
   });
 });
 
+describe('falha de rede na troca do código', () => {
+  test('não diz que o Google recusou o código', async () => {
+    setDriveFetchForTests(async () => {
+      throw new TypeError('fetch failed');
+    });
+    const started = startAuthFlow('http://127.0.0.1:7799/cb');
+    if (!started.ok) throw new Error('deveria iniciar');
+    const result = await completeAuthFlow({ state: new URL(started.authUrl).searchParams.get('state'), code: 'x', error: null });
+    expect(result).toEqual({ status: 'error', error: 'não foi possível falar com o Google — confira a conexão e tente conectar de novo' });
+    expect(saved).toEqual([]);
+  });
+});
+
 describe('access token', () => {
   test('sem refresh token pede para conectar', async () => {
     await expect(getAccessToken()).rejects.toBeInstanceOf(DriveNotConnectedError);
