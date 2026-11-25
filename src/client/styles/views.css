@@ -127,13 +127,6 @@
   border: 1px solid var(--border-soft);
 }
 
-.season-tabs {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  margin-bottom: 18px;
-}
-
 .episode-row {
   display: flex;
   gap: 14px;
@@ -338,12 +331,6 @@
   margin-right: 6px;
 }
 
-.history-empty,
-.history-error {
-  font-size: 13px;
-  color: var(--text-dim);
-}
-
 .star {
   background: none;
   border: 0;
@@ -354,12 +341,7 @@
   cursor: pointer;
 }
 
-.star.filled {
-  color: var(--warning);
-}
-
-/* Canal do Telegram: foto redonda, link e descrição com as quebras de linha originais. */
-.hero-avatar {
+/* Canal do Telegram: foto redonda {
   width: 120px;
   height: 120px;
   flex-shrink: 0;
@@ -466,10 +448,6 @@
   animation: stat-grow 0.6s var(--ease) backwards;
 }
 
-.ys-spark i.is-now {
-  background: #3987e5;
-}
-
 .ys-more {
   display: inline-flex;
   align-items: center;
@@ -483,24 +461,4 @@
   .ys-spark {
     margin-left: 0;
   }
-}
-
-.episode-row .ep-title {
-  all: unset;
-  cursor: pointer;
-  font-weight: inherit;
-  border-radius: var(--radius-sm);
-}
-
-.episode-row .ep-title:hover {
-  text-decoration: underline;
-}
-
-.episode-row .ep-title:focus-visible {
-  outline: 2px solid var(--accent-2);
-  outline-offset: 2px;
-}
-
-.episode-row .ep-streams {
-  margin-top: 10px;
 }

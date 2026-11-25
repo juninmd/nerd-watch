@@ -1,31 +1,24 @@
+import { createElement } from 'react';
 import { openCommandPalette } from './command-palette.ts';
-import { escapeHtml } from '../ui/card.ts';
-import { icon } from '../ui/icons.ts';
+import { openDialog } from './open-dialog.ts';
 import { navigate } from './router.ts';
-import { resolveKey, shortcutHelpRows } from './shortcut-keys.ts';
+import { ShortcutHelp } from './shortcut-help.tsx';
+import { resolveKey } from './shortcut-keys.ts';
 import { getThemePref, nextThemePref, setThemePref } from './theme.ts';
 
+let helpOpen = false;
+
 export const openShortcutHelp = (): void => {
-  if (document.querySelector('dialog.help[open]')) return;
-  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  const rows = shortcutHelpRows(navigator.platform);
-  const d = document.createElement('dialog');
-  d.className = 'dialog help';
-  d.setAttribute('closedby', 'any');
-  d.setAttribute('aria-labelledby', 'help-title');
-  d.innerHTML = `
-    <form method="dialog" class="dialog-head"><h2 id="help-title">${icon('keyboard')} Atalhos de teclado</h2>
-      <button class="btn btn-ghost btn-sm" aria-label="fechar">${icon('x', 'sm')}</button></form>
-    <dl class="help-list">${rows.map(([k, v]) => `<div><dt><kbd>${escapeHtml(k)}</kbd></dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl>`;
-  document.body.appendChild(d);
-  d.addEventListener('close', () => {
-    d.remove();
-    if (opener?.isConnected) opener.focus();
-  });
-  d.addEventListener('click', (e) => {
-    if (e.target === d) d.close();
-  });
-  d.showModal();
+  if (helpOpen) return;
+  helpOpen = true;
+  openDialog((close) =>
+    createElement(ShortcutHelp, {
+      onClose: () => {
+        helpOpen = false;
+        close();
+      },
+    }),
+  );
 };
 
 const typingTarget = (el: Element | null): boolean =>

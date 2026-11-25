@@ -1,22 +1,13 @@
-/* Estatísticas: cartões, gráficos SVG e cartão do ano. Cores de texto são tokens; cores de série são fixas (paleta validada). */
+/* Estatísticas: layout da tela e os gráficos que o Sonido não tem (colunas empilhadas, composição). Cores de série são fixas (paleta validada). */
 .stats-toolbar {
+  min-width: 0;
+  padding: 0;
+  border: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 12px 16px;
   align-items: end;
   margin: 0 0 20px;
-}
-.stats-field {
-  display: grid;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-dim);
-}
-.stats-field .select {
-  min-width: 150px;
-}
-.goal-field .input {
-  width: 120px;
 }
 .stats-root {
   position: relative;
@@ -27,12 +18,7 @@
   gap: 12px;
 }
 .stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  padding: 16px;
   min-width: 0;
-  box-shadow: var(--shadow-card);
 }
 .stat-label {
   margin: 0 0 8px;
@@ -73,19 +59,14 @@
   gap: 16px;
 }
 .stat-figure {
-  margin: 0;
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  padding: 16px;
   min-width: 0;
+}
+.stat-figure figure {
+  margin: 0;
 }
 .stat-figure figcaption {
   font-weight: 600;
   margin-bottom: 8px;
-}
-.stat-chart {
-  min-width: 0;
 }
 
 /* Colunas em HTML: a altura do plot é fixa e a largura acompanha o cartão, então o texto nunca estica. */
@@ -168,45 +149,6 @@
   white-space: nowrap;
 }
 
-/* Barras horizontais (gêneros): rótulo à esquerda, valor à direita, barra fina no meio. */
-.chart-rows {
-  display: grid;
-  gap: 4px;
-  margin-top: 8px;
-}
-.chart-row {
-  display: grid;
-  grid-template-columns: minmax(0, 132px) minmax(0, 1fr) 28px;
-  align-items: center;
-  gap: 12px;
-  min-height: 28px;
-  font-size: 13px;
-}
-.chart-row-label {
-  color: var(--text-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.chart-row-value {
-  color: var(--text);
-  font-weight: 600;
-  text-align: right;
-}
-.chart-track {
-  height: 12px;
-}
-.chart-bar-h {
-  width: var(--w);
-  min-width: 3px;
-  height: 100%;
-  border-radius: 0 4px 4px 0;
-  transform-origin: 0 50%;
-  animation: stat-grow-x 0.6s var(--ease) backwards;
-  animation-delay: calc(var(--i, 0) * 40ms + 120ms);
-  transition: filter 0.15s var(--ease);
-}
-
 /* Composição da biblioteca: um todo em blocos, 2 px de fundo entre eles. */
 .seg-bar {
   display: flex;
@@ -231,87 +173,45 @@
   transition: filter 0.15s var(--ease);
 }
 .chart-bar:hover,
-.chart-bar-h:hover,
 .seg:hover {
   filter: brightness(1.18);
 }
 /* Marca focável: o anel precisa aparecer em qualquer cor de série. */
 .chart-bar:focus-visible,
-.chart-bar-h:focus-visible,
 .seg:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 2px;
 }
 
-/* Mapa de atividade: SVG no tamanho natural; em tela estreita rola na horizontal em vez de encolher. */
-.heat-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px 28px;
-}
-.heat-aside {
-  flex: 1 1 200px;
-  min-width: 0;
-  padding-bottom: 8px;
-}
-.heat-aside .stat-hint {
-  margin: 0 0 12px;
-}
+/* Mapa de atividade (Heatmap do Sonido): largura mínima por semana; em tela estreita rola na horizontal em vez de encolher. */
 .heat-scroll {
-  flex: 0 1 auto;
-  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   padding: 2px 2px 8px;
   scrollbar-width: thin;
 }
-.heat-svg {
-  display: block;
-  shape-rendering: geometricPrecision;
+.stat-heat {
+  min-width: calc(var(--cols) * 15px + 40px);
 }
-/* Dia sem atividade: trilho quase na cor do cartão, com contorno fino, para o primeiro tom de azul se destacar. */
-.heat-cell {
-  fill: var(--surface-2);
-  stroke: var(--border-soft);
-  stroke-width: 1;
-}
-.heat-cell.is-on {
-  stroke: none;
-}
-.heat-cell.is-on {
-  animation: stat-fade 0.45s var(--ease) backwards;
-  animation-delay: calc(var(--i, 0) * 9ms + 100ms);
-}
-.heat-cell.is-on:hover {
-  filter: brightness(1.2);
-}
-.heat-cell:focus-visible {
-  outline: none;
-  stroke: var(--text);
-  stroke-width: 2;
-}
-.heat-label {
-  fill: var(--text-faint);
+/* Mesma grade do Heatmap (rótulo + uma coluna por semana), só com o nome do mês onde ele começa. */
+.heat-months {
+  display: grid;
+  grid-template-columns: auto repeat(var(--cols), minmax(0, 1fr));
+  gap: 3px;
+  margin-bottom: 4px;
   font-size: 11px;
-}
-.heat-legend {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 0;
-  font-size: 12px;
   color: var(--text-faint);
+  white-space: nowrap;
 }
-.heat-key {
-  width: 14px;
-  height: 14px;
-  border-radius: 3.5px;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--border-soft);
+.heat-months span:first-child {
+  min-width: 28px;
+}
+/* As colunas do Heatmap têm rótulos "sem. N" só para o tooltip de cada dia; os meses acima já situam. */
+.stat-heat .sn-heat__cols {
+  display: none;
 }
 
-/* Meta do ano: anel com o número em HTML por cima. */
+/* Meta do ano: anel do Sonido com o número no centro. */
 .goal-body {
   display: flex;
   flex-wrap: wrap;
@@ -322,35 +222,8 @@
   flex: 1 1 160px;
   min-width: 0;
 }
-.ring {
-  position: relative;
-  flex: 0 0 auto;
-  width: 128px;
-  height: 128px;
-}
-.ring-svg {
-  display: block;
-}
-.ring-track,
-.ring-fill {
-  fill: none;
-  stroke-width: 10;
-}
-.ring-track {
-  stroke: #184f95;
-  opacity: 0.4;
-}
-.ring-fill {
-  stroke: #3987e5;
-  stroke-linecap: round;
-  stroke-dashoffset: var(--gap);
-  animation: ring-draw 0.9s var(--ease) 0.15s backwards;
-}
 .ring-center {
-  position: absolute;
-  inset: 0;
   display: grid;
-  place-content: center;
   text-align: center;
 }
 .ring-center strong {
@@ -362,11 +235,8 @@
   color: var(--text-dim);
 }
 .goal-field {
-  display: grid;
-  gap: 6px;
   margin-top: 12px;
-  font-size: 13px;
-  color: var(--text-dim);
+  max-width: 160px;
 }
 .stat-ico {
   display: inline-grid;
@@ -400,52 +270,11 @@
   margin-right: 6px;
   vertical-align: -1px;
 }
-.stat-tip {
-  position: absolute;
-  transform: translate(-50%, calc(-100% - 8px));
-  background: var(--surface-hover);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 6px 10px;
-  font-size: 13px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 5;
-  box-shadow: var(--shadow-pop);
-}
 .stat-data {
   margin-top: 10px;
-  font-size: 13px;
-}
-.stat-data summary {
-  cursor: pointer;
-  color: var(--text-dim);
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-}
-.stat-data table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 6px;
-}
-.stat-data th,
-.stat-data td {
-  text-align: left;
-  padding: 4px 6px;
-  border-bottom: 1px solid var(--border-soft);
 }
 .stat-notes {
   margin-top: 16px;
-  color: var(--text-dim);
-  font-size: 14px;
-}
-.stat-notes summary {
-  cursor: pointer;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
 }
 .stat-notes ul {
   margin: 8px 0 0;
@@ -455,11 +284,6 @@
 }
 .stat-empty {
   margin: 0 0 16px;
-  padding: 12px 14px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px dashed var(--border);
-  color: var(--text-dim);
 }
 .stat-empty-all {
   margin-top: 24px;
@@ -471,11 +295,6 @@
   height: auto;
   margin: 12px auto;
   border-radius: var(--radius-sm);
-}
-.stats-share-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 8px;
 }
 @media (min-width: 640px) {
   .stat-kpis {
@@ -526,9 +345,6 @@
     transform: translateY(-2px);
   }
 }
-.stat-tip {
-  animation: stat-tip-in 0.12s var(--ease);
-}
 @keyframes stat-rise {
   from { opacity: 0; transform: translateY(14px); }
 }
@@ -538,12 +354,6 @@
 @keyframes stat-grow-x {
   from { transform: scaleX(0); }
 }
-@keyframes stat-tip-in {
-  from { opacity: 0; }
-}
 @keyframes stat-fade {
   from { opacity: 0; }
-}
-@keyframes ring-draw {
-  from { stroke-dashoffset: var(--len); }
 }

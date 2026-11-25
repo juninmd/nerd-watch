@@ -1,6 +1,6 @@
 import { type IconName, iconPaths } from './icons.ts';
 
-/** Versão React de `icon()`: mesmo desenho e classes, para passar como `icon` aos componentes do Sonido. */
+/** Ícone de traço (24x24, `currentColor`) do app, para usar direto ou como `icon` dos componentes do Sonido. */
 export function Icon({ name, size }: { name: IconName; size?: 'sm' }) {
   return (
     <svg

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { initials, posterCssUrl, posterSrcset, posterStyleAttr, titleHue } from '../../src/client/ui/card.ts';
+import { posterCssUrl } from '../../src/client/ui/poster-css.ts';
 
 describe('posterCssUrl', () => {
   test('URL comum vira url("...") sem alterar nada', () => {
@@ -12,63 +12,5 @@ describe('posterCssUrl', () => {
     expect(css).toBe('url("https://a.test/x\\").evil{}/*")');
     expect(css.startsWith('url("')).toBe(true);
     expect(css.endsWith('")')).toBe(true);
-  });
-});
-
-describe('posterStyleAttr', () => {
-  test('escapa aspas do url("...") para nunca fechar o atributo style="..."', () => {
-    const attr = posterStyleAttr('https://image.tmdb.org/t/p/w500/a.jpg');
-    expect(attr).toBe(' style="background-image:url(&quot;https://image.tmdb.org/t/p/w500/a.jpg&quot;)"');
-    expect(attr.match(/"/g)).toHaveLength(2);
-    expect(posterStyleAttr(null)).toBe('');
-    expect(posterStyleAttr('')).toBe('');
-  });
-});
-
-describe('initials (placeholder de pôster)', () => {
-  test('duas primeiras letras em caixa-alta, ignorando espaços extras', () => {
-    expect(initials('  sita sings   the blues ')).toBe('SS');
-    expect(initials('Utopia')).toBe('U');
-  });
-
-  test('título vazio não quebra o placeholder', () => {
-    expect(initials('')).toBe('');
-  });
-});
-
-describe('posterSrcset', () => {
-  test('pôster da TMDB ganha as três larguras, para tela de alta densidade receber a imagem maior', () => {
-    expect(posterSrcset('https://image.tmdb.org/t/p/w342/abc.jpg')).toBe(
-      'https://image.tmdb.org/t/p/w342/abc.jpg 342w, https://image.tmdb.org/t/p/w500/abc.jpg 500w, https://image.tmdb.org/t/p/w780/abc.jpg 780w',
-    );
-  });
-
-  test('outras origens têm um tamanho só; URL fora do formato não vira srcset', () => {
-    for (const url of [
-      'https://archive.org/services/img/night_of_the_living_dead',
-      '/api/telegram/channels/x/photo',
-      'https://image.tmdb.org/t/p/original/abc.jpg',
-      'https://image.tmdb.org/t/p/w342/abc.jpg 9999w, https://evil.example/x.jpg',
-      'http://image.tmdb.org/t/p/w342/abc.jpg',
-    ]) {
-      expect(posterSrcset(url)).toBeNull();
-    }
-  });
-});
-
-describe('titleHue', () => {
-  test('o mesmo título dá sempre o mesmo matiz, dentro de 0..359', () => {
-    expect(titleHue('Maré Alta')).toBe(titleHue('Maré Alta'));
-    for (const t of ['', 'A', 'Horizonte Vermelho', '日本語のタイトル', 'x'.repeat(5000)]) {
-      const hue = titleHue(t);
-      expect(Number.isInteger(hue)).toBe(true);
-      expect(hue).toBeGreaterThanOrEqual(0);
-      expect(hue).toBeLessThan(360);
-    }
-  });
-
-  test('títulos diferentes se espalham pelo círculo de cores', () => {
-    const hues = new Set(['Maré Alta', 'Horizonte Vermelho', 'Arquivo Morto', 'O Último Farol', 'Duas Luas', 'Feira Livre'].map(titleHue));
-    expect(hues.size).toBeGreaterThanOrEqual(5);
   });
 });

@@ -119,7 +119,6 @@
   --hero-fade: 238, 237, 246;
 }
 
-
 * {
   box-sizing: border-box;
 }
@@ -214,11 +213,9 @@ img {
 /* forced-colors: o sistema tira fundos e sombras, então bordas e foco viram cores do sistema para continuar visíveis. */
 @media (forced-colors: active) {
   .btn,
-  .chip,
   .card,
   .select,
   .textarea,
-  .input-pill,
   .input {
     border: 1px solid ButtonText;
   }
@@ -229,10 +226,6 @@ img {
   .textarea:focus-visible {
     outline: 2px solid Highlight;
     outline-offset: 2px;
-  }
-
-  .heat-cell:focus-visible {
-    stroke: Highlight;
   }
 }
 

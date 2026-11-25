@@ -8,24 +8,23 @@
   from { opacity: 0; transform: translateY(8px); }
 }
 
-.grid > .card,
-.rail > .card {
+.grid > .card {
   /* `backwards`, não `both`: um fill final prenderia o transform e travaria o hover/tilt. */
   animation: card-in 0.5s var(--ease) backwards;
   animation-delay: calc(min(var(--n, 0), 14) * 35ms);
 }
 
-.grid > .card:nth-child(1), .rail > .card:nth-child(1) { --n: 0; }
-.grid > .card:nth-child(2), .rail > .card:nth-child(2) { --n: 1; }
-.grid > .card:nth-child(3), .rail > .card:nth-child(3) { --n: 2; }
-.grid > .card:nth-child(4), .rail > .card:nth-child(4) { --n: 3; }
-.grid > .card:nth-child(5), .rail > .card:nth-child(5) { --n: 4; }
-.grid > .card:nth-child(6), .rail > .card:nth-child(6) { --n: 5; }
-.grid > .card:nth-child(7), .rail > .card:nth-child(7) { --n: 6; }
-.grid > .card:nth-child(8), .rail > .card:nth-child(8) { --n: 7; }
-.grid > .card:nth-child(n + 9), .rail > .card:nth-child(n + 9) { --n: 8; }
+.grid > .card:nth-child(1) { --n: 0; }
+.grid > .card:nth-child(2) { --n: 1; }
+.grid > .card:nth-child(3) { --n: 2; }
+.grid > .card:nth-child(4) { --n: 3; }
+.grid > .card:nth-child(5) { --n: 4; }
+.grid > .card:nth-child(6) { --n: 5; }
+.grid > .card:nth-child(7) { --n: 6; }
+.grid > .card:nth-child(8) { --n: 7; }
+.grid > .card:nth-child(n + 9) { --n: 8; }
 /* Fora da primeira tela a cascata não aparece; animar milhares de cards só custava frames na biblioteca grande. */
-.grid > .card:nth-child(n + 41), .rail > .card:nth-child(n + 41) { animation: none; }
+.grid > .card:nth-child(n + 41) { animation: none; }
 
 @keyframes card-in {
   from { opacity: 0; transform: translateY(16px) scale(0.96); }
@@ -48,18 +47,6 @@
 
 .sn-navrail__link[aria-current="page"] svg {
   filter: drop-shadow(0 0 6px rgba(255, 61, 110, 0.7));
-}
-
-.chip {
-  transition: transform 0.15s var(--ease), background 0.15s var(--ease), border-color 0.15s var(--ease);
-}
-
-.chip:active {
-  transform: scale(0.94);
-}
-
-.chip.active {
-  animation: chip-pop 0.35s var(--ease);
 }
 
 @keyframes chip-pop {
@@ -185,14 +172,12 @@ body::before {
 }
 
 /* Botão primário com varredura de brilho. */
-.btn.primary,
-.btn-primary {
+.btn.primary {
   position: relative;
   overflow: hidden;
 }
 
-.btn.primary::after,
-.btn-primary::after {
+.btn.primary::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -202,8 +187,7 @@ body::before {
 }
 
 @media (hover: hover) {
-  .btn.primary:hover::after,
-  .btn-primary:hover::after {
+  .btn.primary:hover::after {
     transform: translateX(120%);
     transition: transform 0.7s var(--ease);
   }
@@ -254,13 +238,6 @@ body::before {
 @keyframes scroll-progress {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
-}
-
-/* Esqueleto de carregamento com brilho deslizante. */
-.skeleton {
-  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
 }
 
 @keyframes shimmer {

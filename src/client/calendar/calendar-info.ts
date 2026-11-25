@@ -1,5 +1,5 @@
 import { type CalendarInfoDto, getCalendarInfo } from '../api/index.ts';
-import { type AgendaEntry, entryKey } from './calendar-card.ts';
+import { type AgendaEntry, entryKey } from './calendar-model.ts';
 
 const cache = new Map<string, Promise<CalendarInfoDto | null>>();
 const MAX_PARALLEL = 2;

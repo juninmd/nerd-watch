@@ -11,12 +11,11 @@ import { formatCount, formatHours, MONTH_LONG, MONTH_SHORT, plural } from './mod
 const DAY_MS = 86_400_000;
 
 /**
- * Um quadrado por dia do ano, em colunas de semana (domingo abre) e linhas de dia da semana. O nível vai de 1 a 4
- * em quartos do dia mais movimentado: com poucos eventos o mapa ainda mostra diferença, sem escala fixa.
+ * Um quadrado por dia do ano, em colunas de semana (domingo abre) e linhas de dia da semana. A faixa de cor de
+ * cada dia é do Heatmap do Sonido (quantis dos dias ativos).
  */
 export const heatLayout = (year: number, days: DayActivity[]): HeatLayout => {
   const counts = new Map(days.map((d) => [d.date, d.events]));
-  const max = Math.max(0, ...days.map((d) => d.events));
   const start = Date.UTC(year, 0, 1);
   const total = Math.round((Date.UTC(year + 1, 0, 1) - start) / DAY_MS);
   const offset = new Date(start).getUTCDay();
@@ -33,7 +32,7 @@ export const heatLayout = (year: number, days: DayActivity[]): HeatLayout => {
       date,
       col,
       row: (i + offset) % 7,
-      level: events === 0 ? 0 : Math.min(4, Math.max(1, Math.ceil((events / max) * 4))),
+      events,
       tip: `${when}: ${formatCount(events)} ${plural(events, 'evento', 'eventos')}`,
     });
   }

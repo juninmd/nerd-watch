@@ -30,17 +30,18 @@ O cliente só fala com o servidor por `/api/*`. O servidor é o único que fala 
 | `app/` | Roteador de hash, **tabela de rotas** (`routes.ts`), títulos de rota, memória de rolagem, atalhos, paleta `Ctrl K`, estado global pequeno (toast). |
 | `api/` | Cliente HTTP, um arquivo por domínio (`library.ts`, `telegram.ts`, `stats.ts`, ...). `index.ts` só reexporta. Os tipos `...Dto` espelham as respostas das rotas. |
 | `ui/` | Peças sem regra de negócio: card, carrossel, ícones, efeitos (confete, tilt, transição de tela), formatação de data. |
-| `home/`, `library/`, `lists/`, `catalog/`, `calendar/`, `stats/`, `channels/`, `connections/`, `player/` | A feature inteira: a tela (`*-page.ts`), suas peças e a lógica pura dela. |
+| `home/`, `library/`, `lists/`, `catalog/`, `calendar/`, `stats/`, `channels/`, `connections/`, `player/` | A feature inteira: a tela (`*-page.tsx`), suas peças e a lógica pura dela. |
 | `pwa/` | Service worker, manifesto e ícone. |
 | `styles/` | CSS por área, importado por `styles.css` e empacotado num arquivo só no build. `tokens.css` tem as variáveis. |
 
 Convenções do cliente:
 
-- **Tela** = `src/client/<feature>/<nome>-page.ts` exportando `render<Nome>(host, ...)`. Entra em `PAGES` e `ROUTES`
-  de `app/routes.ts`. Cada tela vira um chunk baixado sob demanda.
+- **Tela** = `src/client/<feature>/<nome>-page.tsx` exportando o componente React `<Nome>Page`. Entra em `PAGES` e
+  `ROUTES` de `app/routes.tsx`. Cada tela vira um chunk baixado sob demanda.
 - **Lógica pura separada do DOM.** Regra, texto e conta ficam em módulos sem `document` (ex.: `stats/model.ts`,
-  `stats/insights.ts`, `player/player-seek.ts`) e são os que têm teste. O arquivo que toca o DOM só liga as pontas.
-- **HTML por template string**, sempre com `escapeHtml` em qualquer dado que venha de catálogo, arquivo ou usuário.
+  `stats/insights.ts`, `player/player-seek.ts`) e são os que têm teste. O componente só liga as pontas.
+- **UI com o Sonido** (`@juninmd/sonido`): botão, campo, diálogo, cartão, gráfico… vêm dele; CSS local só para o
+  layout da tela. Diálogos abertos de qualquer lugar usam `openOverlay` (`ui/overlay.tsx`); avisos, `showToast`.
 - **Preferência de navegador** (layout, ritmo da fila, meta do ano) vai em `localStorage` com `try/catch`; dado da
   pessoa (lista, progresso) vai para o servidor.
 
@@ -75,7 +76,7 @@ Não há DOM nos testes: por isso a lógica fica em módulos puros.
 
 ## Receitas
 
-**Nova tela.** Crie `src/client/<feature>/<nome>-page.ts`; acrescente em `PAGES` e `ROUTES` (`app/routes.ts`);
+**Nova tela.** Crie `src/client/<feature>/<nome>-page.tsx`; acrescente em `PAGES` e `ROUTES` (`app/routes.tsx`);
 rótulo em `app/route-meta.ts`; se for item de menu, `NAV_GROUPS` em `app/nav-model.ts`; caso em `tests/client/routes.test.ts`.
 
 **Novo endpoint.** `src/server/routes/<recurso>.ts` (validação + DTO) → SQL em `src/server/repo/<recurso>.ts` →

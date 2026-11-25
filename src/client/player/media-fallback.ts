@@ -2,6 +2,7 @@ import { fetchPlan, fetchPrepStatus, liveUrl, type PlanDto, type PrepStatus, pre
 import { isFinished } from './playback-store.ts';
 import { PATH_LABEL } from './media-seek.ts';
 import { playTranscoded } from './media-shim.ts';
+import { bumpPlayerUi } from './player-ui-store.ts';
 
 /**
  * Formato que o navegador não toca: antes de tentar o arquivo cru, pergunta ao servidor o caminho (direto, remux,
@@ -65,48 +66,34 @@ const planFor = (item: MediaItem): Promise<PlanDto | null> => {
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Um só selo, movido para o pai atual do `<video>` (palco da página ou barra fixa). */
-const badge = (): HTMLElement => {
-  let el = document.querySelector<HTMLElement>('.media-badge');
-  if (!el) {
-    el = document.createElement('span');
-    el.className = 'media-badge';
-    el.setAttribute('role', 'status');
-  }
-  return el;
-};
+/** Selo com o caminho usado (direto, remux, transcodificado). Um só: o palco ou a barra onde o vídeo está o desenha. */
+let badge = { text: '', title: '' };
+export const getMediaBadge = (): { text: string; title: string } => badge;
 
-const setBadge = (video: HTMLVideoElement, text: string, title = ''): void => {
-  const el = badge();
-  const host = video.parentElement;
-  if (host && el.parentElement !== host) {
-    host.classList.add('media-host');
-    host.appendChild(el);
-  }
-  el.textContent = text;
-  el.title = title;
-  el.hidden = text === '';
+const setBadge = (text: string, title = ''): void => {
+  badge = { text, title };
+  bumpPlayerUi();
 };
 
 const progressText = (s: PrepStatus): string => `Preparando… ${Math.round(s.progress * 100)}%`;
 
 /** Espera a conversão terminar, com progresso no selo. `false` quando não ficou pronta (o erro já foi mostrado). */
-const waitReady = async (item: MediaItem, video: HTMLVideoElement, opts: FallbackOptions): Promise<boolean> => {
+const waitReady = async (item: MediaItem, opts: FallbackOptions): Promise<boolean> => {
   let status: PrepStatus | 'busy' = await startPrepare(item.channelId, item.messageId);
   for (;;) {
     if (!opts.isCurrent()) return false;
     if (status === 'busy') {
       opts.onMessage(BUSY);
-      setBadge(video, '');
+      setBadge('');
       return false;
     }
     if (status.state === 'ready') return true;
     if (status.state === 'error') {
       opts.onMessage(status.error ?? FAILED);
-      setBadge(video, '');
+      setBadge('');
       return false;
     }
-    setBadge(video, progressText(status));
+    setBadge(progressText(status));
     await sleep(POLL_MS);
     // "idle": o job sumiu (ex.: cache apagado no meio). Pede de novo em vez de ficar girando.
     status = status.state === 'idle' ? await startPrepare(item.channelId, item.messageId) : await fetchPrepStatus(item.channelId, item.messageId);
@@ -117,11 +104,11 @@ const convert = async (item: MediaItem, video: HTMLVideoElement, plan: PlanDto, 
   if (plan.path === 'transcode') {
     const start = resumeOrFallback(opts.resumeAt, plan.durationSeconds ?? null, opts.safeStart);
     playTranscoded(video, liveUrl(item.channelId, item.messageId), start, plan.durationSeconds);
-    setBadge(video, PATH_LABEL.transcode, 'Transcodificado ao vivo; a barra de posição mostra o vídeo inteiro.');
+    setBadge(PATH_LABEL.transcode, 'Transcodificado ao vivo; a barra de posição mostra o vídeo inteiro.');
     void video.play().catch(() => undefined);
     return;
   }
-  if (!(await waitReady(item, video, opts)) || !opts.isCurrent()) return;
+  if (!(await waitReady(item, opts)) || !opts.isCurrent()) return;
   video.setAttribute('src', preparedFileUrl(item.channelId, item.messageId));
   const resumeAt = opts.resumeAt;
   video.addEventListener(
@@ -133,7 +120,7 @@ const convert = async (item: MediaItem, video: HTMLVideoElement, plan: PlanDto, 
     },
     { once: true },
   );
-  setBadge(video, PATH_LABEL.remux, 'Convertido sem perda de qualidade (remux) e salvo em cache no servidor.');
+  setBadge(PATH_LABEL.remux, 'Convertido sem perda de qualidade (remux) e salvo em cache no servidor.');
   void video.play().catch(() => undefined);
 };
 
@@ -155,9 +142,9 @@ const startFlow = (item: MediaItem, video: HTMLVideoElement, plan: PlanDto, opts
 export const prepareForItem = async (item: MediaItem, video: HTMLVideoElement, opts: FallbackOptions): Promise<void> => {
   const plan = await planFor(item);
   if (!opts.isCurrent()) return;
-  if (!plan || plan.path === 'n/a') return setBadge(video, '');
-  if (plan.path === 'direct') return setBadge(video, PATH_LABEL.direct);
-  if (plan.path === 'unavailable') return setBadge(video, PATH_LABEL.unavailable, plan.reason ?? '');
+  if (!plan || plan.path === 'n/a') return setBadge('');
+  if (plan.path === 'direct') return setBadge(PATH_LABEL.direct);
+  if (plan.path === 'unavailable') return setBadge(PATH_LABEL.unavailable, plan.reason ?? '');
   if (!flows.has(item.key)) startFlow(item, video, plan, opts);
 };
 

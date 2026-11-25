@@ -19,22 +19,7 @@
   min-width: 0;
 }
 
-.tvm-photo {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  object-fit: cover;
-  border-radius: var(--radius);
-  background: var(--gradient-soft);
-}
-
-.tvm-photo-empty {
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  color: var(--text-dim);
-}
-
-.tvm-photo.big {
+.tvm-portrait {
   width: 150px;
   flex-shrink: 0;
 }
@@ -64,7 +49,7 @@
 }
 
 @media (hover: hover) {
-  .tvm-person:hover .tvm-photo,
+  .tvm-person:hover img,
   .tvm-shot:hover img {
     filter: brightness(1.12);
   }
@@ -184,31 +169,6 @@ a.tvm-chip:focus-visible {
   color: var(--signal);
 }
 
-.tvm-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  font-size: 12px;
-}
-
-.tvm-badges:empty {
-  display: none;
-}
-
-.tvm-rate {
-  color: var(--gold);
-  font-weight: 600;
-}
-
-.tvm-season-meta {
-  margin: 4px 0 10px;
-}
-
-.episode-row img.still {
-  object-fit: cover;
-}
-
 .tvm-person-head {
   display: flex;
   gap: 20px;
@@ -238,7 +198,7 @@ a.tvm-chip:focus-visible {
   .tvm-person-head {
     flex-direction: column;
   }
-  .tvm-photo.big {
+  .tvm-portrait {
     width: 120px;
   }
 }

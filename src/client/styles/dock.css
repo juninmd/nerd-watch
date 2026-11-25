@@ -19,14 +19,6 @@
   display: none;
 }
 
-.dock button {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
-}
-
 .dock-video video {
   width: 96px;
   aspect-ratio: 16 / 9;
@@ -43,6 +35,9 @@
 }
 
 .dock-title {
+  justify-content: flex-start;
+  max-width: 100%;
+  padding: 0;
   text-align: left;
   font-weight: 700;
   font-size: 14px;
@@ -72,32 +67,24 @@
   gap: 4px;
 }
 
-.dock button:not(.dock-title) {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
+.dock-controls .sn-button,
+.dock-end .sn-button {
   border-radius: 50%;
-  color: var(--text);
 }
 
-@media (hover: hover) {
-  .dock button:not(.dock-title):hover:not(:disabled) {
-    background: var(--surface-hover);
-  }
-}
-
-.dock button:disabled {
-  opacity: 0.35;
-}
-
-.dock [data-act="toggle"] {
-  background: var(--gradient);
-}
-
+/* O tempo já aparece ao lado (`.dock-time`): o rótulo do Slider fica só para leitor de tela. */
 .dock-seek {
   width: 100%;
-  accent-color: var(--accent);
+}
+
+.dock-seek .sn-slider__meta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .dock-time {
@@ -106,26 +93,15 @@
   white-space: nowrap;
 }
 
-.resume-badge {
-  left: 8px;
-  bottom: 8px;
-  top: auto;
-  right: auto;
-}
-
 /* Com o player fixo aberto o conteúdo ganha espaço para não ficar escondido atrás dele. */
 body.has-dock .main {
   padding-bottom: 120px;
 }
 
-/* Velocidade: botão de texto ("1.25x"), não círculo. Vem depois de `.dock button:not(.dock-title)` para vencer. */
-.dock button.dock-speed {
-  width: auto;
+/* Velocidade: botão de texto ("1.25x"), não círculo. */
+.dock-controls .dock-speed {
   min-width: 40px;
-  padding: 0 10px;
   border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -194,23 +170,6 @@ body.has-dock .main {
   gap: 8px;
 }
 
-/* Dentro da barra fixa, os botões herdam o círculo de 40 px dos controles: estes voltam a ser botões de texto. */
-.dock .player-overlay.player-tap,
-.dock .player-upnext .btn {
-  width: auto;
-  height: auto;
-  display: inline-flex;
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-size: 13px;
-  color: #fff;
-}
-
-.dock .player-upnext .btn-ghost {
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
 .dock .player-upnext {
   flex-direction: row;
   gap: 12px;
@@ -240,10 +199,6 @@ body.has-dock .main {
   .dock-time {
     display: none;
   }
-  .dock button:not(.dock-title) {
-    width: 34px;
-    height: 34px;
-  }
   .dock-video video {
     width: 64px;
   }
@@ -254,15 +209,8 @@ body.has-dock .main {
 
 /* Alvo de toque mínimo de 44 px em telas de toque (vence os tamanhos menores das regras acima). */
 @media (pointer: coarse) {
-  .dock button:not(.dock-title),
-  .dock button.dock-speed {
+  .dock .sn-button {
     min-width: 44px;
-    height: 44px;
-  }
-  .dock button:not(.dock-title) {
-    width: 44px;
-  }
-  .dock .player-upnext .btn {
     min-height: 44px;
   }
 }

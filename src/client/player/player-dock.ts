@@ -1,83 +1,54 @@
-import { isFinished, type ResumeMeta, resolveStart, resumePoint, type StoredPosition } from './playback-store.ts';
-import { MAX_START_SECONDS } from '../app/deep-link.ts';
+import type { DockItem } from './dock-item.ts';
+import { metaOf } from './playback-positions.ts';
 import { playbackSync } from './playback-service.ts';
 import { isAutoplayBlocked } from './player-session.ts';
 import { showToast } from '../app/state.ts';
 import { formatDuration } from '../ui/time-format.ts';
 import { createOverlayController } from './player-overlay-controller.ts';
 import { getStoredSpeed } from './player-prefs.ts';
-import { setMediaMetadata } from './player-media.ts';
-import { onPlayError } from './player-error.ts';
-import { handleUnplayable, prepareForItem } from './media-fallback.ts';
-import { paintControls, paintProgress, paintSpeed } from './player-dock-view.ts';
-import { DOCK_MARKUP } from './player-dock-markup.ts';
-import { wirePlayerDock } from './player-dock-wiring.ts';
-import { mountPageControls, type PageControls } from './player-page-controls.ts';
+import { setMediaMetadata, syncMediaPosition } from './player-media.ts';
+import { prepareForItem } from './media-fallback.ts';
+import { recoverFromVideoError } from './player-recover.ts';
+import { createVideoElement, wirePlayerVideo } from './player-dock-wiring.ts';
+import { playerKeysActive } from './player-keyboard.ts';
 import { clearVideo, playerKindOf } from './watch-embed.ts';
-import { type Captions, mountCaptions } from './player-captions.ts';
-import type { CaptionContext } from './player-captions-model.ts';
+import { createCaptions } from './player-captions.ts';
+import type { Captions } from './player-captions-types.ts';
 import { type CastController, createCastController } from './player-cast.ts';
+import { openCastDialog } from './player-cast-dialog.tsx';
+import { emitEnded, emitPlayer } from './player-events.ts';
+import { finiteDuration, resumeFor, seekOnMetadata, validStart } from './player-resume.ts';
+import { bumpPlayerUi } from './player-ui-store.ts';
 import { mediaUrl } from '../platform/tauri.ts';
 
+export type { DockItem } from './dock-item.ts';
+export { clearContinueWatching, continueWatching } from './playback-positions.ts';
+export { removeFromContinueWatching, savedPosition } from './playback-positions.ts';
+export { subscribeEnded, subscribePlayer } from './player-events.ts';
 export { getAutoplay, getQueueOrder, type QueueOrder, setAutoplay, setQueueOrder } from './player-prefs.ts';
 
-export interface DockItem {
-  /** Identifica o vídeo para guardar a posição (`<canal>:<mensagem>`). */
-  key: string;
-  src: string;
-  title: string;
-  subtitle: string;
-  poster: string | null;
-  channelId: string;
-  messageId: string;
-  durationSeconds: number | null;
-  /** Rota da tela onde esse vídeo toca em tamanho grande (para onde "expandir" volta). */
-  route: string;
-  /** Iframe de embed (YouTube, ou PeerTube sem arquivo direto): não passa pelo `<video>`. */
-  embedUrl?: string | null;
-  /** Onde buscar legenda para este vídeo (sem ele, o menu só aceita arquivo escolhido pelo usuário). */
-  captions?: CaptionContext | null;
-}
-
 /**
- * O player é um único `<video>` global com dois modos: "page" (grande, dentro da tela de reprodução) e "dock"
- * (barra fixa no canto). A barra só aparece quando o usuário pede (`minimizePlayer`); sair da tela de
- * reprodução por outro caminho encerra o vídeo — mover o mesmo elemento entre os dois lugares não o reinicia.
+ * Um único `<video>` global: "page" (grande, no palco da tela) ou "dock" (barra fixa, só depois de `minimizePlayer`).
+ * Mover o elemento entre os dois não o reinicia. Estado imperativo aqui; os botões são React (player-dock-bar.tsx).
  */
-type Mode = 'hidden' | 'page' | 'dock';
+export type Mode = 'hidden' | 'page' | 'dock';
 
 const store = playbackSync.store;
 
-export const savedPosition = (key: string): StoredPosition | undefined => store.get(key);
-export const continueWatching = (limit?: number) => store.inProgress(limit);
-/** Só a posição salva some (e o apagamento é sincronizado); o vídeo continua no canal/biblioteca. */
-export const removeFromContinueWatching = (key: string): void => store.clear(key);
-export const clearContinueWatching = (): number => store.clearInProgress();
-
-const metaOf = (item: DockItem): ResumeMeta => ({ title: item.title, subtitle: item.subtitle, poster: item.poster, channelId: item.channelId, messageId: item.messageId, route: item.route });
-
-let dock: HTMLElement | null = null;
+/** Vaga do `<video>` na barra fixa (montada pela casca) e palco da tela que o mostra grande agora. */
+let dockSlot: HTMLElement | null = null;
+let pageStage: HTMLElement | null = null;
 let video: HTMLVideoElement | null = null;
 let captions: Captions | null = null;
 let cast: CastController | null = null;
 let queue: DockItem[] = [];
 let index = 0;
 let mode: Mode = 'hidden';
-let pageControls: PageControls | null = null;
-const listeners = new Set<() => void>();
 
 /** Toque para reproduzir (autoplay bloqueado) e contagem do próximo vídeo: ficam no palco ou na barra, conforme o modo. */
-const overlays = createOverlayController({
-  host: () => (mode === 'dock' ? dock : mode === 'page' ? (video?.parentElement ?? null) : null),
-  onNext: () => step(1),
-  onTap: () => attemptPlay(),
-});
+const overlays = createOverlayController({ onChange: bumpPlayerUi, onNext: () => step(1), onTap: () => attemptPlay() });
 
-/**
- * `play()` pode ser recusado pelo navegador (autoplay com som sem gesto). A recusa vira um pedido de toque, não um
- * erro engolido. AbortError (outro `src` entrou no meio) e NotSupportedError (o evento `error` do vídeo já avisa) não
- * pedem nada.
- */
+/** `play()` recusado por autoplay vira pedido de toque. AbortError/NotSupportedError já têm tratamento próprio. */
 const attemptPlay = (): void => {
   video?.play().catch((err: unknown) => {
     if (isAutoplayBlocked(err)) overlays.askTap();
@@ -87,34 +58,14 @@ const attemptPlay = (): void => {
 
 /** Teclas valem com o foco no player, ou na tela de reprodução sem foco em campo. Outras telas seguem normais. */
 const keyboardActive = (): boolean => {
-  const el = video;
   const item = current();
-  if (!el || !item || playerKindOf(item) === 'embed') return false;
-  const shell = mode === 'dock' ? dock : el.parentElement;
-  const focus = document.activeElement;
-  if (focus && shell?.contains(focus)) return true;
-  return mode === 'page' && (!focus || focus === document.body) && /^#\/(watch|play)\//.test(location.hash);
+  if (!video || !item || playerKindOf(item) === 'embed') return false;
+  return playerKeysActive(
+    mode === 'dock' ? (dockSlot?.closest('.dock') ?? null) : video.parentElement,
+    mode === 'page',
+  );
 };
 
-const emit = (): void => {
-  for (const fn of listeners) fn();
-};
-
-/** Avisa quando o vídeo atual ou o modo mudam (a tela de reprodução atualiza título e lista). */
-export const subscribePlayer = (fn: () => void): (() => void) => {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-};
-
-const endedListeners = new Set<() => void>();
-
-/** Avisa quando o último vídeo da fila termina. */
-export const subscribeEnded = (fn: () => void): (() => void) => {
-  endedListeners.add(fn);
-  return () => endedListeners.delete(fn);
-};
-
-const q = <T extends HTMLElement>(sel: string): T => (dock as HTMLElement).querySelector(sel) as T;
 const current = (): DockItem | undefined => queue[index];
 
 export const getNowPlaying = (): { item: DockItem; queue: DockItem[]; index: number; mode: Mode } | null => {
@@ -123,67 +74,42 @@ export const getNowPlaying = (): { item: DockItem; queue: DockItem[]; index: num
 };
 
 export const getVideo = (): HTMLVideoElement | null => video;
+export const getOverlays = () => overlays;
+export const getCaptions = (): Captions | null => captions;
+export const getCast = (): CastController | null => cast;
+/** Palco que mostra o vídeo grande agora (null na barra fixa ou fechado): cada palco desenha os controles só se for o dono. */
+export const getPageStage = (): HTMLElement | null => (mode === 'page' ? pageStage : null);
+export const canStep = (delta: number): boolean => index + delta >= 0 && index + delta < queue.length;
+/** Linha de baixo da barra fixa: "canal · retomando de 3:20" quando o vídeo abriu de uma posição salva. */
+let dockSubtitle = '';
+export const getDockSubtitle = (): string => dockSubtitle;
 
 const persist = (): void => {
   const item = current();
   if (!item || !video || video.readyState < 1) return;
-  store.save(item.key, video.currentTime, Number.isFinite(video.duration) ? video.duration : null, metaOf(item));
+  store.save(item.key, video.currentTime, finiteDuration(video), metaOf(item));
 };
 
-const syncControls = (): void => {
-  if (video && dock) {
-    paintControls(dock, video, index > 0, index < queue.length - 1);
-    const castBtn = dock.querySelector<HTMLButtonElement>('[data-act="cast"]');
-    const casting = cast?.isActive() ?? false;
-    castBtn?.classList.toggle('cast-active', casting);
-    castBtn?.setAttribute('aria-pressed', String(casting));
-  }
-  pageControls?.repaint();
-};
+/** Botões, tempo e velocidade são React: basta avisar que o estado do `<video>` mudou. */
+const syncControls = bumpPlayerUi;
 const syncProgress = (): void => {
-  if (video && dock) paintProgress(dock, video);
-  pageControls?.repaint();
-};
-const syncSpeed = (): void => {
-  if (video && dock) paintSpeed(dock, video);
-  pageControls?.repaint();
+  if (video) syncMediaPosition(video);
+  bumpPlayerUi();
 };
 
-const unmountPageControls = (): void => {
-  pageControls?.destroy();
-  pageControls = null;
+const placeVideo = (el: HTMLVideoElement, host: HTMLElement | null): void => {
+  // Primeiro filho: os overlays e a barra (irmãos React) ficam por cima e `video[hidden] ~ .pc` continua valendo.
+  if (host && el.parentElement !== host) host.prepend(el);
 };
 
 const setMode = (next: Mode, stage?: HTMLElement): void => {
-  if (!dock || !video) return;
+  if (!video) return;
   mode = next;
-  unmountPageControls();
-  if (next === 'page' && stage) {
-    stage.appendChild(video);
-    pageControls = mountPageControls(stage, video, {
-      canPrev: () => index > 0,
-      canNext: () => index < queue.length - 1,
-      togglePlay: () => (video?.paused ? attemptPlay() : video?.pause()),
-      step: (delta) => step(delta),
-      openCast: () => cast?.open(),
-      isCasting: () => cast?.isActive() ?? false,
-    });
-  } else {
-    q('.dock-video').appendChild(video);
-  }
-  dock.hidden = next !== 'dock';
+  pageStage = next === 'page' && stage ? stage : null;
+  placeVideo(video, pageStage ?? dockSlot);
   document.body.classList.toggle('has-dock', next === 'dock');
-  if (next === 'dock') {
-    syncControls();
-    syncProgress();
-  }
-  overlays.repaint();
-  captions?.repaint();
+  bumpPlayerUi();
 };
-
-/** `startAt` vem de um link (`?t=`): vale como ponto de partida, mas só se for um segundo plausível. */
-const validStart = (seconds: number | null | undefined): number | null =>
-  typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0 && seconds <= MAX_START_SECONDS ? Math.floor(seconds) : null;
 
 /** Último `t` aplicado nesta sessão de player; um fallback de erro recarrega o mesmo ponto. */
 let requestedStart: number | null = null;
@@ -198,23 +124,16 @@ const clearPendingMetaSeek = (): void => {
 const load = (i: number, startAt?: number | null): void => {
   const item = queue[i];
   const el = video;
-  if (!item || !dock || !el) return;
+  if (!item || !el) return;
+  const isCurrent = (): boolean => current() === item;
   clearPendingMetaSeek();
   persist();
   index = i;
   overlays.clear();
   captions?.load(playerKindOf(item) === 'embed' ? null : (item.captions ?? null));
-  const savedEntry = store.get(item.key);
-  const saved = resumePoint(savedEntry);
   // Resolve o `t` de uma vez (assistido, perto do fim ou fora do vídeo) antes de passar o ponto ao fallback.
-  const start = resolveStart({
-    saved,
-    done: savedEntry?.done === true,
-    requested: validStart(startAt),
-    duration: item.durationSeconds ?? savedEntry?.duration ?? null,
-  });
-  requestedStart = start.linkAt;
-  const resumeAt = start.resumeAt;
+  const { saved, resumeAt, linkAt } = resumeFor(item, store.get(item.key), validStart(startAt));
+  requestedStart = linkAt;
   // Trocar o src volta a taxa para a padrão do elemento: a preferência vira a padrão antes, e é reaplicada depois.
   const rate = getStoredSpeed();
   el.defaultPlaybackRate = rate;
@@ -226,29 +145,20 @@ const load = (i: number, startAt?: number | null): void => {
   if (playerKindOf(item) !== 'embed') {
     const onMeta = () => {
       pendingMetaSeek = null;
-      if (current() !== item || resumeAt === null) return;
-      // Duração só descoberta agora: não deixa um `t` fora do vídeo cair no início e apagar o progresso.
-      if (Number.isFinite(el.duration) && resumeAt >= el.duration) {
-        if (saved !== null && saved < el.duration) el.currentTime = saved;
-        return;
-      }
-      // Um `t` colado no fim não pode marcar como assistido só por abrir: nesse caso volta ao ponto salvo.
-      const linkNearEnd = requestedStart !== null && resumeAt === requestedStart && isFinished(resumeAt, el.duration);
-      el.currentTime = linkNearEnd ? (saved !== null && saved < el.duration ? saved : 0) : resumeAt;
+      if (isCurrent()) seekOnMetadata(el, resumeAt, saved, requestedStart);
     };
     pendingMetaSeek = onMeta;
     el.addEventListener('loadedmetadata', onMeta, { once: true });
   }
   attemptPlay();
   if (playerKindOf(item) !== 'embed') {
-    void prepareForItem(item, el, { resumeAt, safeStart: saved, isCurrent: () => current() === item, onMessage: showToast });
+    void prepareForItem(item, el, { resumeAt, safeStart: saved, isCurrent, onMessage: showToast });
   }
-  q('.dock-title').textContent = item.title;
-  q('.dock-sub').textContent = resumeAt !== null ? `${item.subtitle} · retomando de ${formatDuration(resumeAt)}` : item.subtitle;
+  dockSubtitle = resumeAt !== null ? `${item.subtitle} · retomando de ${formatDuration(resumeAt)}` : item.subtitle;
   syncControls();
   syncProgress();
   setMediaMetadata(item);
-  emit();
+  emitPlayer();
 };
 
 /** Encerra o vídeo e guarda a posição. */
@@ -266,13 +176,19 @@ export const stopPlayer = (): void => {
   queue = [];
   index = 0;
   setMode('hidden');
-  emit();
+  emitPlayer();
 };
 
 /** Antes de trocar a tela: tira o `<video>` da view que vai ser descartada (um nó fora do documento pausaria). */
 export const parkPlayer = (): void => {
-  unmountPageControls();
-  if (mode === 'page' && dock && video) q('.dock-video').appendChild(video);
+  pageStage = null;
+  if (mode === 'page' && video) placeVideo(video, dockSlot);
+  bumpPlayerUi();
+};
+
+/** O palco saiu da tela (React desmontou): o vídeo volta para a vaga da barra antes de o nó sumir (fora do documento pausaria). */
+export const releaseStage = (stage: HTMLElement): void => {
+  if (pageStage === stage) parkPlayer();
 };
 
 /** Chamado ao sair da tela de reprodução: só encerra se o vídeo ainda estiver "na tela" (não minimizado). */
@@ -290,37 +206,39 @@ export const stopIfOnPageIn = (root: Node): void => {
  * Mostra `items[start]` grande dentro de `stage`. Se já é o vídeo em reprodução, só o reposiciona
  * (sem reiniciar); `startAt` de um link manda no ponto de retomada.
  */
-export const showInPage = (items: DockItem[], start: number, stage: HTMLElement, opts: { startAt?: number | null } = {}): void => {
+export const showInPage = (
+  items: DockItem[],
+  start: number,
+  stage: HTMLElement,
+  opts: { startAt?: number | null } = {},
+): void => {
   const target = items[start];
-  if (!target || !dock) return;
+  if (!target || !video) return;
   const startAt = validStart(opts.startAt);
   const alreadyPlaying = current()?.key === target.key && !!video?.getAttribute('src');
   queue = items;
   index = start;
   setMode('page', stage);
   if (alreadyPlaying) {
-    const savedEntry = store.get(target.key);
-    const saved = resumePoint(savedEntry);
-    const resolved = resolveStart({
-      saved,
-      done: savedEntry?.done === true,
-      requested: startAt,
-      duration: target.durationSeconds ?? savedEntry?.duration ?? (video && Number.isFinite(video.duration) ? video.duration : null),
-    });
+    const resolved = resumeFor(target, store.get(target.key), startAt, finiteDuration(video));
     requestedStart = resolved.linkAt;
     // Sem metadata (`duration` NaN/Infinity) ainda vale atribuir: vira a posição inicial quando ela chegar.
-    if (resolved.resumeAt !== null && video && (!Number.isFinite(video.duration) || resolved.resumeAt < video.duration)) {
+    if (
+      resolved.resumeAt !== null &&
+      video &&
+      (!Number.isFinite(video.duration) || resolved.resumeAt < video.duration)
+    ) {
       video.currentTime = resolved.resumeAt;
     }
     syncControls();
-    emit();
+    emitPlayer();
   } else load(start, startAt);
 };
 
 /** Botão "minimizar": o vídeo continua tocando, agora na barra fixa. */
 export const minimizePlayer = (): void => {
   if (mode === 'page' && current()) setMode('dock');
-  emit();
+  emitPlayer();
 };
 
 export const playIndex = (i: number): void => {
@@ -332,60 +250,50 @@ const step = (delta: number): void => playIndex(index + delta);
 const onVideoError = (): void => {
   const item = current();
   if (!item || !video) return;
-  const handlers = {
-    onEmbed: (url: string) => {
+  // Um link (`?t=`) não pode ser perdido porque o navegador não tocou o arquivo no primeiro try.
+  recoverFromVideoError(item, video, resumeFor(item, store.get(item.key), requestedStart, finiteDuration(video)), {
+    isCurrent: () => current() === item,
+    onEmbed: (url) => {
       item.embedUrl = url;
       if (current() === item) load(index, requestedStart);
     },
-    onMessage: showToast,
-  };
-  // Um link (`?t=`) não pode ser perdido porque o navegador não tocou o arquivo no primeiro try.
-  const savedEntry = store.get(item.key);
-  const saved = resumePoint(savedEntry);
-  const resolved = resolveStart({
-    saved,
-    done: savedEntry?.done === true,
-    requested: requestedStart,
-    duration: item.durationSeconds ?? savedEntry?.duration ?? (Number.isFinite(video.duration) ? video.duration : null),
-  });
-  const opts = { resumeAt: resolved.resumeAt, safeStart: saved, isCurrent: () => current() === item, onMessage: showToast };
-  void handleUnplayable(item, video, opts).then((handled) => {
-    if (!handled && current() === item) onPlayError(item.src, handlers);
   });
 };
 
-/** Monta o player global uma vez no shell; ele sobrevive à troca de telas. */
-export const mountPlayerDock = (host: HTMLElement): void => {
-  host.innerHTML = DOCK_MARKUP;
-  dock = host.querySelector('.dock') as HTMLElement;
-  video = dock.querySelector('video') as HTMLVideoElement;
-  // Legendas: na barra fixa o menu fica nos controles; no palco da tela de reprodução, sobre o vídeo.
-  captions = mountCaptions({
-    video: () => video,
-    host: () => (mode === 'dock' ? q('.dock-controls') : mode === 'page' ? (video?.parentElement ?? null) : null),
-  });
+/** Cria o `<video>` global uma vez e liga os eventos; ele sobrevive à troca de telas. */
+const createVideo = (): HTMLVideoElement => {
+  const el = createVideoElement();
+  video = el;
+  captions = createCaptions({ video: () => video });
   cast = createCastController({
     item: current,
     video: () => video,
     onStateChange: syncControls,
+    showDialog: openCastDialog,
   });
-  wirePlayerDock(dock, video, {
+  wirePlayerVideo(el, {
     toggleCaptions: () => captions?.toggle(),
-    openCast: () => cast?.open(),
-    item: current,
     nextTitle: () => (index < queue.length - 1 ? (queue[index + 1]?.title ?? '') : null),
-    queueEnded: () => {
-      for (const fn of endedListeners) fn();
-    },
+    queueEnded: emitEnded,
     overlays,
     persist,
     attemptPlay,
     syncControls,
     syncProgress,
-    syncSpeed,
     step,
-    stop: stopPlayer,
     keyboardActive,
     onError: onVideoError,
   });
+  return el;
 };
+
+/** A barra fixa (React) entrega a vaga do `<video>` ao montar; na primeira vez o elemento nasce aqui. */
+export const attachDockSlot = (slot: HTMLElement | null): void => {
+  dockSlot = slot;
+  const el = video ?? createVideo();
+  if (!pageStage) placeVideo(el, slot);
+};
+
+export const togglePlay = (): void => (video?.paused ? attemptPlay() : video?.pause());
+
+export const stepPlayer = (delta: number): void => step(delta);

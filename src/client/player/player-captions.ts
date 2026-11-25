@@ -1,6 +1,4 @@
 import { type SubtitleSearchResponse, searchSubtitles } from '../api/index.ts';
-import { decodeSubtitleBytes } from '../../shared/subtitles/decode.ts';
-import { toWebVtt } from '../../shared/subtitles/srt-vtt.ts';
 import { type CaptionStyle, captionPrefs } from './player-captions-prefs.ts';
 import {
   canSearch,
@@ -17,36 +15,16 @@ import {
   type CaptionOption,
   DISABLED_TEXT,
   errorText,
-  localFailure,
+  readLocalCaption,
   resultOption,
 } from './player-captions-options.ts';
 import { applyCaptionStyle, createTrackSlot } from './player-captions-track.ts';
-import { type CaptionsViewModel, createCaptionsView } from './player-captions-view.ts';
+import { bumpPlayerUi } from './player-ui-store.ts';
+import type { Captions, CaptionsActions, CaptionsViewModel } from './player-captions-types.ts';
 
-/**
- * Legendas do player: liga um `<track>` com o WebVTT no `<video>`, guarda a escolha, aplica o atraso e o
- * estilo. A busca e o download passam pelo servidor. As opções e o `<track>` ficam em módulos próprios.
- */
+/** Legendas do player: liga um `<track>` WebVTT no `<video>`, guarda a escolha, aplica atraso e estilo. Sem DOM de menu. */
 
-/** Mesmo teto do servidor: arquivo maior que isso não é legenda de filme. */
-const LOCAL_MAX_BYTES = 2 * 1024 * 1024;
-
-export interface CaptionsHost {
-  video(): HTMLVideoElement | null;
-  /** Onde o menu mora agora: a barra fixa ou o palco da tela de reprodução. Null quando o player está fechado. */
-  host(): HTMLElement | null;
-}
-
-export interface Captions {
-  /** Novo vídeo: esquece a escolha anterior e, se há preferência de idioma, busca e liga essa legenda. */
-  load(ctx: CaptionContext | null): void;
-  /** Tecla "c". */
-  toggle(): void;
-  clear(): void;
-  repaint(): void;
-}
-
-export const mountCaptions = (opts: CaptionsHost): Captions => {
+export const createCaptions = (opts: { video(): HTMLVideoElement | null }): Captions => {
   const slot = createTrackSlot();
   let ctx: CaptionContext | null = null;
   let addonOptions: CaptionOption[] = [];
@@ -64,14 +42,20 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
   let style: CaptionStyle = captionPrefs.style();
 
   const video = (): HTMLVideoElement | null => opts.video();
-  const announce = (text: string): void => view.announce(text);
+  let vm: CaptionsViewModel | null = null;
+  let live = { text: '', seq: 0 };
+  let open = false;
+  const announce = (text: string): void => {
+    live = { text, seq: live.seq + 1 };
+    bumpPlayerUi();
+  };
 
   const rebuild = (): void => {
     options = [...addonOptions, archive, ...searchOptions, local].filter((o): o is CaptionOption => o !== null);
   };
 
   const paint = (): void => {
-    const vm: CaptionsViewModel = {
+    vm = {
       current,
       currentLabel: options.find((o) => o.id === current)?.label ?? 'desligadas',
       options: options.map(({ id, label, detail }) => ({ id, label, detail })),
@@ -81,7 +65,7 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
       offsetMs,
       style,
     };
-    view.render(vm);
+    bumpPlayerUi();
   };
 
   const fail = (text: string): void => {
@@ -178,17 +162,10 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
   };
 
   const pickFile = async (file: File): Promise<void> => {
-    if (file.size > LOCAL_MAX_BYTES) return fail('arquivo grande demais para legenda (limite de 2 MB)');
     const startedFor = ctx;
     const startedToken = token;
-    let vtt: string;
-    try {
-      const converted = toWebVtt(decodeSubtitleBytes(new Uint8Array(await file.arrayBuffer())));
-      if (!converted.ok) return fail(`não foi possível usar este arquivo: ${localFailure(converted.reason)}`);
-      vtt = converted.vtt;
-    } catch {
-      return fail('não foi possível ler este arquivo');
-    }
+    const read = await readLocalCaption(file);
+    if (!read.ok) return fail(read.message);
     // O vídeo pode ter trocado durante a leitura: esse arquivo não é da legenda do vídeo novo.
     if (ctx !== startedFor || token !== startedToken) return;
     local = {
@@ -196,7 +173,7 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
       label: file.name.slice(0, 60),
       detail: 'arquivo do seu aparelho',
       code: null,
-      load: () => Promise.resolve(vtt),
+      load: () => Promise.resolve(read.vtt),
     };
     rebuild();
     await select(LOCAL_OPTION);
@@ -216,13 +193,13 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
     paint();
   };
 
-  const view = createCaptionsView({
+  const actions: CaptionsActions = {
     select: (id) => void select(id),
     search: () => void runSearch(),
     pickFile: (file) => void pickFile(file),
     offset: changeOffset,
     style: setStyle,
-  });
+  };
 
   const resetState = (next: CaptionContext | null): void => {
     ctx = next;
@@ -299,13 +276,23 @@ export const mountCaptions = (opts: CaptionsHost): Captions => {
     token++;
     slot.drop();
     resetState(null);
-    view.close();
+    open = false;
     paint();
   };
 
-  const repaint = (): void => view.mount(opts.host());
-
   applyCaptionStyle(video(), style);
   paint();
-  return { load, toggle, clear, repaint };
+  return {
+    load,
+    toggle,
+    clear,
+    view: () => vm as CaptionsViewModel,
+    announcement: () => live,
+    isOpen: () => open,
+    setOpen: (next) => {
+      open = next;
+      bumpPlayerUi();
+    },
+    actions,
+  };
 };

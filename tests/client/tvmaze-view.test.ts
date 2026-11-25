@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { TvmazeMoreDto } from '../../src/client/api/index.ts';
-import { akasHtml, channelsHtml, crewHtml, episodeTypeTag, externalLinksHtml, factsOf, galleryHtml, groupCrew, metaByEpisode, nextPrevHtml, personCardHtml, seasonSummaryText } from '../../src/client/catalog/tvmaze-view.ts';
+import { channelKind, episodeTypeTag, externalLinks, factsOf, groupCrew, metaByEpisode, seasonSummaryText, showAgenda } from '../../src/client/catalog/tvmaze-view.ts';
 
 const person = (id: number, name: string, over: Record<string, unknown> = {}) => ({ id, name, imageUrl: null, country: null, birthday: null, deathday: null, gender: null, ...over });
 
@@ -12,16 +12,8 @@ const MORE = (over: Partial<TvmazeMoreDto> = {}): TvmazeMoreDto => ({
 });
 
 describe('tvmaze-view', () => {
-  test('escapa nome de pessoa e personagem vindos da API', () => {
-    const html = personCardHtml(person(1, '<img onerror=x>'), '"><script>', null);
-    expect(html).not.toContain('<img onerror');
-    expect(html).not.toContain('<script>');
-    expect(html).toContain('#/person/tvmaze/1');
-  });
-
-  test('equipe e galeria vazias não geram seção', () => {
-    expect(crewHtml([])).toBe('');
-    expect(galleryHtml([])).toBe('');
+  test('equipe vazia não gera grupos', () => {
+    expect(groupCrew([])).toEqual([]);
   });
 
   test('equipe agrupa por função sem repetir a mesma pessoa', () => {
@@ -44,23 +36,23 @@ describe('tvmaze-view', () => {
   });
 
   test('links externos só para ids presentes', () => {
-    expect(externalLinksHtml(MORE())).toBe('');
-    expect(externalLinksHtml(MORE({ externals: { imdb: 'tt0944947', thetvdb: 121361, tvrage: null } }))).toContain('imdb.com/title/tt0944947');
+    expect(externalLinks(MORE())).toEqual([]);
+    const links = externalLinks(MORE({ externals: { imdb: 'tt0944947', thetvdb: 121361, tvrage: null } }));
+    expect(links.map(([n]) => n)).toEqual(['IMDb', 'TheTVDB']);
+    expect(links[0]?.[1]).toContain('imdb.com/title/tt0944947');
   });
 
   test('onde assistir distingue streaming de TV', () => {
-    const html = channelsHtml(MORE({ channels: [{ name: 'HBO', country: 'United States', url: 'https://www.hbo.com/', web: false }, { name: 'Max', country: null, url: null, web: true }] }));
-    expect(html).toContain('TV');
-    expect(html).toContain('streaming');
+    expect(channelKind({ web: false })).toBe('TV');
+    expect(channelKind({ web: true })).toBe('streaming');
   });
 
   test('série encerrada sem próximo episódio não mostra aviso de agenda', () => {
-    expect(nextPrevHtml(MORE({ status: 'Ended' }))).toBe('');
-    expect(nextPrevHtml(MORE({ status: 'Running' }))).toContain('sem próximo episódio');
+    expect(showAgenda(MORE({ status: 'Ended' }))).toBe(false);
+    expect(showAgenda(MORE({ status: 'Running' }))).toBe(true);
   });
 
-  test('akas e notas por episódio', () => {
-    expect(akasHtml(MORE({ akas: [{ name: 'Taht', country: 'Turkey' }] }))).toContain('Taht');
+  test('notas por episódio', () => {
     const meta = metaByEpisode([{ id: 1, season: 2, number: 3, name: 'x', airdate: null, airstamp: null, runtime: 50, rating: 8.64, type: 'regular', url: null, imageUrl: null }]);
     expect(meta.get('2:3')?.rating).toBe(8.64);
     expect(meta.get('9:9')).toBeUndefined();

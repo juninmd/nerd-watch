@@ -6,6 +6,7 @@ import { Avatar, Badge, Button, Kbd, NavRail, ToastProvider } from '@juninmd/son
 import { Fragment, useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
+import { PlayerDock } from '../player/player-dock-bar.tsx';
 import { Icon } from '../ui/icon.tsx';
 import { OverlayHost } from '../ui/overlay.tsx';
 import { ToastBridge } from '../ui/toast-bridge.tsx';
@@ -144,13 +145,13 @@ function Shell({ store, actions, paletteKey, canShare }: ShellOptions) {
           <div id="route-announcer" className="sr-only" aria-live="polite" />
         </div>
       </div>
-      <div id="dock" />
+      <PlayerDock />
       <OverlayHost />
     </ToastProvider>
   );
 }
 
-/** Desenha a casca de forma síncrona: quando volta, `#view` e `#dock` já existem no DOM. */
+/** Desenha a casca de forma síncrona: quando volta, `#view` e a barra do player (com o `<video>`) já existem no DOM. */
 export const mountShell = (host: HTMLElement, options: ShellOptions): void => {
   const root = createRoot(host);
   flushSync(() => root.render(<Shell {...options} />));

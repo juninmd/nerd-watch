@@ -110,3 +110,15 @@ export const uploadDate = (postedAt: string | null | undefined): { label: string
   if (Number.isNaN(d.getTime())) return null;
   return { label: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }), iso: d.toISOString() };
 };
+
+export type VideoFact = { kind: 'file'; label: string } | { kind: 'posted'; label: string; iso: string };
+
+/** Linhas do card de vídeo: nome do arquivo e data de upload. Sem nenhum dos dois, lista vazia (nada de linha em branco). */
+export const videoFacts = (item: Pick<TelegramItemDto, 'fileName' | 'postedAt'>): VideoFact[] => {
+  const facts: VideoFact[] = [];
+  const file = itemFileName(item);
+  if (file) facts.push({ kind: 'file', label: file });
+  const posted = uploadDate(item.postedAt);
+  if (posted) facts.push({ kind: 'posted', ...posted });
+  return facts;
+};

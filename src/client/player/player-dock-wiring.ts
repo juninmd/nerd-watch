@@ -1,18 +1,14 @@
-import { navigate } from '../app/router.ts';
 import { playbackSync } from './playback-service.ts';
-import { MAX_SPEED, MIN_SPEED, nextSpeed, SEEK_SECONDS } from './player-seek.ts';
-import type { DockItem } from './player-dock.ts';
 import type { OverlayController } from './player-overlay-controller.ts';
 import { getAutoplay, storeSpeed } from './player-prefs.ts';
 import { installMediaSession } from './player-media.ts';
-import { installPlayerKeyboard, seekVideo } from './player-keyboard.ts';
+import { installPlayerKeyboard } from './player-keyboard.ts';
 import { installDoubleTap } from './player-touch.ts';
 
 const SAVE_EVERY_MS = 5_000;
 
-/** O que os ouvintes do DOM precisam do player (estado fica em player-dock.ts). */
+/** O que os ouvintes do `<video>` precisam do player (estado fica em player-dock.ts). */
 export interface DockWiring {
-  item(): DockItem | undefined;
   /** Título do próximo da fila, ou null quando o atual é o último. */
   nextTitle(): string | null;
   overlays: OverlayController;
@@ -20,18 +16,24 @@ export interface DockWiring {
   attemptPlay(): void;
   syncControls(): void;
   syncProgress(): void;
-  syncSpeed(): void;
   step(delta: number): void;
-  stop(): void;
   queueEnded(): void;
   keyboardActive(): boolean;
   onError(): void;
   toggleCaptions(): void;
-  openCast(): void;
 }
 
-/** Liga os eventos do `<video>` e da barra fixa. Uma vez só: o elemento e a barra vivem a sessão toda. */
-export const wirePlayerDock = (dock: HTMLElement, el: HTMLVideoElement, api: DockWiring): void => {
+/** O `<video>` global: nasce uma vez, focável e sem tela cheia nativa no iPhone (`playsinline`). */
+export const createVideoElement = (): HTMLVideoElement => {
+  const el = document.createElement('video');
+  el.tabIndex = 0;
+  el.setAttribute('playsinline', '');
+  el.setAttribute('aria-label', 'Vídeo');
+  return el;
+};
+
+/** Liga os eventos do `<video>`. Uma vez só: o elemento vive a sessão toda (os botões são React). */
+export const wirePlayerVideo = (el: HTMLVideoElement, api: DockWiring): void => {
   let lastSave = 0;
 
   el.addEventListener('timeupdate', () => {
@@ -66,9 +68,13 @@ export const wirePlayerDock = (dock: HTMLElement, el: HTMLVideoElement, api: Doc
   // Velocidade: vale para a tecla, o botão, o menu nativo e o reset do load(); só valores válidos são gravados.
   el.addEventListener('ratechange', () => {
     storeSpeed(el.playbackRate);
-    api.syncSpeed();
+    api.syncControls();
   });
   el.addEventListener('error', api.onError);
+  // Volume, duração, buffer e saltos também mudam o que a barra mostra.
+  for (const type of ['volumechange', 'loadedmetadata', 'durationchange', 'progress', 'seeked']) {
+    el.addEventListener(type, api.syncProgress);
+  }
   installDoubleTap(el);
   installPlayerKeyboard({
     video: () => el,
@@ -78,27 +84,6 @@ export const wirePlayerDock = (dock: HTMLElement, el: HTMLVideoElement, api: Doc
     toggleCaptions: () => api.toggleCaptions(),
   });
 
-  dock.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
-    const item = api.item();
-    if (act === 'toggle') {
-      if (el.paused) api.attemptPlay();
-      else el.pause();
-    } else if (act === 'prev') api.step(-1);
-    else if (act === 'next') api.step(1);
-    else if (act === 'back') seekVideo(el, -SEEK_SECONDS);
-    else if (act === 'fwd') seekVideo(el, SEEK_SECONDS);
-    else if (act === 'speed')
-      el.playbackRate = el.playbackRate >= MAX_SPEED ? MIN_SPEED : nextSpeed(el.playbackRate, 1);
-    else if (act === 'close') api.stop();
-    else if (act === 'cast') api.openCast();
-    else if ((act === 'expand' || target.closest('.dock-title')) && item) navigate(item.route);
-  });
-  (dock.querySelector('.dock-seek') as HTMLInputElement).addEventListener('input', (e) => {
-    const d = el.duration;
-    if (d && Number.isFinite(d)) el.currentTime = (Number((e.target as HTMLInputElement).value) / 1000) * d;
-  });
   window.addEventListener('pagehide', () => {
     api.persist();
     playbackSync.flushKeepalive();
@@ -110,5 +95,5 @@ export const wirePlayerDock = (dock: HTMLElement, el: HTMLVideoElement, api: Doc
   });
 
   installMediaSession(el, { play: api.attemptPlay, step: api.step });
-  api.syncSpeed();
+  api.syncControls();
 };

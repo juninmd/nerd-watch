@@ -19,19 +19,6 @@ const contrastRatio = (a: string, b: string): number => {
   return (hi + 0.05) / (lo + 0.05);
 };
 
-const channels = (hex: string): number[] => {
-  const n = Number.parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-
-// Alpha compõe a cor do texto com o fundo antes de medir o contraste.
-const compositeOver = (fg: string, bg: string, alpha: number): string => {
-  const front = channels(fg);
-  const back = channels(bg);
-  const mixed = front.map((v, i) => Math.round(v * alpha + (back[i] ?? 0) * (1 - alpha)));
-  return `#${mixed.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
-};
-
 const tokens = readFileSync(join(import.meta.dir, '../../src/client/styles/tokens.css'), 'utf8');
 const token = (name: string): string => {
   const m = tokens.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})\\s*;`));
@@ -42,15 +29,6 @@ const gradientStops = (): string[] => {
   const m = tokens.match(/--gradient:\s*linear-gradient\([^)]*\);/);
   if (!m) throw new Error('--gradient não encontrado');
   return m[0].match(/#[0-9a-fA-F]{6}/g) ?? [];
-};
-
-const library = readFileSync(join(import.meta.dir, '../../src/client/styles/library.css'), 'utf8');
-const countOpacity = (): number => {
-  const base = library.match(/\.chip \.count\s*\{[^}]*?opacity:\s*([\d.]+)/)?.[1];
-  const active = library.match(/\.chip\.active \.count\s*\{[^}]*?opacity:\s*([\d.]+)/)?.[1];
-  const value = active ?? base;
-  if (value === undefined) throw new Error('.chip .count sem opacity em library.css');
-  return Number(value);
 };
 
 const surfaces = ['bg', 'surface', 'surface-2', 'surface-hover'].map(token);
@@ -83,14 +61,6 @@ describe('contraste do texto branco sobre o gradiente primário', () => {
     for (const stop of stops) expect(contrastRatio('#ffffff', stop)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 
-  test('contagens dos chips ativos: branco composto com o alpha do CSS tem 4.5:1 em cada parada', () => {
-    const stops = gradientStops();
-    expect(stops.length).toBeGreaterThanOrEqual(2);
-    const alpha = countOpacity();
-    for (const stop of stops) {
-      expect(contrastRatio(compositeOver('#ffffff', stop, alpha), stop)).toBeGreaterThanOrEqual(AA_NORMAL);
-    }
-  });
 });
 
 describe('tema claro', () => {
@@ -114,12 +84,4 @@ describe('tema claro', () => {
     for (const stop of stops) expect(contrastRatio('#ffffff', stop)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 
-  test('contagens dos chips ativos: branco composto com o alpha do CSS tem 4.5:1 sobre o gradiente claro', () => {
-    const stops = light.match(/--gradient:\s*linear-gradient\([^)]*\);/)?.[0].match(/#[0-9a-fA-F]{6}/g) ?? [];
-    expect(stops.length).toBeGreaterThanOrEqual(2);
-    const alpha = countOpacity();
-    for (const stop of stops) {
-      expect(contrastRatio(compositeOver('#ffffff', stop, alpha), stop)).toBeGreaterThanOrEqual(AA_NORMAL);
-    }
-  });
 });

@@ -2,17 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { StatsSummary } from '../../src/server/stats/summary.ts';
 import { backlogView, formatDateBr, kpiCards, monthRows, yearOptions } from '../../src/client/stats/model.ts';
 import { shareCardModel } from '../../src/client/stats/share-model.ts';
-import {
-  axisTicks,
-  barList,
-  columnChart,
-  dataTable,
-  heatmapSvg,
-  niceMax,
-  ringSvg,
-  segmentedBar,
-  stackedColumnChart,
-} from '../../src/client/stats/charts.ts';
+import { axisTicks, niceMax, segmentBlocks, stackedLayout } from '../../src/client/stats/charts.ts';
 import { parseGoal } from '../../src/client/stats/goal.ts';
 import { goalView, heatLayout, libraryParts, yearStrip } from '../../src/client/stats/insights.ts';
 
@@ -148,45 +138,9 @@ describe('gráficos: escala, marcas focáveis e texto escapado', () => {
     expect(niceMax(1200)).toBe(2000);
   });
 
-  test('cada barra com valor é focável e carrega o tooltip; barra zero não é desenhada', () => {
-    const svg = columnChart(
-      [
-        { label: 'Jan', value: 0, tip: 'janeiro: nada' },
-        { label: 'Fev', value: 2, tip: 'fevereiro: 2' },
-      ],
-      { label: 'Teste', color: '#3987e5' },
-    );
-    expect(svg.match(/tabindex="0"/g)).toHaveLength(1);
-    expect(svg).toContain('data-tip="fevereiro: 2"');
-    expect(svg).not.toContain('janeiro: nada');
-  });
-
-  test('texto do usuário (gênero) é escapado; nada de markup injetado', () => {
-    const svg = barList([{ label: '<img src=x onerror=1>', value: 1, tip: '<b>x</b>' }], {
-      label: 'Gêneros',
-      color: '#3987e5',
-    });
-    expect(svg).not.toContain('<img');
-    expect(svg).toContain('&lt;img');
-    expect(svg).not.toContain('<b>x</b>');
-  });
-
-  test('empilhado: um segmento focável por série com valor', () => {
-    const svg = stackedColumnChart(
-      [{ label: 'Mar', segments: [3, 0], tips: ['março: 3 conclusões', 'março: 0 revisões'] }],
-      {
-        label: 'Mês',
-        colors: ['#3987e5', '#d95926'],
-      },
-    );
-    expect(svg.match(/tabindex="0"/g)).toHaveLength(1);
-  });
-
-  test('tabela equivalente traz legenda, cabeçalhos e células escapadas', () => {
-    const html = dataTable('Por mês', ['Mês', 'Conclusões'], [['Mar', '<3>']]);
-    expect(html).toContain('<caption>Por mês</caption>');
-    expect(html).toContain('&lt;3&gt;');
-    expect(html).toContain('scope="col"');
+  test('empilhado: segmento zerado não é desenhado; cada série com valor vira uma marca', () => {
+    const { columns } = stackedLayout([{ label: 'Mar', segments: [3, 0], tips: ['março: 3 conclusões', 'março: 0 revisões'] }]);
+    expect(columns[0]?.segments).toEqual([{ series: 0, value: 3, tip: 'março: 3 conclusões', cap: true }]);
   });
 });
 
@@ -207,23 +161,22 @@ describe('eixo de contagens: marcas sempre inteiras', () => {
     for (let v = 0; v <= 2500; v++) for (const t of axisTicks(v)) expect(Number.isInteger(t)).toBe(true);
   });
 
-  test('só a coluna mais alta leva o número na ponta', () => {
-    const html = columnChart(
-      [
-        { label: 'A', value: 2, tip: 'a' },
-        { label: 'B', value: 7, tip: 'b' },
-        { label: 'C', value: 7, tip: 'c' },
-      ],
-      { label: 'Teste', color: '#3987e5' },
-    );
-    expect(html.match(/class="chart-val"/g)).toHaveLength(1);
-    expect(html).toContain('<span class="chart-val" aria-hidden="true">7</span>');
+  test('só a coluna mais alta leva o número na ponta (a primeira, em empate)', () => {
+    const { columns } = stackedLayout([
+      { label: 'A', segments: [2], tips: ['a'] },
+      { label: 'B', segments: [7], tips: ['b'] },
+      { label: 'C', segments: [7], tips: ['c'] },
+    ]);
+    expect(columns.map((c) => c.capLabel)).toEqual([null, '7', null]);
+    expect(stackedLayout([{ label: 'Z', segments: [0], tips: ['z'] }]).columns[0]?.capLabel).toBeNull();
   });
 
   test('empilhado: só o segmento de cima leva a ponta arredondada', () => {
-    const html = stackedColumnChart([{ label: 'Mar', segments: [3, 2], tips: ['c', 'r'] }], { label: 'Mês', colors: ['#3987e5', '#d95926'] });
-    expect(html.match(/chart-bar is-cap/g)).toHaveLength(1);
-    expect(html.indexOf('is-cap')).toBeGreaterThan(html.indexOf('background:#3987e5'));
+    const { columns } = stackedLayout([{ label: 'Mar', segments: [3, 2], tips: ['c', 'r'] }]);
+    expect(columns[0]?.segments.map((x) => [x.series, x.cap])).toEqual([
+      [0, false],
+      [1, true],
+    ]);
   });
 });
 
@@ -232,20 +185,20 @@ describe('mapa de atividade', () => {
     const layout = heatLayout(2026, summary().period.days);
     expect(layout.cells).toHaveLength(365);
     // 1º de janeiro de 2026 é quinta-feira (linha 4), na primeira coluna.
-    expect(layout.cells[0]).toMatchObject({ date: '2026-01-01', col: 0, row: 4, level: 0 });
+    expect(layout.cells[0]).toMatchObject({ date: '2026-01-01', col: 0, row: 4, events: 0 });
     expect(layout.cells[364]).toMatchObject({ date: '2026-12-31', row: 4 });
     expect(layout.weeks).toBe(53);
     expect(heatLayout(2024, []).cells).toHaveLength(366);
   });
 
-  test('nível em quartos do dia mais movimentado; dia sem evento fica no nível 0', () => {
+  test('cada dia leva os eventos e o texto do tooltip; dia sem evento fica em zero', () => {
     const layout = heatLayout(2026, summary().period.days);
     const byDate = Object.fromEntries(layout.cells.map((c) => [c.date, c]));
-    expect(byDate['2026-03-01']?.level).toBe(1);
-    expect(byDate['2026-03-02']?.level).toBe(4);
+    expect(byDate['2026-03-01']?.events).toBe(1);
+    expect(byDate['2026-03-02']?.events).toBe(4);
     expect(byDate['2026-03-02']?.tip).toBe('2 de março: 4 eventos');
     expect(byDate['2026-03-01']?.tip).toBe('1 de março: 1 evento');
-    expect(byDate['2026-03-03']?.level).toBe(0);
+    expect(byDate['2026-03-03']?.events).toBe(0);
   });
 
   test('um rótulo por mês, na coluna da semana em que ele começa', () => {
@@ -255,12 +208,6 @@ describe('mapa de atividade', () => {
     expect(months[1]?.col).toBe(5);
   });
 
-  test('SVG: só os dias ativos são focáveis e carregam tooltip', () => {
-    const svg = heatmapSvg(heatLayout(2026, summary().period.days), { label: 'Atividade', weekdays: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] });
-    expect(svg.match(/tabindex="0"/g)).toHaveLength(2);
-    expect(svg.match(/<rect /g)).toHaveLength(365);
-    expect(svg).toContain('data-tip="2 de março: 4 eventos"');
-  });
 });
 
 describe('composição da biblioteca', () => {
@@ -272,20 +219,16 @@ describe('composição da biblioteca', () => {
   });
 
   test('barra: parte zerada não é desenhada nem entra na legenda; fatia pequena fica sem texto', () => {
-    const html = segmentedBar(
-      [
-        { label: 'A', value: 9, color: '#199e70', tip: 'A: 9' },
-        { label: 'B', value: 0, color: '#c98500', tip: 'B: 0' },
-        { label: '<b>C</b>', value: 1, color: '#3987e5', tip: 'C: 1' },
-      ],
-      { label: 'Teste' },
-    );
-    expect(html.match(/class="seg"/g)).toHaveLength(2);
-    expect(html).toContain('>90%</div>');
-    expect(html).not.toContain('>10%</div>');
-    expect(html).not.toContain('B: 0');
-    expect(html).not.toContain('<b>C</b>');
-    expect(segmentedBar([{ label: 'A', value: 0, color: '#199e70', tip: 'A' }], { label: 'Vazio' })).toBe('');
+    const blocks = segmentBlocks([
+      { label: 'A', value: 9, color: '#199e70', tip: 'A: 9' },
+      { label: 'B', value: 0, color: '#c98500', tip: 'B: 0' },
+      { label: 'C', value: 1, color: '#3987e5', tip: 'C: 1' },
+    ]);
+    expect(blocks.map((b) => [b.label, b.text])).toEqual([
+      ['A', '90%'],
+      ['C', ''],
+    ]);
+    expect(segmentBlocks([{ label: 'A', value: 0, color: '#199e70', tip: 'A' }])).toEqual([]);
   });
 });
 
@@ -319,12 +262,6 @@ describe('meta do ano', () => {
     for (const bad of ['', '0', '1000', '-3', '2.5', 'abc', '1e2', null, undefined]) expect(parseGoal(bad)).toBeNull();
   });
 
-  test('anel: o arco é limitado entre vazio e cheio', () => {
-    expect(ringSvg(0.5)).toContain('--gap:163.36');
-    expect(ringSvg(3)).toContain('--gap:0.00');
-    expect(ringSvg(-1)).not.toContain('ring-fill');
-    expect(ringSvg(0)).toContain('ring-track');
-  });
 });
 
 describe('faixa "Seu ano" da tela inicial', () => {
