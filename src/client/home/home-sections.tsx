@@ -169,7 +169,7 @@ export function AddonTile({ addon }: { addon: AddonDto }) {
       onClick={go}
       onKeyDown={enterKey(go)}
     >
-      <span className="addon-logo">
+      <span className="addon-logo" aria-hidden="true">
         {/* O logo vem do servidor do addon: não envia o referrer. */}
         {addon.logo ? (
           <Artwork ratio="square" title={addon.name} src={addon.logo} referrerPolicy="no-referrer" />

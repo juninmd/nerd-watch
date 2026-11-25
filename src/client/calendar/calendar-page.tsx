@@ -116,6 +116,7 @@ export function CalendarPage() {
           counts={countByDay([...data.entries, ...data.discover])}
           value={dayFilter}
           onChange={setDayFilter}
+          dayLabel={(d) => `${d.isToday ? 'hoje, ' : ''}${dayLabel(d.iso)}: ${d.count} lançamento(s)`}
         />
       )}
       <div className="cal-filters">
