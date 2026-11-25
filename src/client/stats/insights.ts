@@ -11,12 +11,11 @@ import { formatCount, formatHours, MONTH_LONG, MONTH_SHORT, plural } from './mod
 const DAY_MS = 86_400_000;
 
 /**
- * Um quadrado por dia do ano, em colunas de semana (domingo abre) e linhas de dia da semana. O nível vai de 1 a 4
- * em quartos do dia mais movimentado: com poucos eventos o mapa ainda mostra diferença, sem escala fixa.
+ * Um quadrado por dia do ano, em colunas de semana (domingo abre) e linhas de dia da semana. A faixa de cor de
+ * cada dia é do Heatmap do Sonido (quantis dos dias ativos).
  */
 export const heatLayout = (year: number, days: DayActivity[]): HeatLayout => {
   const counts = new Map(days.map((d) => [d.date, d.events]));
-  const max = Math.max(0, ...days.map((d) => d.events));
   const start = Date.UTC(year, 0, 1);
   const total = Math.round((Date.UTC(year + 1, 0, 1) - start) / DAY_MS);
   const offset = new Date(start).getUTCDay();
@@ -33,7 +32,7 @@ export const heatLayout = (year: number, days: DayActivity[]): HeatLayout => {
       date,
       col,
       row: (i + offset) % 7,
-      level: events === 0 ? 0 : Math.min(4, Math.max(1, Math.ceil((events / max) * 4))),
+      events,
       tip: `${when}: ${formatCount(events)} ${plural(events, 'evento', 'eventos')}`,
     });
   }
@@ -45,25 +44,14 @@ export const heatLayout = (year: number, days: DayActivity[]): HeatLayout => {
  * foi validada nessa sequência: vizinhos distinguíveis com daltonismo no fundo escuro.
  */
 const STATUS_PARTS = [
-  { key: 'watched', label: 'Assistido', color: '#199e70' },
-  { key: 'watching', label: 'Assistindo', color: '#c98500' },
-  { key: 'want', label: 'Quero ver', color: '#3987e5' },
-  { key: 'dropped', label: 'Abandonado', color: '#e66767' },
+  { key: 'watched', label: 'Assistido', tone: 'success' },
+  { key: 'watching', label: 'Assistindo', tone: 'warning' },
+  { key: 'want', label: 'Quero ver', tone: 'info' },
+  { key: 'dropped', label: 'Abandonado', tone: 'danger' },
 ] as const;
 
-export const libraryParts = (s: StatsSummary): BarPart[] => {
-  const total = s.library.total;
-  return STATUS_PARTS.map((p) => {
-    const value = s.library.byStatus[p.key];
-    const share = total > 0 ? Math.round((value / total) * 100) : 0;
-    return {
-      label: p.label,
-      value,
-      color: p.color,
-      tip: `${p.label}: ${formatCount(value)} ${plural(value, 'título', 'títulos')} (${share}%)`,
-    };
-  });
-};
+export const libraryParts = (s: StatsSummary): BarPart[] =>
+  STATUS_PARTS.map((p) => ({ label: p.label, value: s.library.byStatus[p.key], tone: p.tone }));
 
 export interface GoalView {
   /** 0 a 1 para o anel; passa de 1 quando a meta foi superada (o anel satura em cheio). */

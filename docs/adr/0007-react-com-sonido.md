@@ -14,15 +14,19 @@ mas é uma biblioteca React. Usar 100% dele exige que o cliente renderize com Re
 
 1. **React + Sonido como base de UI**: `react`, `react-dom` e `@juninmd/sonido` entram como dependências;
    `tsconfig` usa `jsx: react-jsx`; `styles.css` importa `@juninmd/sonido/styles.css` antes do CSS local.
-2. **Migração em etapas, uma feature por PR**: a casca (`app/shell.tsx`) vira React primeiro e expõe `#view`
-   para as telas vanilla. Cada PR seguinte migra uma feature para React com componentes do Sonido e apaga os
-   componentes e o CSS locais que ficaram sem uso.
+2. **Reescrita completa**: a casca (`app/shell.tsx`) virou React primeiro (PR #239) e, em seguida, todas as telas
+   num só PR, apagando os componentes e o CSS locais que ficaram sem uso. Não há mais tela vanilla.
 3. **Componente que falta no Sonido vai para o Sonido**, não fica como cópia local: enquanto não existir,
    a peça local é listada no PR como pendência.
 
 ## Consequências
 
-- Bundle de entrada cresce de 119 kB para 330 kB (React) e o CSS de 104 kB para 232 kB (Sonido); total em brotli de 157 kB para 231 kB.
-- Duas formas de desenhar convivem até o fim da migração; telas novas já nascem em React.
-- O NavRail do Sonido usa `<button>` em vez de `<a href>`: clique do meio e "abrir em nova aba" no menu deixam
-  de existir até o Sonido aceitar `href` nos itens.
+- Bundle de entrada cresce de 119 kB para 351 kB (React) e o CSS de 104 kB para 202 kB (Sonido); total em brotli de
+  157 kB para 230 kB.
+
+## Pendências no Sonido
+
+O Sonido 2.2.0 trouxe o que faltava (nível do título em `PageHeader`/`EmptyState`, `href` em `Button` e `NavRail`,
+ícone em `Carousel`/`FilterChips`, opção desabilitada no `Select`, `Accordion.onToggle`, `referrerPolicy` em
+`Artwork`/`Avatar`, `Hero` recolhível com pôster e corpo, `StackedColumns`, `SegmentedBar`, `Legend` e `WeekStrip`), e
+o cliente passou a usar essas peças no lugar das cópias locais. Ainda sem equivalente: fila e overlays do player.

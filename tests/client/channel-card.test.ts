@@ -1,8 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { videoCardHtml } from '../../src/client/channels/channel-card.ts';
-import { uploadDate } from '../../src/client/channels/telegram-items.ts';
-
-const item = { messageId: '5', caption: 'Ep 1', fileName: 'ep<1>.mkv', postedAt: '2026-11-12T15:00:00Z', thumbnailUrl: null, durationSeconds: 90 } as never;
+import { uploadDate, videoFacts } from '../../src/client/channels/telegram-items.ts';
 
 describe('uploadDate', () => {
   test('formata em pt-BR e devolve o ISO; inválida ou ausente vira null', () => {
@@ -12,16 +9,16 @@ describe('uploadDate', () => {
   });
 });
 
-describe('videoCardHtml', () => {
-  test('mostra nome do arquivo (escapado) e data de upload no card', () => {
-    const html = videoCardHtml(item, null, false);
-    expect(html).toContain('ep&lt;1&gt;.mkv');
-    expect(html).not.toContain('ep<1>');
-    expect(html).toContain('<time datetime="2026-11-12T15:00:00.000Z">');
+describe('videoFacts', () => {
+  test('card mostra o nome do arquivo cru (o JSX escapa) e a data de upload com ISO para o datetime', () => {
+    expect(videoFacts({ fileName: ' ep<1>.mkv ', postedAt: '2026-11-12T15:00:00Z' })).toEqual([
+      { kind: 'file', label: 'ep<1>.mkv' },
+      { kind: 'posted', label: expect.stringMatching(/12.*nov.*2026/), iso: '2026-11-12T15:00:00.000Z' },
+    ]);
   });
 
-  test('sem arquivo nem data não renderiza linhas vazias', () => {
-    const html = videoCardHtml({ ...(item as object), fileName: null, postedAt: null } as never, null, false);
-    expect(html).not.toContain('tg-fact');
+  test('sem arquivo nem data não gera linhas vazias', () => {
+    expect(videoFacts({ fileName: null, postedAt: null })).toEqual([]);
+    expect(videoFacts({ fileName: '  ', postedAt: 'lixo' })).toEqual([]);
   });
 });

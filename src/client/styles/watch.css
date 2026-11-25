@@ -32,8 +32,7 @@
 }
 
 /* `display` do vídeo acima venceria o atributo hidden: sem esta regra o <video> aparece atrás do iframe. */
-.watch-stage video[hidden],
-.watch-embed-bar[hidden] {
+.watch-stage video[hidden] {
   display: none;
 }
 
@@ -127,19 +126,6 @@
 .watch-next-head h2 {
   margin: 0;
   font-size: 16px;
-}
-
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-
-.switch input {
-  accent-color: var(--accent);
 }
 
 .next-item {
@@ -242,19 +228,7 @@
 }
 
 .watch-order {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
   margin-bottom: 10px;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--text-dim);
-}
-
-.watch-order .select {
-  flex: 1;
-  max-width: 220px;
 }
 
 .next-channel .next-thumb {
@@ -278,10 +252,6 @@
   padding: 16px;
   background: rgba(6, 7, 12, 0.86);
   backdrop-filter: blur(6px);
-}
-
-.watch-end[hidden] {
-  display: none;
 }
 
 .watch-end-card {
@@ -379,14 +349,6 @@
 .resume-bar {
   position: absolute;
   inset: auto 0 0;
-  height: 4px;
-  background: rgba(0, 0, 0, 0.6);
-}
-
-.resume-bar i {
-  display: block;
-  height: 100%;
-  background: var(--accent);
 }
 
 .resume-text {
@@ -411,7 +373,7 @@
   font-size: 12px;
 }
 
-/* Player do app embutido em outras telas (Archive, torrent). */
+/* Player do app embutido em outras telas (Archive, torrent, Commons). */
 .inline-player .watch-stage {
   max-height: 70vh;
 }
@@ -433,10 +395,6 @@
   text-align: center;
 }
 
-.inline-overlay[hidden] {
-  display: none;
-}
-
 .inline-overlay-card {
   display: flex;
   flex-direction: column;
@@ -449,12 +407,42 @@
   font-size: 12.5px;
 }
 
-.link-btn {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--link);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
+/* Painel P2P e busca de legendas na lateral do título: botões de largura cheia e linhas compactas. */
+.torrent-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.torrent-panel .hint {
+  margin: 0;
+}
+
+.torrent-start,
+.torrent-stop,
+.commons-link {
+  width: 100%;
+  justify-content: center;
+}
+
+.commons-link {
+  margin-bottom: 8px;
+}
+
+.subtitle-row {
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.subtitle-row .head {
+  margin-bottom: 0;
+}
+
+.subtitle-row .name {
+  font-size: 13px;
+}
+
+.subtitle-row .overview {
+  font-size: 11px;
 }

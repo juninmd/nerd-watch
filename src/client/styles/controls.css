@@ -58,19 +58,6 @@
   resize: vertical;
 }
 
-/* Variante compacta para controles dentro de painéis (legendas, filtros). */
-.input-sm {
-  padding: 6px 10px;
-  font-size: 13px;
-}
-
-.input-pill {
-  border-radius: 999px;
-  width: auto;
-  /* width:auto deixa o select do tamanho da opção mais longa; sem o teto ele estoura telas de 390px. */
-  max-width: 100%;
-}
-
 .input.grow {
   flex: 1;
   min-width: 220px;
@@ -86,18 +73,6 @@
   cursor: not-allowed;
   filter: none;
   transform: none;
-}
-
-.btn-danger {
-  background: rgba(248, 113, 113, 0.12);
-  color: var(--danger);
-  border: 1px solid rgba(248, 113, 113, 0.35);
-}
-
-@media (hover: hover) {
-  .btn-danger:not(:disabled):hover {
-    background: rgba(248, 113, 113, 0.2);
-  }
 }
 
 .view-head {
@@ -135,35 +110,9 @@ input[type="checkbox"] {
   accent-color: var(--accent);
 }
 
-/* Card em modo seleção */
-.card .select-mark {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  background: rgba(10, 11, 18, 0.55);
-  display: grid;
-  place-items: center;
-  color: white;
-  font-size: 13px;
-  font-weight: 800;
-}
-
 .card.is-selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent);
-}
-
-.card.is-selected .select-mark {
-  background: var(--gradient);
-  border-color: transparent;
-}
-
-.card.is-selected .select-mark::after {
-  content: "✓";
 }
 
 /* Diálogo modal nativo (<dialog>) */
@@ -190,18 +139,6 @@ input[type="checkbox"] {
   backdrop-filter: blur(4px);
 }
 
-.dialog-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.dialog-head h2 {
-  margin: 0;
-  font-size: 17px;
-}
-
 .dialog-body {
   flex: 1;
   min-height: 160px;
@@ -216,60 +153,3 @@ input[type="checkbox"] {
   margin: 0;
 }
 
-.dialog-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.check-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-soft);
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.check-row:last-child {
-  border-bottom: none;
-}
-
-@media (hover: hover) {
-  .check-row:hover:not(.is-disabled) {
-    background: var(--surface-hover);
-  }
-}
-
-.check-row.is-disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.check-all {
-  position: sticky;
-  top: 0;
-  background: var(--surface-2);
-  font-weight: 600;
-  color: var(--text-dim);
-}
-
-.check-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.check-text strong,
-.check-text small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.check-text small {
-  color: var(--text-faint);
-  font-size: 12px;
-}

@@ -41,16 +41,6 @@ describe('sourceRows', () => {
   });
 });
 
-describe('contagem na agenda', () => {
-  test('cartão da agenda mostra "hoje" na data de hoje', async () => {
-    const { cardHtml } = await import('../../src/client/calendar/calendar-card.ts');
-    const { localIsoDate } = await import('../../src/client/ui/time-format.ts');
-    const { titleId: _t, ...e } = entry(localIsoDate(new Date()));
-    expect(cardHtml(e, null)).toContain('<span class="cal-countdown">hoje</span>');
-    expect(cardHtml({ ...e, date: '2000-01-01' }, null)).not.toContain('cal-countdown');
-  });
-});
-
 describe('sourceRows com latência', () => {
   test('mostra ms de quem respondeu e "sem resposta" de quem falhou', () => {
     const h = { ok: true, tmdbEnabled: true, openSubtitlesEnabled: true, torrentEnabled: true, telegramBotEnabled: true, notifyEnabled: true, notifyLeadDays: 1, accessEnabled: false };

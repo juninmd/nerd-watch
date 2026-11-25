@@ -23,7 +23,7 @@
     "desktop:build": "bun run build:client && bun run build:server && tauri build"
   },
   "dependencies": {
-    "@juninmd/sonido": "2.0.0",
+    "@juninmd/sonido": "2.2.1",
     "@tauri-apps/api": "^2.12.4",
     "hono": "^4.6.14",
     "parse-torrent": "^11.0.24",

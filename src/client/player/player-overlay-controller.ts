@@ -1,11 +1,7 @@
-import {
-  cancelCountdown,
-  type Countdown,
-  startCountdown,
-  tickCountdown,
-  UP_NEXT_SECONDS,
-} from './player-countdown.ts';
-import { type OverlayView, showTapToPlay, showUpNext } from './player-overlays.ts';
+import { cancelCountdown, type Countdown, startCountdown, tickCountdown, UP_NEXT_SECONDS } from './player-countdown.ts';
+
+/** O que o palco (ou a barra fixa) desenha por cima do vídeo agora. */
+type OverlayState = { kind: 'tap' } | { kind: 'upnext'; title: string; remaining: number } | null;
 
 export interface OverlayController {
   /** Autoplay bloqueado pelo navegador: pede um toque do usuário. */
@@ -14,8 +10,11 @@ export interface OverlayController {
   startUpNext(title: string): void;
   /** Some com qualquer overlay (novo vídeo, reprodução retomada, player fechado). */
   clear(): void;
-  /** Recoloca o overlay quando o palco muda de lugar (página <-> barra fixa). */
-  repaint(): void;
+  state(): OverlayState;
+  /** Toque no "Toque para reproduzir": é o gesto que o navegador exige. */
+  tap(): void;
+  playNow(): void;
+  cancelUpNext(): void;
 }
 
 interface UpNext {
@@ -24,47 +23,19 @@ interface UpNext {
   timer: ReturnType<typeof setInterval>;
 }
 
-/** Estado dos overlays do player (toque para reproduzir e próximo vídeo). O DOM fica em player-overlays.ts. */
+/** Estado dos overlays do player (toque para reproduzir e próximo vídeo). O desenho fica em player-overlays.tsx. */
 export const createOverlayController = (opts: {
-  host(): HTMLElement | null;
+  onChange(): void;
   onNext(): void;
   onTap(): void;
 }): OverlayController => {
   let tapPending = false;
   let upNext: UpNext | null = null;
-  let view: OverlayView | null = null;
-
-  const paint = (): void => {
-    view?.remove();
-    view = null;
-    const host = opts.host();
-    if (!host) return;
-    if (upNext) {
-      view = showUpNext(host, {
-        title: upNext.title,
-        remaining: upNext.countdown.remaining,
-        onPlayNow: () => {
-          stopUpNext();
-          opts.onNext();
-        },
-        onCancel: () => {
-          if (upNext) upNext.countdown = cancelCountdown(upNext.countdown);
-          stopUpNext();
-        },
-      });
-    } else if (tapPending) {
-      view = showTapToPlay(host, () => {
-        tapPending = false;
-        paint();
-        opts.onTap();
-      });
-    }
-  };
 
   const stopUpNext = (): void => {
     if (upNext) clearInterval(upNext.timer);
     upNext = null;
-    paint();
+    opts.onChange();
   };
 
   const tick = (): void => {
@@ -75,25 +46,41 @@ export const createOverlayController = (opts: {
       opts.onNext();
       return;
     }
-    view?.setRemaining?.(upNext.countdown.remaining);
+    opts.onChange();
   };
 
   return {
     askTap() {
       tapPending = true;
-      paint();
+      opts.onChange();
     },
     startUpNext(title) {
       if (upNext) clearInterval(upNext.timer);
       upNext = { title, countdown: startCountdown(UP_NEXT_SECONDS), timer: setInterval(tick, 1000) };
-      paint();
+      opts.onChange();
     },
     clear() {
       tapPending = false;
       if (upNext) clearInterval(upNext.timer);
       upNext = null;
-      paint();
+      opts.onChange();
     },
-    repaint: paint,
+    state() {
+      if (upNext) return { kind: 'upnext', title: upNext.title, remaining: upNext.countdown.remaining };
+      return tapPending ? { kind: 'tap' } : null;
+    },
+    tap() {
+      tapPending = false;
+      opts.onChange();
+      opts.onTap();
+    },
+    playNow() {
+      stopUpNext();
+      opts.onNext();
+    },
+    cancelUpNext() {
+      if (upNext) upNext.countdown = cancelCountdown(upNext.countdown);
+      stopUpNext();
+    },
   };
 };

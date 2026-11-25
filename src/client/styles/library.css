@@ -3,14 +3,7 @@
   flex: 1;
 }
 
-.chip .count {
-  margin-left: 4px;
-  font-size: 11.5px;
-  opacity: 0.85;
-}
-
-/* Sobre o gradiente do chip ativo, alpha quebraria o AA do texto de 11.5px. */
-.chip.active .count {
+/* Sobre o gradiente do chip ativo {
   opacity: 1;
 }
 
@@ -19,31 +12,13 @@
   gap: 10px;
 }
 
-.grid.as-list .card {
+.grid.as-list > .poster-card {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
   align-items: center;
   gap: 16px;
-  /* Reserva a coluna do selo de status (absoluto, à direita): sem isso o título passa por baixo dele no celular. */
-  padding: 8px 140px 8px 8px;
+  padding: 8px;
   min-height: 72px;
-}
-
-.grid.as-list .card .poster {
-  width: 56px;
-  position: static;
-}
-
-.grid.as-list .card .badge-corner {
-  top: 50%;
-  right: 14px;
-  left: auto;
-  bottom: auto;
-  transform: translateY(-50%);
-}
-
-.toolbar[hidden] {
-  display: none;
 }
 
 .calendar-item:focus-visible {
@@ -53,74 +28,16 @@
 
 /* Faixa de 7 dias da Agenda. */
 .week-strip {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 18px;
+  margin: 0 0 18px;
 }
 
-.week-strip .day {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 10px 4px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-soft);
-  background: var(--surface);
-  color: var(--text-dim);
-}
-
-.week-strip .day small {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.week-strip .day b {
-  font-size: 20px;
-  color: var(--text);
-}
-
-.week-strip .dot {
-  min-width: 20px;
-  min-height: 18px;
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 18px;
-  color: #fff;
-}
-
-.week-strip .day.has .dot {
-  background: var(--gradient);
-}
-
-.week-strip .day.active {
-  border-color: var(--accent-2);
-  background: rgba(124, 92, 255, 0.14);
-}
-
-/* Detalhe do título: ações do herói e painel "Onde assistir". */
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 16px;
-}
-
+/* Detalhe do título: painel "Onde assistir". */
 .provider-group {
   margin-bottom: 12px;
 }
 
 .provider-group .hint {
   margin-bottom: 6px;
-}
-
-.where-link {
-  width: 100%;
-  justify-content: center;
-  margin-top: 6px;
 }
 
 .provider-name {
@@ -136,63 +53,16 @@
   outline-offset: 3px;
 }
 
-/* Sorteio "o que assistir hoje": diálogo modal com filtros, resultado (aria-live) e Outro/Abrir. */
-.pick-dialog {
-  width: min(440px, calc(100vw - 24px));
-  margin: 12vh auto auto;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  color: var(--text);
-}
-
-.pick-dialog::backdrop {
-  background: rgba(5, 6, 10, 0.7);
-  backdrop-filter: blur(4px);
-}
-
-.pick-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.pick-head h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.pick-head h2:focus-visible {
-  outline: 2px solid var(--accent-2);
-  outline-offset: 4px;
-  border-radius: 4px;
-}
-
-.pick-sub {
-  margin: 6px 0 14px;
-  font-size: 13px;
-  color: var(--text-dim);
-}
-
+/* Sorteio "o que assistir hoje": filtros, resultado (aria-live) dentro do Dialog do Sonido. */
 .pick-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  font-size: 13px;
-  color: var(--text-dim);
-}
-
-.pick-filters label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .pick-result {
   min-height: 120px;
-  margin: 16px 0;
+  margin: 16px 0 0;
 }
 
 .pick-card {
@@ -203,9 +73,7 @@
 
 .pick-card .thumb {
   flex: 0 0 72px;
-  aspect-ratio: 2 / 3;
   border-radius: var(--radius-sm);
-  background: var(--surface-2) center / cover no-repeat;
 }
 
 .pick-card .pick-name {
@@ -219,19 +87,13 @@
   color: var(--text-dim);
 }
 
-.pick-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
 /* Biblioteca grande: o navegador pula estilo, layout e pintura dos cards fora da tela (5000 itens: ~2,2 s para ~0,4 s
    por tecla no filtro). O tamanho reservado evita a barra de rolagem pular; `auto` guarda o real depois do 1º desenho. */
-#lib-list .grid > .card {
+#lib-list .grid > .poster-card {
   content-visibility: auto;
   contain-intrinsic-size: auto 168px auto 320px;
 }
 
-#lib-list .grid.as-list > .card {
+#lib-list .grid.as-list > .poster-card {
   contain-intrinsic-size: auto 600px auto 102px;
 }

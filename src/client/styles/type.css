@@ -9,9 +9,7 @@
 }
 
 .view-title,
-.section-head h2,
-.brand-name,
-.empty-state .view-title {
+.section-head h2 {
   font-family: var(--font-display);
   text-wrap: balance;
 }
@@ -28,7 +26,6 @@
 
 .stat-value,
 .stat-value-sm,
-.chart-row-value,
 .rewatch-count,
 .upnext-count,
 kbd {

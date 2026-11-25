@@ -11,6 +11,13 @@ export interface PlayerKeyContext {
   toggleCaptions(): void;
 }
 
+/** Foco dentro do player (`shell`), ou tela de reprodução (`/watch`, `/play`) sem foco em campo. */
+export const playerKeysActive = (shell: Element | null, pageMode: boolean): boolean => {
+  const focus = document.activeElement;
+  if (focus && shell?.contains(focus)) return true;
+  return pageMode && (!focus || focus === document.body) && /^#\/(watch|play)\//.test(location.hash);
+};
+
 /** Janela em que a tecla "c" logo depois de "g" é o atalho "g c" (Conexões), não legendas. Mesmo tempo de shortcuts.ts. */
 const G_PREFIX_MS = 1200;
 

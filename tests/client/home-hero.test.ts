@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { LibraryItemDto } from '../../src/client/api/index.ts';
-import { heroHtml, heroMeta, pickHero } from '../../src/client/home/home-hero.ts';
+import { heroMeta, pickHero } from '../../src/client/home/home-hero.ts';
 
 const item = (over: Partial<LibraryItemDto> = {}, title: Partial<LibraryItemDto['title']> = {}): LibraryItemDto => ({
   id: 'l1',
@@ -27,11 +27,5 @@ describe('destaque Continuar', () => {
   test('sem título em andamento não há destaque', () => {
     expect(pickHero([])).toBeNull();
     expect(pickHero([item()])?.title.title).toBe('Neon Atlas');
-  });
-
-  test('título e pôster vindos de fora são escapados', () => {
-    const html = heroHtml(item({}, { title: '<img src=x onerror=alert(1)>', posterUrl: 'x" onerror="alert(1)' }));
-    expect(html).not.toContain('<img src=x');
-    expect(html).not.toContain('" onerror="alert');
   });
 });

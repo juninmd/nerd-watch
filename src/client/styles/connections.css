@@ -32,16 +32,16 @@
   grid-column: 1 / -1;
 }
 
-.conn-stack {
-  display: contents;
-}
-
 .conn-card {
   padding: 22px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: var(--shadow-card);
+}
+
+.conn-body {
+  margin-top: 18px;
 }
 
 .conn-card:focus-visible {
@@ -81,36 +81,6 @@
   border-radius: 12px;
   background: var(--surface-2);
   color: var(--link);
-}
-
-#tg-body {
-  margin-top: 18px;
-}
-
-.chip-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  background: var(--surface-2);
-  color: var(--text-dim);
-}
-
-.chip-status.ok {
-  color: var(--success);
-}
-
-.chip-status.update {
-  color: #fff;
-  background: var(--gradient);
-}
-
-.conn-card.has-update {
-  border-color: var(--accent-2);
 }
 
 .conn-actions {
@@ -161,12 +131,6 @@
   color: var(--text-dim);
 }
 
-.field-err {
-  min-height: 0;
-  color: var(--danger);
-  font-size: 12.5px;
-}
-
 .pw-row {
   display: flex;
   gap: 8px;
@@ -174,64 +138,6 @@
 
 .pw-row .input {
   flex: 1;
-}
-
-.conn-more {
-  margin-top: 8px;
-  color: var(--text-dim);
-}
-
-.conn-more summary {
-  cursor: pointer;
-  font-size: 13.5px;
-  font-weight: 700;
-  padding: 6px 0;
-}
-
-.steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  margin: 0 0 18px;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-faint);
-}
-
-.steps li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.steps li > span {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  font-size: 12px;
-}
-
-.steps li.now {
-  color: var(--text);
-}
-
-.steps li.now > span {
-  background: var(--gradient);
-  border-color: transparent;
-  color: #fff;
-}
-
-.steps li.done {
-  color: var(--success);
-}
-
-.steps li.done > span {
-  border-color: var(--success);
 }
 
 .banner {
@@ -285,10 +191,6 @@
   font-size: 13.5px;
 }
 
-#gd-body {
-  margin-top: 12px;
-}
-
 /* Conta do Telegram logada: inicial num círculo + nome e @usuário. */
 .tg-account {
   display: flex;
@@ -300,10 +202,6 @@
   border-radius: 10px;
 }
 
-.tg-account-photo {
-  object-fit: cover;
-}
-
 .tg-account a.tg-account-handle {
   color: var(--text-dim);
   text-decoration: none;
@@ -313,18 +211,6 @@
 .tg-account a.tg-account-handle:focus-visible {
   color: var(--text);
   text-decoration: underline;
-}
-
-.tg-account-avatar {
-  flex: none;
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--accent, #2aabee);
-  color: #fff;
-  font-weight: 600;
 }
 
 .tg-account strong {
@@ -353,4 +239,18 @@
 
 .cred-field .pw-row {
   margin-top: 8px;
+}
+
+.cred-msg {
+  margin: 6px 0 0;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.cred-msg.is-ok {
+  color: var(--success);
+}
+
+.cred-msg:empty {
+  display: none;
 }

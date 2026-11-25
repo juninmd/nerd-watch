@@ -4,7 +4,7 @@ Nerd Watch: catálogo local-first de filmes, séries e mídia de domínio públi
 
 ## Stack
 
-- Bun, TypeScript, Hono, SQLite (`bun:sqlite`). Cliente em TS migrando para React com os componentes do [Sonido](https://github.com/juninmd/sonido) (`@juninmd/sonido`): casca já em React, telas ainda vanilla (ADR 0007). Desktop via Tauri (`src-tauri/`).
+- Bun, TypeScript, Hono, SQLite (`bun:sqlite`). Cliente em React com os componentes do [Sonido](https://github.com/juninmd/sonido) (`@juninmd/sonido`), sem outra lib de UI (ADR 0007). Desktop via Tauri (`src-tauri/`).
 - Catálogo: TMDB (requer `TMDB_API_KEY`), Internet Archive (coleções de domínio público e licença livre marcada), Wikimedia Commons (sem chave). Addons do Stremio só por link colado (`docs/providers/stremio-addons.md`).
 
 ## Comandos
@@ -20,7 +20,7 @@ bun run seed           # catálogo fictício para ver a interface com dados
 
 ## Estrutura
 
-- `src/client/<feature>/`: tela (`*-page.ts`), peças e lógica pura da feature. Rotas em `src/client/app/routes.ts`.
+- `src/client/<feature>/`: tela (`*-page.tsx`), peças e lógica pura da feature. Rotas em `src/client/app/routes.tsx`.
 - `src/client/api/<domínio>.ts`: chamadas HTTP tipadas. `src/client/ui/`: peças genéricas.
 - `src/server/routes/` (HTTP) → `src/server/repo/` (SQL) → `src/server/<domínio>/` (regra pura).
 - `tests/client`, `tests/server`, `tests/shared` espelham `src/`.
@@ -29,9 +29,9 @@ bun run seed           # catálogo fictício para ver a interface com dados
 ## Convenções
 
 - Lógica sem DOM vai em módulo próprio, com teste. O arquivo que toca o DOM só liga as pontas.
-- Dado externo (catálogo, arquivo, usuário) passa por `escapeHtml` antes de virar HTML.
+- UI só com componentes do Sonido; o que faltar nele vai para o Sonido, não vira componente local. Dado externo nunca entra por `dangerouslySetInnerHTML`.
 - Arquivos curtos e de um assunto só (a maioria tem menos de 300 linhas). Passou disso, divida por responsabilidade.
-- Comentários explicam o porquê, em pt-BR. Nomes de arquivo em kebab-case; telas terminam em `-page.ts`.
+- Comentários explicam o porquê, em pt-BR. Nomes de arquivo em kebab-case; telas terminam em `-page.tsx`.
 - SQL só em `src/server/repo/`. Migração sempre idempotente (`IF NOT EXISTS` ou checagem de coluna).
 
 ## Gotchas

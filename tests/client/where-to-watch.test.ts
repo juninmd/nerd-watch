@@ -1,31 +1,22 @@
 import { describe, expect, test } from 'bun:test';
-import { whereToWatchHtml } from '../../src/client/catalog/where-to-watch.ts';
+import { providerGroups } from '../../src/client/catalog/where-to-watch.tsx';
 
 const empty = { link: null, flatrate: [], rent: [], buy: [] };
 
-describe('whereToWatchHtml', () => {
-  test('sem nenhum serviço explica em vez de ficar vazio, e não oferece link', () => {
-    const html = whereToWatchHtml(empty);
-    expect(html).toContain('Nenhum streaming listado');
-    expect(html).not.toContain('where-link');
+describe('providerGroups', () => {
+  test('sem nenhum serviço não há grupo (o painel explica em vez de ficar vazio)', () => {
+    expect(providerGroups(empty)).toEqual([]);
   });
 
   test('agrupa por tipo de acesso com a contagem e omite grupos vazios', () => {
-    const html = whereToWatchHtml({ ...empty, flatrate: [{ name: 'A', logoUrl: null }, { name: 'B', logoUrl: null }], buy: [{ name: 'C', logoUrl: null }] });
-    expect(html).toContain('Incluso na assinatura (2)');
-    expect(html).toContain('Comprar (1)');
-    expect(html).not.toContain('Alugar');
-  });
-
-  test('logo reserva o espaço e carrega preguiçosa (sem salto de layout nem download fora da tela)', () => {
-    const html = whereToWatchHtml({ ...empty, flatrate: [{ name: 'A', logoUrl: 'https://img.test/a.png' }] });
-    expect(html).toContain('width="40" height="40" loading="lazy" decoding="async"');
-  });
-
-  test('escapa nomes e links vindos da API (sem HTML injetado)', () => {
-    const html = whereToWatchHtml({ ...empty, flatrate: [{ name: '<img src=x onerror=alert(1)>', logoUrl: null }], link: 'https://x.test/?a="b' });
-    expect(html).not.toContain('<img src=x');
-    expect(html).toContain('&lt;img src=x');
-    expect(html).not.toContain('"b"');
+    const labels = providerGroups({
+      ...empty,
+      flatrate: [
+        { name: 'A', logoUrl: null },
+        { name: 'B', logoUrl: null },
+      ],
+      buy: [{ name: 'C', logoUrl: null }],
+    }).map((g) => g.label);
+    expect(labels).toEqual(['Incluso na assinatura (2)', 'Comprar (1)']);
   });
 });

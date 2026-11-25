@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { onPlayError } from '../../src/client/player/player-error.ts';
-import { embedFrameHtml, EMBED_ALLOW, EMBED_SANDBOX, isEmbedUrl, playerKindOf } from '../../src/client/player/watch-embed.ts';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { EMBED_ALLOW, EMBED_SANDBOX, isEmbedUrl, playerKindOf } from '../../src/client/player/watch-embed.ts';
+import { EmbedFrame } from '../../src/client/player/watch-embed.tsx';
+
+const embedFrameHtml = (url: string, title: string): string =>
+  renderToStaticMarkup(createElement(EmbedFrame, { url, title }));
 
 describe('playerKindOf (player do app ou iframe)', () => {
   test('item com embed https toca por iframe', () => {
@@ -29,7 +35,7 @@ describe('isEmbedUrl', () => {
   });
 });
 
-describe('embedFrameHtml (iframe com sandbox e permissões mínimas)', () => {
+describe('EmbedFrame (iframe com sandbox e permissões mínimas)', () => {
   test('tem sandbox sem navegação de topo e allow só com o necessário', () => {
     const html = embedFrameHtml('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0', 'Vídeo');
     expect(html).toContain(`sandbox="${EMBED_SANDBOX}"`);
@@ -38,8 +44,8 @@ describe('embedFrameHtml (iframe com sandbox e permissões mínimas)', () => {
     expect(html).toContain(`allow="${EMBED_ALLOW}"`);
     expect(EMBED_ALLOW).not.toContain('camera');
     expect(EMBED_ALLOW).not.toContain('microphone');
-    expect(html).toContain('allowfullscreen');
-    expect(html).toContain('referrerpolicy="strict-origin-when-cross-origin"');
+    expect(html.toLowerCase()).toContain('allowfullscreen');
+    expect(html.toLowerCase()).toContain('referrerpolicy="strict-origin-when-cross-origin"');
   });
 
   test('escapa título e URL: nada sai do atributo', () => {
@@ -67,15 +73,21 @@ describe('onPlayError (erro do <video> vira embed ou mensagem)', () => {
   };
 
   test('resposta 409 com embedUrl https troca para o embed', async () => {
-    expect(await run({ error: 'só HLS', embedUrl: 'https://video.example.org/videos/embed/abc' })).toEqual({ embed: 'https://video.example.org/videos/embed/abc' });
+    expect(await run({ error: 'só HLS', embedUrl: 'https://video.example.org/videos/embed/abc' })).toEqual({
+      embed: 'https://video.example.org/videos/embed/abc',
+    });
   });
 
   test('embedUrl não https é recusado e vira mensagem', async () => {
-    expect(await run({ error: 'erro do servidor', embedUrl: 'http://evil.example/x' })).toEqual({ message: 'erro do servidor' });
+    expect(await run({ error: 'erro do servidor', embedUrl: 'http://evil.example/x' })).toEqual({
+      message: 'erro do servidor',
+    });
   });
 
   test('erro JSON sem embed mostra a mensagem do servidor', async () => {
-    expect(await run({ error: 'vídeo não encontrado nesse canal' }, 404)).toEqual({ message: 'vídeo não encontrado nesse canal' });
+    expect(await run({ error: 'vídeo não encontrado nesse canal' }, 404)).toEqual({
+      message: 'vídeo não encontrado nesse canal',
+    });
   });
 
   test('falha de rede ou corpo que não é JSON mostra a mensagem padrão', async () => {

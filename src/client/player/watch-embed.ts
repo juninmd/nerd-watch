@@ -23,9 +23,4 @@ export const clearVideo = (el: HTMLVideoElement): void => {
   el.load();
 };
 
-export const playerKindOf =(item: { embedUrl?: string | null }): 'player' | 'embed' => (isEmbedUrl(item.embedUrl) ? 'embed' : 'player');
-
-const attr = (text: string): string => text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-export const embedFrameHtml = (url: string, title: string): string =>
-  `<iframe src="${attr(url)}" title="${attr(title)}" sandbox="${EMBED_SANDBOX}" allow="${EMBED_ALLOW}" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+export const playerKindOf = (item: { embedUrl?: string | null }): 'player' | 'embed' => (isEmbedUrl(item.embedUrl) ? 'embed' : 'player');

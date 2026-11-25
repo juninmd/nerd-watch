@@ -1,13 +1,13 @@
 import { getTelegramSettings } from './api/telegram.ts';
-import { installCardTilt, swapView } from './ui/effects.ts';
+import { swapView } from './ui/effects.ts';
 import { openCommandPalette } from './app/command-palette.ts';
-import { releaseTorrentPlayers } from './player/torrent-player.ts';
+import { releaseTorrentPlayers } from './player/torrent-player.tsx';
 import { paletteKeyLabel } from './app/shortcut-keys.ts';
 import { navigate, onRouteChange, type Route } from './app/router.ts';
 import { canonicalPath, preloadPages, resolveRoute } from './app/routes.tsx';
 import { routeLabel, routeTitle } from './app/route-meta.ts';
 import { isRevisit, readScroll, restoreWhenRendered, stampRoute, writeScroll } from './app/scroll-memory.ts';
-import { mountPlayerDock, parkPlayer, stopIfOnPage } from './player/player-dock.ts';
+import { parkPlayer, stopIfOnPage } from './player/player-dock.ts';
 import { installShortcuts } from './app/shortcuts.ts';
 import { readNavCompact, writeNavCompact } from './app/nav-model.ts';
 import { createShellStore } from './app/shell-store.ts';
@@ -19,7 +19,6 @@ import { health } from './api/index.ts';
 import { rememberLoginHash, takeLoginHash, withLoginRedirect } from './app/auth-redirect.ts';
 import { registerShellWorker } from './pwa/register.ts';
 import { installDesktopBridge } from './platform/tauri.ts';
-import { installHistoryBack } from './ui/back-link.ts';
 import { canShareAppLink, copyCurrentScreenLink } from './app/share-link.ts';
 
 // Tema antes de tudo: sem clarão do tema errado na primeira pintura.
@@ -27,7 +26,6 @@ installTheme();
 
 // Desktop: frontend embutido, `/api` por IPC e links no navegador. No navegador não faz nada.
 installDesktopBridge();
-installHistoryBack();
 
 // Volta para a rota que pediu login (link de vídeo com `?t=`), antes de o roteador ler o hash.
 try {
@@ -120,8 +118,6 @@ window.addEventListener('nw:connection-changed', refreshConnectionPill);
 refreshConnectionPill();
 
 installShortcuts();
-installCardTilt();
-mountPlayerDock(document.getElementById("dock") as HTMLElement);
 
 const announcerEl = document.getElementById("route-announcer") as HTMLElement;
 let currentKey: string | null = null;

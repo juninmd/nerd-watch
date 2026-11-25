@@ -10,17 +10,14 @@ import {
   stopCastSession,
 } from '../api/cast.ts';
 import { showToast } from '../app/state.ts';
-import { escapeHtml } from '../ui/card.ts';
-import { icon } from '../ui/icons.ts';
-import { canCastItem, castSeekTarget, formatDeviceSubtitle, remotePlaybackView, resumeAfterCast } from './player-cast-model.ts';
+import { canCastItem, castSeekTarget, resumeAfterCast } from './player-cast-model.ts';
 import type { DockItem } from './player-dock.ts';
+import { bumpPlayerUi } from './player-ui-store.ts';
 
 const POLL_MS = 3000;
-const SEEK_STEP_S = 10;
+export const CAST_SEEK_STEP_S = 10;
 
-interface RemotePlaybackLike {
-  prompt(): Promise<void>;
-}
+type RemotePlaybackLike = { prompt(): Promise<void> };
 
 const nativeRemote = (video: HTMLVideoElement | null): RemotePlaybackLike | null => {
   if (!video || !('remote' in video)) return null;
@@ -44,20 +41,48 @@ const readActiveSubtitleVtt = async (video: HTMLVideoElement | null): Promise<st
   }
 };
 
+/** O que o diálogo de transmissão desenha (player-cast-dialog.tsx). */
+export interface CastState {
+  item: DockItem | undefined;
+  interfaces: LanInterfaceDto[];
+  selectedHost: string;
+  devices: CastDeviceDto[];
+  scanning: boolean;
+  busy: boolean;
+  errorMsg: string;
+  session: CastSessionDto | null;
+  playback: CastPlaybackDto | null;
+  hasNative: boolean;
+}
+
 export interface CastController {
   open(): void;
   isActive(): boolean;
   stop(): Promise<void>;
+  state(): CastState;
+  /** O diálogo fechou: para o polling do controle remoto. */
+  closed(): void;
+  scan(): Promise<void>;
+  launch(deviceId?: string): Promise<void>;
+  play(): void;
+  pause(): void;
+  seekBy(delta: number): void;
+  seekRatio(ratio: number): void;
+  setHost(host: string): void;
+  copy(which: 'watch' | 'media'): void;
+  native(): void;
 }
 
 export interface CastHost {
   item(): DockItem | undefined;
   video(): HTMLVideoElement | null;
   onStateChange(): void;
+  /** Abre o diálogo (React, via camada de overlays); devolve como fechá-lo. */
+  showDialog(controller: CastController): () => void;
 }
 
 export const createCastController = (host: CastHost): CastController => {
-  let dialog: HTMLDialogElement | null = null;
+  let closeDialog: (() => void) | null = null;
   let interfaces: LanInterfaceDto[] = [];
   let selectedHost = '';
   let devices: CastDeviceDto[] = [];
@@ -69,6 +94,8 @@ export const createCastController = (host: CastHost): CastController => {
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let scanSeq = 0;
   let launchSeq = 0;
+
+  const paint = bumpPlayerUi;
 
   const stopPolling = () => {
     if (pollTimer) {
@@ -82,48 +109,15 @@ export const createCastController = (host: CastHost): CastController => {
     if (!session?.device) return;
     const id = session.id;
     pollTimer = setInterval(() => {
-      if (!dialog?.open || session?.id !== id) return stopPolling();
+      if (!closeDialog || session?.id !== id) return stopPolling();
       getCastSession(id)
         .then((res) => {
           if (session?.id !== id) return;
           playback = res.playback;
-          updateRemoteDom();
+          paint();
         })
         .catch(() => {});
     }, POLL_MS);
-  };
-
-  /**
-   * Atualiza só o texto, a barra e o botão play/pausa do controle remoto durante o polling.
-   * Reconstruir `dialog.innerHTML` a cada 3 s derrubava o foco do teclado, fechava o `<select>` de rede
-   * e interrompia o arraste do slider de busca.
-   */
-  const updateRemoteDom = () => {
-    if (!dialog || !session?.device) return;
-    const remote = dialog.querySelector('.cast-remote');
-    if (!remote) return paint();
-    const view = remotePlaybackView(playback);
-    const seekEl = remote.querySelector<HTMLInputElement>('.cast-remote-seek');
-    if (Boolean(seekEl) !== view.hasDuration) return paint();
-
-    const statusEl = remote.querySelector('.cast-remote-status');
-    if (statusEl) statusEl.textContent = view.statusLabel;
-
-    const timeEl = remote.querySelector('.cast-remote-time');
-    if (timeEl) timeEl.textContent = view.timeLabel;
-
-    if (seekEl && document.activeElement !== seekEl) {
-      seekEl.value = String(view.sliderValue);
-    }
-
-    const toggleBtn = remote.querySelector<HTMLButtonElement>('[data-cast-toggle]');
-    if (toggleBtn) {
-      const nextAction = view.playing ? 'pause' : 'play';
-      if (toggleBtn.dataset.cast !== nextAction) {
-        toggleBtn.dataset.cast = nextAction;
-        toggleBtn.innerHTML = `${icon(view.playing ? 'pause' : 'play', 'sm')} ${view.playing ? 'Pausar' : 'Reproduzir'}`;
-      }
-    }
   };
 
   const copyText = (text: string, label: string) => {
@@ -131,120 +125,6 @@ export const createCastController = (host: CastHost): CastController => {
       ?.writeText(text)
       .then(() => showToast(`${label} copiado`))
       .catch(() => showToast('Não foi possível copiar automaticamente'));
-  };
-
-  const paintRemote = (active: CastSessionDto): string => {
-    const view = remotePlaybackView(playback);
-    return `
-      <div class="cast-remote">
-        <div class="cast-remote-head">
-          <div>
-            <b>${escapeHtml(active.device?.name ?? 'TV na rede local')}</b>
-            <div class="cast-remote-status">${escapeHtml(view.statusLabel)}</div>
-          </div>
-          <button type="button" class="btn btn-ghost btn-sm" data-cast="stop" ${busy ? 'disabled' : ''}>${icon('stop', 'sm')} Parar</button>
-        </div>
-        ${
-          view.hasDuration
-            ? `<div class="cast-remote-bar">
-                <input class="cast-remote-seek" type="range" min="0" max="1000" value="${view.sliderValue}" aria-label="Posição na TV" />
-                <span class="cast-remote-time">${escapeHtml(view.timeLabel)}</span>
-              </div>`
-            : `<div class="cast-remote-time">${escapeHtml(view.timeLabel)}</div>`
-        }
-        <div class="cast-remote-actions">
-          <button type="button" class="btn btn-ghost btn-sm" data-cast="back" aria-label="Voltar ${SEEK_STEP_S} segundos" ${busy ? 'disabled' : ''}>${icon('replay10', 'sm')} -10s</button>
-          <button type="button" class="btn btn-primary btn-sm" data-cast="${view.playing ? 'pause' : 'play'}" data-cast-toggle="1" ${busy ? 'disabled' : ''}>${icon(view.playing ? 'pause' : 'play', 'sm')} ${view.playing ? 'Pausar' : 'Reproduzir'}</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-cast="fwd" aria-label="Avançar ${SEEK_STEP_S} segundos" ${busy ? 'disabled' : ''}>${icon('forward10', 'sm')} +10s</button>
-        </div>
-      </div>`;
-  };
-
-  const paintQrSection = (active: CastSessionDto | null): string => {
-    if (!active) {
-      return `
-        <div class="cast-section">
-          <div class="cast-section-head"><h3>Navegador da TV ou QR Code</h3></div>
-          <p class="hint" style="margin:0">Funciona em qualquer Smart TV (mesmo sem DLNA), Apple TV, Fire TV ou celular no mesmo Wi-Fi.</p>
-          <button type="button" class="btn btn-ghost btn-sm" data-cast="link" ${busy ? 'disabled' : ''}>
-            ${icon('monitor', 'sm')} Gerar QR Code e link na rede local
-          </button>
-        </div>`;
-    }
-    return `
-      <div class="cast-section">
-        <div class="cast-section-head">
-          <h3>Link e QR Code na rede local</h3>
-          ${!active.device ? `<button type="button" class="btn btn-ghost btn-sm" data-cast="stop" ${busy ? 'disabled' : ''}>Encerrar link</button>` : ''}
-        </div>
-        <div class="cast-qr-box">
-          <img class="cast-qr-img" src="${escapeHtml(active.qrDataUrl)}" alt="QR Code para abrir o vídeo na TV" />
-          <div class="cast-qr-info">
-            <p class="cast-url">${escapeHtml(active.watchUrl)}</p>
-            <div class="cast-url-actions">
-              <button type="button" class="btn btn-primary btn-sm" data-cast="copy-watch">Copiar link da TV</button>
-              <button type="button" class="btn btn-ghost btn-sm" data-cast="copy-media">Link direto (VLC/Kodi)</button>
-            </div>
-          </div>
-        </div>
-      </div>`;
-  };
-
-  const paint = () => {
-    if (!dialog) return;
-    const item = host.item();
-    const ifaceSelect =
-      interfaces.length > 1
-        ? `<label class="cast-iface-row">Rede local:
-            <select class="select input-sm" id="cast-host">
-              ${interfaces.map((i) => `<option value="${escapeHtml(i.address)}"${i.address === selectedHost ? ' selected' : ''}>${escapeHtml(`${i.address} (${i.name})`)}</option>`).join('')}
-            </select>
-          </label>`
-        : '';
-
-    const deviceList = scanning
-      ? '<p class="hint" style="margin:0">Procurando TVs na sua rede Wi-Fi…</p>'
-      : devices.length === 0
-        ? '<p class="hint" style="margin:0">Nenhuma TV DLNA encontrada automaticamente. Confirme se o computador e a TV estão no mesmo Wi-Fi ou use o QR Code abaixo.</p>'
-        : `<div class="cast-devices">${devices
-            .map(
-              (dev) => `<button type="button" class="cast-device" data-device="${escapeHtml(dev.id)}" ${busy ? 'disabled' : ''}>
-                <span class="cast-device-meta"><b>${escapeHtml(dev.name)}</b><small>${escapeHtml(formatDeviceSubtitle(dev))}</small></span>
-                <span class="btn btn-primary btn-sm">Enviar</span>
-              </button>`,
-            )
-            .join('')}</div>`;
-
-    const hasNative = Boolean(nativeRemote(host.video()));
-
-    dialog.innerHTML = `
-      <div class="cast-head">
-        <h2>${icon('cast', 'sm')} Enviar para a TV</h2>
-        <button type="button" class="btn btn-ghost btn-sm" data-cast="close" aria-label="Fechar">${icon('x', 'sm')}</button>
-      </div>
-      <div class="cast-body">
-        ${item ? `<p class="cast-video-title">${escapeHtml(item.title)}</p>` : ''}
-        ${errorMsg ? `<p class="cast-err" role="alert">${escapeHtml(errorMsg)}</p>` : ''}
-        ${ifaceSelect}
-        ${session?.device ? paintRemote(session) : ''}
-        <div class="cast-section">
-          <div class="cast-section-head">
-            <h3>TVs encontradas no Wi-Fi</h3>
-            <button type="button" class="btn btn-ghost btn-sm" data-cast="rescan" ${scanning ? 'disabled' : ''}>${icon('refresh', 'sm')} Buscar</button>
-          </div>
-          ${deviceList}
-        </div>
-        ${paintQrSection(session)}
-        ${
-          hasNative
-            ? `<div class="cast-section">
-                <button type="button" class="btn btn-ghost btn-sm" data-cast="native">
-                  ${icon('cast', 'sm')} Transmitir pelo navegador (AirPlay / Chromecast)
-                </button>
-              </div>`
-            : ''
-        }
-      </div>`;
   };
 
   const scan = async () => {
@@ -353,72 +233,66 @@ export const createCastController = (host: CastHost): CastController => {
     if (video && resumeAt !== null) video.currentTime = resumeAt;
     host.onStateChange();
     if (active) await stopCastSession(active.id).catch(() => {});
-    if (dialog?.open) paint();
-  };
-
-  const ensureDialog = (): HTMLDialogElement => {
-    if (dialog) return dialog;
-    dialog = document.createElement('dialog');
-    dialog.className = 'cast-dialog';
-    dialog.setAttribute('aria-label', 'Enviar vídeo para a TV');
-    document.body.appendChild(dialog);
-
-    dialog.addEventListener('close', () => stopPolling());
-    dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) return dialog?.close();
-      const target = e.target as HTMLElement;
-      const devBtn = target.closest<HTMLElement>('[data-device]');
-      if (devBtn?.dataset.device) return void launch(devBtn.dataset.device);
-
-      const act = target.closest<HTMLElement>('[data-cast]')?.dataset.cast;
-      if (!act) return;
-      if (act === 'close') dialog?.close();
-      else if (act === 'rescan') void scan();
-      else if (act === 'link') void launch();
-      else if (act === 'stop') void stop();
-      else if (act === 'play') void sendControl('play');
-      else if (act === 'pause') void sendControl('pause');
-      else if (act === 'back') void sendControl('seek', castSeekTarget(playback?.positionSeconds ?? 0, -SEEK_STEP_S, playback?.durationSeconds ?? null));
-      else if (act === 'fwd') void sendControl('seek', castSeekTarget(playback?.positionSeconds ?? 0, SEEK_STEP_S, playback?.durationSeconds ?? null));
-      else if (act === 'copy-watch' && session) copyText(session.watchUrl, 'Link da TV');
-      else if (act === 'copy-media' && session) copyText(session.mediaUrl, 'Link do vídeo');
-      else if (act === 'native') {
-        void nativeRemote(host.video())
-          ?.prompt()
-          .catch(() => showToast('Nenhum dispositivo AirPlay/Chromecast disponível neste navegador'));
-      }
-    });
-
-    dialog.addEventListener('change', (e) => {
-      const target = e.target as HTMLElement;
-      if (target.id === 'cast-host') {
-        selectedHost = (target as HTMLSelectElement).value;
-      } else if (target.classList.contains('cast-remote-seek') && playback?.durationSeconds) {
-        const ratio = Number((target as HTMLInputElement).value) / 1000;
-        void sendControl('seek', Math.floor(ratio * playback.durationSeconds));
-      }
-    });
-
-    return dialog;
-  };
-
-  const open = () => {
-    const item = host.item();
-    if (!canCastItem(item)) {
-      showToast('Este vídeo usa player externo e não pode ser transmitido pela rede local');
-      return;
-    }
-    const el = ensureDialog();
-    errorMsg = '';
-    if (!el.open) el.showModal();
     paint();
-    if (session?.device) startPolling();
-    void scan();
   };
 
-  return {
-    open,
+  const controller: CastController = {
+    open() {
+      if (!canCastItem(host.item())) {
+        showToast('Este vídeo usa player externo e não pode ser transmitido pela rede local');
+        return;
+      }
+      errorMsg = '';
+      if (!closeDialog) closeDialog = host.showDialog(controller);
+      paint();
+      if (session?.device) startPolling();
+      void scan();
+    },
     isActive: () => session !== null,
     stop,
+    state: () => ({
+      item: host.item(),
+      interfaces,
+      selectedHost,
+      devices,
+      scanning,
+      busy,
+      errorMsg,
+      session,
+      playback,
+      hasNative: Boolean(nativeRemote(host.video())),
+    }),
+    closed() {
+      closeDialog?.();
+      closeDialog = null;
+      stopPolling();
+    },
+    scan,
+    launch,
+    play: () => void sendControl('play'),
+    pause: () => void sendControl('pause'),
+    seekBy: (delta) =>
+      void sendControl(
+        'seek',
+        castSeekTarget(playback?.positionSeconds ?? 0, delta, playback?.durationSeconds ?? null),
+      ),
+    seekRatio: (ratio) => {
+      if (playback?.durationSeconds) void sendControl('seek', Math.floor(ratio * playback.durationSeconds));
+    },
+    setHost: (next) => {
+      selectedHost = next;
+      paint();
+    },
+    copy: (which) => {
+      if (!session) return;
+      if (which === 'watch') copyText(session.watchUrl, 'Link da TV');
+      else copyText(session.mediaUrl, 'Link do vídeo');
+    },
+    native: () => {
+      void nativeRemote(host.video())
+        ?.prompt()
+        .catch(() => showToast('Nenhum dispositivo AirPlay/Chromecast disponível neste navegador'));
+    },
   };
+  return controller;
 };

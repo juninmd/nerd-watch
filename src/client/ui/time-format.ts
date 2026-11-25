@@ -13,19 +13,12 @@ export const addDays = (d: Date, days: number): Date => {
   return copy;
 };
 
-export interface DayCell {
-  iso: string;
-  date: Date;
-  count: number;
-}
-
-/** `n` dias consecutivos a partir de `from`, cada um com quantas entradas caem nele. */
-export const weekCells = (from: Date, n: number, entries: Array<{ date: string }>): DayCell[] =>
-  Array.from({ length: n }, (_, i) => {
-    const date = addDays(from, i);
-    const iso = localIsoDate(date);
-    return { iso, date, count: entries.filter((e) => e.date === iso).length };
-  });
+/** Quantas entradas caem em cada dia (`AAAA-MM-DD`). */
+export const countByDay = (entries: Array<{ date: string }>): Record<string, number> => {
+  const counts: Record<string, number> = {};
+  for (const e of entries) counts[e.date] = (counts[e.date] ?? 0) + 1;
+  return counts;
+};
 
 export const formatDuration = (seconds: number | null): string | null => {
   if (!seconds || seconds <= 0) return null;

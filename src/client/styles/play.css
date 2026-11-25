@@ -20,6 +20,11 @@
   opacity: 0.45;
 }
 
+/* A fonte começou a tocar (o painel pôs o player no palco): a capa e o aviso saem. */
+.play-host:has(> :not(.play-poster):not(.play-status)) > :is(.play-poster, .play-status) {
+  display: none;
+}
+
 .play-status {
   position: absolute;
   inset: auto 0 0;
