@@ -2,10 +2,9 @@ import { getTelegramSettings } from './api/telegram.ts';
 import { installCardTilt, swapView } from './ui/effects.ts';
 import { openCommandPalette } from './app/command-palette.ts';
 import { releaseTorrentPlayers } from './player/torrent-player.ts';
-import { icon } from './ui/icons.ts';
 import { paletteKeyLabel } from './app/shortcut-keys.ts';
 import { navigate, onRouteChange, type Route } from './app/router.ts';
-import { canonicalPath, preloadPages, resolveRoute } from './app/routes.ts';
+import { canonicalPath, preloadPages, resolveRoute } from './app/routes.tsx';
 import { routeLabel, routeTitle } from './app/route-meta.ts';
 import { isRevisit, readScroll, restoreWhenRendered, stampRoute, writeScroll } from './app/scroll-memory.ts';
 import { mountPlayerDock, parkPlayer, stopIfOnPage } from './player/player-dock.ts';
@@ -13,6 +12,7 @@ import { installShortcuts } from './app/shortcuts.ts';
 import { readNavCompact, writeNavCompact } from './app/nav-model.ts';
 import { createShellStore } from './app/shell-store.ts';
 import { commitShell, mountShell } from './app/shell.tsx';
+import { loadErrorPage, notFoundPage } from './app/route-fallback.tsx';
 import { getThemePref, installTheme, nextThemePref, onThemeChange, setThemePref } from './app/theme.ts';
 import { logout } from './app/logout.ts';
 import { health } from './api/index.ts';
@@ -59,6 +59,8 @@ const store = createShellStore({
   showLogout: false,
   connected: null,
   account: null,
+  page: null,
+  routeKey: '',
 });
 
 /**
@@ -135,18 +137,6 @@ const focusRouteHeading = (path: string, query: URLSearchParams) => {
   announcerEl.textContent = routeLabel(path, query);
 };
 
-const renderNotFound = (host: HTMLElement): void => {
-  host.innerHTML = `<div class="empty-state"><div class="big">${icon("search")}</div><h1 class="empty-title">página não encontrada</h1> <a href="#/">voltar ao início</a></div>`;
-};
-
-/** Chunk da tela não baixou (servidor parado, rede caiu): a tela diz o que houve e oferece tentar de novo. */
-const renderLoadError = (host: HTMLElement): void => {
-  host.innerHTML = `<div class="empty-state"><div class="big">${icon("alert")}</div><h1 class="empty-title">não foi possível carregar esta tela</h1> <button class="btn btn-ghost btn-sm" type="button" id="route-retry">tentar de novo</button></div>`;
-  host
-    .querySelector("#route-retry")
-    ?.addEventListener("click", () => window.dispatchEvent(new HashChangeEvent("hashchange")));
-};
-
 const dispatch = async (route: Route, key: string, revisit: boolean): Promise<void> => {
   const seq = ++navSeq;
   setDrawer(false);
@@ -159,13 +149,12 @@ const dispatch = async (route: Route, key: string, revisit: boolean): Promise<vo
   if (match?.def.id !== "watch") stopIfOnPage();
   document.title = routeTitle(path, route.query);
 
-  const render = match ? await match.def.open(match.params).catch(() => renderLoadError) : renderNotFound;
+  const page = match ? await match.def.open(match.params).catch(() => loadErrorPage) : notFoundPage;
   if (seq !== navSeq) return;
 
   await swapView(() => {
     // O menu muda junto com a tela, dentro da transição: é o que faz o destaque deslizar de um item ao outro.
-    commitShell(store, { activePath: path });
-    render(viewEl, route.query);
+    commitShell(store, { activePath: path, page: page(route.query), routeKey: key });
     focusRouteHeading(path, route.query);
     if (revisit) stopRestore = restoreWhenRendered(viewEl, readScroll(key));
     else window.scrollTo(0, 0);

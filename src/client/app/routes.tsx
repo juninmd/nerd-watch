@@ -1,14 +1,16 @@
 /**
  * Tabela de rotas do app. Cada tela é um chunk separado, baixado só quando a rota abre (`import()`), então a
  * primeira carga traz a casca e a tela pedida, não as 15 telas. Para criar uma tela: escreva
- * `src/client/<feature>/<nome>-page.ts` exportando `render...` e acrescente uma linha em `PAGES` e em `ROUTES`.
+ * `src/client/<feature>/<nome>-page.tsx` exportando o componente da tela e acrescente uma linha em `PAGES` e em `ROUTES`.
  *
  * Sem DOM neste módulo: `resolveRoute` é testável direto (tests/client/routes.test.ts).
  */
+import type { ReactNode } from 'react';
 import type { CatalogSource } from '../api/catalog.ts';
+import { legacy } from '../ui/legacy-page.tsx';
 
-/** Desenha a tela no `host`. Quem chama já resolveu os parâmetros do caminho; a query chega crua. */
-export type RenderPage = (host: HTMLElement, query: URLSearchParams) => void;
+/** Elemento React da tela. Quem chama já resolveu os parâmetros do caminho; a query chega crua. */
+export type RenderPage = (query: URLSearchParams) => ReactNode;
 
 /** Um carregador por tela. Chamar duas vezes devolve o mesmo módulo (o navegador guarda o chunk). */
 const PAGES = {
@@ -49,13 +51,13 @@ export interface RouteDef {
 const param = (params: string[], i: number): string => decodeURIComponent(params[i] ?? '');
 
 export const ROUTES: readonly RouteDef[] = [
-  { id: 'home', pattern: /^\/$/, open: async () => (await PAGES.home()).renderHome },
+  { id: 'home', pattern: /^\/$/, open: async () => legacy((await PAGES.home()).renderHome) },
   {
     id: 'search',
     pattern: /^\/search$/,
     open: async () => {
       const { renderSearch } = await PAGES.search();
-      return (host, query) => renderSearch(host, query.get('q') ?? '');
+      return legacy((host, query) => renderSearch(host, query.get('q') ?? ''));
     },
   },
   {
@@ -63,29 +65,29 @@ export const ROUTES: readonly RouteDef[] = [
     pattern: /^\/title\/(tmdb|archive|tvmaze|anilist)\/(movie|tv|_)\/(.+)$/,
     open: async (params) => {
       const { renderTitleDetail } = await PAGES.title();
-      return (host) => renderTitleDetail(host, params[0] as CatalogSource, params[1] as 'movie' | 'tv' | '_', param(params, 2));
+      return legacy((host) => renderTitleDetail(host, params[0] as CatalogSource, params[1] as 'movie' | 'tv' | '_', param(params, 2)));
     },
   },
-  { id: 'publicDomain', pattern: /^\/public-domain$/, open: async () => (await PAGES.publicDomain()).renderPublicDomain },
-  { id: 'library', pattern: /^\/library$/, open: async () => (await PAGES.library()).renderLibrary },
-  { id: 'lists', pattern: /^\/lists$/, open: async () => (await PAGES.lists()).renderLists },
+  { id: 'publicDomain', pattern: /^\/public-domain$/, open: async () => legacy((await PAGES.publicDomain()).renderPublicDomain) },
+  { id: 'library', pattern: /^\/library$/, open: async () => legacy((await PAGES.library()).renderLibrary) },
+  { id: 'lists', pattern: /^\/lists$/, open: async () => legacy((await PAGES.lists()).renderLists) },
   {
     id: 'listDetail',
     pattern: /^\/lists\/([^/]+)$/,
     open: async (params) => {
       const { renderListDetail } = await PAGES.listDetail();
-      return (host) => renderListDetail(host, param(params, 0));
+      return legacy((host) => renderListDetail(host, param(params, 0)));
     },
   },
-  { id: 'calendar', pattern: /^\/agenda$/, open: async () => (await PAGES.calendar()).renderCalendar },
-  { id: 'stats', pattern: /^\/stats$/, open: async () => (await PAGES.stats()).renderStats },
-  { id: 'channels', pattern: /^\/telegram$/, open: async () => (await PAGES.channels()).renderTelegramChannels },
+  { id: 'calendar', pattern: /^\/agenda$/, open: async () => legacy((await PAGES.calendar()).renderCalendar) },
+  { id: 'stats', pattern: /^\/stats$/, open: async () => legacy((await PAGES.stats()).renderStats) },
+  { id: 'channels', pattern: /^\/telegram$/, open: async () => legacy((await PAGES.channels()).renderTelegramChannels) },
   {
     id: 'channel',
     pattern: /^\/telegram\/(.+)$/,
     open: async (params) => {
       const { renderTelegramChannel } = await PAGES.channel();
-      return (host) => renderTelegramChannel(host, param(params, 0));
+      return legacy((host) => renderTelegramChannel(host, param(params, 0)));
     },
   },
   {
@@ -93,7 +95,7 @@ export const ROUTES: readonly RouteDef[] = [
     pattern: /^\/watch\/([^/]+)\/(\d+|start)$/,
     open: async (params) => {
       const { renderWatch } = await PAGES.watch();
-      return (host, query) => renderWatch(host, params[0] as string, params[1] as string, query);
+      return legacy((host, query) => renderWatch(host, params[0] as string, params[1] as string, query));
     },
   },
   {
@@ -101,20 +103,20 @@ export const ROUTES: readonly RouteDef[] = [
     pattern: /^\/play\/(tvmaze|tmdb)\/(\d{1,10})\/(\d{1,4})\/(\d{1,5})$/,
     open: async (params) => {
       const { renderEpisodePlay } = await PAGES.play();
-      return (host, query) => renderEpisodePlay(host, params[0] as 'tvmaze' | 'tmdb', param(params, 1), Number(params[2]), Number(params[3]), query);
+      return legacy((host, query) => renderEpisodePlay(host, params[0] as 'tvmaze' | 'tmdb', param(params, 1), Number(params[2]), Number(params[3]), query));
     },
   },
-  { id: 'connections', pattern: /^\/connections$/, open: async () => (await PAGES.connections()).renderConnections },
-  { id: 'data', pattern: /^\/data$/, open: async () => (await PAGES.data()).renderData },
-  { id: 'credentials', pattern: /^\/credentials$/, open: async () => (await PAGES.credentials()).renderCredentials },
-  { id: 'addons', pattern: /^\/addons$/, open: async () => (await PAGES.addons()).renderAddons },
-  { id: 'discover', pattern: /^\/descobrir$/, open: async () => (await PAGES.discover()).renderDiscover },
+  { id: 'connections', pattern: /^\/connections$/, open: async () => legacy((await PAGES.connections()).renderConnections) },
+  { id: 'data', pattern: /^\/data$/, open: async () => legacy((await PAGES.data()).renderData) },
+  { id: 'credentials', pattern: /^\/credentials$/, open: async () => legacy((await PAGES.credentials()).renderCredentials) },
+  { id: 'addons', pattern: /^\/addons$/, open: async () => legacy((await PAGES.addons()).renderAddons) },
+  { id: 'discover', pattern: /^\/descobrir$/, open: async () => legacy((await PAGES.discover()).renderDiscover) },
   {
     id: 'addonBrowse',
     pattern: /^\/addons\/([^/]+)$/,
     open: async (params) => {
       const { renderAddonBrowse } = await PAGES.addonBrowse();
-      return (host) => renderAddonBrowse(host, param(params, 0));
+      return legacy((host) => renderAddonBrowse(host, param(params, 0)));
     },
   },
   {
@@ -122,7 +124,7 @@ export const ROUTES: readonly RouteDef[] = [
     pattern: /^\/addons\/([^/]+)\/([^/]+)\/(.+)$/,
     open: async (params) => {
       const { renderAddonItem } = await PAGES.addonItem();
-      return (host) => renderAddonItem(host, param(params, 0), param(params, 1), param(params, 2));
+      return legacy((host) => renderAddonItem(host, param(params, 0), param(params, 1), param(params, 2)));
     },
   },
   {
@@ -130,7 +132,7 @@ export const ROUTES: readonly RouteDef[] = [
     pattern: /^\/person\/tvmaze\/(\d{1,10})$/,
     open: async (params) => {
       const { renderTvmazePerson } = await PAGES.tvmazePerson();
-      return (host) => renderTvmazePerson(host, param(params, 0));
+      return legacy((host) => renderTvmazePerson(host, param(params, 0)));
     },
   },
   {
@@ -138,10 +140,10 @@ export const ROUTES: readonly RouteDef[] = [
     pattern: /^\/commons\/(.+)$/,
     open: async (params) => {
       const { renderCommonsVideo } = await PAGES.commons();
-      return (host) => renderCommonsVideo(host, param(params, 0));
+      return legacy((host) => renderCommonsVideo(host, param(params, 0)));
     },
   },
-  { id: 'settings', pattern: /^\/settings$/, open: async () => (await PAGES.settings()).renderSettings },
+  { id: 'settings', pattern: /^\/settings$/, open: async () => legacy((await PAGES.settings()).renderSettings) },
 ];
 
 /** Rotas antigas continuam funcionando (favoritos e links salvos). */

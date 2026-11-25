@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { canonicalPath, ROUTES, resolveRoute } from '../../src/client/app/routes.ts';
+import { canonicalPath, ROUTES, resolveRoute } from '../../src/client/app/routes.tsx';
 
 const idOf = (path: string): string | null => resolveRoute(path)?.def.id ?? null;
 

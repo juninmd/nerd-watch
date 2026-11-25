@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { addonItemPath, addonPath, canBrowse, capabilitySummary, resourceLabel } from '../../src/client/addons/addon-links.ts';
-import { resolveRoute } from '../../src/client/app/routes.ts';
+import { resolveRoute } from '../../src/client/app/routes.tsx';
 import type { AddonDto } from '../../src/client/api/stremio.ts';
 
 const addon = (over: Partial<AddonDto>): AddonDto => ({ id: 'a1', host: 'h', name: 'n', version: '', description: '', logo: null, background: null, types: [], resources: [], catalogs: [], idPrefixes: [], configurable: false, configurationRequired: false, enabled: true, addedAt: '', ...over });

@@ -9,6 +9,8 @@ const initial: ShellState = {
   showLogout: false,
   connected: null,
   account: null,
+  page: null,
+  routeKey: '/',
 };
 
 describe('createShellStore', () => {

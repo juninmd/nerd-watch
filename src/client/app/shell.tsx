@@ -1,12 +1,14 @@
 /**
  * Casca do app em React com os componentes do Sonido: menu lateral (NavRail), barra superior e rodapé do menu.
- * As telas ainda são vanilla: `mountShell` devolve o `#view` e o `#dock` para `main.ts` desenhar dentro.
+ * A tela atual vem do store (`page`); `main.ts` resolve a rota e faz a troca dentro da transição de tela.
  */
-import { Avatar, Badge, Button, Kbd, NavRail } from '@juninmd/sonido';
-import { useSyncExternalStore } from 'react';
+import { Avatar, Badge, Button, Kbd, NavRail, ToastProvider } from '@juninmd/sonido';
+import { Fragment, useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Icon } from '../ui/icon.tsx';
+import { OverlayHost } from '../ui/overlay.tsx';
+import { ToastBridge } from '../ui/toast-bridge.tsx';
 import { isNavActive, NAV_GROUPS } from './nav-model.ts';
 import { connectionLabel, type ShellStore } from './shell-store.ts';
 import { THEME_LABEL } from './theme.ts';
@@ -43,7 +45,8 @@ function Shell({ store, actions, paletteKey, canShare }: ShellOptions) {
   const label = connectionLabel(s.connected, s.account);
   const compactLabel = s.compact ? 'Expandir menu' : 'Recolher menu';
   return (
-    <>
+    <ToastProvider>
+      <ToastBridge />
       <a className="skip" href="#view">
         pular para o conteúdo
       </a>
@@ -135,12 +138,15 @@ function Shell({ store, actions, paletteKey, canShare }: ShellOptions) {
               </Badge>
             </a>
           </header>
-          <main id="view" tabIndex={-1} />
+          <main id="view" tabIndex={-1}>
+            <Fragment key={s.routeKey}>{s.page}</Fragment>
+          </main>
           <div id="route-announcer" className="sr-only" aria-live="polite" />
         </div>
       </div>
       <div id="dock" />
-    </>
+      <OverlayHost />
+    </ToastProvider>
   );
 }
 

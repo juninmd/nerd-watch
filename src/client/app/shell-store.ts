@@ -2,6 +2,7 @@
  * Estado da casca (menu, gaveta, tema, status do Telegram) num store mínimo, sem DOM nem React: `main.ts` escreve,
  * `shell.tsx` lê com `useSyncExternalStore`. Testável direto (tests/client/shell-store.test.ts).
  */
+import type { ReactNode } from 'react';
 import type { ThemePref } from './theme.ts';
 
 export interface ShellAccount {
@@ -18,6 +19,9 @@ export interface ShellState {
   /** `null` = ainda não sabemos (antes da primeira leitura ou se ela falhou). */
   connected: boolean | null;
   account: ShellAccount | null;
+  /** Tela atual; `routeKey` muda a cada navegação e remonta a tela, como a troca de hash fazia antes. */
+  page: ReactNode;
+  routeKey: string;
 }
 
 export interface ShellStore {
