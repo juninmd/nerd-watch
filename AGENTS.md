@@ -4,7 +4,7 @@ Nerd Watch: catálogo local-first de filmes, séries e mídia de domínio públi
 
 ## Stack
 
-- Bun, TypeScript, Hono, SQLite (`bun:sqlite`). Cliente em vanilla TS, sem framework. Desktop via Tauri (`src-tauri/`).
+- Bun, TypeScript, Hono, SQLite (`bun:sqlite`). Cliente em TS migrando para React com os componentes do [Sonido](https://github.com/juninmd/sonido) (`@juninmd/sonido`): casca já em React, telas ainda vanilla (ADR 0007). Desktop via Tauri (`src-tauri/`).
 - Catálogo: TMDB (requer `TMDB_API_KEY`), Internet Archive (coleções de domínio público e licença livre marcada), Wikimedia Commons (sem chave). Addons do Stremio só por link colado (`docs/providers/stremio-addons.md`).
 
 ## Comandos

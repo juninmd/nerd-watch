@@ -68,5 +68,8 @@ export type IconName = keyof typeof PATHS;
 
 export const isIconName = (name: string): name is IconName => Object.hasOwn(PATHS, name);
 
+/** Só o miolo do SVG (traços constantes deste módulo), para o `<Icon>` do React. */
+export const iconPaths = (name: IconName): string => PATHS[name];
+
 export const icon = (name: IconName, extraClass = ''): string =>
   `<svg class="i${extraClass ? ` ${extraClass}` : ''}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name]}</svg>`;

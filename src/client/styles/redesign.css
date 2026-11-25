@@ -260,7 +260,6 @@ code {
   box-shadow: 0 8px 22px -8px rgba(200, 30, 69, 0.5);
 }
 
-.side-btn[hidden],
 .chip-status[hidden] {
   display: none;
 }

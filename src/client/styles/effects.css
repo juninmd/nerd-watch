@@ -46,8 +46,7 @@
   }
 }
 
-.navlink.active .nav-ico,
-.navlink.active svg {
+.sn-navrail__link[aria-current="page"] svg {
   filter: drop-shadow(0 0 6px rgba(255, 61, 110, 0.7));
 }
 
@@ -95,7 +94,7 @@
   animation-timing-function: var(--ease);
 }
 
-.navlink.active {
+.sn-navrail__link[aria-current="page"] {
   view-transition-name: nav-active;
 }
 
@@ -162,28 +161,9 @@ body::before {
   to { transform: translate3d(4%, -3%, 0) rotate(6deg) scale(1.08); }
 }
 
-/* Menu: o item ativo ganha uma barra com brilho na borda esquerda e o ícone dá um pulinho no hover. */
-.navlink::before {
-  content: "";
-  position: absolute;
-  left: -12px;
-  top: 22%;
-  bottom: 22%;
-  width: 3px;
-  border-radius: 0 4px 4px 0;
-  background: var(--gradient);
-  box-shadow: 0 0 12px rgba(255, 61, 110, 0.8);
-  transform: scaleY(0);
-  transition: transform var(--dur) var(--ease);
-}
-
-.navlink.active::before {
-  transform: scaleY(1);
-}
-
+/* Menu: o ícone do item dá um pulinho no hover (a barra do ativo já vem do NavRail do Sonido). */
 @media (hover: hover) {
-  .navlink:hover .i,
-  .navlink:hover svg {
+  .sn-navrail__link:hover svg {
     transform: translateX(2px) scale(1.1);
   }
 }
@@ -230,11 +210,6 @@ body::before {
 }
 
 /* Barra de busca ganha anel de foco com gradiente e a barra superior fica mais translúcida. */
-.cmd:focus-visible {
-  border-color: var(--accent-2);
-  box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.2);
-}
-
 .view-title {
   background: linear-gradient(90deg, var(--text) 60%, #b8a8ff);
   -webkit-background-clip: text;

@@ -23,10 +23,13 @@
     "desktop:build": "bun run build:client && bun run build:server && tauri build"
   },
   "dependencies": {
+    "@juninmd/sonido": "2.0.0",
     "@tauri-apps/api": "^2.12.4",
     "hono": "^4.6.14",
     "parse-torrent": "^11.0.24",
     "qrcode": "^1.5.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "teleproto": "^1.229.0",
     "webtorrent": "^3.0.21"
   },
@@ -35,6 +38,8 @@
     "@tauri-apps/cli": "^2.12.4",
     "@types/bun": "latest",
     "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.1",
+    "@types/react-dom": "^19.3.0",
     "typescript": "^5.7.2"
   },
   "trustedDependencies": [

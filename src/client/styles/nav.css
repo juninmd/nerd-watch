@@ -23,23 +23,8 @@
   }
 
   .nav-collapse {
-    display: grid;
-    place-items: center;
+    display: inline-flex;
     margin-left: auto;
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    border: 1px solid var(--border-soft);
-    background: transparent;
-    color: var(--text-dim);
-    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
-  }
-
-  @media (hover: hover) {
-    .nav-collapse:hover {
-      background: var(--surface-hover);
-      color: var(--text);
-    }
   }
 
   /* Compacto: volta ao trilho de ícones, com um fio separando os grupos. */
@@ -50,10 +35,8 @@
   }
 
   .shell.nav-compact .brand-name,
-  .shell.nav-compact .nav-label,
-  .shell.nav-compact .navlink .label,
-  .shell.nav-compact .side-btn span,
-  .shell.nav-compact .side-btn kbd {
+  .shell.nav-compact .side-label,
+  .shell.nav-compact .side-foot .sn-kbd {
     display: none;
   }
 
@@ -61,22 +44,7 @@
     margin-left: 0;
   }
 
-  .shell.nav-compact .nav {
-    gap: 0;
-  }
-
-  .shell.nav-compact .nav-group {
-    gap: 6px;
-    padding-block: 8px;
-  }
-
-  .shell.nav-compact .nav-group + .nav-group {
-    border-top: 1px solid var(--border-soft);
-  }
-
-  .shell.nav-compact .navlink,
-  .shell.nav-compact .side-btn {
+  .shell.nav-compact .side-foot .sn-button {
     justify-content: center;
-    padding: 0;
   }
 }
