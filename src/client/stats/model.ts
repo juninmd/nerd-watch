@@ -152,8 +152,6 @@ export interface MonthRow {
   progress: number;
   hours: number | null;
   tip: string;
-  finishedTip: string;
-  rewatchTip: string;
 }
 
 export const monthRows = (s: StatsSummary): MonthRow[] =>
@@ -171,8 +169,6 @@ export const monthRows = (s: StatsSummary): MonthRow[] =>
       progress: m.progress,
       hours: m.hours,
       tip: `${name}: ${parts.join(', ')}${m.hours === null ? '' : `, ${formatHours(m.hours)}`}`,
-      finishedTip: `${name}: ${formatCount(m.finished)} ${plural(m.finished, 'conclusão', 'conclusões')}`,
-      rewatchTip: `${name}: ${formatCount(m.rewatches)} ${plural(m.rewatches, 'revisão', 'revisões')}`,
     };
   });
 

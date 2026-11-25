@@ -50,10 +50,9 @@ export function ChannelHero({ d, topicCount, onPlayAll }: ChannelHeroProps) {
           </Button>
         )}
         {d.link && (
-          // Link externo com a cara do Button do Sonido (que só renderiza <button>).
-          <a className="sn-button sn-button--ghost sn-button--md" href={d.link} target="_blank" rel="noopener noreferrer">
+          <Button variant="ghost" href={d.link} target="_blank" rel="noopener noreferrer">
             {MODE_INFO[d.mode].open}
-          </a>
+          </Button>
         )}
       </>
     ) : undefined;

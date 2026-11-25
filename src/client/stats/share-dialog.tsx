@@ -1,5 +1,5 @@
 import type { StatsSummary } from '../../server/stats/summary.ts';
-import { Dialog } from '@juninmd/sonido';
+import { Button, Dialog } from '@juninmd/sonido';
 import { useEffect, useState } from 'react';
 import { shareCardPng } from './share-card.ts';
 import { shareCardModel } from './share-model.ts';
@@ -37,10 +37,10 @@ export function ShareDialog({ s, onClose }: { s: StatsSummary; onClose: () => vo
       description="Cartão gerado no seu navegador. Traz só totais do ano, nota média e gênero mais visto: nenhum título nem anotação."
       footer={
         state.kind === 'ready' && (
-          // Link com `download`, não botão: o navegador salva o blob local. Sonido Button não aceita href.
-          <a className="sn-button sn-button--primary sn-button--md" href={state.url} download={`nerd-watch-${s.year}.png`}>
-            <span className="sn-button__label">Baixar PNG</span>
-          </a>
+          // Link com `download`: o navegador salva o blob local.
+          <Button href={state.url} download={`nerd-watch-${s.year}.png`}>
+            Baixar PNG
+          </Button>
         )
       }
     >

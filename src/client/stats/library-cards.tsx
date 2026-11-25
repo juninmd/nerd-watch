@@ -1,9 +1,8 @@
 import type { StatsSummary } from '../../server/stats/summary.ts';
-import { Card } from '@juninmd/sonido';
+import { Card, SegmentedBar } from '@juninmd/sonido';
 import { Icon } from '../ui/icon.tsx';
 import { libraryParts } from './insights.ts';
 import { backlogView, formatCount, formatHours, plural } from './model.ts';
-import { SegmentedBar } from './stat-marks.tsx';
 import { NumbersTable } from './stats-figures.tsx';
 
 /** Biblioteca (composição por status e tempo estimado) e a fila "quero ver" com a data prevista de término. */
@@ -28,7 +27,11 @@ export function LibraryCards({ s }: { s: StatsSummary }) {
         <p className="stat-value">
           {formatCount(lib.total)} <span className="stat-unit">{plural(lib.total, 'título', 'títulos')}</span>
         </p>
-        <SegmentedBar parts={parts} label="Composição da biblioteca por status" />
+        <SegmentedBar
+          label="Composição da biblioteca por status"
+          segments={parts}
+          format={(n) => `${formatCount(n)} ${plural(n, 'título', 'títulos')}`}
+        />
         <p className="stat-hint">
           {formatCount(lib.byStatus.watched)} {plural(lib.byStatus.watched, 'assistido', 'assistidos')}, tempo estimado de {formatHours(wt.hours)}. {missing}
         </p>

@@ -140,18 +140,6 @@
   flex: 1;
 }
 
-.conn-more {
-  margin-top: 8px;
-  color: var(--text-dim);
-}
-
-.conn-more summary {
-  cursor: pointer;
-  font-size: 13.5px;
-  font-weight: 700;
-  padding: 6px 0;
-}
-
 .banner {
   display: flex;
   gap: 10px;

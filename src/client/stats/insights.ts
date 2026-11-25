@@ -44,25 +44,14 @@ export const heatLayout = (year: number, days: DayActivity[]): HeatLayout => {
  * foi validada nessa sequência: vizinhos distinguíveis com daltonismo no fundo escuro.
  */
 const STATUS_PARTS = [
-  { key: 'watched', label: 'Assistido', color: '#199e70' },
-  { key: 'watching', label: 'Assistindo', color: '#c98500' },
-  { key: 'want', label: 'Quero ver', color: '#3987e5' },
-  { key: 'dropped', label: 'Abandonado', color: '#e66767' },
+  { key: 'watched', label: 'Assistido', tone: 'success' },
+  { key: 'watching', label: 'Assistindo', tone: 'warning' },
+  { key: 'want', label: 'Quero ver', tone: 'info' },
+  { key: 'dropped', label: 'Abandonado', tone: 'danger' },
 ] as const;
 
-export const libraryParts = (s: StatsSummary): BarPart[] => {
-  const total = s.library.total;
-  return STATUS_PARTS.map((p) => {
-    const value = s.library.byStatus[p.key];
-    const share = total > 0 ? Math.round((value / total) * 100) : 0;
-    return {
-      label: p.label,
-      value,
-      color: p.color,
-      tip: `${p.label}: ${formatCount(value)} ${plural(value, 'título', 'títulos')} (${share}%)`,
-    };
-  });
-};
+export const libraryParts = (s: StatsSummary): BarPart[] =>
+  STATUS_PARTS.map((p) => ({ label: p.label, value: s.library.byStatus[p.key], tone: p.tone }));
 
 export interface GoalView {
   /** 0 a 1 para o anel; passa de 1 quando a meta foi superada (o anel satura em cheio). */

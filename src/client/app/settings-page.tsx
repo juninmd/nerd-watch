@@ -88,11 +88,15 @@ function VersionCard() {
       <SectionHead icon="download" title="Versão do app" text={text} badge={latest ? <Badge tone="accent">Nova v{latest.version}</Badge> : undefined} />
       {latest && (
         <div className="sn-card__footer">
-          {/* Link, não botão: o desktop abre `a[href]` externo no navegador do sistema. Sonido Button não aceita href. */}
-          <a className="sn-button sn-button--primary sn-button--md" href={latest.url} target="_blank" rel="noopener noreferrer">
-            <Icon name="download" size="sm" />
-            <span className="sn-button__label">Baixar v{latest.version}</span>
-          </a>
+          {/* Link, não botão: o desktop abre `a[href]` externo no navegador do sistema. */}
+          <Button
+            href={latest.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            iconStart={<Icon name="download" size="sm" />}
+          >
+            Baixar v{latest.version}
+          </Button>
         </div>
       )}
     </Card>

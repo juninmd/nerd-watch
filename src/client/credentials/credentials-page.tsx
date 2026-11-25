@@ -1,4 +1,4 @@
-import { EmptyState, Skeleton } from '@juninmd/sonido';
+import { EmptyState, PageHeader, Skeleton } from '@juninmd/sonido';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listCredentials } from '../api/credentials.ts';
 import { ConnCard } from '../connections/conn-card.tsx';
@@ -6,7 +6,6 @@ import { BackButton } from '../ui/back.tsx';
 import { Icon } from '../ui/icon.tsx';
 import { CredentialField } from './credential-field.tsx';
 import { type CredentialSection, groupCredentials } from './credentials-model.ts';
-import { PageHeader } from '../ui/page-header.tsx';
 
 /** Tela dedicada às chaves e tokens. Segredos nunca voltam do servidor: aparecem só como "configurada ••••1234". */
 export function CredentialsPage() {
@@ -37,7 +36,7 @@ export function CredentialsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader titleAs="h1"
         leading={<BackButton label="Voltar" fallback="/settings" />}
         title="Credenciais"
         description={

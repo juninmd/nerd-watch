@@ -1,7 +1,5 @@
-import { Artwork } from '@juninmd/sonido';
-import { type ReactNode, useRef } from 'react';
-import { posterCssUrl } from '../ui/poster-css.ts';
-import { useCollapsingHero } from '../ui/use-collapsing-hero.ts';
+import { Artwork, Hero } from '@juninmd/sonido';
+import type { ReactNode } from 'react';
 
 export interface TitleHeroProps {
   title: string;
@@ -25,10 +23,9 @@ export const jumpTo = (target: HTMLElement | null | undefined): void => {
   target?.focus({ preventScroll: true });
 };
 
-/**
- * Hero das fichas: grudento e encolhendo ao rolar (`useCollapsingHero`). O Hero do Sonido não expõe `ref`
- * nem pôster/sinopse, então o layout fica aqui; o pôster usa o Artwork do Sonido.
- */
+/** Hero das fichas: o Hero recolhível do Sonido, grudado logo abaixo da barra superior (também sticky). */
+const topbarHeight = (): number => document.querySelector<HTMLElement>('.topbar')?.offsetHeight ?? 0;
+
 export function TitleHero({
   title,
   posterUrl,
@@ -40,33 +37,23 @@ export function TitleHero({
   note,
   actions,
 }: TitleHeroProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  useCollapsingHero(ref);
-  const bg = backdropUrl ?? posterUrl;
-  // Via CSSOM + posterCssUrl: escapa aspas/barras e a URL nunca é parseada como marcação.
-  const backdropClass = `backdrop${backdropUrl ? '' : bg ? ' backdrop-blur' : ' placeholder'}`;
   return (
-    <div className="hero" ref={ref}>
-      <div className={backdropClass} style={bg ? { backgroundImage: posterCssUrl(bg) } : undefined} />
-      <div className="scrim" />
-      <div className="hero-content">
-        <div className="hero-poster">
-          <Artwork title={title} src={posterUrl ?? undefined} ratio="poster" />
-        </div>
-        <div className="hero-info">
-          <h1>{title}</h1>
-          {subtitle && <p className="view-subtitle hero-subtitle">{subtitle}</p>}
-          <div className="hero-meta">
-            {meta.filter(Boolean).map((m, i) => (
-              <span key={i}>{m}</span>
-            ))}
-          </div>
-          {chips && <div className="tvm-chips">{chips}</div>}
-          <p className="hero-overview">{overview || 'Sem sinopse disponível.'}</p>
-          {note}
-          {actions && <div className="hero-actions">{actions}</div>}
-        </div>
-      </div>
-    </div>
+    <Hero
+      className="title-hero"
+      collapsible
+      stickyOffset={topbarHeight}
+      title={title}
+      backdrop={backdropUrl ?? posterUrl ?? undefined}
+      poster={<Artwork title={title} src={posterUrl ?? undefined} ratio="poster" />}
+      meta={meta.filter(Boolean).map((m, i) => (
+        <span key={i}>{m}</span>
+      ))}
+      actions={actions}
+    >
+      {subtitle && <p className="view-subtitle hero-subtitle">{subtitle}</p>}
+      {chips && <div className="tvm-chips">{chips}</div>}
+      <p className="hero-overview">{overview || 'Sem sinopse disponível.'}</p>
+      {note}
+    </Hero>
   );
 }

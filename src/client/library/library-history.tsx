@@ -1,4 +1,4 @@
-import { Button } from '@juninmd/sonido';
+import { Accordion, Button } from '@juninmd/sonido';
 import { useEffect, useRef, useState } from 'react';
 import { getLibraryHistory, type LibraryHistoryItemDto } from '../api/index.ts';
 import { describeHistoryEvent } from './library-history-format.ts';
@@ -15,7 +15,7 @@ const whenLabel = (iso: string): string =>
     minute: '2-digit',
   });
 
-/** Histórico recolhido por padrão. `<details>` dá teclado (Enter/Espaço no resumo) e leitor de tela de graça. */
+/** Histórico recolhido por padrão; a primeira página só carrega ao abrir. */
 export function LibraryHistory({ titleId }: { titleId: string }) {
   const [items, setItems] = useState<LibraryHistoryItemDto[]>([]);
   const [total, setTotal] = useState<number | null>(null);
@@ -56,31 +56,37 @@ export function LibraryHistory({ titleId }: { titleId: string }) {
   };
 
   return (
-    <details
-      className="conn-more history-details"
-      onToggle={(e) => {
-        if (e.currentTarget.open && total === null) load();
+    <Accordion
+      className="history-details"
+      onToggle={(_, open) => {
+        if (open && total === null) load();
       }}
-    >
-      <summary>Histórico</summary>
-      <div className="history-body">
-        <ol className="history-list" ref={listRef}>
-          {items.map((item, i) => (
-            <li key={i} tabIndex={-1}>
-              <time dateTime={item.at}>{whenLabel(item.at)}</time>{' '}
-              <span>{describeHistoryEvent(item.kind, item.detail)}</span>
-            </li>
-          ))}
-        </ol>
-        <p className="history-status" aria-live="polite">
-          {status}
-        </p>
-        {total !== null && items.length < total && (
-          <Button variant="ghost" size="sm" loading={loading} onClick={load}>
-            Ver mais
-          </Button>
-        )}
-      </div>
-    </details>
+      items={[
+        {
+          key: 'history',
+          title: 'Histórico',
+          content: (
+            <div className="history-body">
+              <ol className="history-list" ref={listRef}>
+                {items.map((item, i) => (
+                  <li key={i} tabIndex={-1}>
+                    <time dateTime={item.at}>{whenLabel(item.at)}</time>{' '}
+                    <span>{describeHistoryEvent(item.kind, item.detail)}</span>
+                  </li>
+                ))}
+              </ol>
+              <p className="history-status" aria-live="polite">
+                {status}
+              </p>
+              {total !== null && items.length < total && (
+                <Button variant="ghost" size="sm" loading={loading} onClick={load}>
+                  Ver mais
+                </Button>
+              )}
+            </div>
+          ),
+        },
+      ]}
+    />
   );
 }

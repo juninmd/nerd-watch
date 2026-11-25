@@ -1,4 +1,4 @@
-import { Button, EmptyState, FilterChips, Skeleton } from '@juninmd/sonido';
+import { Button, EmptyState, FilterChips, Skeleton, WeekStrip } from '@juninmd/sonido';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type CalendarEntryDto,
@@ -11,13 +11,12 @@ import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
 import { useAlive } from '../library/use-alive.ts';
 import { Icon } from '../ui/icon.tsx';
-import { localIsoDate } from '../ui/time-format.ts';
+import { countByDay, localIsoDate } from '../ui/time-format.ts';
 import { titlePath } from '../ui/title-link.ts';
 import { CalendarCard, CalendarSpotlight } from './calendar-card.tsx';
 import { openCalendarDetail } from './calendar-detail.tsx';
 import { loadInfo, seedInfo } from './calendar-info.ts';
 import { type AgendaEntry, dayLabel, entryKey, groupByDay, originOf } from './calendar-model.ts';
-import { CalendarWeek } from './calendar-week.tsx';
 
 type Range = '7' | '14' | '30' | '60';
 const RANGES: Array<{ key: Range; label: string }> = (['7', '14', '30', '60'] as const).map((r) => ({
@@ -111,7 +110,13 @@ export function CalendarPage() {
         </Button>
       </header>
       {typeof data === 'object' && (
-        <CalendarWeek entries={[...data.entries, ...data.discover]} value={dayFilter} onChange={setDayFilter} />
+        <WeekStrip
+          className="week-strip"
+          label="Próximos 7 dias"
+          counts={countByDay([...data.entries, ...data.discover])}
+          value={dayFilter}
+          onChange={setDayFilter}
+        />
       )}
       <div className="cal-filters">
         <FilterChips label="Janela de dias" chips={RANGES} value={days} onChange={(v) => v && setDays(v)} />

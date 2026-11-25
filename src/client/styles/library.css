@@ -26,58 +26,12 @@
   outline-offset: 2px;
 }
 
-/* Faixa de 7 dias da Agenda (fieldset: zera a moldura nativa). */
+/* Faixa de 7 dias da Agenda. */
 .week-strip {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
   margin: 0 0 18px;
-  padding: 0;
-  border: 0;
-  min-width: 0;
 }
 
-.week-strip .day {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  height: auto;
-  padding: 10px 4px;
-}
-
-.week-strip .day small {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.week-strip .day b {
-  font-size: 20px;
-}
-
-.week-strip .dot {
-  min-width: 20px;
-  min-height: 18px;
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 18px;
-  color: #fff;
-}
-
-.week-strip .day.has .dot {
-  background: var(--gradient);
-}
-
-/* Detalhe do título: ações do herói e painel "Onde assistir". */
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 16px;
-}
-
+/* Detalhe do título: painel "Onde assistir". */
 .provider-group {
   margin-bottom: 12px;
 }

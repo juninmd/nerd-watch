@@ -1,9 +1,8 @@
 import type { StatsSummary } from '../../server/stats/summary.ts';
-import { Accordion, BarChart, Card, DataTable, Heatmap } from '@juninmd/sonido';
+import { Accordion, BarChart, Card, DataTable, Heatmap, StackedColumns } from '@juninmd/sonido';
 import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
 import { heatLayout } from './insights.ts';
 import { formatCount, formatDateBr, formatHours, genreRows, monthRows, plural, ratingRows, WEEKDAY_SHORT, weekdayRows } from './model.ts';
-import { Legend, SERIES_FINISHED, SERIES_REWATCH, StackedColumns } from './stat-marks.tsx';
 
 /** Tabela equivalente ao gráfico, recolhida: a mesma informação, em texto, para quem não enxerga o desenho. */
 export function NumbersTable({ caption, headers, rows }: { caption: string; headers: string[]; rows: string[][] }) {
@@ -107,16 +106,14 @@ export function StatsCharts({ s, isCurrentYear }: { s: StatsSummary; isCurrentYe
     <div className="stat-charts">
       <ActivityFigure s={s} isCurrentYear={isCurrentYear} />
       <Figure title="Por mês" className="stat-main">
-        <Legend
-          items={[
-            { label: 'Conclusões', color: SERIES_FINISHED },
-            { label: 'Revisões', color: SERIES_REWATCH },
-          ]}
-        />
         <StackedColumns
           label="Conclusões e revisões por mês"
-          colors={[SERIES_FINISHED, SERIES_REWATCH]}
-          items={months.map((m) => ({ label: m.label, segments: [m.finished, m.rewatches], tips: [m.finishedTip, m.rewatchTip] }))}
+          series={[
+            { label: 'Conclusões', tone: 'info' },
+            { label: 'Revisões', tone: 'warning' },
+          ]}
+          format={formatCount}
+          data={months.map((m) => ({ label: m.label, values: [m.finished, m.rewatches] }))}
         />
         <NumbersTable
           caption="Conclusões e revisões por mês"

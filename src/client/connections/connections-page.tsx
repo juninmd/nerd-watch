@@ -1,3 +1,4 @@
+import { PageHeader } from '@juninmd/sonido';
 
 import { Fragment, useEffect, useState } from 'react';
 import { type HealthResponse, health } from '../api/index.ts';
@@ -11,7 +12,6 @@ import { ConnCard } from './conn-card.tsx';
 import { DriveConnect } from './drive-connect.tsx';
 import { SourceCard } from './source-card.tsx';
 import { TraktActions } from './trakt-actions.tsx';
-import { PageHeader } from '../ui/page-header.tsx';
 
 interface Integration {
   title: string;
@@ -109,7 +109,7 @@ export function ConnectionsPage({ query }: { query: URLSearchParams }) {
 
   return (
     <>
-      <PageHeader title="Conexões" description="Tudo que o app usa de fora, num lugar só: o que está ligado, o que falta e como resolver." />
+      <PageHeader titleAs="h1" title="Conexões" description="Tudo que o app usa de fora, num lugar só: o que está ligado, o que falta e como resolver." />
       <div className="conn-grid">
         <TelegramLogin />
         <DriveConnect />

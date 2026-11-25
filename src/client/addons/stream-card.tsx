@@ -24,9 +24,17 @@ function StreamAction({ stream, onPlay, playing }: StreamCardProps) {
   }
   if (stream.kind === 'external') {
     return (
-      <a className="sn-button sn-button--ghost sn-button--sm stream-action" href={stream.url ?? ''} target="_blank" rel="noopener noreferrer">
-        <Icon name="forward" size="sm" /> Abrir fora
-      </a>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="stream-action"
+        href={stream.url ?? ''}
+        target="_blank"
+        rel="noopener noreferrer"
+        iconStart={<Icon name="forward" size="sm" />}
+      >
+        Abrir fora
+      </Button>
     );
   }
   const torrent = stream.kind === 'torrent';

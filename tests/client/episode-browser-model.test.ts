@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 import { episodeCode, episodeState, type EpisodeView, filterEpisodes, progressFromMarker } from '../../src/client/catalog/episode-browser-model.ts';
-import { heroProgress } from '../../src/client/ui/collapsing-hero.ts';
 
 const ep = (number: number, over: Partial<EpisodeView> = {}): EpisodeView => ({
   season: 1,
@@ -60,15 +59,5 @@ describe('episode-browser-model', () => {
 
   test('código do episódio com dois dígitos', () => {
     expect(episodeCode({ season: 3, number: 7 })).toBe('T3 · E07');
-  });
-
-  test('hero encolhe de 0 a 1 e trava nas pontas', () => {
-    expect(heroProgress(-50, 400)).toBe(0);
-    expect(heroProgress(200, 400)).toBe(0.5);
-    expect(heroProgress(900, 400)).toBe(1);
-    // Hero já do tamanho mínimo: qualquer rolagem conta como encolhido.
-    expect(heroProgress(10, 0)).toBe(1);
-    expect(heroProgress(0, 0)).toBe(0);
-    expect(heroProgress(Number.NaN, 400)).toBe(0);
   });
 });

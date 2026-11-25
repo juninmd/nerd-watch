@@ -118,6 +118,7 @@ export function HomePage() {
         <Carousel
           className="section"
           title="Continuar assistindo"
+          icon={<Icon name="play" size="sm" />}
           action={
             <>
               {resumeCount > 0 && (
@@ -154,7 +155,7 @@ export function HomePage() {
         </Carousel>
         {/* Sem série em andamento com episódio seguinte, a seção some em vez de mostrar um trilho vazio. */}
         {data.upNext.length > 0 && (
-          <Carousel className="section" title="Próximos episódios">
+          <Carousel className="section" title="Próximos episódios" icon={<Icon name="play" size="sm" />}>
             {data.upNext.map((item) => (
               <PosterCard
                 key={`${item.titleId}:${item.seasonNumber}:${item.episodeNumber}`}
@@ -175,13 +176,21 @@ export function HomePage() {
         </section>
         <TelegramFeed />
         {addons.length > 0 && (
-          <Carousel className="section" title="Dos seus addons" action={<a href="#/addons">gerenciar</a>}>
+          <Carousel
+            className="section"
+            title="Dos seus addons"
+            icon={<Icon name="puzzle" size="sm" />}
+            action={<a href="#/addons">gerenciar</a>}>
             {addons.map((addon) => (
               <AddonTile key={addon.id} addon={addon} />
             ))}
           </Carousel>
         )}
-        <Carousel className="section" title="Domínio público" action={<a href="#/public-domain">ver tudo</a>}>
+        <Carousel
+          className="section"
+          title="Domínio público"
+          icon={<Icon name="film" size="sm" />}
+          action={<a href="#/public-domain">ver tudo</a>}>
           {archive === null ? (
             <Skeleton label="Carregando o acervo…" media />
           ) : archive.length === 0 ? (

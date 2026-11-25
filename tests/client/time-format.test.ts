@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { addDays, datedFileName, formatDuration, localIsoDate, weekCells } from '../../src/client/ui/time-format.ts';
+import { addDays, countByDay, datedFileName, formatDuration, localIsoDate } from '../../src/client/ui/time-format.ts';
 
 describe('localIsoDate', () => {
   test('usa o dia local, não o UTC (23:30 local continua no mesmo dia)', () => {
@@ -29,15 +29,16 @@ describe('addDays', () => {
   });
 });
 
-describe('weekCells', () => {
-  test('gera n dias seguidos e conta as entradas de cada um', () => {
-    const cells = weekCells(new Date(2026, 0, 30), 4, [{ date: '2026-01-31' }, { date: '2026-01-31' }, { date: '2026-02-02' }, { date: '2026-03-01' }]);
-    expect(cells.map((c) => [c.iso, c.count])).toEqual([
-      ['2026-01-30', 0],
-      ['2026-01-31', 2],
-      ['2026-02-01', 0],
-      ['2026-02-02', 1],
-    ]);
+describe('countByDay', () => {
+  test('conta as entradas de cada dia, inclusive repetidas', () => {
+    expect(countByDay([{ date: '2026-01-31' }, { date: '2026-01-31' }, { date: '2026-02-02' }])).toEqual({
+      '2026-01-31': 2,
+      '2026-02-02': 1,
+    });
+  });
+
+  test('lista vazia não conta nada', () => {
+    expect(countByDay([])).toEqual({});
   });
 });
 

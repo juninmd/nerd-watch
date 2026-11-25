@@ -1,4 +1,4 @@
-import { Badge, Button, ConfirmButton, Tooltip } from '@juninmd/sonido';
+import { Artwork, Badge, Button, ConfirmButton, Tooltip } from '@juninmd/sonido';
 import { useEffect, useState } from 'react';
 import { type AddonDto, getAddonStatus, removeAddon, setAddonEnabled } from '../api/stremio.ts';
 import { navigate } from '../app/router.ts';
@@ -53,7 +53,7 @@ export function AddonRow({ addon: a, onChanged }: { addon: AddonDto; onChanged: 
   return (
     <li className={`addon-row${a.enabled ? '' : ' addon-off'}`}>
       <div className="addon-logo" aria-hidden="true">
-        {a.logo ? <img src={a.logo} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <Icon name="plug" />}
+        {a.logo ? <Artwork ratio="square" title={a.name} src={a.logo} referrerPolicy="no-referrer" /> : <Icon name="plug" />}
       </div>
       <div className="addon-body">
         <h3>

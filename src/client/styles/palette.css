@@ -1,9 +1,4 @@
 /* Paleta de comandos e ajuda de atalhos: o visual é do Sonido (CommandPalette, Dialog, Kbd); aqui só a lista. */
-/* O embrulho da paleta só escuta o `input`; não ocupa espaço na página. */
-.palette-host {
-  display: contents;
-}
-
 .help-list {
   margin: 0;
   display: flex;

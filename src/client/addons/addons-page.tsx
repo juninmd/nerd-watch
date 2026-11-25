@@ -1,11 +1,10 @@
-import { Button, EmptyState, Skeleton, TextField } from '@juninmd/sonido';
+import { Button, EmptyState, PageHeader, Skeleton, TextField } from '@juninmd/sonido';
 import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { type AddonDto, installAddon, listAddons } from '../api/stremio.ts';
 import { showToast } from '../app/state.ts';
 import { BackButton } from '../ui/back.tsx';
 import { Icon } from '../ui/icon.tsx';
 import { AddonRow } from './addon-row.tsx';
-import { PageHeader } from '../ui/page-header.tsx';
 
 type ListState = AddonDto[] | 'loading' | 'error';
 
@@ -82,7 +81,7 @@ export function AddonsPage() {
 
   return (
     <div className="addons-page">
-      <PageHeader
+      <PageHeader titleAs="h1"
         title="Addons do Stremio"
         leading={<BackButton fallback="/connections" />}
         description={
@@ -113,9 +112,9 @@ export function AddonsPage() {
       </form>
       {hasCatalog && (
         <p className="chip-row">
-          <a className="sn-button sn-button--ghost sn-button--sm" href="#/descobrir">
-            <Icon name="grid" size="sm" /> descobrir nos catálogos
-          </a>
+          <Button variant="ghost" size="sm" href="#/descobrir" iconStart={<Icon name="grid" size="sm" />}>
+            descobrir nos catálogos
+          </Button>
         </p>
       )}
       <div aria-live="polite">

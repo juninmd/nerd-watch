@@ -40,17 +40,15 @@ export function ChannelAddForm({ onAdded }: { onAdded: () => void }) {
   }, []);
 
   const source = sources.find((s) => s.add?.mode === mode);
-  const options = [...TELEGRAM_OPTIONS, ...sources.flatMap((s) => (s.add ? [{ value: s.add.mode, label: sourceLabel({ ...s, add: s.add }) }] : []))];
+  const options = [...TELEGRAM_OPTIONS, ...sources.flatMap((s) =>
+      s.add ? [{ value: s.add.mode, label: sourceLabel({ ...s, add: s.add }), disabled: !s.configured }] : [],
+    ),
+  ];
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const value = handle.trim();
     if (!value) return;
-    // O Select do Sonido não desabilita opções: fonte sem configuração é barrada aqui.
-    if (source && !source.configured) {
-      showToast(`configure ${source.title} em Conexões antes de adicionar`);
-      return;
-    }
     setBusy(true);
     try {
       const channel = isTelegramMode(mode) ? await addTelegramChannel(value, mode) : await addSourceChannel(mode, value);

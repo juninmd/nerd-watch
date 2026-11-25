@@ -1,4 +1,4 @@
-import { Artwork, Button, Card, EmptyState, Hero, Sparkline, StatTile } from '@juninmd/sonido';
+import { Accordion, Artwork, Button, Card, EmptyState, Hero, Sparkline, StatTile } from '@juninmd/sonido';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { addonPath } from '../addons/addon-links.ts';
 import type { CalendarEntryDto, CatalogSource, LibraryItemDto } from '../api/index.ts';
@@ -65,19 +65,25 @@ export function HomeStatus({ kpis, rows }: { kpis: HomeKpi[]; rows: SourceRow[] 
       {kpis.map((k) => (
         <StatTile key={k.label} label={k.label} value={k.value} hint={k.hint} />
       ))}
-      <details className="home-sources">
-        <summary>
-          {rows.filter((r) => r.ok).length} de {rows.length} recursos ligados
-        </summary>
-        <ul>
-          {rows.map((r) => (
-            <li key={r.label} className={r.ok ? 'is-ok' : 'is-off'}>
-              <span>{r.label}</span>
-              <small>{r.detail}</small>
-            </li>
-          ))}
-        </ul>
-      </details>
+      <Accordion
+        className="home-sources"
+        items={[
+          {
+            key: 'sources',
+            title: `${rows.filter((r) => r.ok).length} de ${rows.length} recursos ligados`,
+            content: (
+              <ul>
+                {rows.map((r) => (
+                  <li key={r.label} className={r.ok ? 'is-ok' : 'is-off'}>
+                    <span>{r.label}</span>
+                    <small>{r.detail}</small>
+                  </li>
+                ))}
+              </ul>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -164,9 +170,9 @@ export function AddonTile({ addon }: { addon: AddonDto }) {
       onKeyDown={enterKey(go)}
     >
       <span className="addon-logo">
-        {/* <img> direto: o logo vem do servidor do addon e não deve receber o referrer (o Artwork não permite). */}
+        {/* O logo vem do servidor do addon: não envia o referrer. */}
         {addon.logo ? (
-          <img src={addon.logo} alt="" loading="lazy" referrerPolicy="no-referrer" />
+          <Artwork ratio="square" title={addon.name} src={addon.logo} referrerPolicy="no-referrer" />
         ) : (
           <Icon name="puzzle" />
         )}

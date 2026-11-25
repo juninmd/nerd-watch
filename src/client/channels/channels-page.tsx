@@ -1,4 +1,4 @@
-import { Button, ConfirmButton, EmptyState, Skeleton } from '@juninmd/sonido';
+import { Button, ConfirmButton, EmptyState, PageHeader, Skeleton } from '@juninmd/sonido';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { bulkDeleteTelegramChannels, listTelegramChannels, refreshTelegramChannelInfo, type TelegramChannelDto } from '../api/index.ts';
 import { navigate } from '../app/router.ts';
@@ -9,7 +9,6 @@ import { PosterCard } from '../ui/poster-card.tsx';
 import { ChannelAddForm } from './channel-add-form.tsx';
 import { TelegramFeed } from './telegram-feed.tsx';
 import { openMyChannelsDialog } from './telegram-my-channels.tsx';
-import { PageHeader } from '../ui/page-header.tsx';
 
 const INFO_BACKFILL_KEY = 'nw.telegram.infoBackfill';
 
@@ -96,7 +95,7 @@ export function ChannelsPage({ query }: { query: URLSearchParams }) {
 
   return (
     <>
-      <PageHeader
+      <PageHeader titleAs="h1"
         title="Canais e pastas"
         description={
           <>

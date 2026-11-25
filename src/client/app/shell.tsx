@@ -35,7 +35,7 @@ export interface ShellOptions {
 
 const GROUPS = NAV_GROUPS.map((g) => ({
   title: g.label,
-  items: g.items.map((it) => ({ key: it.path, label: it.label, icon: <Icon name={it.icon} /> })),
+  items: g.items.map((it) => ({ key: it.path, href: `#${it.path}`, label: it.label, icon: <Icon name={it.icon} /> })),
 }));
 
 const activeKey = (path: string): string =>

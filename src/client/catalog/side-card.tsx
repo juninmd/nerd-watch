@@ -1,4 +1,4 @@
-import { Card } from '@juninmd/sonido';
+import { Button, Card } from '@juninmd/sonido';
 import type { ReactNode } from 'react';
 import type { IconName } from '../ui/icons.ts';
 import { Icon } from '../ui/icon.tsx';
@@ -41,15 +41,17 @@ export function LinkButton({
   children: ReactNode;
 }) {
   return (
-    <a
-      className={`sn-button sn-button--${variant} sn-button--sm${block ? ' link-button--block' : ''}`}
+    <Button
+      variant={variant}
+      size="sm"
+      className={block ? 'link-button--block' : undefined}
       href={href}
       target="_blank"
       rel="noopener noreferrer"
       download={download || undefined}
+      iconStart={icon && <Icon name={icon} size="sm" />}
     >
-      {icon && <Icon name={icon} size="sm" />}
-      <span className="sn-button__label">{children}</span>
-    </a>
+      {children}
+    </Button>
   );
 }

@@ -14,8 +14,8 @@ export function TitleError({ onRetry }: { onRetry: () => void }) {
   };
   return (
     <div role="alert">
-      <h1 className="sr-only">não foi possível carregar este título</h1>
       <EmptyState
+        titleAs="h1"
         icon={<Icon name="alert" />}
         title="não foi possível carregar este título"
         action={

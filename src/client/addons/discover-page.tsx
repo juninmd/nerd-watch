@@ -1,4 +1,4 @@
-import { Carousel, EmptyState, Skeleton } from '@juninmd/sonido';
+import { Button, Carousel, EmptyState, PageHeader, Skeleton } from '@juninmd/sonido';
 import { type ReactNode, useEffect, useState } from 'react';
 import { type AddonBoardDto, type AddonItemDto, getAddonCatalog, listBoards } from '../api/stremio.ts';
 import { navigate } from '../app/router.ts';
@@ -7,7 +7,6 @@ import { Icon } from '../ui/icon.tsx';
 import { PosterCard } from '../ui/poster-card.tsx';
 import { addonItemPath, addonPath } from './addon-links.ts';
 import { groupBoards, RAIL_ITEMS, railsOf } from './discover-model.ts';
-import { PageHeader } from '../ui/page-header.tsx';
 
 type RailState = AddonItemDto[] | 'loading' | { error: string };
 
@@ -96,15 +95,15 @@ export function DiscoverPage() {
   if (rails.length === 0) {
     return (
       <>
-        <PageHeader title="Descobrir nos addons" leading={back} />
+        <PageHeader titleAs="h1" title="Descobrir nos addons" leading={back} />
         <EmptyState
           icon={<Icon name="puzzle" />}
           title="nenhum addon instalado publica catálogo"
           description="os que só entregam streams aparecem na página do título."
           action={
-            <a className="sn-button sn-button--primary sn-button--sm" href="#/addons">
+            <Button size="sm" href="#/addons">
               gerenciar addons
-            </a>
+            </Button>
           }
         />
       </>
@@ -112,7 +111,7 @@ export function DiscoverPage() {
   }
   return (
     <>
-      <PageHeader
+      <PageHeader titleAs="h1"
         title="Descobrir nos addons"
         leading={back}
         description={`${rails.length} catálogo(s) de ${groups.length} addon(s). O conteúdo é de quem publica cada addon.`}

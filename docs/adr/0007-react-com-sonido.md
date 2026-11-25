@@ -23,19 +23,10 @@ mas é uma biblioteca React. Usar 100% dele exige que o cliente renderize com Re
 
 - Bundle de entrada cresce de 119 kB para 351 kB (React) e o CSS de 104 kB para 202 kB (Sonido); total em brotli de
   157 kB para 230 kB.
-- O NavRail do Sonido usa `<button>` em vez de `<a href>`: clique do meio e "abrir em nova aba" no menu deixam
-  de existir até o Sonido aceitar `href` nos itens.
 
 ## Pendências no Sonido
 
-Peças que ficaram locais por falta de equivalente (ou de opção) no Sonido:
-
-- `PageHeader`/`EmptyState` sem nível de título configurável: `ui/page-header.tsx` e as telas de erro põem um
-  `<h1>` oculto para foco e leitor de tela.
-- `Button` sem `href`: links com cara de botão usam as classes `sn-button` num `<a>`.
-- `NavRail` sem `href` nos itens; `Carousel` e `FilterChips` só aceitam rótulo em texto (sem ícone);
-  `Select` sem opção desabilitada; `Accordion` sem `onToggle` (histórico usa `<details>`).
-- `CommandPalette` sem callback da busca: `app/palette-dialog.tsx` pré-filtra com `palette-search.ts`.
-- `Artwork` sem `referrerPolicy`: logos de addon usam `<img>` simples.
-- Sem equivalente: hero recolhível do título (`catalog/title-hero.tsx`), faixa de 7 dias da agenda, colunas
-  empilhadas e barra segmentada das estatísticas (`stats/stat-marks.tsx`), fila e overlays do player.
+O Sonido 2.2.0 trouxe o que faltava (nível do título em `PageHeader`/`EmptyState`, `href` em `Button` e `NavRail`,
+ícone em `Carousel`/`FilterChips`, opção desabilitada no `Select`, `Accordion.onToggle`, `referrerPolicy` em
+`Artwork`/`Avatar`, `Hero` recolhível com pôster e corpo, `StackedColumns`, `SegmentedBar`, `Legend` e `WeekStrip`), e
+o cliente passou a usar essas peças no lugar das cópias locais. Ainda sem equivalente: fila e overlays do player.

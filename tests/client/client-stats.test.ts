@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import type { StatsSummary } from '../../src/server/stats/summary.ts';
 import { backlogView, formatDateBr, kpiCards, monthRows, yearOptions } from '../../src/client/stats/model.ts';
 import { shareCardModel } from '../../src/client/stats/share-model.ts';
-import { axisTicks, niceMax, segmentBlocks, stackedLayout } from '../../src/client/stats/charts.ts';
 import { parseGoal } from '../../src/client/stats/goal.ts';
 import { goalView, heatLayout, libraryParts, yearStrip } from '../../src/client/stats/insights.ts';
 
@@ -113,11 +112,9 @@ describe('backlogView: "terminar até" só com duração conhecida', () => {
 });
 
 describe('monthRows e anos do seletor', () => {
-  test('uma linha por mês, com dicas de conclusão e revisão separadas', () => {
+  test('uma linha por mês, com a dica do mês inteiro', () => {
     const rows = monthRows(summary());
     expect(rows).toHaveLength(12);
-    expect(rows[2]?.finishedTip).toBe('março: 3 conclusões');
-    expect(rows[5]?.rewatchTip).toBe('junho: 1 revisão');
     expect(rows[2]?.tip).toContain('5,7 h');
     expect(rows[0]?.hours).toBeNull();
   });
@@ -126,57 +123,6 @@ describe('monthRows e anos do seletor', () => {
     expect(yearOptions(2024, 2026)).toEqual([2026, 2025, 2024]);
     expect(yearOptions(null, 2026)).toEqual([2026]);
     expect(yearOptions(2030, 2026)).toEqual([2026]);
-  });
-});
-
-describe('gráficos: escala, marcas focáveis e texto escapado', () => {
-  test('niceMax devolve 1, 2, 5 ou 10 vezes uma potência de dez', () => {
-    expect(niceMax(0)).toBe(1);
-    expect(niceMax(3)).toBe(5);
-    expect(niceMax(7)).toBe(10);
-    expect(niceMax(180)).toBe(200);
-    expect(niceMax(1200)).toBe(2000);
-  });
-
-  test('empilhado: segmento zerado não é desenhado; cada série com valor vira uma marca', () => {
-    const { columns } = stackedLayout([{ label: 'Mar', segments: [3, 0], tips: ['março: 3 conclusões', 'março: 0 revisões'] }]);
-    expect(columns[0]?.segments).toEqual([{ series: 0, value: 3, tip: 'março: 3 conclusões', cap: true }]);
-  });
-});
-
-describe('eixo de contagens: marcas sempre inteiras', () => {
-  test('até 10 o teto é par (ou 1), para o meio não virar meio título', () => {
-    expect(axisTicks(0)).toEqual([0, 1]);
-    expect(axisTicks(1)).toEqual([0, 1]);
-    expect(axisTicks(2)).toEqual([0, 1, 2]);
-    expect(axisTicks(3)).toEqual([0, 2, 4]);
-    expect(axisTicks(5)).toEqual([0, 3, 6]);
-    expect(axisTicks(9)).toEqual([0, 5, 10]);
-  });
-
-  test('acima de 10 usa valores redondos, e todas as marcas seguem inteiras', () => {
-    expect(axisTicks(11)).toEqual([0, 10, 20]);
-    expect(axisTicks(37)).toEqual([0, 25, 50]);
-    expect(axisTicks(180)).toEqual([0, 100, 200]);
-    for (let v = 0; v <= 2500; v++) for (const t of axisTicks(v)) expect(Number.isInteger(t)).toBe(true);
-  });
-
-  test('só a coluna mais alta leva o número na ponta (a primeira, em empate)', () => {
-    const { columns } = stackedLayout([
-      { label: 'A', segments: [2], tips: ['a'] },
-      { label: 'B', segments: [7], tips: ['b'] },
-      { label: 'C', segments: [7], tips: ['c'] },
-    ]);
-    expect(columns.map((c) => c.capLabel)).toEqual([null, '7', null]);
-    expect(stackedLayout([{ label: 'Z', segments: [0], tips: ['z'] }]).columns[0]?.capLabel).toBeNull();
-  });
-
-  test('empilhado: só o segmento de cima leva a ponta arredondada', () => {
-    const { columns } = stackedLayout([{ label: 'Mar', segments: [3, 2], tips: ['c', 'r'] }]);
-    expect(columns[0]?.segments.map((x) => [x.series, x.cap])).toEqual([
-      [0, false],
-      [1, true],
-    ]);
   });
 });
 
@@ -211,24 +157,14 @@ describe('mapa de atividade', () => {
 });
 
 describe('composição da biblioteca', () => {
-  test('partes na ordem fixa, com a fatia em porcentagem no tooltip', () => {
+  test('partes na ordem fixa, cada status com a sua cor', () => {
     const parts = libraryParts(summary());
-    expect(parts.map((p) => p.label)).toEqual(['Assistido', 'Assistindo', 'Quero ver', 'Abandonado']);
-    expect(parts[0]?.tip).toBe('Assistido: 3 títulos (50%)');
-    expect(parts[1]?.tip).toBe('Assistindo: 1 título (17%)');
-  });
-
-  test('barra: parte zerada não é desenhada nem entra na legenda; fatia pequena fica sem texto', () => {
-    const blocks = segmentBlocks([
-      { label: 'A', value: 9, color: '#199e70', tip: 'A: 9' },
-      { label: 'B', value: 0, color: '#c98500', tip: 'B: 0' },
-      { label: 'C', value: 1, color: '#3987e5', tip: 'C: 1' },
+    expect(parts.map((p) => [p.label, p.value, p.tone])).toEqual([
+      ['Assistido', 3, 'success'],
+      ['Assistindo', 1, 'warning'],
+      ['Quero ver', 2, 'info'],
+      ['Abandonado', 0, 'danger'],
     ]);
-    expect(blocks.map((b) => [b.label, b.text])).toEqual([
-      ['A', '90%'],
-      ['C', ''],
-    ]);
-    expect(segmentBlocks([{ label: 'A', value: 0, color: '#199e70', tip: 'A' }])).toEqual([]);
   });
 });
 
