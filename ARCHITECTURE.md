@@ -26,7 +26,7 @@ O cliente só fala com o servidor por `/api/*`. O servidor é o único que fala 
 
 | Pasta | O que tem |
 |---|---|
-| `main.ts` | Monta a casca (menu, barra superior, player fixo) e despacha a rota. Não conhece nenhuma tela. |
+| `main.ts` | Monta a casca (`app/shell.tsx`, React + Sonido: menu, barra superior) e o player fixo, e despacha a rota. Não conhece nenhuma tela. |
 | `app/` | Roteador de hash, **tabela de rotas** (`routes.ts`), títulos de rota, memória de rolagem, atalhos, paleta `Ctrl K`, estado global pequeno (toast). |
 | `api/` | Cliente HTTP, um arquivo por domínio (`library.ts`, `telegram.ts`, `stats.ts`, ...). `index.ts` só reexporta. Os tipos `...Dto` espelham as respostas das rotas. |
 | `ui/` | Peças sem regra de negócio: card, carrossel, ícones, efeitos (confete, tilt, transição de tela), formatação de data. |
@@ -76,7 +76,7 @@ Não há DOM nos testes: por isso a lógica fica em módulos puros.
 ## Receitas
 
 **Nova tela.** Crie `src/client/<feature>/<nome>-page.ts`; acrescente em `PAGES` e `ROUTES` (`app/routes.ts`);
-rótulo em `app/route-meta.ts`; se for item de menu, `NAV_ITEMS` em `main.ts`; caso em `tests/client/routes.test.ts`.
+rótulo em `app/route-meta.ts`; se for item de menu, `NAV_GROUPS` em `app/nav-model.ts`; caso em `tests/client/routes.test.ts`.
 
 **Novo endpoint.** `src/server/routes/<recurso>.ts` (validação + DTO) → SQL em `src/server/repo/<recurso>.ts` →
 registre em `src/server/app.ts` → função tipada em `src/client/api/<domínio>.ts` → teste de rota em

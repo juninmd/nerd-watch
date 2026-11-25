@@ -42,7 +42,6 @@ kbd {
 }
 
 /* Anel de foco único para campos de busca e filtros. */
-.cmd:focus-visible,
 .input:focus-visible,
 .select:focus-visible {
   box-shadow: var(--ring);

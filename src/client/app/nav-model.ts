@@ -2,7 +2,7 @@ import type { IconName } from '../ui/icons.ts';
 
 /**
  * Modelo do menu lateral: grupos por intenção, itens, atalhos e qual item está ativo. Sem DOM, para
- * testar direto (tests/client/nav-model.test.ts). `main.ts` só desenha o que sai daqui.
+ * testar direto (tests/client/nav-model.test.ts). `app/shell.tsx` só desenha o que sai daqui.
  */
 export interface NavItem {
   path: string;

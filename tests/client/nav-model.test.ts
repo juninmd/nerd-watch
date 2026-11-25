@@ -7,7 +7,7 @@ import {
   readNavCompact,
   writeNavCompact,
 } from '../../src/client/app/nav-model.ts';
-import { resolveRoute } from '../../src/client/app/routes.ts';
+import { resolveRoute } from '../../src/client/app/routes.tsx';
 
 const item = (path: string) => NAV_ITEMS.find((i) => i.path === path) as (typeof NAV_ITEMS)[number];
 

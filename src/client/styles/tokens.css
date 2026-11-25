@@ -215,10 +215,7 @@ img {
 @media (forced-colors: active) {
   .btn,
   .chip,
-  .pill,
-  .cmd,
   .card,
-  .navlink,
   .select,
   .textarea,
   .input-pill,

@@ -50,23 +50,30 @@ kbd {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 18px 12px 14px;
   overflow-y: auto;
   border-right: 1px solid var(--border-soft);
   background: var(--glass);
   backdrop-filter: blur(14px);
 }
 
+/* O NavRail do Sonido ocupa a coluna inteira; a largura vem do grid da casca (expandido ou compacto). */
+.navrail .sn-navrail {
+  width: auto;
+  flex: 1;
+  border-right: 0;
+  background: none;
+  backdrop-filter: none;
+}
+
 .side-brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 2px 8px 16px;
 }
 
 .brand-name {
   font: 800 18px var(--font-display);
+  white-space: nowrap;
   letter-spacing: -0.02em;
 }
 
@@ -82,89 +89,19 @@ kbd {
   box-shadow: 0 8px 22px -6px rgba(255, 61, 110, 0.55);
 }
 
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.nav-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.nav-label {
-  padding: 0 12px 6px;
-  font: 700 10.5px var(--font-mono);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.navlink {
-  position: relative;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 12px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-dim);
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
-}
-
-.navlink .i {
-  width: 18px;
-  height: 18px;
-}
-
-@media (hover: hover) {
-  .navlink:hover {
-    background: var(--surface-hover);
-    color: var(--text);
-  }
-}
-
-.navlink.active {
-  color: var(--text);
-  background: var(--gradient-soft);
-}
-
 .side-foot {
-  margin-top: auto;
   display: grid;
   gap: 6px;
-  padding-top: 12px;
+  padding: 12px;
   border-top: 1px solid var(--border-soft);
 }
 
-.side-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg);
-  color: var(--text-dim);
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
+.side-foot .sn-button {
+  justify-content: flex-start;
 }
 
-.side-btn kbd {
+.side-foot .sn-kbd {
   margin-left: auto;
-}
-
-@media (hover: hover) {
-  .side-btn:hover {
-    border-color: var(--accent-2);
-    color: var(--text);
-  }
 }
 
 .menu-btn,
@@ -192,68 +129,26 @@ kbd {
   border-bottom: 1px solid var(--border-soft);
 }
 
+/* Gatilho da paleta (Button do Sonido): ocupa a largura livre da barra, texto alinhado à esquerda. */
 .cmd {
   flex: 1 1 260px;
   max-width: 620px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 16px;
+  justify-content: flex-start;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-faint);
-  font-size: 14px;
-  text-align: left;
-  transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
-}
-
-@media (hover: hover) {
-  .cmd:hover {
-    border-color: var(--accent-2);
-    color: var(--text-dim);
-  }
 }
 
 .cmd-text {
   flex: 1;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.pill {
+.conn-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 15px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-dim);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.pill[aria-pressed="true"] {
-  color: var(--warning);
-  border-color: rgba(251, 191, 36, 0.4);
-  background: rgba(251, 191, 36, 0.08);
-}
-
-.led {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 8px var(--success);
-}
-
-.led.off {
-  background: var(--text-faint);
-  box-shadow: none;
+  gap: 6px;
 }
 
 .view-head {
@@ -372,15 +267,8 @@ kbd {
     overflow: hidden;
   }
   .menu-btn {
-    display: grid;
-    place-items: center;
+    display: inline-flex;
     flex: none;
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
   }
   .topbar {
     flex-wrap: nowrap;
@@ -390,12 +278,9 @@ kbd {
     flex: 1;
     min-width: 0;
   }
-  .cmd kbd,
+  .cmd .sn-kbd,
   .pill-label {
     display: none;
-  }
-  .pill {
-    padding: 11px 13px;
   }
   .main {
     padding-bottom: 48px;
@@ -462,13 +347,4 @@ kbd {
   .carousel-btn:not(:disabled):hover {
     background: var(--surface-hover);
   }
-}
-
-/* Foto da conta do Telegram na barra do topo (antes do LED de status). */
-.pill-avatar {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex: none;
 }
