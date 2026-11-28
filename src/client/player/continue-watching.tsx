@@ -7,7 +7,12 @@ import { mediaUrl } from '../platform/tauri.ts';
 import { posterCssUrl } from '../ui/poster-css.ts';
 import { Icon } from '../ui/icon.tsx';
 import { formatDuration } from '../ui/time-format.ts';
-import { clearContinueWatching, continueWatching, removeFromContinueWatching } from './playback-positions.ts';
+import {
+  clearContinueWatching,
+  continueWatching,
+  markContinueWatchingDone,
+  removeFromContinueWatching,
+} from './playback-positions.ts';
 import { PLAYBACK_CHANGED_EVENT } from './playback-sync.ts';
 
 const MAX_CARDS = 12;
@@ -38,42 +43,58 @@ function ResumeCard({ entry, onRemove }: { entry: Entry; onRemove(): void }) {
         style={meta.poster ? { backgroundImage: posterCssUrl(mediaUrl(meta.poster)) } : undefined}
       >
         {!meta.poster && <Icon name="film" />}
+        <div className="resume-text">
+          <b>{meta.title}</b>
+          <small>
+            {meta.subtitle} · {left ? `faltam ${left}` : `parou em ${formatDuration(resumeAt)}`}
+          </small>
+        </div>
         <ProgressBar className="resume-bar" size="sm" value={percent} label={`${percent}% assistido`} />
       </div>
-      <Button
-        className="resume-remove"
-        variant="ghost"
-        size="icon"
-        aria-label={`remover ${meta.title} de continuar assistindo`}
-        title="Remover de continuar assistindo"
-        onClick={(e) => {
-          e.stopPropagation();
-          removeFromContinueWatching(entry.key);
-          onRemove();
-        }}
-      >
-        <Icon name="x" size="sm" />
-      </Button>
-      {canShareAppLink() && (
+      <div className="resume-actions">
         <Button
-          className="resume-link"
+          className="resume-action"
           variant="ghost"
           size="icon"
-          aria-label={`copiar link para continuar ${meta.title}`}
-          title="Copiar link para continuar"
+          aria-label={`marcar ${meta.title} como visto`}
+          title="Marcar como visto"
           onClick={(e) => {
             e.stopPropagation();
-            copyAppLink(route, { at: resumeAt, label: 'Link para continuar' });
+            markContinueWatchingDone(entry.key);
+            onRemove();
           }}
         >
-          <Icon name="link" size="sm" />
+          <Icon name="check" size="sm" />
         </Button>
-      )}
-      <div className="resume-text">
-        <b>{meta.title}</b>
-        <small>
-          {meta.subtitle} · {left ? `faltam ${left}` : `parou em ${formatDuration(resumeAt)}`}
-        </small>
+        {canShareAppLink() && (
+          <Button
+            className="resume-action"
+            variant="ghost"
+            size="icon"
+            aria-label={`copiar link para continuar ${meta.title}`}
+            title="Copiar link para continuar"
+            onClick={(e) => {
+              e.stopPropagation();
+              copyAppLink(route, { at: resumeAt, label: 'Link para continuar' });
+            }}
+          >
+            <Icon name="link" size="sm" />
+          </Button>
+        )}
+        <Button
+          className="resume-action"
+          variant="ghost"
+          size="icon"
+          aria-label={`remover ${meta.title} de continuar assistindo`}
+          title="Remover de continuar assistindo"
+          onClick={(e) => {
+            e.stopPropagation();
+            removeFromContinueWatching(entry.key);
+            onRemove();
+          }}
+        >
+          <Icon name="x" size="sm" />
+        </Button>
       </div>
     </div>
   );

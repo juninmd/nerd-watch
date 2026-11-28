@@ -11,6 +11,9 @@ export const continueWatching = (limit?: number) => store.inProgress(limit);
 /** Só a posição salva some (e o apagamento é sincronizado); o vídeo continua no canal/biblioteca. */
 export const removeFromContinueWatching = (key: string): void => store.clear(key);
 
+/** Marca o vídeo como visto (fim + marca de assistido): sai de "continuar" sem perder o histórico. */
+export const markContinueWatchingDone = (key: string): void => store.markDone(key);
+
 /** Apaga todas as posições em andamento e avisa as telas (os cards de "continuar" se redesenham). */
 export const clearContinueWatching = (): number => {
   const removed = store.clearInProgress();
