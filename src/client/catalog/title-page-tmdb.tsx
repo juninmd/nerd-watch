@@ -4,6 +4,7 @@ import { TitleStreams } from '../addons/title-streams-panel.tsx';
 import { getTmdbTitle, type TmdbDetailDto } from '../api/index.ts';
 import type { EpisodeMarker } from '../library/episode-progress.ts';
 import { RefreshMetadata } from '../library/refresh-metadata.tsx';
+import { RelinkButton } from '../library/relink-dialog.tsx';
 import { StatusActions } from '../library/status-actions.tsx';
 import { AddToList } from '../lists/add-to-list.tsx';
 import { stopIfOnPageIn } from '../player/player-dock.ts';
@@ -133,6 +134,11 @@ export function TmdbTitle({ mediaType, id }: { mediaType: 'movie' | 'tv'; id: st
               rewatchCount={d.library?.rewatch_count ?? 0}
               onChange={reload}
             />
+            {d.library && (
+              <div className="side-card__row">
+                <RelinkButton titleId={d.titleId} current={{ source: 'tmdb', sourceId: id }} initialQuery={d.title} />
+              </div>
+            )}
             <div className="side-card__row">
               <AddToList titleId={d.titleId} />
             </div>

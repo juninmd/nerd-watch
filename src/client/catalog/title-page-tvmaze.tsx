@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getTvmazeMore, getTvmazeTitle, type TvmazeDetailDto, type TvmazeMoreDto } from '../api/index.ts';
 import type { EpisodeMarker } from '../library/episode-progress.ts';
 import { markThrough } from '../library/mark-progress.ts';
+import { RelinkButton } from '../library/relink-dialog.tsx';
 import { StatusActions } from '../library/status-actions.tsx';
 import { playPath } from '../player/episode-play-model.ts';
 import { BackLink } from '../ui/back.tsx';
@@ -143,6 +144,11 @@ function TvmazeDetail({ id, d, reload }: { id: string; d: TvmazeDetailDto; reloa
               rewatchCount={d.library?.rewatch_count ?? 0}
               onChange={reload}
             />
+            {d.library && (
+              <div className="side-card__row">
+                <RelinkButton titleId={d.titleId} current={{ source: 'tvmaze', sourceId: id }} initialQuery={d.title} />
+              </div>
+            )}
           </SideCard>
           {more && (
             <>

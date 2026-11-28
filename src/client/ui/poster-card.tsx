@@ -60,7 +60,9 @@ export function PosterCard({ title, posterUrl, meta, status, isPublicDomain, sco
       tabIndex={0}
       role={selection ? 'checkbox' : 'link'}
       aria-checked={selection ? selection.selected : undefined}
-      aria-label={[title, meta, flag?.label, watched ? STATUS_LABEL.watched : null].filter(Boolean).join(' — ')}
+      aria-label={[title, meta, flag?.label, watched ? STATUS_LABEL.watched : null, scoreText ? `nota ${scoreText}` : null]
+        .filter(Boolean)
+        .join(' — ')}
       onClick={activate}
       onKeyDown={onKeyDown}
     >
@@ -72,7 +74,7 @@ export function PosterCard({ title, posterUrl, meta, status, isPublicDomain, sco
           </span>
         )}
         {scoreText && (
-          <span className="poster-card__score" aria-label={`nota ${scoreText}`}>
+          <span className="poster-card__score" aria-hidden="true">
             ★ {scoreText}
           </span>
         )}

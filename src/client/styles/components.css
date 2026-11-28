@@ -275,3 +275,37 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* "Vínculo errado?": resultados da busca como linhas clicáveis com miniatura. */
+.relink-results {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.relink-hit {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.relink-hit:hover,
+.relink-hit:focus-visible {
+  border-color: var(--accent-2);
+}
+
+.relink-hit small {
+  display: block;
+  color: var(--text-dim);
+}

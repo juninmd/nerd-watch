@@ -1,6 +1,7 @@
 import { Button } from '@juninmd/sonido';
 import { useRef } from 'react';
 import { type AnilistDetailDto, getAnilistTitle } from '../api/index.ts';
+import { RelinkButton } from '../library/relink-dialog.tsx';
 import { StatusActions } from '../library/status-actions.tsx';
 import { TrailerFrame } from '../player/trailer-embed.tsx';
 import { BackLink } from '../ui/back.tsx';
@@ -90,6 +91,11 @@ export function AnilistTitle({ id }: { id: string }) {
               rewatchCount={d.library?.rewatch_count ?? 0}
               onChange={reload}
             />
+            {d.library && (
+              <div className="side-card__row">
+                <RelinkButton titleId={d.titleId} current={{ source: 'anilist', sourceId: id }} initialQuery={d.title} />
+              </div>
+            )}
           </SideCard>
           <SideCard title="Fonte">
             <LinkButton href={d.pageUrl ?? d.attribution.url} block>

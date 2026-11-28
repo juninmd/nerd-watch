@@ -21,7 +21,7 @@ export const resultMeta = (r: Pick<SearchResultDto, 'source' | 'mediaType' | 're
     .join(' · ');
 
 /** O catálogo guarda o caminho da TMDB sem o prefixo de tamanho; o acervo guarda a URL inteira. */
-const posterPathOf = (r: SearchResultDto): string | null | undefined =>
+export const posterPathOf = (r: SearchResultDto): string | null | undefined =>
   r.source === 'archive' ? r.posterUrl : r.posterUrl?.replace(/^https:\/\/image\.tmdb\.org\/t\/p\/w\d+/, '');
 
 /** Cartão de resultado do catálogo, com "+ biblioteca" sem sair da busca. */
