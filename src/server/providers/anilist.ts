@@ -29,6 +29,7 @@ query ($search: String!, $perPage: Int!) {
   Page(page: 1, perPage: $perPage) {
     media(search: $search, type: ANIME, isAdult: false) {
       id
+      idMal
       title { romaji english native }
       format
       status
@@ -136,6 +137,8 @@ const query = async (gql: string, variables: Record<string, unknown>): Promise<R
 
 export interface AnilistSearchItem {
   id: number;
+  /** Id do MyAnimeList (chave da AniSkip); nulo quando o AniList não tem. */
+  idMal: number | null;
   title: string;
   romaji: string | null;
   english: string | null;
@@ -153,6 +156,7 @@ const toSearchItem = (raw: unknown): AnilistSearchItem | null => {
   const t = pickTitle(raw.title);
   return {
     id: raw.id,
+    idMal: typeof raw.idMal === 'number' ? raw.idMal : null,
     ...t,
     format: typeof raw.format === 'string' ? raw.format : null,
     year: yearOf(raw.startDate),

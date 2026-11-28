@@ -1,6 +1,5 @@
 import { Button, EmptyState, Kbd, Skeleton, Switch } from '@juninmd/sonido';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getTitleStreams, listAddons, type TitleStreamsDto } from '../api/stremio.ts';
 import { streamFacts } from '../addons/stream-filter.ts';
 import type { AddonStreamGroup, AddonStreamItem } from '../addons/stream-lookup.ts';
 import { navigate } from '../app/router.ts';
@@ -15,14 +14,16 @@ import {
   neighborEpisode,
   type PlaySource,
   playPath,
-  pickStream,
   type StreamPick,
 } from './episode-play-model.ts';
-import { readStreamPref, saveStreamPref } from './episode-play-pref.ts';
-import { EpisodePlaySide, type Streams } from './episode-play-side.tsx';
+import { saveStreamPref } from './episode-play-pref.ts';
+import { EpisodePlaySide } from './episode-play-side.tsx';
 import { loadPlayContext, type PlayContext } from './play-context.ts';
+import { usePlayerChange } from './player-events.ts';
+import { creditsStart, getSkipSegments } from './skip-segments.ts';
 import { SourceCollectorCard } from './source-collector-card.tsx';
-import { addAnswer, allAnswered, type Collected, readyToStart, startCollect } from './source-collector.ts';
+import { useEpisodeStreams } from './use-episode-streams.ts';
+import { useSkipTimes } from './use-skip-times.ts';
 import { getAutoplay, getVideo, setAutoplay, subscribeEnded } from './player-dock.ts';
 import { useEndCountdown, WatchEndCard } from './watch-end-card.tsx';
 
@@ -38,7 +39,6 @@ interface PlayViewProps {
 function PlayView({ ctx, list, ep, explicit }: PlayViewProps) {
   const [marker, setMarker] = useState(ctx.marker);
   const [autoplay, setAutoplayState] = useState(getAutoplay);
-  const [streams, setStreams] = useState<Streams>({ kind: 'loading' });
   const [host, setHost] = useState<HTMLElement | null>(null);
   const numbers = list.map((e) => e.number);
   const prev = neighborEpisode(ctx.seasons, ep.season, ep.number, -1, numbers);
@@ -57,62 +57,7 @@ function PlayView({ ctx, list, ep, explicit }: PlayViewProps) {
   }, [ctx, ep]);
 
   const titleKey = `${ctx.source}:${ctx.id}`;
-  const [collect, setCollect] = useState<Collected | null>(null);
-  const collected = useRef<Collected | null>(null);
-  const started = useRef(false);
-
-  /** Entrega a lista ao painel e escolhe a fonte; depois disso, quem chega tarde só entra na lista. */
-  const start = useCallback(
-    (dto: TitleStreamsDto) => {
-      started.current = true;
-      if (!dto.addons.length) setStreams({ kind: 'none', message: 'Nenhum addon de streams instalado.' });
-      else setStreams({ kind: 'ready', dto, pick: pickStream(dto, readStreamPref(titleKey), explicit) });
-    },
-    [titleKey, explicit],
-  );
-
-  useEffect(() => {
-    if ('unavailable' in query) return setStreams({ kind: 'none', message: query.unavailable });
-    let alive = true;
-    const fail = () =>
-      alive && setStreams({ kind: 'none', message: 'Não foi possível consultar os addons agora.', alert: true });
-    const pref = readStreamPref(titleKey);
-    listAddons()
-      .then((list) => list.filter((a) => a.enabled && a.resources.includes('stream')))
-      .catch(() => [])
-      .then((addons) => {
-        if (!alive) return;
-        // Um addon (ou lista indisponível): uma consulta só, como antes.
-        if (addons.length <= 1) {
-          getTitleStreams(query)
-            .then((dto) => alive && start(dto))
-            .catch(fail);
-          return;
-        }
-        // Vários: um pedido por addon; a tela mostra cada um chegando e começa sem esperar o mais lento.
-        collected.current = startCollect(addons);
-        setCollect(collected.current);
-        for (const addon of addons) {
-          getTitleStreams({ ...query, only: addon.id })
-            .catch(() => null)
-            .then((answer) => {
-              if (!alive || !collected.current) return;
-              const c = addAnswer(collected.current, addon.id, answer);
-              collected.current = c;
-              setCollect(c);
-              const explicitIn = explicit !== null && c.addons.some((a) => a.addonId === explicit.addonId && a.status !== 'pending');
-              if (!started.current && (readyToStart(c, pref) || explicitIn)) start(c.dto);
-              else if (started.current)
-                setStreams((cur) => (cur.kind === 'ready' ? { ...cur, dto: c.dto } : cur));
-              if (allAnswered(c) && !c.dto.addons.length) fail();
-            });
-        }
-      });
-    return () => {
-      alive = false;
-    };
-    // uma consulta por episódio (a tela remonta a cada rota)
-  }, []);
+  const { streams, collect, playNow } = useEpisodeStreams(query, titleKey, explicit);
 
   const mark = useCallback(
     () =>
@@ -122,20 +67,36 @@ function PlayView({ ctx, list, ep, explicit }: PlayViewProps) {
     [ctx.titleId, ep],
   );
 
-  // Fim do episódio: marca como visto e, com a reprodução automática ligada, conta até abrir o próximo.
+  useSkipTimes(ctx, ep);
+
+  // Fim do episódio (ou início dos créditos, quando se sabe): marca como visto e, com a reprodução automática
+  // ligada, conta até abrir o próximo. Os créditos disparam uma vez só por episódio.
+  const creditsFired = useRef(false);
+  // O `<video>` global nasce quando a primeira fonte toca: o efeito religa quando o player muda.
+  const playerVersion = usePlayerChange();
   useEffect(() => {
     const video = getVideo();
-    // Voltar a tocar (replay, arrastar a barra) cancela a contagem: senão a tela troca no meio do vídeo.
-    video?.addEventListener('play', end.stop);
-    const unsubscribe = subscribeEnded(() => {
+    const finish = () => {
       if (!isEpisodeWatched(marker, ep.season, ep.number)) void mark();
       if (next) end.start(COUNTDOWN, getAutoplay());
-    });
+    };
+    const onTime = () => {
+      if (creditsFired.current || !video || !next) return;
+      const at = creditsStart(getSkipSegments(), video.duration);
+      if (at === null || video.currentTime < at) return;
+      creditsFired.current = true;
+      finish();
+    };
+    // Voltar a tocar (replay, arrastar a barra) cancela a contagem: senão a tela troca no meio do vídeo.
+    video?.addEventListener('play', end.stop);
+    video?.addEventListener('timeupdate', onTime);
+    const unsubscribe = subscribeEnded(finish);
     return () => {
       unsubscribe();
       video?.removeEventListener('play', end.stop);
+      video?.removeEventListener('timeupdate', onTime);
     };
-  }, [marker, ep, next, mark, end.start, end.stop]);
+  }, [marker, ep, next, mark, end.start, end.stop, playerVersion]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -175,7 +136,7 @@ function PlayView({ ctx, list, ep, explicit }: PlayViewProps) {
           <section className="play-host" ref={setHost} tabIndex={-1} aria-label="Player do stream">
             {hd && <img className="play-poster" src={hd} alt="" />}
             {streams.kind === 'loading' && collect && (
-              <SourceCollectorCard collected={collect} onPlayNow={() => collected.current && start(collected.current.dto)} />
+              <SourceCollectorCard collected={collect} onPlayNow={playNow} />
             )}
             {status && !(streams.kind === 'loading' && collect) && (
               <p className="play-status" role="status">
