@@ -47,6 +47,13 @@ e torrent legal), calendário de lançamentos e progresso "onde parei".
 | 🔌 **Fontes de vídeo** | pasta local, WebDAV, S3, Dropbox, OneDrive, Jellyfin/Emby, Plex, PeerTube, YouTube e Dailymotion (embed), coleções da Internet Archive e torrent: cada pasta/biblioteca vira um canal, com a mesma fila, miniaturas e "continuar assistindo". Ver [Fontes de vídeo](#-fontes-de-vídeo) |
 | 📚 **Mais catálogos** | **TVmaze** (séries e datas de episódios no calendário) e **AniList** (anime), sem chave; **Trakt** importa o que você já assistiu |
 | ☁️ **Progresso no servidor** | "continuar assistindo" também fica no SQLite: sobrevive a limpar o navegador e vai no backup |
+| ⏭️ **Pular abertura e créditos** | no player do episódio, botão "Pular abertura/recapitulação/créditos" com marcas na barra e contagem para o próximo episódio nos créditos. Tempos do [IntroDB e do AniSkip](docs/providers/skip-times.md), sem chave. A barra mostra também a que horas o episódio termina |
+| 🔀 **Fontes no player** | o player do episódio junta as respostas dos addons antes de tocar ("Tocar agora" não espera o mais lento), lembra a fonte por série, troca de fonte pelo menu "Fonte e qualidade" mantendo o segundo e passa sozinho para a próxima quando o navegador não toca a escolhida. "Assistir" da ficha pré-busca as fontes |
+| 🏷️ **Selos e spoilers** | pôsteres com nota, "N novos" episódios e carimbo "assistido"; sinopse e imagem dos episódios ainda não vistos ficam borradas até você revelar (ou ligar "Mostrar sinopses futuras"). Séries com mais de 8 temporadas trocam as abas por uma lista |
+| 🔁 **Vínculo errado?** | na ficha de um título da biblioteca, troca o título do catálogo ligado; status, nota, histórico e listas vão junto (`POST /api/library/:id/relink`) |
+| 🔍 **Busca rápida** | sugestões de títulos enquanto digita, buscas recentes e resultados que aparecem fonte a fonte (`GET /api/search?source=`, `GET /api/search/suggest`) |
+| 🧭 **Catálogos e feed** | em Descobrir, "gerenciar catálogos" ordena e esconde catálogos dos addons e liga "Meu feed", um trilho que mistura todos. Início com destaque rotativo |
+| 🛟 **Ajustes e ajuda** | busca dentro dos Ajustes, prévia ao vivo do estilo da legenda, faixa e tela amigável sem internet e **Relatar problema** (abre uma issue no GitHub já preenchida; nada é enviado sozinho) |
 | 🔒 **Local-first** | sua lista e seu progresso ficam no `data/nerd-watch.db` (SQLite); consultas ao catálogo e ao Telegram usam os serviços externos correspondentes |
 
 Filmes e séries **protegidos por direitos autorais não são reproduzidos dentro do app** — o app te leva
