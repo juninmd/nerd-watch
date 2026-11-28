@@ -10,5 +10,5 @@ O player do episódio pergunta ao servidor onde ficam abertura, recapitulação 
 
 - Resposta cacheada por 6 horas no servidor; falha de uma fonte só deixa o botão de fora.
 - Sem tempos, o player funciona igual: não há botão nem marcas na barra.
-- O AniSkip usa a duração do vídeo (`duration`) para descartar tempos de outra versão do episódio.
+- Com vários envios para o mesmo trecho, o AniSkip fica com o de duração (`episodeLength`) mais próxima do vídeo (`duration`).
 - Testes sem rede: `setSkipTimesFetchForTests` em `src/server/providers/skip-times/index.ts`.
