@@ -6,6 +6,7 @@ import { canStep, getCast, getVideo, stepPlayer, togglePlay } from './player-doc
 import { seekVideo } from './player-keyboard.ts';
 import { progressFraction, SEEK_SECONDS, SPEED_STEPS } from './player-seek.ts';
 import { clockLabel } from './player-clock.ts';
+import { sourceTriggerLabel } from '../addons/stream-switch.ts';
 import { getSourceMenu, subscribeSourceMenu } from './player-sources.ts';
 import { usePlayerUi } from './player-ui-store.ts';
 import { activeSegment, getSkipSegments, SKIP_LABEL, subscribeSkipSegments } from './skip-segments.ts';
@@ -212,7 +213,7 @@ export function PageControls({ stage }: { stage: HTMLElement }) {
               <Menu
                 className="pc-sourcewrap"
                 align="end"
-                trigger={<span className="pc-speed">{sources.options.find((o) => o.active)?.label.split(' · ')[0] ?? 'Fonte'}</span>}
+                trigger={<span className="pc-speed">{sourceTriggerLabel(sources.options)}</span>}
                 triggerLabel="Fonte e qualidade"
                 items={sources.options.map((o) => ({
                   key: `${o.addonId}:${o.index}`,

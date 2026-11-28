@@ -292,6 +292,11 @@
   position: relative;
 }
 
+/* No trilho de pôsteres (grade do Carousel), o cartão 16:9 ocupa duas colunas para a cena e o título caberem. */
+.sn-carousel__rail > .resume-card {
+  grid-column: span 2;
+}
+
 /* Ações redondas no canto, à vista no hover/foco (no toque, sempre). */
 .resume-actions {
   position: absolute;

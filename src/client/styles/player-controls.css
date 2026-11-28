@@ -64,7 +64,8 @@
 }
 
 /* Velocidade: gatilho do Menu como pílula de texto ("1.25x"). */
-.pc-speedwrap .sn-menu__trigger {
+.pc-speedwrap .sn-menu__trigger,
+.pc-sourcewrap .sn-menu__trigger {
   min-width: 40px;
   height: 40px;
   padding: 0 12px;
@@ -79,11 +80,13 @@
   cursor: pointer;
 }
 
-.pc-speedwrap .sn-menu__trigger:hover {
+.pc-speedwrap .sn-menu__trigger:hover,
+.pc-sourcewrap .sn-menu__trigger:hover {
   background: rgba(255, 255, 255, 0.16);
 }
 
-.pc-speedwrap .sn-menu__trigger:focus-visible {
+.pc-speedwrap .sn-menu__trigger:focus-visible,
+.pc-sourcewrap .sn-menu__trigger:focus-visible {
   outline: 2px solid var(--accent-2);
   outline-offset: 2px;
 }
@@ -209,4 +212,20 @@
   bottom: 96px;
   z-index: 3;
   backdrop-filter: blur(6px);
+}
+
+/* Na barra do player os menus abrem para cima: abaixo dela o palco corta a lista. */
+:is(.pc-speedwrap, .pc-sourcewrap) .sn-menu__list {
+  top: auto;
+  bottom: calc(100% + 6px);
+  transform-origin: 100% 100%;
+}
+
+.pc-sourcewrap .sn-menu__trigger {
+  white-space: nowrap;
+}
+
+/* Menu da barra aberto: o "Pular" sai da frente da lista. */
+*:has(> .pc-skip):has(:is(.pc-speedwrap, .pc-sourcewrap) .sn-menu__list) > .pc-skip {
+  visibility: hidden;
 }

@@ -499,10 +499,12 @@
   position: relative;
 }
 
+/* Canto de cima à esquerda do pôster: embaixo o texto do cartão muda de altura e o botão cobria o título. */
 .search-hit__add {
   position: absolute;
-  right: 8px;
-  bottom: 64px;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
 }
 
 .pd-search {

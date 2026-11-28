@@ -1,6 +1,6 @@
 import { withCache } from '../lib/cache.ts';
+import { cinemetaSearch } from '../providers/cinemeta.ts';
 import { tmdbEnabled, tmdbSearchMulti } from '../providers/tmdb.ts';
-import { tvmazeSearchShows } from '../providers/tvmaze.ts';
 
 export const SUGGEST_MAX = 8;
 
@@ -38,6 +38,6 @@ export const searchSuggestions = withCache(10 * 60_000, async (query: string): P
         })),
     );
   }
-  const shows = await tvmazeSearchShows(query).catch(() => []);
-  return uniqueSuggestions(shows.map((s) => ({ title: s.name, year: s.year ? String(s.year) : null, mediaType: 'tv' as const })));
+  // Sem TMDB: Cinemeta (sem chave) entende prefixo, então "the simp" já sugere The Simpsons.
+  return uniqueSuggestions(await cinemetaSearch(query));
 });

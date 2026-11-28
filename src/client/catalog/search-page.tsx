@@ -159,9 +159,12 @@ export function SearchPage({ query }: { query: string }) {
       clearTimeout(t);
     };
   }, [typed, query]);
+  // Toda busca aberta conta como recente, venha do campo, da paleta (Ctrl K) ou de um link.
+  useEffect(() => {
+    if (query.trim()) setRecent(rememberSearch(query));
+  }, [query]);
   const go = (value: string) => {
     const q = value.trim();
-    if (q) setRecent(rememberSearch(q));
     setText(q);
     navigate(`/search${q ? `?q=${encodeURIComponent(q)}` : ''}`);
   };

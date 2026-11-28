@@ -20,12 +20,13 @@ const same = (a: StreamPick | null, b: StreamPick): boolean => a?.addonId === b.
 export const sourceOptions = (dto: TitleStreamsDto, playing: StreamPick | null): SourceOption[] =>
   playable(dto).map((p, i, all) => {
     const twins = all.filter((o) => o.addonId === p.addonId && o.height === p.height).length > 1;
-    const res = p.height ? `${p.height >= 2160 ? '4K' : `${p.height}p`}` : 'resolução ?';
+    // Resolução desconhecida fica de fora: o nome do addon basta.
+    const res = p.height ? `${p.height >= 2160 ? '4K' : `${p.height}p`} · ` : '';
     return {
       addonId: p.addonId,
       index: p.index,
       height: p.height,
-      label: `${res} · ${p.name}${twins ? ` #${i + 1}` : ''}`,
+      label: `${res}${p.name}${twins ? ` #${i + 1}` : ''}`,
       active: same(playing, p),
     };
   });
@@ -42,4 +43,10 @@ export const nextPlayable = (dto: TitleStreamsDto, failed: StreamPick, tried: Re
     if (cand && !same(failed, cand) && !tried.some((t) => same(t, cand))) return { addonId: cand.addonId, index: cand.index };
   }
   return null;
+};
+
+/** Texto curto do botão na barra: a resolução da fonte tocando, ou "Fonte" quando ela não diz. */
+export const sourceTriggerLabel = (options: readonly SourceOption[]): string => {
+  const h = options.find((o) => o.active)?.height ?? 0;
+  return h ? (h >= 2160 ? '4K' : `${h}p`) : 'Fonte';
 };

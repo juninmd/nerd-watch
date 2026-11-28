@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { nextPlayable, sourceOptions } from '../../src/client/addons/stream-switch.ts';
+import { nextPlayable, sourceOptions, sourceTriggerLabel } from '../../src/client/addons/stream-switch.ts';
 import type { TitleStreamsDto } from '../../src/client/api/stremio.ts';
 
 type S = TitleStreamsDto['addons'][number]['streams'][number];
@@ -17,6 +17,14 @@ describe('troca de fonte no player', () => {
     const opts = sourceOptions(DTO, { addonId: 'a', index: 2 });
     expect(opts.map((o) => o.label)).toEqual(['1080p · A', '720p · A', '4K · B']);
     expect(opts.filter((o) => o.active).map((o) => o.index)).toEqual([2]);
+  });
+
+  test('resolução desconhecida não vira "?": rótulo só com o addon e botão "Fonte"', () => {
+    const dto = { imdbId: null, addons: [group('c', [s(0, 'url', 'episódio')])] } as TitleStreamsDto;
+    const opts = sourceOptions(dto, { addonId: 'c', index: 0 });
+    expect(opts[0]?.label).toBe('C');
+    expect(sourceTriggerLabel(opts)).toBe('Fonte');
+    expect(sourceTriggerLabel(sourceOptions(DTO, { addonId: 'b', index: 0 }))).toBe('4K');
   });
 
   test('plano B pula a que falhou e as já tentadas, dando a volta na lista', () => {

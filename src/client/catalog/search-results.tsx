@@ -4,6 +4,7 @@ import { addonItemPath } from '../addons/addon-links.ts';
 import { type AddonSearchHitDto, addToLibrary, type CatalogSource, type SearchResultDto } from '../api/index.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
+import { Icon } from '../ui/icon.tsx';
 import { PosterCard } from '../ui/poster-card.tsx';
 import { titlePath } from '../ui/title-link.ts';
 
@@ -55,12 +56,13 @@ export function ResultCard({ r }: { r: SearchResultDto }) {
       />
       <Button
         className="search-hit__add"
-        size="sm"
+        size="icon"
         loading={busy}
         aria-label={`Adicionar ${r.title} à biblioteca`}
+        title="Adicionar à biblioteca"
         onClick={add}
       >
-        + biblioteca
+        <Icon name="plus" size="sm" />
       </Button>
     </div>
   );
