@@ -18,6 +18,7 @@ import { TitleHero } from './title-hero.tsx';
 import { CastCard, ProgressCard, SeasonsCard, seasonRows } from './title-side-view.tsx';
 import { Agenda, Akas, Channels, Crew, ExternalLinks, Facts, Gallery } from './tvmaze-sections.tsx';
 import { episodeTypeTag, metaByEpisode, seasonSummaryText } from './tvmaze-view.ts';
+import { PlayTargetButton } from './play-target-button.tsx';
 import { useLoad } from './use-load.ts';
 
 const markerOf = (d: TvmazeDetailDto): EpisodeMarker | null =>
@@ -83,9 +84,20 @@ function TvmazeDetail({ id, d, reload }: { id: string; d: TvmazeDetailDto; reloa
         chips={more?.genres.map((g) => <Badge key={g}>{g}</Badge>)}
         overview={d.overview}
         actions={
-          <Button iconStart={<Icon name="play" size="sm" />} onClick={focusEpisodes}>
-            Episódios
-          </Button>
+          <>
+            <PlayTargetButton
+              source="tvmaze"
+              id={id}
+              seasons={[...counts].map(([number, count]) => ({ number, count }))}
+              marker={marker}
+              query={(season, episode) =>
+                more?.externals.imdb ? { imdbId: more.externals.imdb, mediaType: 'tv', season, episode } : null
+              }
+            />
+            <Button variant="ghost" iconStart={<Icon name="list" size="sm" />} onClick={focusEpisodes}>
+              Episódios
+            </Button>
+          </>
         }
       />
       <div className="detail-grid">

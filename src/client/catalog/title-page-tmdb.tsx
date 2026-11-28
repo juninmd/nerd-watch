@@ -14,6 +14,7 @@ import { TrailerFrame } from '../player/trailer-embed.tsx';
 import { BackLink } from '../ui/back.tsx';
 import { Icon } from '../ui/icon.tsx';
 import { progressFromMarker } from './episode-browser-model.ts';
+import { PlayTargetButton } from './play-target-button.tsx';
 import { SideCard } from './side-card.tsx';
 import { SourceCompare } from './source-compare-card.tsx';
 import { TitleError, TitleSkeleton } from './title-error.tsx';
@@ -82,6 +83,15 @@ export function TmdbTitle({ mediaType, id }: { mediaType: 'movie' | 'tv'; id: st
         overview={d.overview}
         actions={
           <>
+            {tv && (
+              <PlayTargetButton
+                source="tmdb"
+                id={id}
+                seasons={d.seasons.map((s) => ({ number: s.seasonNumber, count: s.episodeCount }))}
+                marker={marker}
+                query={(season, episode) => ({ tmdbId: Number(id), mediaType: 'tv', season, episode })}
+              />
+            )}
             <Button onClick={() => jumpTo(where.current)}>Onde assistir</Button>
             {d.trailerKey && (
               <Button variant="ghost" onClick={() => jumpTo(root.current?.querySelector<HTMLElement>('#trailer'))}>

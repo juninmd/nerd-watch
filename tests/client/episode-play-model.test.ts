@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { TitleStreamsDto } from '../../src/client/api/stremio.ts';
-import { hdStill, neighborEpisode, pickStream, playPath } from '../../src/client/player/episode-play-model.ts';
+import { hdStill, neighborEpisode, pickStream, playPath, playTarget } from '../../src/client/player/episode-play-model.ts';
 
 type S = TitleStreamsDto['addons'][number]['streams'][number];
 const s = (index: number, kind: S['kind'], description: string): S =>
@@ -57,5 +57,27 @@ describe('episode-play-model', () => {
 
   test('caminho do player', () => {
     expect(playPath('tvmaze', '552', 1, 4)).toBe('/play/tvmaze/552/1/4');
+  });
+});
+
+describe('playTarget: o que o "Assistir" da ficha abre', () => {
+  const seasons = [
+    { number: 0, count: 2 },
+    { number: 1, count: 3 },
+    { number: 2, count: 2 },
+  ];
+
+  test('sem marcador começa do T1 E1 (especiais ficam fora)', () => {
+    expect(playTarget(seasons, null)).toEqual({ season: 1, episode: 1, resume: false });
+  });
+
+  test('com marcador abre o seguinte, atravessando temporada', () => {
+    expect(playTarget(seasons, { season: 1, episode: 1 })).toEqual({ season: 1, episode: 2, resume: true });
+    expect(playTarget(seasons, { season: 1, episode: 3 })).toEqual({ season: 2, episode: 1, resume: true });
+  });
+
+  test('série terminada reabre o último; sem episódios não há alvo', () => {
+    expect(playTarget(seasons, { season: 2, episode: 2 })).toEqual({ season: 2, episode: 2, resume: true });
+    expect(playTarget([], null)).toBeNull();
   });
 });
