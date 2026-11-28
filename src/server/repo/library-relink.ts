@@ -2,6 +2,9 @@ import type { Database } from 'bun:sqlite';
 import { getLibraryEntryByTitle } from './library.ts';
 import { getTitle } from './titles.ts';
 
+const hasTelegramLinks = (db: Database): boolean =>
+  db.query<{ name: string }, []>('PRAGMA table_info(telegram_items)').all().some((c) => c.name === 'link_source');
+
 export type RelinkOutcome = { ok: true } | { ok: false; reason: 'not_found' | 'same' | 'conflict' };
 
 /**
@@ -31,5 +34,9 @@ export const relinkLibraryEntry = (db: Database, fromTitleId: string, toTitleId:
     // Lista que já tinha o destino fica com ele; a linha antiga sai para não sobrar o título errado.
     db.query('UPDATE OR IGNORE list_items SET title_id = ? WHERE title_id = ?').run(toTitleId, fromTitleId);
     db.query('DELETE FROM list_items WHERE title_id = ?').run(fromTitleId);
+    // Vínculo de vídeo do Telegram feito à mão acompanha a troca (o automático é refeito depois, pelo nome).
+    if (hasTelegramLinks(db)) {
+      db.query("UPDATE telegram_items SET title_id = ? WHERE title_id = ? AND link_source = 'manual'").run(toTitleId, fromTitleId);
+    }
     return { ok: true };
   })();

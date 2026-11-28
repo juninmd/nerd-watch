@@ -192,7 +192,7 @@ export function SearchPage({ query }: { query: string }) {
       />
       {query ? (
         <>
-          <Results query={query} />
+          <Results key={query} query={query} />
           <People query={query} />
         </>
       ) : (

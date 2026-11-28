@@ -22,6 +22,8 @@ describe('Cinemeta (sugestões sem chave)', () => {
     });
     const hits = await cinemetaSearch('the simp');
     expect(hits.map((h) => h.title)).toEqual(['The Simpsons', 'The Simple Life']);
+    setCinemetaFetchForTests(async () => new Response('erro', { status: 503 }));
+    await expect(cinemetaSearch('fora do ar')).rejects.toThrow();
     expect(seen.every((u) => u.startsWith('https://v3-cinemeta.strem.io/catalog/') && u.includes('search=the%20simp.json'))).toBe(true);
   });
 });

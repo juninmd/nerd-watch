@@ -23,13 +23,17 @@ function RelinkDialog({ titleId, current, initialQuery, onClose }: RelinkProps &
     const q = query.trim();
     if (q.length < 2) return setResults('idle');
     setResults('loading');
-    // Espera a digitação parar: cada tecla não vira uma chamada ao catálogo.
+    // Espera a digitação parar: cada tecla não vira uma chamada ao catálogo. Resposta de consulta antiga é ignorada.
+    let live = true;
     const timer = setTimeout(() => {
       search(q)
-        .then((r) => alive.current && setResults(relinkCandidates(r.results, current)))
-        .catch(() => alive.current && setResults('error'));
+        .then((r) => live && alive.current && setResults(relinkCandidates(r.results, current)))
+        .catch(() => live && alive.current && setResults('error'));
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
   }, [query]);
 
   const pick = (r: SearchResultDto) => {

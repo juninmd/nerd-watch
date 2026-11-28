@@ -37,9 +37,12 @@ const searchType = async (query: string, type: 'movie' | 'series'): Promise<Cine
   return parseCinemeta(JSON.parse(new TextDecoder().decode(res.bytes)) as unknown, type === 'movie' ? 'movie' : 'tv');
 };
 
-/** Séries e filmes intercalados (o primeiro de cada tipo no topo); um tipo que falha não derruba o outro. */
+/** Séries e filmes intercalados (o primeiro de cada tipo no topo); um tipo que falha não derruba o outro. Os dois falhando, erro. */
 export const cinemetaSearch = async (query: string): Promise<CinemetaHit[]> => {
-  const [series, movies] = await Promise.all([searchType(query, 'series').catch(() => []), searchType(query, 'movie').catch(() => [])]);
+  const [s, m] = await Promise.allSettled([searchType(query, 'series'), searchType(query, 'movie')]);
+  if (s.status === 'rejected' && m.status === 'rejected') throw s.reason;
+  const series = s.status === 'fulfilled' ? s.value : [];
+  const movies = m.status === 'fulfilled' ? m.value : [];
   const out: CinemetaHit[] = [];
   for (let i = 0; i < Math.max(series.length, movies.length); i++) {
     const s = series[i];

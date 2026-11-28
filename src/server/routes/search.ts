@@ -92,7 +92,8 @@ const readQuery = (raw: string | undefined): string | { error: string } => {
 searchRoutes.get('/suggest', async (c) => {
   const query = readQuery(c.req.query('q'));
   if (typeof query !== 'string') return c.json(query, 400);
-  return c.json({ suggestions: await searchSuggestions(query) });
+  // Sugestão é ajuda, não resultado: fonte fora do ar vira lista vazia (e a próxima tecla tenta de novo).
+  return c.json({ suggestions: await searchSuggestions(query).catch(() => []) });
 });
 
 searchRoutes.get('/', async (c) => {

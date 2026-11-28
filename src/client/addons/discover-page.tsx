@@ -20,6 +20,8 @@ const boardLoader = (): LoadBoard => {
     if (!p) {
       p = getAddonCatalog(b.addonId, b.type, b.catalogId);
       cache.set(b.key, p);
+      // Falha não fica guardada: o próximo pedido (outro trilho, feed religado) tenta de novo.
+      p.catch(() => cache.delete(b.key));
     }
     return p;
   };

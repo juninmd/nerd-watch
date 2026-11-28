@@ -24,10 +24,10 @@ export const uniqueSuggestions = (list: Suggestion[]): Suggestion[] => {
   return out;
 };
 
-/** Sugestões mudam pouco e cada tecla pediria de novo: cache curto, e falha vira lista vazia. */
+/** Sugestões mudam pouco e cada tecla pediria de novo: cache curto. Falha sobe (não entra no cache); a rota responde vazio. */
 export const searchSuggestions = withCache(10 * 60_000, async (query: string): Promise<Suggestion[]> => {
   if (tmdbEnabled()) {
-    const rows = await tmdbSearchMulti(query).catch(() => []);
+    const rows = await tmdbSearchMulti(query);
     return uniqueSuggestions(
       rows
         .filter((r) => r.media_type === 'movie' || r.media_type === 'tv')

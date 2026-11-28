@@ -7,7 +7,7 @@ import { HERO_INTERVAL_MS, type HeroSlide, nextSlide } from './home-hero.ts';
 
 /**
  * Destaque do início que gira pelos títulos em andamento (o banner do stream-goat): a cada 9 s, com pontos para
- * escolher. Para com o mouse em cima, com foco dentro ou com "reduzir movimento"; o slide atual é anunciado.
+ * escolher. Para com o mouse em cima, com foco dentro ou com "reduzir movimento"; o slide é anunciado quando parado ou trocado pela pessoa.
  */
 export function HomeHeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const [index, setIndex] = useState(0);
@@ -33,26 +33,32 @@ export function HomeHeroCarousel({ slides }: { slides: HeroSlide[] }) {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
+      onBlur={(e) => {
+        // Foco indo de um botão para outro dentro do carrossel não retoma a rotação.
+        if (!e.currentTarget.contains(e.relatedTarget)) setPaused(false);
+      }}
     >
-      <Hero
-        key={item.titleId}
-        className="home-hero__slide"
-        title={item.title.title}
-        backdrop={item.title.posterUrl ?? undefined}
-        meta={
-          <>
-            <span className="home-hero__kicker">{slide.kicker}</span>
-            <span>{[slide.meta, item.title.releaseDate?.slice(0, 4), score ? `★ ${score}` : null].filter(Boolean).join(' · ')}</span>
-          </>
-        }
-        actions={
-          <Button variant="primary" onClick={() => navigate(libraryItemPath(item))}>
-            Continuar
-          </Button>
-        }
-        aside={item.title.posterUrl ? <Artwork title={item.title.title} src={item.title.posterUrl} ratio="poster" /> : undefined}
-      />
+      {/* Girando sozinho, não anuncia (padrão WAI de carrossel); parado ou trocado pela pessoa, o leitor lê o novo slide. */}
+      <div aria-live={paused || calm ? 'polite' : 'off'} aria-atomic="true">
+        <Hero
+          key={item.titleId}
+          className="home-hero__slide"
+          title={item.title.title}
+          backdrop={item.title.posterUrl ?? undefined}
+          meta={
+            <>
+              <span className="home-hero__kicker">{slide.kicker}</span>
+              <span>{[slide.meta, item.title.releaseDate?.slice(0, 4), score ? `★ ${score}` : null].filter(Boolean).join(' · ')}</span>
+            </>
+          }
+          actions={
+            <Button variant="primary" onClick={() => navigate(libraryItemPath(item))}>
+              Continuar
+            </Button>
+          }
+          aside={item.title.posterUrl ? <Artwork title={item.title.title} src={item.title.posterUrl} ratio="poster" /> : undefined}
+        />
+      </div>
       {count > 1 && (
         <nav className="home-hero__dots" aria-label="Escolher destaque">
           {slides.map((s, i) => (

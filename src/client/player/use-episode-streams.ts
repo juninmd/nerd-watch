@@ -28,6 +28,9 @@ export const useEpisodeStreams = (
     },
     [titleKey, explicit],
   );
+  // A consulta roda uma vez por episódio; a escolha explícita (link com ?addon=) pode mudar sem remontar.
+  const latest = useRef({ start, explicit });
+  latest.current = { start, explicit };
 
   useEffect(() => {
     if ('unavailable' in query) return setStreams({ kind: 'none', message: query.unavailable });
@@ -43,7 +46,7 @@ export const useEpisodeStreams = (
         // Um addon (ou lista indisponível): uma consulta só, como antes.
         if (addons.length <= 1) {
           getTitleStreams(query)
-            .then((dto) => alive && start(dto))
+            .then((dto) => alive && latest.current.start(dto))
             .catch(fail);
           return;
         }
@@ -58,8 +61,9 @@ export const useEpisodeStreams = (
               const c = addAnswer(collected.current, addon.id, answer);
               collected.current = c;
               setCollect(c);
-              const explicitIn = explicit !== null && c.addons.some((a) => a.addonId === explicit.addonId && a.status !== 'pending');
-              if (!started.current && (readyToStart(c, pref) || explicitIn)) start(c.dto);
+              const want = latest.current.explicit;
+              const explicitIn = want !== null && c.addons.some((a) => a.addonId === want.addonId && a.status !== 'pending');
+              if (!started.current && (readyToStart(c, pref) || explicitIn)) latest.current.start(c.dto);
               else if (started.current)
                 setStreams((cur) => (cur.kind === 'ready' ? { ...cur, dto: c.dto } : cur));
               if (allAnswered(c) && !c.dto.addons.length) fail();

@@ -52,6 +52,24 @@ describe('relinkLibraryEntry: "vínculo errado?"', () => {
   });
 });
 
+describe('relink e vínculos do Telegram', () => {
+  test('vínculo feito à mão acompanha a troca; o automático fica para a releitura por nome', () => {
+    const wrong = title('1');
+    const right = title('2');
+    upsertLibraryEntry(db, wrong.id, { watchStatus: 'watching' });
+    const channel = upsertTitle(db, { source: 'telegram', sourceId: 'canal', mediaType: 'tv', title: 'Canal' });
+    db.query("INSERT INTO telegram_channels (id, mode, handle, created_at) VALUES (?, 'bot', 'canal', '2026-01-01')").run(channel.id);
+    const add = (id: string, source: string) =>
+      db.query('INSERT INTO telegram_items (id, channel_id, message_id, title_id, link_source) VALUES (?, ?, ?, ?, ?)').run(id, channel.id, id, wrong.id, source);
+    add('m1', 'manual');
+    add('m2', 'auto');
+    expect(relinkLibraryEntry(db, wrong.id, right.id)).toEqual({ ok: true });
+    const linkOf = (id: string) => db.query<{ title_id: string }, [string]>('SELECT title_id FROM telegram_items WHERE id = ?').get(id)?.title_id;
+    expect(linkOf('m1')).toBe(right.id);
+    expect(linkOf('m2')).toBe(wrong.id);
+  });
+});
+
 describe('POST /api/library/:titleId/relink', () => {
   const body = { source: 'tmdb', sourceId: '77', mediaType: 'tv', title: 'Série certa' };
 
@@ -61,6 +79,24 @@ describe('POST /api/library/:titleId/relink', () => {
     const res = await libraryRelinkRoutes.request(`/${wrong.id}/relink`, { method: 'POST', body: JSON.stringify(body) });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ source: 'tmdb', sourceId: '77', mediaType: 'tv' });
+  });
+
+  test('troca recusada (conflito) não grava nem altera o título escolhido', async () => {
+    const wrong = title('1');
+    const taken = upsertTitle(db, { source: 'tmdb', sourceId: '77', mediaType: 'tv', title: 'Nome original' });
+    upsertLibraryEntry(db, wrong.id, { watchStatus: 'want' });
+    upsertLibraryEntry(db, taken.id, { watchStatus: 'want' });
+    const res = await libraryRelinkRoutes.request(`/${wrong.id}/relink`, { method: 'POST', body: JSON.stringify(body) });
+    expect(res.status).toBe(409);
+    const name = db.query<{ title: string }, [string]>('SELECT title FROM titles WHERE id = ?').get(taken.id)?.title;
+    expect(name).toBe('Nome original');
+  });
+
+  test('título fora da lista não cria título órfão', async () => {
+    const before = db.query<{ n: number }, []>('SELECT COUNT(*) AS n FROM titles').get()?.n;
+    const res = await libraryRelinkRoutes.request('/nao-existe/relink', { method: 'POST', body: JSON.stringify({ ...body, sourceId: '999' }) });
+    expect(res.status).toBe(404);
+    expect(db.query<{ n: number }, []>('SELECT COUNT(*) AS n FROM titles').get()?.n).toBe(before);
   });
 
   test('corpo inválido é 400; título fora da lista é 404', async () => {
