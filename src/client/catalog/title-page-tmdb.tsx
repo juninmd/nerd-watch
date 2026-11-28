@@ -4,6 +4,7 @@ import { TitleStreams } from '../addons/title-streams-panel.tsx';
 import { getTmdbTitle, type TmdbDetailDto } from '../api/index.ts';
 import type { EpisodeMarker } from '../library/episode-progress.ts';
 import { RefreshMetadata } from '../library/refresh-metadata.tsx';
+import { RelinkButton } from '../library/relink-dialog.tsx';
 import { StatusActions } from '../library/status-actions.tsx';
 import { AddToList } from '../lists/add-to-list.tsx';
 import { stopIfOnPageIn } from '../player/player-dock.ts';
@@ -13,6 +14,7 @@ import { TrailerFrame } from '../player/trailer-embed.tsx';
 import { BackLink } from '../ui/back.tsx';
 import { Icon } from '../ui/icon.tsx';
 import { progressFromMarker } from './episode-browser-model.ts';
+import { PlayTargetButton } from './play-target-button.tsx';
 import { SideCard } from './side-card.tsx';
 import { SourceCompare } from './source-compare-card.tsx';
 import { TitleError, TitleSkeleton } from './title-error.tsx';
@@ -81,6 +83,15 @@ export function TmdbTitle({ mediaType, id }: { mediaType: 'movie' | 'tv'; id: st
         overview={d.overview}
         actions={
           <>
+            {tv && (
+              <PlayTargetButton
+                source="tmdb"
+                id={id}
+                seasons={d.seasons.map((s) => ({ number: s.seasonNumber, count: s.episodeCount }))}
+                marker={marker}
+                query={(season, episode) => ({ tmdbId: Number(id), mediaType: 'tv', season, episode })}
+              />
+            )}
             <Button onClick={() => jumpTo(where.current)}>Onde assistir</Button>
             {d.trailerKey && (
               <Button variant="ghost" onClick={() => jumpTo(root.current?.querySelector<HTMLElement>('#trailer'))}>
@@ -133,6 +144,11 @@ export function TmdbTitle({ mediaType, id }: { mediaType: 'movie' | 'tv'; id: st
               rewatchCount={d.library?.rewatch_count ?? 0}
               onChange={reload}
             />
+            {d.library && (
+              <div className="side-card__row">
+                <RelinkButton titleId={d.titleId} current={{ source: 'tmdb', sourceId: id }} initialQuery={d.title} />
+              </div>
+            )}
             <div className="side-card__row">
               <AddToList titleId={d.titleId} />
             </div>

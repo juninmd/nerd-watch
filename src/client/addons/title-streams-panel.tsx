@@ -3,12 +3,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getTitleStreams, type TitleStreamsDto, type TitleStreamsQuery } from '../api/stremio.ts';
 import { currentRoute } from '../app/router.ts';
-import { stopIfOnPage, stopIfOnPageIn } from '../player/player-dock.ts';
+import { showToast } from '../app/state.ts';
+import { getVideo, stopIfOnPage, stopIfOnPageIn } from '../player/player-dock.ts';
+import { setSourceMenu } from '../player/player-sources.ts';
 import { releaseTorrentPlayers } from '../player/torrent-player.tsx';
 import { StreamGroup } from './stream-group.tsx';
 import { type AddonStreamGroup as Group, type AddonStreamItem as Stream, findAddonStream } from './stream-lookup.ts';
 import { type PlayState, StreamPlayer, type StreamView } from './stream-player.tsx';
 import { STREAM_PREVIEW } from './stream-preview.ts';
+import { nextPlayable, sourceOptions } from './stream-switch.ts';
 
 export interface StreamPick {
   addonId: string;
@@ -23,6 +26,11 @@ export interface StreamsPanelProps extends StreamView {
   onPick?: (group: Group, stream: Stream) => boolean;
   /** Fonte tocada sozinha ao montar ou ao trocar o `dto` (escolha automática do player dedicado). */
   autoPlay?: StreamPick | null;
+  /**
+   * Muda = outro título/episódio: limpa o player e a lista aberta. Sem ele, cada `dto` novo conta como troca.
+   * Com ele, fontes que chegam depois (addon lento) entram na lista sem parar o vídeo que já toca.
+   */
+  resetKey?: string;
 }
 
 /** Um embed de YouTube por tela: o iframe não passa pelo player global, então tocar em outro painel fecha este. */
@@ -34,17 +42,21 @@ const posOf = (group: Group, index: number): number => group.streams.findIndex((
  * Lista os streams de todos os addons e toca no mesmo player do app: URL/YouTube embutidos e
  * `infoHash` no motor P2P local (o servidor reconsulta o addon pela posição, nunca pelo cliente).
  */
-export function StreamsPanel({ dto, playerHost, onPick, autoPlay, ...view }: StreamsPanelProps) {
+export function StreamsPanel({ dto, playerHost, onPick, autoPlay, resetKey, ...view }: StreamsPanelProps) {
   const [play, setPlay] = useState<PlayState | null>(null);
   const [playing, setPlaying] = useState<StreamPick | null>(null);
   /** Grupos com lista longa abertos pelo usuário; some quando chega outro `dto` (troca de episódio/título). */
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const [shownDto, setShownDto] = useState(dto);
+  const key: unknown = resetKey ?? dto;
+  const [shownKey, setShownKey] = useState(key);
   const seq = useRef(0);
+  /** Fontes que já falharam neste episódio (plano B não volta nelas). */
+  const tried = useRef<StreamPick[]>([]);
   const slot = useRef<HTMLElement | null>(null);
 
-  if (shownDto !== dto) {
-    setShownDto(dto);
+  if (shownKey !== key) {
+    setShownKey(key);
+    tried.current = [];
     setPlay(null);
     setPlaying(null);
     setExpanded(new Set());
@@ -68,7 +80,7 @@ export function StreamsPanel({ dto, playerHost, onPick, autoPlay, ...view }: Str
     };
   }, []);
 
-  const start = (g: Group, s: Stream) => {
+  const start = (g: Group, s: Stream, startAt: number | null = null) => {
     stopIfOnPage();
     if (clearActiveEmbed !== clearMyEmbed) clearActiveEmbed?.();
     // Sem escopo de propósito: começar uma fonte fecha qualquer torrent da tela (um player por vez).
@@ -85,7 +97,7 @@ export function StreamsPanel({ dto, playerHost, onPick, autoPlay, ...view }: Str
       clearActiveEmbed = clearMyEmbed;
       setPlay({ id, kind: 'embed', url: s.url });
     } else {
-      setPlay({ id, kind: s.kind === 'torrent' ? 'torrent' : 'inline', group: g, stream: s });
+      setPlay({ id, kind: s.kind === 'torrent' ? 'torrent' : 'inline', group: g, stream: s, startAt });
     }
     setPlaying(pick);
   };
@@ -102,7 +114,7 @@ export function StreamsPanel({ dto, playerHost, onPick, autoPlay, ...view }: Str
     // Escondido na prévia: abre a lista do addon para o cartão tocando ficar visível.
     if (posOf(found.group, found.stream.index) >= STREAM_PREVIEW) setExpanded((prev) => new Set(prev).add(found.group.addonId));
     activate(found.group, found.stream);
-  }, [dto]);
+  }, [key]);
 
   // Leva o foco (e a rolagem) para onde o vídeo apareceu: o botão está na outra coluna ou em outra linha.
   useEffect(() => {
@@ -110,6 +122,30 @@ export function StreamsPanel({ dto, playerHost, onPick, autoPlay, ...view }: Str
     slot.current?.focus({ preventScroll: true });
     slot.current?.scrollIntoView({ block: 'nearest' });
   }, [play]);
+
+  // Player do episódio (com `resetKey`): fonte que o navegador não toca passa para a próxima no mesmo segundo,
+  // como o stream-goat; cada uma é tentada uma vez só.
+  const switchTo = (pick: StreamPick, reason: string | null) => {
+    const found = findAddonStream(dto, pick.addonId, pick.index);
+    if (!found) return false;
+    const at = getVideo()?.currentTime ?? null;
+    if (reason) showToast(reason);
+    start(found.group, found.stream, at && at > 1 ? at : null);
+    return true;
+  };
+  const fallBack = (failed: StreamPick): boolean => {
+    tried.current = [...tried.current, failed];
+    const next = nextPlayable(dto, failed, tried.current);
+    return next ? switchTo(next, 'Fonte não tocou aqui; tentando a próxima.') : false;
+  };
+
+  // Menu "Fonte" da barra do player: só no player do episódio, que é dono do palco.
+  useEffect(() => {
+    if (!resetKey) return;
+    const options = sourceOptions(dto, playing);
+    setSourceMenu(options.length > 1 ? { options, select: (o) => switchTo(o, null) } : null);
+  }, [dto, playing, resetKey]);
+  useEffect(() => () => setSourceMenu(null), []);
 
   const toggle = (addonId: string) =>
     setExpanded((prev) => {
@@ -125,7 +161,10 @@ export function StreamsPanel({ dto, playerHost, onPick, autoPlay, ...view }: Str
           key={play.id}
           state={play}
           view={view}
-          onUnsupported={() => setPlay((p) => (p?.id === play.id ? { id: play.id, kind: 'unsupported' } : p))}
+          onUnsupported={() => {
+            if (resetKey && playing && fallBack(playing)) return;
+            setPlay((p) => (p?.id === play.id ? { id: play.id, kind: 'unsupported' } : p));
+          }}
           onRelease={(id) => setPlay((p) => (p?.id === id ? null : p))}
         />
       )}

@@ -1,9 +1,9 @@
 import { Button, Dialog, RadioGroup, Select } from '@juninmd/sonido';
-import { type DragEvent, useEffect, useRef } from 'react';
+import { type CSSProperties, type DragEvent, useEffect, useRef } from 'react';
 import { getCaptions } from './player-dock.ts';
 import { OFF } from './player-captions-model.ts';
 import { formatOffset, OFFSET_BIG_STEP_MS, OFFSET_STEP_MS } from './player-captions-offset.ts';
-import { CAPTION_BACKGROUNDS, type CaptionStyle } from './player-captions-prefs.ts';
+import { CAPTION_BACKGROUNDS, type CaptionStyle, captionStyleVars } from './player-captions-prefs.ts';
 import { usePlayerUi } from './player-ui-store.ts';
 
 /** Botão CC e menu de legendas. Não decide nada: lê o estado do controlador (player-captions.ts) e devolve ações. */
@@ -131,6 +131,9 @@ export function CaptionsControl() {
             </Button>
           ))}
         </fieldset>
+        <div className="captions-preview" style={captionStyleVars(vm.style) as CSSProperties} aria-hidden="true">
+          <span className="captions-preview__cue">Assim fica a legenda sobre o vídeo.</span>
+        </div>
         <fieldset aria-label="Aparência da legenda" className="captions-style">
           <Select
             label="Tamanho"

@@ -64,7 +64,8 @@
 }
 
 /* Velocidade: gatilho do Menu como pílula de texto ("1.25x"). */
-.pc-speedwrap .sn-menu__trigger {
+.pc-speedwrap .sn-menu__trigger,
+.pc-sourcewrap .sn-menu__trigger {
   min-width: 40px;
   height: 40px;
   padding: 0 12px;
@@ -79,11 +80,13 @@
   cursor: pointer;
 }
 
-.pc-speedwrap .sn-menu__trigger:hover {
+.pc-speedwrap .sn-menu__trigger:hover,
+.pc-sourcewrap .sn-menu__trigger:hover {
   background: rgba(255, 255, 255, 0.16);
 }
 
-.pc-speedwrap .sn-menu__trigger:focus-visible {
+.pc-speedwrap .sn-menu__trigger:focus-visible,
+.pc-sourcewrap .sn-menu__trigger:focus-visible {
   outline: 2px solid var(--accent-2);
   outline-offset: 2px;
 }
@@ -170,4 +173,59 @@
   gap: 10px;
   white-space: nowrap;
   box-shadow: var(--shadow-pop);
+}
+
+/* Hora atual e de término (stream-goat): some em tela estreita, onde a barra já está cheia. */
+.pc-clock {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .pc-clock {
+    display: none;
+  }
+}
+
+/* Trechos de abertura/créditos marcados na linha do tempo. */
+.pc-seekwrap {
+  position: relative;
+}
+
+.pc-seg {
+  position: absolute;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--gold);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pc-skip {
+  position: absolute;
+  right: 20px;
+  bottom: 96px;
+  z-index: 3;
+  backdrop-filter: blur(6px);
+}
+
+/* Na barra do player os menus abrem para cima: abaixo dela o palco corta a lista. */
+:is(.pc-speedwrap, .pc-sourcewrap) .sn-menu__list {
+  top: auto;
+  bottom: calc(100% + 6px);
+  transform-origin: 100% 100%;
+}
+
+.pc-sourcewrap .sn-menu__trigger {
+  white-space: nowrap;
+}
+
+/* Menu da barra aberto: o "Pular" sai da frente da lista. */
+*:has(> .pc-skip):has(:is(.pc-speedwrap, .pc-sourcewrap) .sn-menu__list) > .pc-skip {
+  visibility: hidden;
 }

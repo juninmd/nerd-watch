@@ -46,6 +46,7 @@ const LibraryCard = memo(function LibraryCard({
       posterUrl={item.title.posterUrl}
       meta={metaFor(item)}
       status={item.watchStatus}
+      score={item.title.voteAverage}
       selection={selecting ? { selected, onToggle: () => onToggle(item.titleId) } : undefined}
       onClick={() => navigate(libraryItemPath(item))}
     />

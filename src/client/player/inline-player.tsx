@@ -12,6 +12,8 @@ export interface InlinePlayerOptions {
   minimizable?: boolean;
   /** O navegador não toca esse arquivo (formato/codec): quem chama decide o plano B, por exemplo o embed da Archive. */
   onUnsupported?: () => void;
+  /** Começa deste segundo (troca de fonte no meio do vídeo); sem ele, vale a posição salva. */
+  startAt?: number | null;
 }
 
 const MEDIA_ERR_DECODE = 3;
@@ -22,7 +24,7 @@ const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
  * se permitido, "Minimizar". Só existe um `<video>` no app: se outro vídeo assumir o palco, este mostra um aviso com o
  * botão para retomar.
  */
-export function InlinePlayer({ item, minimizable, onUnsupported }: InlinePlayerOptions) {
+export function InlinePlayer({ item, minimizable, onUnsupported, startAt }: InlinePlayerOptions) {
   usePlayerUi();
   const [stage, setStage] = useState<HTMLElement | null>(null);
   // O item e o callback mais recentes, sem reabrir o vídeo a cada render de quem chama.
@@ -32,7 +34,7 @@ export function InlinePlayer({ item, minimizable, onUnsupported }: InlinePlayerO
 
   // reabre só quando o palco nasce ou o vídeo muda de chave
   useEffect(() => {
-    if (stage) showInPage([latest.current.item], 0, stage);
+    if (stage) showInPage([latest.current.item], 0, stage, { startAt });
   }, [stage, item.key]);
 
   useEffect(() => {

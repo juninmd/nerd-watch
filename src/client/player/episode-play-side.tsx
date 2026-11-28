@@ -79,6 +79,7 @@ export function EpisodePlaySide({ ctx, list, ep, marker, streams, hd, host, onPi
             playerHost={host}
             onPick={onPick}
             autoPlay={pick}
+            resetKey={`${ctx.source}:${ctx.id}:${ep.season}:${ep.number}`}
           />
         )}
       </div>

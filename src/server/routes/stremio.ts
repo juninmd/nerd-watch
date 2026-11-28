@@ -117,7 +117,10 @@ stremioRoutes.get('/streams', (c) =>
     if (title.length > 200 || hasControlChar(title)) throw new ValidationError('title inválido');
     const year = c.req.query('year')?.trim() ?? '';
     if (year !== '' && !/^\d{4}$/.test(year)) throw new ValidationError('year inválido');
-    const addons = listEnabledAddons(await getDb());
+    // `only`: um addon por vez, para a tela de carregamento mostrar cada um assim que ele responde.
+    const only = c.req.query('only');
+    if (only !== undefined && !/^[A-Za-z0-9_-]{1,100}$/.test(only)) throw new ValidationError('only inválido');
+    const addons = listEnabledAddons(await getDb()).filter((a) => only === undefined || a.id === only);
     return c.json(
       await streamsForTitle(addons, {
         mediaType,

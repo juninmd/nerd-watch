@@ -4,6 +4,7 @@ import { addonItemPath } from '../addons/addon-links.ts';
 import { type AddonSearchHitDto, addToLibrary, type CatalogSource, type SearchResultDto } from '../api/index.ts';
 import { navigate } from '../app/router.ts';
 import { showToast } from '../app/state.ts';
+import { Icon } from '../ui/icon.tsx';
 import { PosterCard } from '../ui/poster-card.tsx';
 import { titlePath } from '../ui/title-link.ts';
 
@@ -14,18 +15,14 @@ const SOURCE_LABEL: Partial<Record<CatalogSource, string>> = {
   anilist: 'anime · AniList',
 };
 
-/** Linha sob o título: fonte, ano e nota. Sem DOM: testável. */
-export const resultMeta = (r: Pick<SearchResultDto, 'source' | 'mediaType' | 'releaseDate' | 'voteAverage'>): string =>
-  [
-    SOURCE_LABEL[r.source] ?? (r.mediaType === 'tv' ? 'série' : 'filme'),
-    r.releaseDate?.slice(0, 4),
-    r.voteAverage ? `⭐ ${r.voteAverage.toFixed(1)}` : null,
-  ]
+/** Linha sob o título: fonte e ano (a nota vai no selo do pôster). Sem DOM: testável. */
+export const resultMeta = (r: Pick<SearchResultDto, 'source' | 'mediaType' | 'releaseDate'>): string =>
+  [SOURCE_LABEL[r.source] ?? (r.mediaType === 'tv' ? 'série' : 'filme'), r.releaseDate?.slice(0, 4)]
     .filter(Boolean)
     .join(' · ');
 
 /** O catálogo guarda o caminho da TMDB sem o prefixo de tamanho; o acervo guarda a URL inteira. */
-const posterPathOf = (r: SearchResultDto): string | null | undefined =>
+export const posterPathOf = (r: SearchResultDto): string | null | undefined =>
   r.source === 'archive' ? r.posterUrl : r.posterUrl?.replace(/^https:\/\/image\.tmdb\.org\/t\/p\/w\d+/, '');
 
 /** Cartão de resultado do catálogo, com "+ biblioteca" sem sair da busca. */
@@ -53,17 +50,19 @@ export function ResultCard({ r }: { r: SearchResultDto }) {
         title={r.title}
         posterUrl={r.posterUrl}
         meta={resultMeta(r)}
+        score={r.voteAverage}
         isPublicDomain={r.source === 'archive'}
         onClick={() => navigate(titlePath(r.source, r.source === 'archive' ? '_' : r.mediaType, r.sourceId))}
       />
       <Button
         className="search-hit__add"
-        size="sm"
+        size="icon"
         loading={busy}
         aria-label={`Adicionar ${r.title} à biblioteca`}
+        title="Adicionar à biblioteca"
         onClick={add}
       >
-        + biblioteca
+        <Icon name="plus" size="sm" />
       </Button>
     </div>
   );

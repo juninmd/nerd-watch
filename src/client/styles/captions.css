@@ -1,7 +1,8 @@
 /* Legendas do player: texto sobre o vídeo (::cue, estilo por variáveis), botão CC e menu de escolha. */
 
 /* Padrão de alto contraste: branco sobre fundo preto em 90%. As variáveis vêm de player-captions.ts. */
-video::cue {
+video::cue,
+.captions-preview__cue {
   color: var(--nw-cue-color, #ffffff);
   background-color: rgba(0, 0, 0, var(--nw-cue-bg, 0.9));
   font-size: calc(var(--nw-cue-scale, 1) * 1.15rem);
@@ -73,4 +74,19 @@ video::cue {
   border: 0;
   border-top: 1px solid var(--border-soft);
   font-size: 12px;
+}
+
+/* Prévia ao vivo do estilo, sobre um quadro com claro e escuro para julgar o contraste. */
+.captions-preview {
+  display: grid;
+  place-items: end center;
+  min-height: 96px;
+  padding: 12px;
+  border-radius: var(--radius-md, 8px);
+  background: linear-gradient(135deg, #1b2735 0%, #4a6a8a 55%, #d9d4c7 100%);
+}
+
+.captions-preview__cue {
+  padding: 2px 6px;
+  text-align: center;
 }

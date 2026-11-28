@@ -499,12 +499,29 @@
   position: relative;
 }
 
+/* Canto de cima à esquerda do pôster: embaixo o texto do cartão muda de altura e o botão cobria o título. */
 .search-hit__add {
   position: absolute;
-  right: 8px;
-  bottom: 64px;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
 }
 
 .pd-search {
   margin-bottom: 20px;
+}
+
+/* Anti-spoiler (stream-goat): episódio depois do marcador fica com a cena desfocada até a pessoa pedir. */
+.ep-card.is-spoiler .ep-still {
+  filter: blur(10px) brightness(0.6);
+}
+
+.ep-reveal {
+  position: relative;
+  z-index: 2;
+  justify-self: start;
+}
+
+.ep-season-select {
+  max-width: 320px;
 }

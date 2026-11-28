@@ -1,14 +1,13 @@
-import { Accordion, Artwork, Button, Card, EmptyState, Hero, Sparkline, StatTile } from '@juninmd/sonido';
+import { Accordion, Artwork, Card, EmptyState, Sparkline, StatTile } from '@juninmd/sonido';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { addonPath } from '../addons/addon-links.ts';
-import type { CalendarEntryDto, CatalogSource, LibraryItemDto } from '../api/index.ts';
+import type { CalendarEntryDto, CatalogSource } from '../api/index.ts';
 import type { AddonDto } from '../api/stremio.ts';
 import { navigate } from '../app/router.ts';
 import type { YearStrip } from '../stats/insights.ts';
 import { Icon } from '../ui/icon.tsx';
 import type { IconName } from '../ui/icons.ts';
-import { libraryItemPath, titlePath } from '../ui/title-link.ts';
-import { heroMeta } from './home-hero.ts';
+import { titlePath } from '../ui/title-link.ts';
 import type { HomeKpi, SourceRow } from './home-status.ts';
 
 /** Enter ativa um cartão com role="link" (o clique já vem do Card). */
@@ -35,26 +34,6 @@ export function SectionHead({
       {children}
       {link && <a href={link.href}>{link.label}</a>}
     </div>
-  );
-}
-
-/** Destaque "Continuar": o título "assistindo" que a pessoa largou por último. */
-export function HomeHero({ item }: { item: LibraryItemDto }) {
-  return (
-    <Hero
-      title={item.title.title}
-      meta={heroMeta(item)}
-      actions={
-        <Button variant="primary" onClick={() => navigate(libraryItemPath(item))}>
-          Continuar
-        </Button>
-      }
-      aside={
-        item.title.posterUrl ? (
-          <Artwork title={item.title.title} src={item.title.posterUrl} ratio="poster" />
-        ) : undefined
-      }
-    />
   );
 }
 

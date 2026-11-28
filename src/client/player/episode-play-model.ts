@@ -79,3 +79,17 @@ export const neighborEpisode = (
   // Na outra temporada a numeração real ainda não foi carregada: a tela encaixa no primeiro/último que existir.
   return { season: other.number, episode: dir === 1 ? 1 : other.count };
 };
+
+/**
+ * Episódio que o "Assistir" da ficha abre: o seguinte ao marcador (o marcador é o último visto), o próprio
+ * marcador quando a série acabou, ou o primeiro episódio da 1ª temporada sem marcador.
+ */
+export const playTarget = (
+  seasons: SeasonCount[],
+  marker: { season: number; episode: number } | null,
+): { season: number; episode: number; resume: boolean } | null => {
+  const first = seasons.filter((s) => s.number > 0 && s.count > 0).sort((a, b) => a.number - b.number)[0];
+  if (!marker) return first ? { season: first.number, episode: 1, resume: false } : null;
+  const next = neighborEpisode(seasons, marker.season, marker.episode, 1);
+  return next ? { ...next, resume: true } : { ...marker, resume: true };
+};

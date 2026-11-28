@@ -240,3 +240,159 @@
   font-size: 13px;
   color: var(--text-dim);
 }
+
+/* Selos sobre o pôster: nota embaixo à esquerda e carimbo de assistido por cima (ideia do stream-goat). */
+.poster-card__art {
+  position: relative;
+}
+
+.poster-card__art.is-watched img {
+  filter: brightness(0.6) saturate(0.7);
+}
+
+.poster-card__stamp {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.poster-card__stamp > * {
+  transform: rotate(-14deg);
+}
+
+.poster-card__score {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  background: rgba(0, 0, 0, 0.72);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Vínculo errado?": resultados da busca como linhas clicáveis com miniatura. */
+.relink-results {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.relink-hit {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.relink-hit:hover,
+.relink-hit:focus-visible {
+  border-color: var(--accent-2);
+}
+
+.relink-hit small {
+  display: block;
+  color: var(--text-dim);
+}
+
+/* Destaque rotativo do início (home-hero-carousel.tsx). */
+.home-hero {
+  position: relative;
+}
+
+.home-hero__kicker {
+  color: var(--signal);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+}
+
+.home-hero__dots {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  display: flex;
+  gap: 6px;
+}
+
+.home-hero__dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: width var(--dur-fast, 0.15s) var(--ease, ease);
+}
+
+.home-hero__dots button.is-on {
+  width: 22px;
+  background: var(--signal);
+}
+
+.home-hero__dots button:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.search-omni {
+  margin-block: var(--space-3, 12px) var(--space-4, 16px);
+}
+
+.catalog-manager {
+  list-style: none;
+  margin: var(--space-3, 12px) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2, 8px);
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.catalog-manager__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.catalog-manager__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-search {
+  max-width: 420px;
+  margin-bottom: var(--space-4, 16px);
+}
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+  background: var(--sn-color-surface-2);
+  border-bottom: 1px solid var(--sn-color-warning);
+  color: var(--sn-color-text);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-4);
+}

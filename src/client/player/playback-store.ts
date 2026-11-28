@@ -141,6 +141,15 @@ export const createPlaybackStore = (storage: StorageLike, now: () => number = Da
       for (const k of keys) onWrite?.(k, 'delete');
       return keys.length;
     },
+    /** "Marcar como visto" no card: guarda o fim do vídeo com a marca de assistido e sai de "continuar". */
+    markDone: (key: string): void => {
+      const map = read();
+      const p = map[key];
+      if (!p) return;
+      map[key] = { ...p, seconds: p.duration && p.duration > 0 ? p.duration : p.seconds, done: true, at: now() };
+      write(map);
+      onWrite?.(key, 'put');
+    },
     clear: (key: string): void => {
       const map = read();
       delete map[key];

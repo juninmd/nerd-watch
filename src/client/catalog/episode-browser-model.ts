@@ -62,3 +62,14 @@ export const progressFromMarker = (seasons: Array<{ number: number; count: numbe
 
 /** `T2 · E07`: código curto usado nos cartões e no modal. */
 export const episodeCode = (ep: Pick<EpisodeView, 'season' | 'number'>): string => `T${ep.season} · E${String(ep.number).padStart(2, '0')}`;
+
+/**
+ * Anti-spoiler: episódio depois do marcador esconde imagem e sinopse. Só vale para série com marcador (na sua
+ * lista); sem ele, não há o que estragar. `reveal` = a pessoa pediu para ver tudo.
+ */
+export const hidesSpoiler = (state: EpisodeState, marker: EpisodeMarker | null, reveal: boolean): boolean =>
+  !reveal && marker !== null && state === 'unseen';
+
+/** Até este número de temporadas cabem abas; séries longas (novelas, One Piece) viram menu suspenso. */
+export const SEASON_TABS_MAX = 8;
+export const seasonPicker = (count: number): 'tabs' | 'select' => (count > SEASON_TABS_MAX ? 'select' : 'tabs');

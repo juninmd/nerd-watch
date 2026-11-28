@@ -153,6 +153,16 @@ describe('limpar continuar assistindo', () => {
     expect(writes).toEqual([['a', 'delete']]);
   });
 
+  test('markDone tira de "continuar", mantém a marca de assistido e sincroniza (put)', () => {
+    const { store, writes } = setup();
+    store.markDone('a');
+    expect(store.inProgress().map((i) => i.key)).toEqual(['b']);
+    expect(store.get('a')).toMatchObject({ seconds: 3600, done: true });
+    expect(writes).toEqual([['a', 'put']]);
+    store.markDone('nao-existe');
+    expect(writes).toHaveLength(1);
+  });
+
   test('clearInProgress apaga os em andamento e preserva o assistido até o fim', () => {
     const { store, writes } = setup();
     expect(store.clearInProgress()).toBe(2);

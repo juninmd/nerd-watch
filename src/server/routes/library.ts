@@ -6,12 +6,13 @@ import { type BulkLibraryAction, bulkLibraryAction, listLibrary, removeLibraryEn
 import { listLibraryHistory, parseHistoryPage } from '../repo/library-history.ts';
 import { InvalidProgressError, markProgressThrough, ProgressNotFoundError } from '../repo/library-progress.ts';
 import { listUpNext } from '../repo/up-next.ts';
-import { upsertTitle } from '../repo/titles.ts';
-import { httpsUrlOrNull } from '../lib/catalog-text.ts';
+import { parseCatalogTitle, TITLE_INPUT_ERROR, upsertCatalogTitle } from './library-title-input.ts';
 import { tmdbImageUrl } from '../providers/tmdb.ts';
-import { type MediaType, type TitleSource, WATCH_STATUSES, type WatchStatus } from '../types.ts';
+import { type TitleSource, WATCH_STATUSES, type WatchStatus } from '../types.ts';
 
 export const libraryRoutes = new Hono();
+
+const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 
 const isWatchStatus = (v: unknown): v is WatchStatus => typeof v === 'string' && WATCH_STATUSES.includes(v as WatchStatus);
 
@@ -72,6 +73,7 @@ libraryRoutes.get('/up-next', async (c) => {
       runtime: r.runtime,
       activityAt: r.activityAt,
       channelVideo: r.channelVideo,
+      newEpisodes: r.newEpisodes,
     })),
   });
 });
@@ -104,48 +106,16 @@ libraryRoutes.post('/:titleId/progress', (c) =>
   }),
 );
 
-interface AddLibraryBody {
-  source: TitleSource;
-  sourceId: string;
-  mediaType: MediaType;
-  title: string;
-  overview?: string;
-  posterPath?: string;
-  backdropPath?: string;
-  releaseDate?: string;
-  voteAverage?: number;
-  watchStatus?: WatchStatus;
-}
-
-const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
-
 libraryRoutes.post('/', (c) =>
   guardInput(c, async () => {
-    const body = (await readJsonObject(c, 32 * 1024)) as Partial<AddLibraryBody>;
-    if (
-      !isNonEmptyString(body.sourceId) ||
-      !isNonEmptyString(body.title) ||
-      (body.source !== 'tmdb' && body.source !== 'archive' && body.source !== 'tvmaze' && body.source !== 'anilist') ||
-      (body.mediaType !== 'movie' && body.mediaType !== 'tv')
-    ) {
-      return c.json({ error: 'corpo inválido: source, sourceId, mediaType e title são obrigatórios' }, 400);
-    }
-    if (body.watchStatus && !isWatchStatus(body.watchStatus)) return c.json({ error: 'watchStatus inválido' }, 400);
+    const body = await readJsonObject(c, 32 * 1024);
+    const input = parseCatalogTitle(body);
+    if (!input) return c.json({ error: TITLE_INPUT_ERROR }, 400);
+    if (body.watchStatus !== undefined && !isWatchStatus(body.watchStatus)) return c.json({ error: 'watchStatus inválido' }, 400);
 
     const db = await getDb();
-    const titleRow = upsertTitle(db, {
-      source: body.source,
-      sourceId: body.sourceId,
-      mediaType: body.mediaType,
-      title: body.title,
-      overview: body.overview ?? null,
-      // Pôster de catálogo sem chave (Archive, TVmaze, AniList) é URL completa: só https, para o navegador nunca receber outro esquema.
-      posterPath: ABSOLUTE_POSTER_SOURCES.has(body.source) ? httpsUrlOrNull(body.posterPath) : (body.posterPath ?? null),
-      backdropPath: body.backdropPath ?? null,
-      releaseDate: body.releaseDate ?? null,
-      voteAverage: body.voteAverage ?? null,
-    });
-    const item = upsertLibraryEntry(db, titleRow.id, { watchStatus: body.watchStatus ?? 'want' });
+    const titleRow = upsertCatalogTitle(db, input);
+    const item = upsertLibraryEntry(db, titleRow.id, { watchStatus: isWatchStatus(body.watchStatus) ? body.watchStatus : 'want' });
     refreshAllChannelLinks(db);
     return c.json(toResponse(item), 201);
   }),

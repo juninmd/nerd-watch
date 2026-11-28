@@ -191,6 +191,8 @@ export interface TitleStreamsQuery {
   addonId?: string;
   type?: string;
   itemId?: string;
+  /** Consulta só este addon (a tela de carregamento pede um por um). */
+  only?: string;
 }
 
 export const getTitleStreams = (opts: TitleStreamsQuery): Promise<TitleStreamsDto> => {
@@ -206,5 +208,6 @@ export const getTitleStreams = (opts: TitleStreamsQuery): Promise<TitleStreamsDt
     q.set('type', opts.type);
     q.set('itemId', opts.itemId);
   }
+  if (opts.only) q.set('only', opts.only);
   return fetch(`/api/stremio/streams?${q}`).then((r) => json<TitleStreamsDto>(r));
 };

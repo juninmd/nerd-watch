@@ -36,6 +36,13 @@ const LANGUAGE_RE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$/;
 const hasKey = <T extends object>(table: T, value: unknown): value is keyof T =>
   typeof value === 'string' && Object.hasOwn(table, value);
 
+/** Variáveis CSS do estilo: o `::cue` do vídeo e a prévia do menu leem as mesmas (ver captions.css). */
+export const captionStyleVars = (style: CaptionStyle): Record<'--nw-cue-scale' | '--nw-cue-bg' | '--nw-cue-color', string> => ({
+  '--nw-cue-scale': String(CAPTION_SIZES[style.size]),
+  '--nw-cue-bg': String(style.background / 100),
+  '--nw-cue-color': CAPTION_COLORS[style.color],
+});
+
 /** Lê o estilo guardado. Campo inválido cai no padrão daquele campo, sem descartar os válidos. */
 export const parseCaptionStyle = (raw: string | null): CaptionStyle => {
   let data: Record<string, unknown> = {};

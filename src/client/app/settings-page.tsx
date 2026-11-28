@@ -1,11 +1,12 @@
-import { Badge, Button, Card, RadioGroup } from '@juninmd/sonido';
+import { Badge, Button, Card, EmptyState, RadioGroup, SearchField } from '@juninmd/sonido';
 import { type ReactNode, useEffect, useState } from 'react';
 import { type HealthResponse, health } from '../api/index.ts';
 import { resolveVersionStatus, type VersionStatus } from '../platform/version-info.ts';
 import { Icon } from '../ui/icon.tsx';
 import type { IconName } from '../ui/icons.ts';
 import { logout } from './logout.ts';
-import { notifySummary } from './settings-model.ts';
+import { openReportIssue } from './report-issue.ts';
+import { matchSettings, notifySummary } from './settings-model.ts';
 import { openShortcutHelp } from './shortcuts.ts';
 import { getThemePref, onThemeChange, setThemePref, THEME_LABEL, THEME_PREFS, type ThemePref } from './theme.ts';
 
@@ -133,6 +134,10 @@ export function SettingsPage() {
       alive = false;
     };
   }, []);
+  const [query, setQuery] = useState('');
+  const shown = matchSettings(query);
+  const sessionOn = status !== null && status !== 'error' && status.accessEnabled;
+  const anyShown = [...shown].some((id) => id !== 'session' || sessionOn);
 
   return (
     <div>
@@ -140,19 +145,33 @@ export function SettingsPage() {
         <h1 className="view-title">Ajustes e avisos</h1>
         <p className="view-subtitle">Aparência, atalhos e o estado dos avisos de lançamento.</p>
       </header>
+      <SearchField className="settings-search" value={query} onChange={setQuery} label="Buscar nos ajustes" placeholder="tema, avisos, versão…" autoComplete="off" />
+      {!anyShown && <EmptyState icon={<Icon name="search" />} title={`nenhum ajuste para "${query}"`} />}
       <div className="conn-grid">
-        <ThemeCard />
-        <Card padding="md">
-          <SectionHead icon="keyboard" title="Atalhos de teclado" text="Ctrl K abre a paleta; g + letra vai a uma tela; ? lista todos." />
-          <div className="sn-card__footer">
-            <Button variant="ghost" iconStart={<Icon name="keyboard" size="sm" />} onClick={openShortcutHelp}>
-              Ver atalhos
-            </Button>
-          </div>
-        </Card>
-        <NotifyCard status={status} />
-        <VersionCard />
-        {status !== null && status !== 'error' && status.accessEnabled && <SessionCard />}
+        {shown.has('theme') && <ThemeCard />}
+        {shown.has('shortcuts') && (
+          <Card padding="md">
+            <SectionHead icon="keyboard" title="Atalhos de teclado" text="Ctrl K abre a paleta; g + letra vai a uma tela; ? lista todos." />
+            <div className="sn-card__footer">
+              <Button variant="ghost" iconStart={<Icon name="keyboard" size="sm" />} onClick={openShortcutHelp}>
+                Ver atalhos
+              </Button>
+            </div>
+          </Card>
+        )}
+        {shown.has('notify') && <NotifyCard status={status} />}
+        {shown.has('version') && <VersionCard />}
+        {shown.has('report') && (
+          <Card padding="md">
+            <SectionHead icon="alert" title="Relatar problema" text="Abre uma issue no GitHub já com a versão, a tela e o navegador. Você revisa antes de enviar." />
+            <div className="sn-card__footer">
+              <Button variant="ghost" iconStart={<Icon name="send" size="sm" />} onClick={() => void openReportIssue()}>
+                Relatar problema
+              </Button>
+            </div>
+          </Card>
+        )}
+        {shown.has('session') && sessionOn && <SessionCard />}
       </div>
     </div>
   );

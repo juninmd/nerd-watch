@@ -1,0 +1,43 @@
+import { withCache } from '../lib/cache.ts';
+import { cinemetaSearch } from '../providers/cinemeta.ts';
+import { tmdbEnabled, tmdbSearchMulti } from '../providers/tmdb.ts';
+
+export const SUGGEST_MAX = 8;
+
+export interface Suggestion {
+  title: string;
+  year: string | null;
+  mediaType: 'movie' | 'tv';
+}
+
+/** Mesmo nome e ano aparecem uma vez só (a TMDB devolve o filme e o especial com o mesmo título). */
+export const uniqueSuggestions = (list: Suggestion[]): Suggestion[] => {
+  const seen = new Set<string>();
+  const out: Suggestion[] = [];
+  for (const s of list) {
+    const key = `${s.title.toLowerCase()}|${s.year ?? ''}`;
+    if (!s.title || seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length === SUGGEST_MAX) break;
+  }
+  return out;
+};
+
+/** Sugestões mudam pouco e cada tecla pediria de novo: cache curto. Falha sobe (não entra no cache); a rota responde vazio. */
+export const searchSuggestions = withCache(10 * 60_000, async (query: string): Promise<Suggestion[]> => {
+  if (tmdbEnabled()) {
+    const rows = await tmdbSearchMulti(query);
+    return uniqueSuggestions(
+      rows
+        .filter((r) => r.media_type === 'movie' || r.media_type === 'tv')
+        .map((r) => ({
+          title: r.title ?? r.name ?? '',
+          year: (r.release_date ?? r.first_air_date ?? '').slice(0, 4) || null,
+          mediaType: r.media_type as 'movie' | 'tv',
+        })),
+    );
+  }
+  // Sem TMDB: Cinemeta (sem chave) entende prefixo, então "the simp" já sugere The Simpsons.
+  return uniqueSuggestions(await cinemetaSearch(query));
+});

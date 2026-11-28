@@ -73,6 +73,8 @@ export interface UpNextItemDto {
   activityAt: string;
   /** Vídeo de canal vinculado a este episódio: o card leva para ele, não para a série. */
   channelVideo: { channelId: string; messageId: string } | null;
+  /** Episódios que estrearam depois do marcador desde a última atividade (selo "novos ep."). */
+  newEpisodes: number;
 }
 
 export const listUpNext = (limit = 12): Promise<{ items: UpNextItemDto[] }> =>
@@ -145,4 +147,21 @@ export type BulkLibraryInput = { titleIds: string[]; action: 'remove' } | { titl
 export const bulkLibrary = (input: BulkLibraryInput): Promise<{ affected: number }> =>
   fetch('/api/library/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).then((r) =>
     json<{ affected: number }>(r),
+  );
+
+export interface RelinkTarget {
+  source: CatalogSource;
+  sourceId: string;
+  mediaType: 'movie' | 'tv';
+  title: string;
+  overview?: string | null;
+  posterPath?: string | null;
+  releaseDate?: string | null;
+  voteAverage?: number | null;
+}
+
+/** "Vínculo errado?": move a entrada da biblioteca (status, nota, histórico, listas) para o título escolhido. */
+export const relinkLibrary = (titleId: string, target: RelinkTarget): Promise<{ titleId: string; source: CatalogSource; sourceId: string; mediaType: 'movie' | 'tv' }> =>
+  fetch(`/api/library/${titleId}/relink`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(target) }).then((r) =>
+    json<{ titleId: string; source: CatalogSource; sourceId: string; mediaType: 'movie' | 'tv' }>(r),
   );

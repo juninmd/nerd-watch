@@ -11,6 +11,7 @@ import { Icon } from '../ui/icon.tsx';
 import { OverlayHost } from '../ui/overlay.tsx';
 import { ToastBridge } from '../ui/toast-bridge.tsx';
 import { isNavActive, NAV_GROUPS } from './nav-model.ts';
+import { OfflineBanner } from './route-fallback.tsx';
 import { connectionLabel, type ShellStore } from './shell-store.ts';
 import { THEME_LABEL } from './theme.ts';
 
@@ -139,6 +140,7 @@ function Shell({ store, actions, paletteKey, canShare }: ShellOptions) {
               </Badge>
             </a>
           </header>
+          <OfflineBanner />
           <main id="view" tabIndex={-1}>
             <Fragment key={s.routeKey}>{s.page}</Fragment>
           </main>

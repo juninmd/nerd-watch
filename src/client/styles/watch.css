@@ -292,11 +292,23 @@
   position: relative;
 }
 
-.resume-remove,
-.resume-link {
+/* No trilho de pôsteres (grade do Carousel), o cartão 16:9 ocupa duas colunas para a cena e o título caberem. */
+.sn-carousel__rail > .resume-card {
+  grid-column: span 2;
+}
+
+/* Ações redondas no canto, à vista no hover/foco (no toque, sempre). */
+.resume-actions {
   position: absolute;
   top: 6px;
   right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.resume-action {
   display: grid;
   place-items: center;
   width: 28px;
@@ -306,27 +318,15 @@
   background: rgba(0, 0, 0, 0.65);
   color: #fff;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s;
 }
 
-.resume-link {
-  left: 6px;
-  right: auto;
-}
-
-.resume-card:hover .resume-remove,
-.resume-card:hover .resume-link,
-.resume-card:focus-within .resume-remove,
-.resume-card:focus-within .resume-link,
-.resume-remove:focus-visible,
-.resume-link:focus-visible {
+.resume-card:hover .resume-actions,
+.resume-card:focus-within .resume-actions {
   opacity: 1;
 }
 
 @media (hover: none) {
-  .resume-remove,
-  .resume-link {
+  .resume-actions {
     opacity: 1;
   }
 }
@@ -351,11 +351,18 @@
   inset: auto 0 0;
 }
 
+/* Título sobre a cena, com véu embaixo para ler em qualquer imagem (cartão 16:9 do stream-goat). */
 .resume-text {
+  position: absolute;
+  inset: auto 0 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  padding: 28px 10px 12px;
+  background: linear-gradient(to top, rgba(5, 4, 15, 0.9), transparent);
+  color: #fff;
+  text-align: left;
 }
 
 .resume-text b {
@@ -369,7 +376,7 @@
 }
 
 .resume-text small {
-  color: var(--text-faint);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 12px;
 }
 
@@ -445,4 +452,45 @@
 
 .subtitle-row .overview {
   font-size: 11px;
+}
+
+/* Tela de carregamento do episódio (source-collector-card.tsx): por cima da capa, no centro do palco. */
+.source-collector {
+  position: absolute;
+  inset: auto 50% 50% auto;
+  transform: translate(50%, 50%);
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  width: min(420px, calc(100% - 32px));
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--glass-strong);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-pop);
+}
+
+.source-collector__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.source-collector__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source-collector__list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }

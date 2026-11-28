@@ -1,13 +1,35 @@
-import { Button, EmptyState, FilterChips, Kbd, SearchField, Skeleton } from '@juninmd/sonido';
-import { type FormEvent, useEffect, useState } from 'react';
-import { search, searchTvmazePeople, type TvmazePerson } from '../api/index.ts';
+import { EmptyState, FilterChips, Kbd, OmniSearch, Skeleton } from '@juninmd/sonido';
+import { useEffect, useState } from 'react';
+import { SEARCH_SOURCES, searchSource, suggestTitles } from '../api/catalog.ts';
+import { searchTvmazePeople, type TvmazePerson } from '../api/index.ts';
 import { navigate } from '../app/router.ts';
 import { paletteKeyLabel } from '../app/shortcut-keys.ts';
 import { Icon } from '../ui/icon.tsx';
 import { countByKind, filterByKind, SEARCH_KINDS, type SearchKind } from './search-filter.ts';
+import { readRecent, rememberSearch } from './search-history.ts';
+import { addPart, mergedResponse, SOURCE_LABEL, type SearchProgress, startProgress } from './search-progress.ts';
 import { AddonHitCard, ResultCard } from './search-results.tsx';
 import { PersonCard } from './tvmaze-sections.tsx';
-import { useLoad } from './use-load.ts';
+
+const SUGGEST_DEBOUNCE_MS = 250;
+
+/** Cada fonte responde no seu tempo: a grade cresce conforme chegam, sem esperar a mais lenta. */
+function useProgressiveSearch(query: string): SearchProgress {
+  const [p, setP] = useState(startProgress);
+  useEffect(() => {
+    let live = true;
+    setP(startProgress());
+    for (const source of SEARCH_SOURCES) {
+      searchSource(query, source)
+        .then((res) => live && setP((cur) => addPart(cur, source, res)))
+        .catch(() => live && setP((cur) => addPart(cur, source, null)));
+    }
+    return () => {
+      live = false;
+    };
+  }, [query]);
+  return p;
+}
 
 /** Pessoas (elenco e equipe) da TVmaze: busca paralela e opcional, falha não atrapalha os títulos. */
 function People({ query }: { query: string }) {
@@ -37,11 +59,16 @@ function People({ query }: { query: string }) {
 }
 
 function Results({ query }: { query: string }) {
-  const { data, error } = useLoad(() => search(query), query);
+  const progress = useProgressiveSearch(query);
   // Filtro por tipo no cliente (padrão de "Descobrir" de apps de streaming): sem nova chamada à API.
   const [kind, setKind] = useState<SearchKind>('all');
-  if (error) return <EmptyState icon={<Icon name="alert" />} title="falha na busca, tente de novo" />;
-  if (!data) {
+  const data = mergedResponse(progress);
+  const waiting = progress.pending.length > 0;
+  const empty = data.results.length === 0 && (data.addonResults ?? []).length === 0;
+  if (!waiting && empty && progress.failed.length === SEARCH_SOURCES.length) {
+    return <EmptyState icon={<Icon name="alert" />} title="falha na busca, tente de novo" />;
+  }
+  if (waiting && empty) {
     return (
       <div className="grid">
         {Array.from({ length: 8 }, (_, i) => (
@@ -59,7 +86,14 @@ function Results({ query }: { query: string }) {
       <a href="#/credentials">Configure a TMDB_API_KEY</a> para pôsteres, trailers e streams por IMDb.
     </p>
   );
-  if (data.results.length === 0 && addonHits.length === 0) {
+  const status = waiting ? (
+    <p className="hint search-pending" aria-live="polite">
+      Ainda buscando em {progress.pending.map((x) => SOURCE_LABEL[x]).join(', ')}…
+    </p>
+  ) : progress.failed.length > 0 ? (
+    <p className="hint">Sem resposta de {progress.failed.map((x) => SOURCE_LABEL[x]).join(', ')}.</p>
+  ) : null;
+  if (empty) {
     return (
       <>
         {tmdbOff}
@@ -77,6 +111,7 @@ function Results({ query }: { query: string }) {
   return (
     <>
       {tmdbOff}
+      {status}
       <FilterChips
         label="tipo de resultado"
         allLabel="Tudo"
@@ -104,11 +139,36 @@ function Results({ query }: { query: string }) {
 /** Busca no catálogo inteiro (TMDB, TVmaze, AniList, Internet Archive, addons). A consulta mora na URL (`?q=`). */
 export function SearchPage({ query }: { query: string }) {
   const [text, setText] = useState(query);
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const q = text.trim();
+  const [recent, setRecent] = useState(readRecent);
+  const [titles, setTitles] = useState<string[]>([]);
+  const typed = text.trim();
+  // Títulos sugeridos enquanto digita (debounce); campo vazio mostra as buscas recentes.
+  useEffect(() => {
+    if (typed.length < 2 || typed === query) {
+      setTitles([]);
+      return;
+    }
+    let live = true;
+    const t = setTimeout(() => {
+      suggestTitles(typed)
+        .then((list) => live && setTitles(list.map((x) => x.title)))
+        .catch(() => live && setTitles([]));
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [typed, query]);
+  // Toda busca aberta conta como recente, venha do campo, da paleta (Ctrl K) ou de um link.
+  useEffect(() => {
+    if (query.trim()) setRecent(rememberSearch(query));
+  }, [query]);
+  const go = (value: string) => {
+    const q = value.trim();
+    setText(q);
     navigate(`/search${q ? `?q=${encodeURIComponent(q)}` : ''}`);
   };
+  const showRecent = typed.length === 0;
   return (
     <div>
       <h1 className="view-title">Buscar</h1>
@@ -116,22 +176,23 @@ export function SearchPage({ query }: { query: string }) {
         Filmes, séries e novelas na TMDB, séries na TVmaze, anime no AniList, o acervo de domínio público do Internet
         Archive e os catálogos dos seus addons Stremio.
       </p>
-      <form className="chip-row form-row" onSubmit={submit}>
-        <SearchField
-          className="grow"
-          value={text}
-          onChange={setText}
-          label="Buscar no catálogo"
-          placeholder="Nome do filme, série ou novela"
-          autoComplete="off"
-        />
-        <Button size="sm" type="submit">
-          buscar
-        </Button>
-      </form>
+      <OmniSearch
+        className="search-omni"
+        value={text}
+        onChange={setText}
+        label="Buscar no catálogo"
+        placeholder="Nome do filme, série ou novela"
+        onSubmit={go}
+        onClear={() => setText('')}
+        suggestions={showRecent ? recent : titles}
+        suggestionsTitle={showRecent ? 'Buscas recentes' : 'Títulos'}
+        onPickSuggestion={go}
+        hint="Enter busca; setas escolhem uma sugestão"
+        shortcut={false}
+      />
       {query ? (
         <>
-          <Results query={query} />
+          <Results key={query} query={query} />
           <People query={query} />
         </>
       ) : (
