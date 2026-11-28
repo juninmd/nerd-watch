@@ -309,3 +309,45 @@
   display: block;
   color: var(--text-dim);
 }
+
+/* Destaque rotativo do início (home-hero-carousel.tsx). */
+.home-hero {
+  position: relative;
+}
+
+.home-hero__kicker {
+  color: var(--signal);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+}
+
+.home-hero__dots {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  display: flex;
+  gap: 6px;
+}
+
+.home-hero__dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: width var(--dur-fast, 0.15s) var(--ease, ease);
+}
+
+.home-hero__dots button.is-on {
+  width: 22px;
+  background: var(--signal);
+}
+
+.home-hero__dots button:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}

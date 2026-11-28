@@ -30,8 +30,9 @@ import { posterFlag } from '../ui/poster-badges.ts';
 import { PosterCard } from '../ui/poster-card.tsx';
 import { addDays, browserTimeZone, localIsoDate } from '../ui/time-format.ts';
 import { libraryItemPath, titlePath } from '../ui/title-link.ts';
-import { pickHero } from './home-hero.ts';
-import { AddonTile, HomeHero, HomeStatus, HomeUpcoming, HomeYearStrip, SectionHead } from './home-sections.tsx';
+import { heroSlides } from './home-hero.ts';
+import { HomeHeroCarousel } from './home-hero-carousel.tsx';
+import { AddonTile, HomeStatus, HomeUpcoming, HomeYearStrip, SectionHead } from './home-sections.tsx';
 import { homeKpis, sourceRows } from './home-status.ts';
 
 interface HomeData {
@@ -95,8 +96,8 @@ export function HomePage() {
     if (data === 'loading') return <Skeleton label="Carregando o início…" rows={6} media />;
     if (data === 'error')
       return <EmptyState icon={<Icon name="alert" />} title="não foi possível carregar o início agora" />;
-    const hero = pickHero(data.watching);
     const newByTitle = new Map(data.upNext.map((u) => [u.titleId, u.newEpisodes]));
+    const slides = heroSlides(data.watching, newByTitle);
     const strip = data.stats ? yearStrip(data.stats, today.getMonth()) : null;
     return (
       <>
@@ -106,7 +107,7 @@ export function HomePage() {
             público, Telegram e sua biblioteca funcionam normalmente.
           </Alert>
         )}
-        {hero && <HomeHero item={hero} />}
+        {slides.length > 0 && <HomeHeroCarousel slides={slides} />}
         <HomeStatus
           kpis={homeKpis({
             watching: data.watching.length,
