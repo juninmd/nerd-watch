@@ -35,6 +35,25 @@ export interface SearchResponse {
 export const search = (q: string): Promise<SearchResponse> =>
   fetch(`/api/search?q=${encodeURIComponent(q)}`).then((r) => json<SearchResponse>(r));
 
+/** Fontes da busca, na ordem em que aparecem na tela. */
+export const SEARCH_SOURCES = ['tmdb', 'tvmaze', 'anilist', 'archive', 'addons'] as const;
+export type SearchSource = (typeof SEARCH_SOURCES)[number];
+
+/** Uma fonte só: a tela de busca pede todas em paralelo e mostra cada uma quando chega. */
+export const searchSource = (q: string, source: SearchSource): Promise<SearchResponse> =>
+  fetch(`/api/search?q=${encodeURIComponent(q)}&source=${source}`).then((r) => json<SearchResponse>(r));
+
+export interface TitleSuggestionDto {
+  title: string;
+  year: string | null;
+  mediaType: 'movie' | 'tv';
+}
+
+export const suggestTitles = (q: string): Promise<TitleSuggestionDto[]> =>
+  fetch(`/api/search/suggest?q=${encodeURIComponent(q)}`)
+    .then((r) => json<{ suggestions: TitleSuggestionDto[] }>(r))
+    .then((d) => d.suggestions);
+
 export interface TmdbDetailDto {
   titleId: string;
   title: string;

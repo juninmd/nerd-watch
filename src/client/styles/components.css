@@ -351,3 +351,7 @@
   outline: 2px solid var(--signal);
   outline-offset: 2px;
 }
+
+.search-omni {
+  margin-block: var(--space-3, 12px) var(--space-4, 16px);
+}
