@@ -1,4 +1,4 @@
-import { isShellRequest, isStaleShellCache, SHELL_CACHE_NAME } from './shell-cache.ts';
+import { isShellRequest, isStaleShellCache, OFFLINE_HTML, SHELL_CACHE_NAME } from './shell-cache.ts';
 
 // O tsconfig não carrega a lib "webworker", então o escopo do service worker é tipado à mão, só com o que usamos.
 interface ExtendableEventLike {
@@ -33,6 +33,7 @@ const networkFirst = async (request: Request): Promise<Response> => {
   } catch (err) {
     const cached = await cache.match(request);
     if (cached) return cached;
+    if (request.mode === 'navigate') return new Response(OFFLINE_HTML, { status: 503, headers: { 'content-type': 'text/html; charset=utf-8' } });
     throw err;
   }
 };

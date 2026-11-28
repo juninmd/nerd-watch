@@ -34,3 +34,9 @@ export const isShellRequest = (request: ShellRequest, appOrigin: string): boolea
 /** Só apaga caches com o nosso prefixo: a origem pode ter outros caches que não são deste app. */
 export const isStaleShellCache = (cacheName: string, currentName: string = SHELL_CACHE_NAME): boolean =>
   cacheName.startsWith(SHELL_CACHE_PREFIX) && cacheName !== currentName;
+
+/**
+ * Página de reserva quando nem a rede nem o cache têm a casca (primeira visita offline): melhor que a tela de erro do navegador.
+ * HTML estático, sem script, com o mesmo fundo escuro do app.
+ */
+export const OFFLINE_HTML = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>nerd-watch · sem internet</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0e1116;color:#e8eaed;font:16px/1.5 system-ui,sans-serif;text-align:center;padding:16px}a{color:#8ab4f8}</style></head><body><main><h1>Você está sem internet</h1><p>O nerd-watch abre assim que a conexão voltar.</p><p><a href="">Tentar de novo</a></p></main></body></html>`;

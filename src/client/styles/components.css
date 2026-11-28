@@ -384,3 +384,14 @@
   max-width: 420px;
   margin-bottom: var(--space-4, 16px);
 }
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+  background: var(--sn-color-surface-2);
+  border-bottom: 1px solid var(--sn-color-warning);
+  color: var(--sn-color-text);
+  font-size: 0.9rem;
+}
