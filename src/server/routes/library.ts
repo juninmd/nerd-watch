@@ -72,6 +72,7 @@ libraryRoutes.get('/up-next', async (c) => {
       runtime: r.runtime,
       activityAt: r.activityAt,
       channelVideo: r.channelVideo,
+      newEpisodes: r.newEpisodes,
     })),
   });
 });

@@ -15,6 +15,8 @@ export interface UpNextRow {
   activityAt: string;
   /** Vídeo de canal vinculado a este episódio (o alvo de "continuar"); nulo quando não há. */
   channelVideo: { channelId: string; messageId: string } | null;
+  /** Episódios depois do marcador que estrearam desde a última atividade: vira o selo "novos ep." no pôster. */
+  newEpisodes: number;
 }
 
 /**
@@ -35,7 +37,7 @@ export const UP_NEXT_SQL = `
     LIMIT ?
   ),
   nxt AS (
-    SELECT cand.title_id, s.season_number, e.episode_number, e.name AS episode_name, e.runtime,
+    SELECT cand.title_id, s.season_number, e.episode_number, e.name AS episode_name, e.runtime, e.air_date,
       ROW_NUMBER() OVER (PARTITION BY cand.title_id ORDER BY s.season_number, e.episode_number) AS rn
     FROM cand
     CROSS JOIN seasons s ON s.title_id = cand.title_id
@@ -50,7 +52,9 @@ export const UP_NEXT_SQL = `
     END
   )
   SELECT cand.title_id, t.source, t.source_id, t.media_type, t.title, t.poster_path,
-    nxt.season_number, nxt.episode_number, nxt.episode_name, nxt.runtime, cand.updated_at AS activity_at
+    nxt.season_number, nxt.episode_number, nxt.episode_name, nxt.runtime, cand.updated_at AS activity_at,
+    (SELECT COUNT(*) FROM nxt n2 WHERE n2.title_id = cand.title_id AND n2.air_date IS NOT NULL
+      AND n2.air_date <= date('now') AND n2.air_date > substr(cand.updated_at, 1, 10)) AS new_count
   FROM cand
   JOIN titles t ON t.id = cand.title_id
   JOIN nxt ON nxt.title_id = cand.title_id AND nxt.rn = 1
@@ -68,6 +72,7 @@ interface Row {
   episode_name: string;
   runtime: number | null;
   activity_at: string;
+  new_count: number;
 }
 
 interface LinkedVideoRow {
@@ -122,6 +127,7 @@ export const listUpNext = (db: Database, limit: number): UpNextRow[] => {
       runtime: r.runtime,
       activityAt: r.activity_at,
       channelVideo: v ? { channelId: v.channel_id, messageId: v.message_id } : null,
+      newEpisodes: r.new_count,
     };
   });
 };

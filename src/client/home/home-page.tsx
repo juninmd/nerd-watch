@@ -26,6 +26,7 @@ import { useAlive } from '../library/use-alive.ts';
 import { ContinueWatchingCards, confirmClearContinueWatching } from '../player/continue-watching.tsx';
 import { yearStrip } from '../stats/insights.ts';
 import { Icon } from '../ui/icon.tsx';
+import { posterFlag } from '../ui/poster-badges.ts';
 import { PosterCard } from '../ui/poster-card.tsx';
 import { addDays, browserTimeZone, localIsoDate } from '../ui/time-format.ts';
 import { libraryItemPath, titlePath } from '../ui/title-link.ts';
@@ -95,6 +96,7 @@ export function HomePage() {
     if (data === 'error')
       return <EmptyState icon={<Icon name="alert" />} title="não foi possível carregar o início agora" />;
     const hero = pickHero(data.watching);
+    const newByTitle = new Map(data.upNext.map((u) => [u.titleId, u.newEpisodes]));
     const strip = data.stats ? yearStrip(data.stats, today.getMonth()) : null;
     return (
       <>
@@ -139,6 +141,8 @@ export function HomePage() {
               posterUrl={item.title.posterUrl}
               meta={item.currentSeason ? `T${item.currentSeason} · Ep ${item.currentEpisode}` : undefined}
               status={item.watchStatus}
+              score={item.title.voteAverage}
+              flag={posterFlag(item.watchStatus, newByTitle.get(item.titleId))}
               onClick={() => navigate(libraryItemPath(item))}
             />
           ))}
@@ -162,6 +166,7 @@ export function HomePage() {
                 title={item.title.title}
                 posterUrl={item.title.posterUrl}
                 meta={`T${item.seasonNumber} · Ep ${item.episodeNumber}${item.episodeName ? ` — ${item.episodeName}` : ''}`}
+                flag={item.newEpisodes > 0 ? posterFlag('watching', item.newEpisodes) : null}
                 onClick={() => navigate(upNextPath(item))}
               />
             ))}

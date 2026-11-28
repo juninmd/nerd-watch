@@ -240,3 +240,38 @@
   font-size: 13px;
   color: var(--text-dim);
 }
+
+/* Selos sobre o pôster: nota embaixo à esquerda e carimbo de assistido por cima (ideia do stream-goat). */
+.poster-card__art {
+  position: relative;
+}
+
+.poster-card__art.is-watched img {
+  filter: brightness(0.6) saturate(0.7);
+}
+
+.poster-card__stamp {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.poster-card__stamp > * {
+  transform: rotate(-14deg);
+}
+
+.poster-card__score {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  background: rgba(0, 0, 0, 0.72);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

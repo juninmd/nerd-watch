@@ -118,3 +118,31 @@ describe('listUpNext: ordem por atividade e limite', () => {
     expect(plan).not.toMatch(/SCAN (episodes|seasons)\b/);
   });
 });
+
+describe('listUpNext: episódios novos desde a última atividade', () => {
+  const seedAired = (dates: Array<string | null>) => {
+    const title = upsertTitle(db, { source: 'tmdb', sourceId: 'novos', mediaType: 'tv', title: 'Série com estreias' });
+    const season = upsertSeason(db, title.id, { seasonNumber: 1, name: 'T1' });
+    replaceEpisodes(
+      db,
+      season.id,
+      dates.map((airDate, i) => ({ episodeNumber: i + 1, name: `Ep ${i + 1}`, runtime: 40, airDate })),
+    );
+    return title;
+  };
+
+  test('conta só os episódios depois do marcador que estrearam após a última atividade e até hoje', () => {
+    // Ep 1 visto; Ep 2 saiu antes da atividade (não é novidade); Ep 3 e 4 saíram depois; Ep 5 ainda não estreou.
+    const s = seedAired(['2020-01-01', '2020-01-05', '2020-02-01', '2020-02-08', '2999-01-01']);
+    watching(s.id, 1, 1);
+    setActivity(s.id, '2020-01-10T12:00:00.000Z');
+    const [row] = listUpNext(db, 10);
+    expect(row?.newEpisodes).toBe(2);
+  });
+
+  test('sem data de estreia conhecida não marca novidade', () => {
+    const s = seedAired([null, null]);
+    watching(s.id, 1, 1);
+    expect(listUpNext(db, 10)[0]?.newEpisodes).toBe(0);
+  });
+});

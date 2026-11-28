@@ -14,13 +14,9 @@ const SOURCE_LABEL: Partial<Record<CatalogSource, string>> = {
   anilist: 'anime · AniList',
 };
 
-/** Linha sob o título: fonte, ano e nota. Sem DOM: testável. */
-export const resultMeta = (r: Pick<SearchResultDto, 'source' | 'mediaType' | 'releaseDate' | 'voteAverage'>): string =>
-  [
-    SOURCE_LABEL[r.source] ?? (r.mediaType === 'tv' ? 'série' : 'filme'),
-    r.releaseDate?.slice(0, 4),
-    r.voteAverage ? `⭐ ${r.voteAverage.toFixed(1)}` : null,
-  ]
+/** Linha sob o título: fonte e ano (a nota vai no selo do pôster). Sem DOM: testável. */
+export const resultMeta = (r: Pick<SearchResultDto, 'source' | 'mediaType' | 'releaseDate'>): string =>
+  [SOURCE_LABEL[r.source] ?? (r.mediaType === 'tv' ? 'série' : 'filme'), r.releaseDate?.slice(0, 4)]
     .filter(Boolean)
     .join(' · ');
 
@@ -53,6 +49,7 @@ export function ResultCard({ r }: { r: SearchResultDto }) {
         title={r.title}
         posterUrl={r.posterUrl}
         meta={resultMeta(r)}
+        score={r.voteAverage}
         isPublicDomain={r.source === 'archive'}
         onClick={() => navigate(titlePath(r.source, r.source === 'archive' ? '_' : r.mediaType, r.sourceId))}
       />

@@ -73,6 +73,8 @@ export interface UpNextItemDto {
   activityAt: string;
   /** Vídeo de canal vinculado a este episódio: o card leva para ele, não para a série. */
   channelVideo: { channelId: string; messageId: string } | null;
+  /** Episódios que estrearam depois do marcador desde a última atividade (selo "novos ep."). */
+  newEpisodes: number;
 }
 
 export const listUpNext = (limit = 12): Promise<{ items: UpNextItemDto[] }> =>
