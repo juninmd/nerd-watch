@@ -23,6 +23,11 @@ export interface StreamsPanelProps extends StreamView {
   onPick?: (group: Group, stream: Stream) => boolean;
   /** Fonte tocada sozinha ao montar ou ao trocar o `dto` (escolha automática do player dedicado). */
   autoPlay?: StreamPick | null;
+  /**
+   * Muda = outro título/episódio: limpa o player e a lista aberta. Sem ele, cada `dto` novo conta como troca.
+   * Com ele, fontes que chegam depois (addon lento) entram na lista sem parar o vídeo que já toca.
+   */
+  resetKey?: string;
 }
 
 /** Um embed de YouTube por tela: o iframe não passa pelo player global, então tocar em outro painel fecha este. */
@@ -34,17 +39,18 @@ const posOf = (group: Group, index: number): number => group.streams.findIndex((
  * Lista os streams de todos os addons e toca no mesmo player do app: URL/YouTube embutidos e
  * `infoHash` no motor P2P local (o servidor reconsulta o addon pela posição, nunca pelo cliente).
  */
-export function StreamsPanel({ dto, playerHost, onPick, autoPlay, ...view }: StreamsPanelProps) {
+export function StreamsPanel({ dto, playerHost, onPick, autoPlay, resetKey, ...view }: StreamsPanelProps) {
   const [play, setPlay] = useState<PlayState | null>(null);
   const [playing, setPlaying] = useState<StreamPick | null>(null);
   /** Grupos com lista longa abertos pelo usuário; some quando chega outro `dto` (troca de episódio/título). */
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const [shownDto, setShownDto] = useState(dto);
+  const key: unknown = resetKey ?? dto;
+  const [shownKey, setShownKey] = useState(key);
   const seq = useRef(0);
   const slot = useRef<HTMLElement | null>(null);
 
-  if (shownDto !== dto) {
-    setShownDto(dto);
+  if (shownKey !== key) {
+    setShownKey(key);
     setPlay(null);
     setPlaying(null);
     setExpanded(new Set());
@@ -102,7 +108,7 @@ export function StreamsPanel({ dto, playerHost, onPick, autoPlay, ...view }: Str
     // Escondido na prévia: abre a lista do addon para o cartão tocando ficar visível.
     if (posOf(found.group, found.stream.index) >= STREAM_PREVIEW) setExpanded((prev) => new Set(prev).add(found.group.addonId));
     activate(found.group, found.stream);
-  }, [dto]);
+  }, [key]);
 
   // Leva o foco (e a rolagem) para onde o vídeo apareceu: o botão está na outra coluna ou em outra linha.
   useEffect(() => {

@@ -114,6 +114,15 @@ describe('addon desligado sai das consultas automáticas', () => {
     expect(dto.addons.map((g: { name: string }) => g.name)).toEqual(['Addon B']);
   });
 
+  test('`only` consulta um addon só (tela de carregamento) e nunca religa o desligado', async () => {
+    const { a, b } = await setup();
+    const one = await (await stremioRoutes.request(`/streams?mediaType=movie&imdbId=tt1234567&only=${b.id}`)).json();
+    expect(one.addons.map((g: { name: string }) => g.name)).toEqual(['Addon B']);
+    const off = await (await stremioRoutes.request(`/streams?mediaType=movie&imdbId=tt1234567&only=${a.id}`)).json();
+    expect(off.addons).toEqual([]);
+    expect((await stremioRoutes.request('/streams?mediaType=movie&imdbId=tt1234567&only=../x')).status).toBe(400);
+  });
+
   test('quadros (Descobrir) só trazem catálogo de addon ligado', async () => {
     await setup();
     const { boards } = await (await stremioRoutes.request('/boards')).json();

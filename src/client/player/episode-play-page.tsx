@@ -1,6 +1,6 @@
 import { Button, EmptyState, Kbd, Skeleton, Switch } from '@juninmd/sonido';
-import { useCallback, useEffect, useState } from 'react';
-import { getTitleStreams } from '../api/stremio.ts';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { getTitleStreams, listAddons, type TitleStreamsDto } from '../api/stremio.ts';
 import { streamFacts } from '../addons/stream-filter.ts';
 import type { AddonStreamGroup, AddonStreamItem } from '../addons/stream-lookup.ts';
 import { navigate } from '../app/router.ts';
@@ -21,6 +21,8 @@ import {
 import { readStreamPref, saveStreamPref } from './episode-play-pref.ts';
 import { EpisodePlaySide, type Streams } from './episode-play-side.tsx';
 import { loadPlayContext, type PlayContext } from './play-context.ts';
+import { SourceCollectorCard } from './source-collector-card.tsx';
+import { addAnswer, allAnswered, type Collected, readyToStart, startCollect } from './source-collector.ts';
 import { getAutoplay, getVideo, setAutoplay, subscribeEnded } from './player-dock.ts';
 import { useEndCountdown, WatchEndCard } from './watch-end-card.tsx';
 
@@ -54,19 +56,58 @@ function PlayView({ ctx, list, ep, explicit }: PlayViewProps) {
     document.title = `${ctx.seriesTitle} ${episodeCode(ep)} — nerd-watch`;
   }, [ctx, ep]);
 
+  const titleKey = `${ctx.source}:${ctx.id}`;
+  const [collect, setCollect] = useState<Collected | null>(null);
+  const collected = useRef<Collected | null>(null);
+  const started = useRef(false);
+
+  /** Entrega a lista ao painel e escolhe a fonte; depois disso, quem chega tarde só entra na lista. */
+  const start = useCallback(
+    (dto: TitleStreamsDto) => {
+      started.current = true;
+      if (!dto.addons.length) setStreams({ kind: 'none', message: 'Nenhum addon de streams instalado.' });
+      else setStreams({ kind: 'ready', dto, pick: pickStream(dto, readStreamPref(titleKey), explicit) });
+    },
+    [titleKey, explicit],
+  );
+
   useEffect(() => {
     if ('unavailable' in query) return setStreams({ kind: 'none', message: query.unavailable });
     let alive = true;
-    getTitleStreams(query)
-      .then((dto) => {
+    const fail = () =>
+      alive && setStreams({ kind: 'none', message: 'Não foi possível consultar os addons agora.', alert: true });
+    const pref = readStreamPref(titleKey);
+    listAddons()
+      .then((list) => list.filter((a) => a.enabled && a.resources.includes('stream')))
+      .catch(() => [])
+      .then((addons) => {
         if (!alive) return;
-        if (!dto.addons.length) setStreams({ kind: 'none', message: 'Nenhum addon de streams instalado.' });
-        else setStreams({ kind: 'ready', dto, pick: pickStream(dto, readStreamPref(), explicit) });
-      })
-      .catch(
-        () =>
-          alive && setStreams({ kind: 'none', message: 'Não foi possível consultar os addons agora.', alert: true }),
-      );
+        // Um addon (ou lista indisponível): uma consulta só, como antes.
+        if (addons.length <= 1) {
+          getTitleStreams(query)
+            .then((dto) => alive && start(dto))
+            .catch(fail);
+          return;
+        }
+        // Vários: um pedido por addon; a tela mostra cada um chegando e começa sem esperar o mais lento.
+        collected.current = startCollect(addons);
+        setCollect(collected.current);
+        for (const addon of addons) {
+          getTitleStreams({ ...query, only: addon.id })
+            .catch(() => null)
+            .then((answer) => {
+              if (!alive || !collected.current) return;
+              const c = addAnswer(collected.current, addon.id, answer);
+              collected.current = c;
+              setCollect(c);
+              const explicitIn = explicit !== null && c.addons.some((a) => a.addonId === explicit.addonId && a.status !== 'pending');
+              if (!started.current && (readyToStart(c, pref) || explicitIn)) start(c.dto);
+              else if (started.current)
+                setStreams((cur) => (cur.kind === 'ready' ? { ...cur, dto: c.dto } : cur));
+              if (allAnswered(c) && !c.dto.addons.length) fail();
+            });
+        }
+      });
     return () => {
       alive = false;
     };
@@ -112,7 +153,7 @@ function PlayView({ ctx, list, ep, explicit }: PlayViewProps) {
   /** Fonte escolhida (pelo usuário ou pela preferência): para a contagem e lembra a escolha para o próximo episódio. */
   const onPick = (group: AddonStreamGroup, stream: AddonStreamItem): boolean => {
     end.stop();
-    if (isPlayable(stream)) saveStreamPref({ addonId: group.addonId, height: streamFacts(stream).height });
+    if (isPlayable(stream)) saveStreamPref({ addonId: group.addonId, height: streamFacts(stream).height }, titleKey);
     // O painel toca a fonte e marca qual está tocando.
     return false;
   };
@@ -133,7 +174,10 @@ function PlayView({ ctx, list, ep, explicit }: PlayViewProps) {
         <div className="play-frame">
           <section className="play-host" ref={setHost} tabIndex={-1} aria-label="Player do stream">
             {hd && <img className="play-poster" src={hd} alt="" />}
-            {status && (
+            {streams.kind === 'loading' && collect && (
+              <SourceCollectorCard collected={collect} onPlayNow={() => collected.current && start(collected.current.dto)} />
+            )}
+            {status && !(streams.kind === 'loading' && collect) && (
               <p className="play-status" role="status">
                 {status}
               </p>
