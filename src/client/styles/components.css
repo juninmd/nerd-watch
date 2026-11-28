@@ -379,3 +379,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.settings-search {
+  max-width: 420px;
+  margin-bottom: var(--space-4, 16px);
+}

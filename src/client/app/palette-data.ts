@@ -4,6 +4,7 @@ import { handleLabel } from '../connections/source-modes.ts';
 import { openPickDialog } from '../library/pick-dialog.tsx';
 import { libraryItemPath } from '../ui/title-link.ts';
 import type { PaletteEntry } from './palette-search.ts';
+import { openReportIssue } from './report-issue.ts';
 import { navigate } from './router.ts';
 import { getThemePref, nextThemePref, setThemePref } from './theme.ts';
 
@@ -26,6 +27,7 @@ export const staticActions = (): PaletteEntry[] => [
   { id: 'backup', group: 'Ações', title: 'Exportar ou importar backup', keys: 'g d', run: () => navigate('/data?focus=backup') },
   { id: 'go-credentials', group: 'Ações', title: 'Gerenciar credenciais', keys: 'g k', run: () => navigate('/credentials') },
   { id: 'go-settings', group: 'Ações', title: 'Ajustes e avisos', keys: 'g j', run: () => navigate('/settings') },
+  { id: 'report', group: 'Ações', title: 'Relatar problema', sub: 'abre uma issue já preenchida no GitHub', run: () => void openReportIssue() },
   { id: 'theme', group: 'Ações', title: 'Alternar tema (escuro, claro, sistema)', run: () => setThemePref(nextThemePref(getThemePref())) },
 ];
 

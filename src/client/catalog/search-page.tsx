@@ -185,6 +185,7 @@ export function SearchPage({ query }: { query: string }) {
         suggestionsTitle={showRecent ? 'Buscas recentes' : 'Títulos'}
         onPickSuggestion={go}
         hint="Enter busca; setas escolhem uma sugestão"
+        shortcut={false}
       />
       {query ? (
         <>
