@@ -1,4 +1,4 @@
-import { CAPTION_COLORS, CAPTION_SIZES, type CaptionStyle } from './player-captions-prefs.ts';
+import { type CaptionStyle, captionStyleVars } from './player-captions-prefs.ts';
 import { shiftedCue } from './player-captions-offset.ts';
 
 /**
@@ -105,7 +105,5 @@ export const createTrackSlot = (): TrackSlot => {
 /** Variáveis que o `::cue` lê (ver captions.css). Sem vídeo, não faz nada. */
 export const applyCaptionStyle = (el: HTMLVideoElement | null, style: CaptionStyle): void => {
   if (!el) return;
-  el.style.setProperty('--nw-cue-scale', String(CAPTION_SIZES[style.size]));
-  el.style.setProperty('--nw-cue-bg', String(style.background / 100));
-  el.style.setProperty('--nw-cue-color', CAPTION_COLORS[style.color]);
+  for (const [name, value] of Object.entries(captionStyleVars(style))) el.style.setProperty(name, value);
 };
