@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { episodeCode, episodeState, type EpisodeView, filterEpisodes, progressFromMarker } from '../../src/client/catalog/episode-browser-model.ts';
+import {
+  episodeCode,
+  episodeState,
+  type EpisodeView,
+  filterEpisodes,
+  hidesSpoiler,
+  progressFromMarker,
+  SEASON_TABS_MAX,
+  seasonPicker,
+} from '../../src/client/catalog/episode-browser-model.ts';
 
 const ep = (number: number, over: Partial<EpisodeView> = {}): EpisodeView => ({
   season: 1,
@@ -59,5 +68,26 @@ describe('episode-browser-model', () => {
 
   test('código do episódio com dois dígitos', () => {
     expect(episodeCode({ season: 3, number: 7 })).toBe('T3 · E07');
+  });
+});
+
+describe('anti-spoiler e seletor de temporada', () => {
+  const m = { season: 1, episode: 3 };
+
+  test('esconde só o que ainda não foi visto, e só em série com marcador', () => {
+    expect(hidesSpoiler('unseen', m, false)).toBe(true);
+    expect(hidesSpoiler('watched', m, false)).toBe(false);
+    expect(hidesSpoiler('current', m, false)).toBe(false);
+    expect(hidesSpoiler('unseen', null, false)).toBe(false);
+  });
+
+  test('"mostrar tudo" desliga o anti-spoiler', () => {
+    expect(hidesSpoiler('unseen', m, true)).toBe(false);
+  });
+
+  test('abas até o limite; séries longas viram menu', () => {
+    expect(seasonPicker(SEASON_TABS_MAX)).toBe('tabs');
+    expect(seasonPicker(SEASON_TABS_MAX + 1)).toBe('select');
+    expect(seasonPicker(1)).toBe('tabs');
   });
 });

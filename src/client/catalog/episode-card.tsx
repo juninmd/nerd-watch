@@ -10,11 +10,15 @@ export interface EpisodeCardProps {
   onOpen: () => void;
   /** Ausente = série fora da sua lista (sem botão de marcar). */
   onMark?: () => Promise<void>;
+  /** Episódio ainda não visto: imagem desfocada e sinopse escondida até "mostrar". */
+  spoiler?: boolean;
 }
 
 /** Cartão do episódio: um botão invisível cobre o cartão (um só alvo para teclado e leitor) e o ✓ marca até ele. */
-export function EpisodeCard({ ep, state, onOpen, onMark }: EpisodeCardProps) {
+export function EpisodeCard({ ep, state, onOpen, onMark, spoiler = false }: EpisodeCardProps) {
   const [busy, setBusy] = useState(false);
+  const [shown, setShown] = useState(false);
+  const hidden = spoiler && !shown;
   const code = episodeCode(ep);
   const label = `${code}, ${ep.name}${state === 'watched' ? ', visto' : state === 'current' ? ', onde você parou' : ''}`;
   const mark = () => {
@@ -24,7 +28,7 @@ export function EpisodeCard({ ep, state, onOpen, onMark }: EpisodeCardProps) {
     onMark().catch(() => setBusy(false));
   };
   return (
-    <Card className={`ep-card is-${state}`} padding="none">
+    <Card className={`ep-card is-${state}${hidden ? ' is-spoiler' : ''}`} padding="none">
       <div className="ep-still" aria-hidden="true">
         <Artwork title={ep.name} src={ep.stillUrl ?? undefined} ratio="wide" />
         <span className="ep-play">
@@ -43,7 +47,12 @@ export function EpisodeCard({ ep, state, onOpen, onMark }: EpisodeCardProps) {
           {ep.runtime ? <span>{ep.runtime} min</span> : null}
           <span>{ep.airDate ? dateLabel(ep.airDate) : 'data a confirmar'}</span>
         </div>
-        {ep.overview && <p>{ep.overview}</p>}
+        {ep.overview && !hidden && <p>{ep.overview}</p>}
+        {ep.overview && hidden && (
+          <Button className="ep-reveal" variant="ghost" size="sm" onClick={() => setShown(true)}>
+            Sinopse escondida · mostrar
+          </Button>
+        )}
       </div>
       <button type="button" className="ep-open" aria-label={`${label}: detalhes e onde assistir`} onClick={onOpen} />
       {onMark && state !== 'current' && (

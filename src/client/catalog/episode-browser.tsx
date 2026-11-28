@@ -1,4 +1,4 @@
-import { EmptyState, FilterChips, SearchField, Select, Skeleton, Tabs } from '@juninmd/sonido';
+import { EmptyState, FilterChips, SearchField, Select, Skeleton, Switch, Tabs } from '@juninmd/sonido';
 import { type Ref, useEffect, useRef, useState } from 'react';
 import type { StreamsQueryResolver } from '../addons/episode-streams.ts';
 import type { EpisodeMarker } from '../library/episode-progress.ts';
@@ -10,6 +10,8 @@ import {
   type EpisodeView,
   episodeState,
   filterEpisodes,
+  hidesSpoiler,
+  seasonPicker,
 } from './episode-browser-model.ts';
 import { openEpisodeModal } from './episode-modal.tsx';
 
@@ -33,6 +35,7 @@ export interface EpisodeBrowserProps {
 }
 
 const LAYOUT_KEY = 'nw.episodes.layout';
+const REVEAL_KEY = 'nw.episodes.reveal';
 const SORTS: Array<{ value: EpisodeSort; label: string }> = [
   { value: 'number', label: 'Ordem de exibição' },
   { value: 'rating', label: 'Maior nota' },
@@ -51,6 +54,21 @@ const saveLayout = (v: EpisodeLayout): void => {
     localStorage.setItem(LAYOUT_KEY, v);
   } catch {
     // Preferência só deste navegador: sem armazenamento, vale até recarregar.
+  }
+};
+
+const loadReveal = (): boolean => {
+  try {
+    return localStorage.getItem(REVEAL_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const saveReveal = (v: boolean): void => {
+  try {
+    localStorage.setItem(REVEAL_KEY, v ? '1' : '0');
+  } catch {
+    // Preferência só deste navegador.
   }
 };
 
@@ -86,6 +104,7 @@ export function EpisodeBrowser(props: EpisodeBrowserProps) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<EpisodeSort>('number');
   const [onlyUnseen, setOnlyUnseen] = useState(false);
+  const [reveal, setReveal] = useState(loadReveal);
   const current = real.some((s) => s.number === season) ? season : (real[0]?.number ?? 1);
   const res = useSeason(props.load, current, props.loadKey ?? '');
   // O modal vive fora desta árvore: lê o marcador mais novo por aqui ao repintar depois de marcar.
@@ -113,17 +132,27 @@ export function EpisodeBrowser(props: EpisodeBrowserProps) {
         <h2 id="ep-heading">Episódios</h2>
         <span className="hint">{props.seasonNote ?? ''}</span>
       </div>
-      <Tabs
-        variant="pill"
-        label="Temporadas"
-        items={real.map((s) => ({
-          key: String(s.number),
-          label: s.name,
-          badge: <span className="dim">{s.count}</span>,
-        }))}
-        value={String(current)}
-        onChange={(k) => props.onSeasonChange(Number(k))}
-      />
+      {seasonPicker(real.length) === 'tabs' ? (
+        <Tabs
+          variant="pill"
+          label="Temporadas"
+          items={real.map((s) => ({
+            key: String(s.number),
+            label: s.name,
+            badge: <span className="dim">{s.count}</span>,
+          }))}
+          value={String(current)}
+          onChange={(k) => props.onSeasonChange(Number(k))}
+        />
+      ) : (
+        <Select
+          className="ep-season-select"
+          label="Temporada"
+          options={real.map((s) => ({ value: String(s.number), label: `${s.name} · ${s.count} episódios` }))}
+          value={String(current)}
+          onChange={(k) => props.onSeasonChange(Number(k))}
+        />
+      )}
       <div className="ep-toolbar">
         <SearchField
           value={query}
@@ -139,6 +168,16 @@ export function EpisodeBrowser(props: EpisodeBrowserProps) {
           value={onlyUnseen ? 'unseen' : null}
           onChange={(v) => setOnlyUnseen(v === 'unseen')}
         />
+        {marker && (
+          <Switch
+            label="Mostrar sinopses futuras"
+            checked={reveal}
+            onChange={(v) => {
+              setReveal(v);
+              saveReveal(v);
+            }}
+          />
+        )}
         <Tabs
           className="ep-seg"
           variant="pill"
@@ -174,6 +213,7 @@ export function EpisodeBrowser(props: EpisodeBrowserProps) {
             state={episodeState(marker, ep)}
             onOpen={() => open(i)}
             onMark={onMark ? () => onMark(ep) : undefined}
+            spoiler={hidesSpoiler(episodeState(marker, ep), marker, reveal)}
           />
         ))}
       </div>
