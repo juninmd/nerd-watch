@@ -11,7 +11,7 @@ import type { AddonStreamGroup as Group, AddonStreamItem as Stream } from './str
 /** O que ocupa o slot do player; `id` muda a cada fonte para remontar o player em vez de reaproveitar. */
 export type PlayState =
   | { id: number; kind: 'embed'; url: string }
-  | { id: number; kind: 'inline' | 'torrent'; group: Group; stream: Stream }
+  | { id: number; kind: 'inline' | 'torrent'; group: Group; stream: Stream; startAt?: number | null }
   | { id: number; kind: 'unsupported' };
 
 export interface StreamView {
@@ -85,6 +85,7 @@ export function StreamPlayer({ state, view, onUnsupported, onRelease }: StreamPl
         route: view.route,
         ...(captions ? { captions } : {}),
       }}
+      startAt={state.startAt ?? null}
       minimizable
       onUnsupported={() => {
         stopIfOnPage();

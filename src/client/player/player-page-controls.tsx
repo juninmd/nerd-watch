@@ -6,6 +6,7 @@ import { canStep, getCast, getVideo, stepPlayer, togglePlay } from './player-doc
 import { seekVideo } from './player-keyboard.ts';
 import { progressFraction, SEEK_SECONDS, SPEED_STEPS } from './player-seek.ts';
 import { clockLabel } from './player-clock.ts';
+import { getSourceMenu, subscribeSourceMenu } from './player-sources.ts';
 import { usePlayerUi } from './player-ui-store.ts';
 import { activeSegment, getSkipSegments, SKIP_LABEL, subscribeSkipSegments } from './skip-segments.ts';
 
@@ -36,6 +37,7 @@ const togglePip = (video: HTMLVideoElement): void => {
 export function PageControls({ stage }: { stage: HTMLElement }) {
   usePlayerUi();
   const segments = useSyncExternalStore(subscribeSkipSegments, getSkipSegments);
+  const sources = useSyncExternalStore(subscribeSourceMenu, getSourceMenu);
   const video = getVideo();
   const root = useRef<HTMLDivElement>(null);
   const [idle, setIdle] = useState(false);
@@ -206,6 +208,20 @@ export function PageControls({ stage }: { stage: HTMLElement }) {
               {clockLabel(new Date(), video.currentTime, d, rate)}
             </span>
             <span className="pc-spacer" />
+            {sources && (
+              <Menu
+                className="pc-sourcewrap"
+                align="end"
+                trigger={<span className="pc-speed">{sources.options.find((o) => o.active)?.label.split(' · ')[0] ?? 'Fonte'}</span>}
+                triggerLabel="Fonte e qualidade"
+                items={sources.options.map((o) => ({
+                  key: `${o.addonId}:${o.index}`,
+                  label: o.label,
+                  icon: o.active ? <Icon name="check" size="sm" /> : undefined,
+                  onSelect: () => sources.select(o),
+                }))}
+              />
+            )}
             <Menu
               className="pc-speedwrap"
               align="end"
